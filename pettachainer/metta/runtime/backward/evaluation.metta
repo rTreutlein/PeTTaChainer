@@ -4240,17 +4240,12 @@
 ;; finite, and forced propagation never creates a new cause, even through a
 ;; fold, so feedback still ends. A row never computed is not forced: its first
 ;; view changes its key whatever caused it.
-(: sk-force-cause! (-[det]-> Number Number Number Atom))
-(= (sk-force-cause! $khash $rhash $cause)
-   (if (space-row-present? &ctx_sk_forced_used ($khash $rhash $cause)) ()
-      (let* (($_used (context-add! &sk_forced_used ($khash $rhash $cause)))
-             ($_forced (context-add! &sk_forced ($khash $rhash $cause))))
-         ())))
+(: sk-force-causes! (-[det]-> Number Number (List Number) Atom))
 
 (: sk-force! (-[det]-> (List Number) SkeletonItem Atom))
 (= (sk-force! $causes (sk-row-item $_seq $khash $_key $rhash $_row))
    (if (space-row-present? &ctx_sk_support ($khash $rhash $_deps))
-      (let $_forced (map-flat (sk-force-cause! $khash $rhash) $causes) ())
+      (sk-force-causes! $khash $rhash $causes)
       ()))
 (= (sk-force! $_causes (sk-fold-check $_hash $_fold)) ())
 

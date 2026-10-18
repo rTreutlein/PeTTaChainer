@@ -12,6 +12,15 @@
         ( nth0(Sequence,Claims,Claim), Claim=['sk-claim',Depth,Cost,Age,_] ), Pairs),
     keysort(Pairs, Ranked), pairs_values(Ranked, Sorted).
 
+% Preserve first-arrival order while sharing the compiled loop across causes.
+% The context facade and writes keep overlay journals separate from MAIN.
+'sk-force-causes!'(Key, Row, Causes, []) :-
+    forall(member(Cause, Causes),
+        ( '&ctx_sk_forced_used'(Key, Row, Cause) -> true
+        ; Entry = [Key,Row,Cause],
+          'context-add!'('&sk_forced_used',Entry,true),
+          'context-add!'('&sk_forced',Entry,true) )).
+
 % Data-only spaces have no function definitions or compiler metadata. In
 % particular, an open first column must not enter remove-atom's function case.
 'remove-data-rows!'(Space, Pattern, true) :-
