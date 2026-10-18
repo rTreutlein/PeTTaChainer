@@ -41,12 +41,16 @@
     assertz(context_hidden(Index,C,Space,Row,variant)).
 'remove-variant-row!'('&sk_wait', [H, N, W], true) :- !,
     sk_remove_wait(H, N, W).
+% Ground heads use indexed fact retraction directly. Open rows still need
+% the copied candidate and nonbinding variant check below.
 'remove-variant-row!'(Space, Row, true) :-
     Head =.. [Space|Row],
-    functor(Head, Name, Arity),
-    functor(Stored, Name, Arity),
-    foldl(bind_ground_column(Stored), Row, 1, _),
-    (   clause(Stored, true, Ref), Stored =@= Head -> erase(Ref) ; true ).
+    (   ground(Head)
+    ->  ignore(retract(Head))
+    ;   functor(Head, Name, Arity),
+        functor(Stored, Name, Arity),
+        foldl(bind_ground_column(Stored), Row, 1, _),
+        ( clause(Stored, true, Ref), Stored =@= Head -> erase(Ref) ; true ) ).
 
 % Every ground column of the row is bound for the clause lookup, so SWI can
 % index on the most selective one.
