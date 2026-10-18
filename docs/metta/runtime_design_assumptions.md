@@ -598,7 +598,36 @@ A key's value merges its stored facts and one view per row:
   views retain their existing conservative combination. Components retain all
   evidence and dependencies, including discarded views; independent components
   merge normally. Summaries contain only views the consumer admits: transitive
-  self-support exclusion keeps period-t evidence out of its t−1 summary.
+  self-support exclusion keeps period-t evidence out of its t−1 summary and,
+  at low budget, can also keep the t−1 report out. A filtered premise read is
+  unsettled only when that key lost a current view and has no admissible rebuilt
+  version for the same exclusions and pins, including fresh and still admissible
+  older rebuilds. The check follows selection and the consumer's actual pins on
+  every filtered read path. A bounded local diagnostic replays
+  the rejected row's formula using admissible local facts, unknown nuisance
+  inputs and a neutral prior. Only a likelihood-certified endpoint, invariant
+  to those unknown inputs, supplies a reference; it never imports future
+  smoothing, publishes a merge, conditions or rebuilds history. If no such
+  reference is available, this local diagnostic leaves confidence unchanged;
+  it is not a general posterior-error bound. The deferred pin rebuild remains
+  the paid refinement. Unaffected dependency unions exit through one merged-cache
+  read; closed-read availability probes do not repeat consumer calibration.
+  Fixed-input diagnostics are memoized for one query by key, row, actual pins,
+  exclusions and proof/TV filter. Current dropped-view and rebuild status is
+  checked before every use. Rows reading contextual likelihood resolution or
+  RuleTruth bypass this memo because paid aggregate work can change those inputs.
+  The row kernel retains its fold boundary: moving its writable row variables
+  through another function or reduction changes PeTTa specialization.
+  Against this exclusion-compatible reference, retain the admitted strength,
+  evidence and dependencies and discount c/(1+R²), where R is the absolute
+  logit difference with both strengths clipped to [0.001,0.999], without a
+  floor on R. Agreement leaves confidence unchanged. An internal proof
+  annotation records the affected premise key; rebuilt views already carrying
+  its discount do not receive it again. The proof collector removes the
+  annotation-source memo when it collects that proof. A confidence-only decrease can be published without new dependency
+  support only when strength, evidence and dependencies are identical and the
+  proof introduces a new uncertainty source. Thus a rejected confidence
+  correction cannot leave an older, overconfident row in use.
   Shared-class sibling odds (#49) use the live same-condition-revised general
   TV as both odds and variance denominator when every positive sibling pair
   has the same nonempty intersection. Specificity shrinkage (#69) still applies

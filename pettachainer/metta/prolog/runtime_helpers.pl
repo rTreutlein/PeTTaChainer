@@ -275,11 +275,37 @@ argument_shape(Arg, Shape) :-
     ( nonvar(Proof), Proof = ['proof-ref', Pid], user:'&proof'(Pid, Value, _, _) -> Stored = Value ; Stored = Proof ),
     ( nonvar(Stored), Stored = ['fact-source',_,Source] -> Step = Source
     ; nonvar(Stored), Stored = ['zero-likelihood',Source] -> Step = Source
+    ; nonvar(Stored), Stored = ['unsettled-summary',_,Source] -> 'sk-step-proof'(Source, Step)
     ; Step = Stored ).
 
 'proof-zero-likelihood?'(Proof, Zero) :-
     ( proof_ref_id(Proof,Pid), user:'&proof'(Pid,Value,_,_) -> Stored=Value ; Stored=Proof ),
-    ( nonvar(Stored), Stored=['zero-likelihood',_] -> Zero=true ; Zero=false ).
+    ( nonvar(Stored), Stored=['unsettled-summary',_,Source] -> 'proof-zero-likelihood?'(Source,Zero)
+    ; nonvar(Stored), Stored=['zero-likelihood',_] -> Zero=true ; Zero=false ).
+
+% Confidence weakening follows immediate proof references without revisiting
+% history. Memoized per immutable proof; collection removes the memo with it.
+:- dynamic proof_unsettled_memo/2.
+'proof-unsettled-sources'(Proof, Sources) :-
+    ( proof_ref_id(Proof, Pid)
+    -> ( proof_unsettled_memo(Pid, Known) -> Sources=Known
+       ; user:'&proof'(Pid, Stored, _, _), 'proof-unsettled-sources'(Stored, Sources),
+         assertz(proof_unsettled_memo(Pid, Sources)) )
+    ; findall(Source,
+        ( sub_term(Child, Proof), nonvar(Child),
+          ( Child=['unsettled-summary',Source,_], number(Source)
+          ; proof_ref_id(Child, Id), 'proof-unsettled-sources'(['proof-ref',Id],Nested), member(Source,Nested) ) ),
+        All), sort(All, Sources) ).
+
+% Pure row classification stays opaque to PeTTa's CPU argument specialization.
+% A reference cannot certify an endpoint without a Bayes update. Unknown goal
+% heads/functions remain eligible; this test never binds the stored template.
+'sk-row-has-bayes?'(Hash, Key, Rhash, Has) :-
+    ( user:'&sk_row'(Hash, Stored, Rhash, ['sk-row', _, _, Premises, _]), Stored =@= Key,
+      member(Premise, Premises),
+      ( var(Premise)
+      ; Premise=[Tag, Fun|_], (var(Tag) ; Tag=='CPU', (var(Fun) ; Fun=='CTVBayesFormula')) )
+    -> Has=true ; Has=false ).
 
 % A hard fact read as a completion's given sibling carries no dependence
 % between that context and another update. Keep the full signed source set;
@@ -407,6 +433,7 @@ opaque_proof_step(Step) :-
 % arity, and the columns that can. A fact stored in &kb with a referenced
 % proof is held by &sk_forward_stored (a forward run's copy) or by
 % &materialized_facts as well.
+refs_holder('&sk_summary_reference', 7, [6, 7]).
 refs_holder('&sk_latest', 3, [3]).
 refs_holder('&sk_view', 4, [4]).
 refs_holder('&sk_branch', 6, [6]).
@@ -653,6 +680,7 @@ refs_gc_live_set(Set, SetLimit) :- ( Set =:= 0 ; Set >= SetLimit ; refs_gc_set(S
 refs_gc_erase(proofs, user:'&proof'(Pid, _, _, _), Ref) :- !,
     erase(Ref), retractall(user:'&proof_fact'(Pid, _, _)), retractall(proof_rules_memo(Pid, _)),
     retractall(proof_given_memo(Pid, _)),
+    retractall(proof_unsettled_memo(Pid, _)),
     forget_summary_user(Pid).
 refs_gc_erase(_, _, Ref) :- erase(Ref).
 
@@ -1938,6 +1966,7 @@ proof_dag_term(T, Counts, D0, D, Out) :-
         ;   proof_dag_term(Stored, Counts, D0, D, Out)
         )
     ;   T = ['zero-likelihood',Source] -> proof_dag_term(Source,Counts,D0,D,Out)
+    ;   T = ['unsettled-summary',_,Source] -> proof_dag_term(Source,Counts,D0,D,Out)
     ;   T = ['fact-source',_,Source] -> proof_dag_term(Source,Counts,D0,D,Out)
     ;   is_list(T) -> proof_dag_list(T, Counts, D0, D, Out)
     ;   Out = T, D = D0

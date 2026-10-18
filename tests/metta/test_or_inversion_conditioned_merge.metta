@@ -20,6 +20,16 @@
          (Problem current))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
+;; Filtering out a completion driven by the current alarm legitimately
+;; leaves the independent .4/.2 priors, each at confidence .9. Their OR is
+;; .52 with OrFormula confidence .9140621947; #69 reads .5199995299.
+;; A's former comparison with the self-supporting, alarm-updated local .6977
+;; incorrectly discounted those correct priors. The exclusion-compatible
+;; reference now leaves them unchanged, restoring the F/R values below.
+;; Exact enumeration gives .52*.9/(.52*.9+.48*.1)=.9069767442 for Problem
+;; and .4*.9/(.4*.9+.6*(.2*.9+.8*.1))=.6976744186 for LocalProblem.
+;; Remaining strength offsets are the finite #69 prior, not conditioning error.
+;;
 ;; The current alarm supplies independent evidence for Problem. Historical
 ;; cases provide the base rate of Problem, the prior this ordinary implication
 ;; is inverted over.

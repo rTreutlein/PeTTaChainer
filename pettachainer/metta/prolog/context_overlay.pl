@@ -57,6 +57,7 @@ context_removed(C, Space, Row) :-
 
 % Transient scheduling state starts empty. Durable values, aggregate tallies
 % and per-reader compatibility history fall through to MAIN.
+context_local_only('&sk_summary_reference').
 context_local_only('&sk_new').
 context_local_only('&sk_dirty').
 context_local_only('&sk_queued').
@@ -73,6 +74,7 @@ context_local_only('&sk_instance_changed').
 context_local_only('&sk_instance_checked').
 context_local_only('&sk_branch_wanted').
 
+context_store('&sk_summary_reference',7).
 context_store('&sk_latest',3).
 context_store('&sk_view',4).
 context_store('&sk_branch',6).

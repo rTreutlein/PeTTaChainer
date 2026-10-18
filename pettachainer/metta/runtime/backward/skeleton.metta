@@ -286,10 +286,9 @@
 
 ;; --- Leaves -----------------------------------------------------------------
 
-(: SkeletonFilter Type)
-;; the proof and truth-value pattern a consumer asks for
-(: sk-filter (-[det]-> Proof TV SkeletonFilter))
-(: sk-any-filter SkeletonFilter)
+
+
+
 
 ;; A view's proof is one rule application whose premise proofs are references
 ;; to stored proofs; the full proof expands them, printing each shared
@@ -2141,6 +2140,10 @@
           ($_older
              (collapse (match &ctx_sk_view ($hash $stored $rhash $view)
                 (if (=alpha $stored $key) (context-remove! &sk_view ($hash $stored $rhash $view)) (empty)))))
+          ($_references
+             (collapse (match &ctx_sk_summary_reference ($hash $rep-key $rhash $rep-given $rep-exclude $rep-filter $rep-value)
+                (if (=alpha $rep-key $key)
+                   (context-remove! &sk_summary_reference ($hash $rep-key $rhash $rep-given $rep-exclude $rep-filter $rep-value)) (empty)))))
           ($_support (remove-data-rows! &sk_support (quote ($hash $rhash $_deps)))))
       ()))
 

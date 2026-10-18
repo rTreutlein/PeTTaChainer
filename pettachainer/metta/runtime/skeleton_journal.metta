@@ -34,6 +34,17 @@
 (: sk-fold (-[det]-> $spec SkeletonKey))
 (: sk-group (-[det]-> $spec SkeletonKey))
 
+;; a key a conditioned read takes as known true or false, or a complete
+;; statement a closed read takes as unfounded (docs/metta/complete_predicates.md)
+(: SkeletonGiven Type)
+(: sk-given (-[det]-> Number SkeletonKey Bool SkeletonGiven))
+(: sk-unfounded (-[det]-> Number SkeletonKey SkeletonGiven))
+
+(: SkeletonFilter Type)
+;; the proof and truth-value pattern a consumer asks for
+(: sk-filter (-[det]-> Proof TV SkeletonFilter))
+(: sk-any-filter SkeletonFilter)
+
 ;; owner rule-id conclusion done-premises remaining-premises premise-keys.
 ;; The premises taken so far are kept most recent first, apart from the ones
 ;; left, so a stored join holds each premise once.
@@ -264,6 +275,9 @@
 ;; Exclusion-specific row views: row digest -> owner key, row hash, cuts,
 ;; freshness, value. Owner records keep the direct input keys, once per cached row;
 ;; input-key-indexed readers invalidate only cached branches that read it.
+(: &sk_summary_reference (SpaceOf (Number SkeletonKey Number (List SkeletonGiven) (List Number) SkeletonFilter SkeletonValue)))
+(: &ctx_sk_summary_reference (SpaceOf (Number SkeletonKey Number (List SkeletonGiven) (List Number) SkeletonFilter SkeletonValue)))
+!(bind! &sk_summary_reference (new-space))
 (: &sk_branch (SpaceOf (Number SkeletonKey Number (List Number) Bool SkeletonValue)))
 (: &ctx_sk_branch (SpaceOf (Number SkeletonKey Number (List Number) Bool SkeletonValue)))
 !(bind! &sk_branch (new-space))

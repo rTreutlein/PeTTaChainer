@@ -294,6 +294,8 @@
 (: proof-ref (-[det]-> Number Proof))
 (: fact-source (-[det]-> EvidenceSet Proof Proof))
 (: zero-likelihood (-[det]-> Proof Proof))
+;; Confidence annotation, not a new logical inference.
+(: unsettled-summary (-[det]-> Number Proof Proof))
 ;; The metadata word packs the permanent owner rule id + 1 and negated bit:
 ;; ((owner-id + 1) << 1) | negated; owner code zero means no permanent owner.
 (: &proof (SpaceOf (Number Proof EvidenceSet Number)))

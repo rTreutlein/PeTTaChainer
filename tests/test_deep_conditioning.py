@@ -246,18 +246,13 @@ class DeepConditioningTests(unittest.TestCase):
         handler = PeTTaChainer()
         plant(handler, 3)
         handler.query_many_refs(['(: $p (Degraded plant t3) $tv)'], steps=20000)
-        # Deep conditioning used to discover these takes incidentally. One-step
-        # filtering no longer requests them. Demand the fold's changed members
-        # explicitly, then check it consumes their completed excluded branches
-        # within this query, without a cleanup-time extra evaluation.
-        janus.query_once(
-            "_Args=[Kb,['Fuelled',plant,_],'extract-tv',['BaseRateEvidence',0.0,0.0],"
-            " 'BaseRateAcc','base-rate','result-tv'], _Fold=['sk-fold',_Args], "
-            "forall(member(_T,[t2,t3]),'sk-rate-dirty!'(_Fold,"
-            " ['sk-key',['Fuelled',plant,_T],[Kb,'MAIN','Nil']],_)), "
-            "'chainer-many'(20000,[['CPU','FoldAllCompiled',_Args,_]],_)",
-            {'Kb': handler.kb},
-        )
+        # Deep conditioning used to discover these takes incidentally. Demand
+        # the member keys through ordinary queries so their changed values wake
+        # the rate and its excluded branches through the normal reader path.
+        handler.query_many_refs([
+            '(: $p (Fuelled plant t2) $tv)',
+            '(: $p (Fuelled plant t3) $tv)',
+        ], steps=20000)
         # Storm predictions: .3+.4*.6=.54, then .516; fuel is .9-.7*s.
         members = janus.query_once(
             "findall([_T,_S], '&ctx_forward_aggregate_observation'(_,_,"
@@ -367,6 +362,43 @@ print(json.dumps({'tv': [r.tv for r in rows], 'metrics': metrics}, sort_keys=Tru
             root = handler.query_many_refs(['(: $p (Degraded plant t2) $tv)'], steps=3000)[0][0]
             self.assertAlmostEqual(root.tv[1], float(exact_t8(2)), delta=1e-8)
             self.assertEqual(handler.last_query_metrics()['conditioned_evaluations'], 26 if repeat == 0 else 0)
+
+    def test_unsettled_filtered_summaries_report_uncertainty(self):
+        # Exact finite-state enumeration is independent of the chainer. These
+        # allowances cannot yet rebuild the t-1 report without t self-support.
+        for periods, budget in ((6, 300), (8, 300), (8, 3000)):
+            handler = PeTTaChainer()
+            plant(handler, periods)
+            for repeat in range(3):
+                answer = handler.query_many_refs(
+                    [f'(: $p (Degraded plant t{periods}) $tv)'], steps=budget)[0][0]
+                with self.subTest(periods=periods, budget=budget, repeat=repeat):
+                    self.assertLessEqual(
+                        abs(answer.tv[1] - float(exact_t8(periods))) * answer.tv[2], .005)
+
+    def test_unsettled_discount_preserves_admitted_sources(self):
+        import math
+        PeTTaChainer()
+        for strength, unfiltered in ((.1227, 0), (.5, .5), (1, .1)):
+            got = janus.query_once(
+                "'sk-unsettled-value'(81,['sk-val',[['A'],[kb,'MAIN','Nil'],"
+                " admitted,['STV',S,0.647]],['ev-set',0],0],"
+                " ['sk-val',[['A'],[kb,'MAIN','Nil'],excluded,['STV',R,0.986]],"
+                " ['ev-set',0],0], Value)", {'S': strength, 'R': unfiltered})['Value']
+            clip = lambda v: max(.001, min(.999, v))
+            logit = lambda v: math.log(clip(v) / (1 - clip(v)))
+            expected = .647 / (1 + (logit(strength) - logit(unfiltered)) ** 2)
+            self.assertEqual(got[1][2], 'admitted' if strength == unfiltered else ['unsettled-summary', 81, 'admitted'])
+            self.assertEqual(got[1][3][1], strength)
+            self.assertAlmostEqual(got[1][3][2], expected, places=14)
+            self.assertEqual(got[2:], [['ev-set', 0], 0])
+            # A rebuilt proof already carrying this premise's uncertainty
+            # cannot receive the same discount a second time.
+            again = janus.query_once(
+                "'sk-unsettled-value'(81,V,['sk-val',[['A'],[kb,'MAIN','Nil'],"
+                " excluded,['STV',R,0.986]],['ev-set',0],0],Value)",
+                {'V': got, 'R': unfiltered})['Value']
+            self.assertEqual(again, got)
 
     def test_root_refinement_work_is_bounded_with_growing_history(self):
         for periods, budget in ((6, 3000), (8, 20000)):
