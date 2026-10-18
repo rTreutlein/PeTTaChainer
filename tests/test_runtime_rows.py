@@ -62,6 +62,39 @@ class TestRuntimeRows(unittest.TestCase):
         self.assertEqual(result['NextEvaluation'], [111])
         self.assertEqual(result['Handles'], 0)
 
+    def test_reading_removal_preserves_an_open_colliding_key(self):
+        result = janus.query_once(
+            "_Open=['sk-key',[goal,_X],[fixture,'MAIN','Nil']],"
+            "_Ground=['sk-key',[goal,1],[fixture,'MAIN','Nil']],"
+            "setup_call_cleanup("
+            "(assertz('&sk_reading'(-7003,_Open,7)),"
+            " assertz('&sk_reading'(-7003,_Ground,7)),"
+            " assertz('&sk_reading'(-7003,_Ground,7))),"
+            "('remove-variant-row!'('&sk_reading',[-7003,_Ground,7],_),"
+            " findall(_IsGround,('&sk_reading'(-7003,_Key,7),"
+            "                   (ground(_Key)->_IsGround=true;_IsGround=false)),AfterGround),"
+            " 'remove-variant-row!'('&sk_reading',"
+            "    [-7003,['sk-key',[goal,_Y],[fixture,'MAIN','Nil']],7],_),"
+            " findall(_IsGround,('&sk_reading'(-7003,_Key,7),"
+            "                   (ground(_Key)->_IsGround=true;_IsGround=false)),AfterOpen),"
+            " (var(_X),var(_Y)->Unbound=true;Unbound=false)),"
+            " retractall('&sk_reading'(-7003,_,7)))")
+        self.assertEqual(result['AfterGround'], ['false', 'true'])
+        self.assertEqual(result['AfterOpen'], ['true'])
+        self.assertEqual(result['Unbound'], 'true')
+
+    def test_ground_removal_rejects_an_open_unifying_fact(self):
+        result = janus.query_once(
+            "setup_call_cleanup("
+            "(assertz(prof95_variant_row(7,_X)),assertz(prof95_variant_row(7,value))),"
+            "('remove-variant-row!'(prof95_variant_row,[7,value],_),"
+            " aggregate_all(count,prof95_variant_row(7,_),Count),"
+            " prof95_variant_row(7,_Remaining),"
+            " (var(_Remaining)->Open=true;Open=false)),"
+            "retractall(prof95_variant_row(_,_)))")
+        self.assertEqual(result['Count'], 1)
+        self.assertEqual(result['Open'], 'true')
+
 
 if __name__ == '__main__':
     unittest.main()
