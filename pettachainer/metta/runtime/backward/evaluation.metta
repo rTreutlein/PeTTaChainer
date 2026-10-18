@@ -4944,7 +4944,13 @@
           ($_checked (remove-data-rows! &sk_instance_checked (quote ($ihash))))
           ($last (sk-evaluate-pass! 0 $partial))
           ($_roots (sk-read-roots!)))
-      (sk-pay-conditions! (+ $last 1))))
+      (let $_paid (sk-pay-conditions! (+ $last 1))
+         (query_metric_set conditions-unpaid
+            (length (collapse (match &ctx_sk_given_pending ($ph $pr $_cost)
+               (if (== $pr -1)
+                  (match &sk_keys ($ph $pk) (if (sk-needed? $ph $pk) true (empty)))
+                  (match &sk_row ($ph $pk $pr (sk-row $_pi $_pc $pp $_ps))
+                     (if (sk-needed? $ph $pk) (if (sk-readable-row? $ph $pk $pp) true (empty)) (empty)))))))))))
 
 ;; A pass works off the rows never evaluated, the readers of the keys changed
 ;; outside evaluation, the stale rows a need brought current (forced by their
@@ -5062,7 +5068,7 @@
       ((cons (sk-claim $_depth $_claim-cost $_seq $waiting) $_rest)
          (let $left (search-id-value sk_eval_budget)
             (if (< $left 1)
-               (let $_unpaid (query_metric_increment conditions-unpaid) (sk-finish-branches! $pass))
+               (sk-finish-branches! $pass)
                (let $last (sk-pay! $pass $waiting)
                   (sk-pay-conditions! (+ $last 1)))))))))
 

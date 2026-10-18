@@ -115,6 +115,25 @@ class DeepConditioningTests(unittest.TestCase):
         self.assertLessEqual(handler.last_query_metrics()['conditioned_evaluations'], 4 * budget)
         return handler.last_query_metrics()
 
+    def test_claim_debt_metric_counts_needed_readable_requests(self):
+        handler = PeTTaChainer()
+        plant(handler, 3)
+        handler.set_query_metrics(True)
+        handler.query_many_refs(['(: $p (Degraded plant t3) $tv)'], steps=300)
+        # Inspect the request relation without depending on its payload layout.
+        debt = janus.query_once(
+            "current_predicate('&sk_given_pending'/_Arity), "
+            "functor(_Request,'&sk_given_pending',_Arity), "
+            "findall(true,(call(_Request),arg(1,_Request,_H),arg(2,_Request,_R), "
+            " (_R == -1 -> '&sk_keys'(_H,_K),_Readable=true "
+            " ; '&sk_row'(_H,_K,_R,['sk-row',_,_,_Premises,_]), "
+            "   'sk-readable-row?'(_H,_K,_Premises,_Readable)), "
+            " _Readable == true, 'sk-needed?'(_H,_K,true)), _Needed), "
+            "length(_Needed,Count)"
+        )['Count']
+        self.assertGreater(debt, 1)  # The exhausted-turn metric reported only one.
+        self.assertEqual(handler.last_query_metrics()['conditions_unpaid'], debt)
+
     def test_two_period_reports(self):
         self.assertEqual(self.check_plant(2, 20000)['conditions_unpaid'], 0)
 
