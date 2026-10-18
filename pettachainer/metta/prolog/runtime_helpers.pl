@@ -35,8 +35,9 @@
 % could also take a different row with the same coarse hash; a variant cannot.
 'remove-variant-row!'(Space, Row, true) :-
     context_store(Space,_), context_active(C), !,
-    forall((clause(context_entry(_,C,Space,Stored,_),true,Ref), Stored =@= Row), erase(Ref)),
-    ( Row=[Hash|_], ground(Hash) -> Index=Hash ; Index=all ),
+    ( Row=[Hash|_], ground(Hash) -> Lookup=Hash ; true ),
+    forall((clause(context_entry(Lookup,C,Space,Stored,_),true,Ref), Stored =@= Row), erase(Ref)),
+    ( ground(Lookup) -> Index=Lookup ; Index=all ),
     assertz(context_hidden(Index,C,Space,Row,variant)).
 'remove-variant-row!'('&sk_wait', [H, N, W], true) :- !,
     sk_remove_wait(H, N, W).
@@ -402,7 +403,7 @@ refs_holder('&sk_forward_taken', 3, [3]).
 refs_holder('&sk_forward_stored', 5, [3, 4]).
 refs_holder('&sk_summary', 5, [3, 4]).
 refs_holder('&materialized_facts', 6, [5, 6]).
-refs_holder('&forward_aggregate_observation', 5, [3]).
+refs_holder('&forward_aggregate_observation', 6, [3]).
 refs_holder('&combination_pending', 4, [4]).
 refs_holder('&query_proofs', 1, [1]).
 refs_holder(context_entry, 5, [4]).
@@ -896,6 +897,112 @@ ev_negated_id(Id, Negated) :-
     (   Shared == [] -> Entries = []
     ;   ev_order(A, IdsA), ev_keep(IdsA, Shared, Kept), reverse(Kept, Reversed),
         convlist(ev_fact_entry, Reversed, Entries) ).
+
+% Physical source lists are local to one sample. Fold summaries are counters,
+% never evidence sets: changing one member costs one indexed delta per source.
+% A physical outcome has one lookup key regardless of proof name or polarity.
+likelihood_source_key(['observation-source',Scope,Type], Key) :-
+    'index-hash'(['sk-key',Type,Scope],Key).
+
+'source-list-union'(['source-list',A],['source-list',B],['source-list',Sources]) :-
+    append(A,B,All), sort(All,Sources).
+
+'observation-keys'(['source-list',Sources],Keys) :- convlist(likelihood_source_key,Sources,Keys).
+
+'observation-sources'(Evidence, ['source-list',Sources]) :-
+    ( Evidence=['ev-set',_] -> 'evidence-entries'(Evidence,Entries) ; Entries=[Evidence] ),
+    convlist(likelihood_observation_source, Entries, Physical), sort(Physical,Sources).
+
+'update-likelihood-support!'(Fold, Member, ['source-list',Sources], Pos, Neg, true) :-
+    'index-hash'(Fold,FoldHash), 'index-hash'(Member,MemberHash),
+    ( '&ctx_sk_sample_support'(MemberHash,FoldHash,StoredFold,Stored,['source-list',Old],OP,ON), StoredFold =@= Fold, Stored =@= Member -> true
+    ; Old=[], OP=0, ON=0, StoredFold=Fold, Stored=Member ),
+    ( Sources==Old, Pos=:=OP, Neg=:=ON -> true
+    ; likelihood_replace_sources(Fold,Old,OP,ON,Sources,Pos,Neg),
+      'remove-variant-row!'('&sk_sample_support',[MemberHash,FoldHash,StoredFold,Stored,['source-list',Old],OP,ON],_),
+      ( Pos=:=0, Neg=:=0 -> true
+      ; 'context-add!'('&sk_sample_support',[MemberHash,FoldHash,Fold,Member,['source-list',Sources],Pos,Neg],_) ) ).
+
+% Ordered member-local lists yield deltas; retained sources are not rewritten.
+likelihood_replace_sources(Fold,Old,OP,ON,Sources,Pos,Neg) :-
+    ( Sources==Old, Pos=:=OP, Neg=:=ON -> true
+    ; 'index-hash'(Fold,H), 'likelihood-support-counts'(Fold,C0),
+      ord_subtract(Old,Sources,Removed), ord_subtract(Sources,Old,Added),
+      DP is -OP, DN is -ON,
+      foldl(likelihood_source_delta(Fold,H,DP,DN),Removed,C0,C1),
+      foldl(likelihood_source_delta(Fold,H,Pos,Neg),Added,C1,C2),
+      CP is Pos-OP, CN is Neg-ON,
+      ( CP=:=0, CN=:=0 -> C=C2
+      ; ord_intersection(Old,Sources,Shared),
+        foldl(likelihood_source_delta(Fold,H,CP,CN),Shared,C2,C) ),
+      C=['support-counts',D,A,B,RawBad,Both],
+      ( Old==[], OP+ON>0 -> OldMissing=1 ; OldMissing=0 ),
+      ( Sources==[], Pos+Neg>0 -> Missing=1 ; Missing=0 ),
+      Bad is RawBad+Missing-OldMissing,
+      Counts=['support-counts',D,A,B,Bad,Both],
+      ( Counts==C0 -> true
+      ; 'remove-variant-row!'('&sk_branch_support',[H,Fold,C0],_),
+        ( Counts==['support-counts',0,0,0,0,0] -> true
+        ; 'context-add!'('&sk_branch_support',[H,Fold,Counts],_) ) ) ).
+
+% Reverse edges are unique per read hash and observation. Hash collisions
+% remain conservative even when one of two colliding physical sources leaves.
+'update-aggregate-sources!'(Id,Key,['source-list',Old],OP,['source-list',Sources],Pos,true) :-
+    ( Sources==Old, Pos=:=OP -> true
+    ; convlist(likelihood_source_key,Old,OldKeys0), sort(OldKeys0,OldKeys),
+      convlist(likelihood_source_key,Sources,NewKeys0), sort(NewKeys0,NewKeys),
+      ord_subtract(OldKeys,NewKeys,Removed), ord_subtract(NewKeys,OldKeys,Added),
+      forall(member(K,Removed),'context-remove!'('&forward_aggregate_read',[K,Id,Key],_)),
+      forall(member(K,Added),'context-add!'('&forward_aggregate_read',[K,Id,Key],_)),
+      likelihood_replace_sources(['aggregate-support',Id],Old,OP,0,Sources,Pos,0) ).
+
+'likelihood-support-counts'(Fold,Counts) :-
+    'index-hash'(Fold,H),
+    ( '&ctx_sk_branch_support'(H,Stored,Found), Stored =@= Fold -> Counts=Found
+    ; Counts=['support-counts',0,0,0,0,0] ).
+
+% Distinct total, positive, negative, repeated/unverified, cross-branch overlap.
+likelihood_counts(Entry,P,N,[D,A,B,Bad,Both]) :-
+    D is min(1,P+N), A is min(1,P), B is min(1,N), Both is A*B,
+    ( (P>1 ; N>1 ; Entry=='unverified-observation',D>0) -> Bad=1 ; Bad=0 ).
+
+likelihood_source_delta(Fold,H,DP,DN,Entry,['support-counts'|Before],['support-counts'|After]) :-
+    'index-hash'([Fold,Entry],Key),
+    ( '&ctx_sk_sample_source'(Key,H,Stored,Entry,OP,ON), Stored =@= Fold -> true
+    ; OP=0, ON=0, Stored=Fold ),
+    P is OP+DP, N is ON+DN,
+    'remove-variant-row!'('&sk_sample_source',[Key,H,Stored,Entry,OP,ON],_),
+    ( P=:=0, N=:=0 -> true
+    ; 'context-add!'('&sk_sample_source',[Key,H,Fold,Entry,P,N],_) ),
+    likelihood_counts(Entry,OP,ON,Was), likelihood_counts(Entry,P,N,Now),
+    maplist(likelihood_count_delta,Before,Was,Now,After).
+likelihood_count_delta(T,Old,New,Result) :- Result is T+New-Old.
+
+% Enumerate only an estimate's own sources when it is explicitly excluded.
+% This list is not interned and never contains the marginal's population.
+'likelihood-sources'(Fold,Branch,['source-list',Sources]) :-
+    'index-hash'(Fold,H),
+    findall(Source,('&ctx_sk_sample_source'(_,H,Stored,Source,P,N),Stored =@= Fold,
+        (Branch=:=0 -> true ; Branch>0 -> P>0 ; N>0)),Sources).
+
+'likelihood-support-admissible?'(Fold,['source-list',Excluded],Result) :-
+    'likelihood-support-counts'(Fold,['support-counts',Distinct,_,_,Bad,_]),
+    ( Bad=:=0 -> sort(Excluded,Unique),
+      aggregate_all(count,(member(Source,Unique),'index-hash'([Fold,Source],Key),
+          '&ctx_sk_sample_source'(Key,_,Stored,Source,_,_),Stored =@= Fold),Hits),
+      ( Distinct>Hits -> Result=true ; Result=false )
+    ; Result=false ).
+
+likelihood_observation_source(['rule-ev'|_], _) :- !, fail.
+likelihood_observation_source(['rule-excluded'|_], _) :- !, fail.
+likelihood_observation_source(['not-ev',Entry], Source) :- !,
+    likelihood_observation_source(Entry,Source).
+likelihood_observation_source([Tag,Scope,_Proof,Type], Source) :-
+    memberchk(Tag,['fact-ev','not-fact-ev']), !,
+    ( ground(Scope-Type) -> Source=['observation-source',Scope,Type]
+    ; Source='unverified-observation' ).
+likelihood_observation_source(['observation-source',Scope,Type], ['observation-source',Scope,Type]) :- !.
+likelihood_observation_source(_, 'unverified-observation').
 
 % The entries other than rules that every set holds: the first set's entries,
 % kept by each set in turn, each keeping reversing the order.

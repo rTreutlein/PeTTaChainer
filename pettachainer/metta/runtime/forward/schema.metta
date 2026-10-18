@@ -62,7 +62,12 @@
 
 (: ForwardAggregateState Type)
 (: forward-aggregate-state
-   (-[det]-> Number Number Number ForwardAggregateState))
+   (-[det]-> Number Number Number Number ForwardAggregateState))
+
+;; Numeric state is keyed by the aggregate id; the external constructor
+;; also carries the exact number of live contributions for drained reads.
+(: &forward_aggregate_state (SpaceOf (Number Number Number Number)))
+(: &ctx_forward_aggregate_state (SpaceOf (Number Number Number Number)))
 
 (: ForwardAggregateObservationValue Type)
 (: no-forward-aggregate-observation-value
@@ -110,6 +115,17 @@
 (= (forward-output-index-hash (forward-output-key $kb $type))
    (term_hash (quote ($kb $type))))
 
+
+ ;; Per-observation support and its reverse lookup. Query exclusions touch
+;; only observations reached by excluded keys, never the whole population.
+(: &forward_aggregate_observation
+   (SpaceOf (Number ForwardAggregateObservationKey ForwardAggregateObservationValue Number Number SourceList)))
+(: &ctx_forward_aggregate_observation
+   (SpaceOf (Number ForwardAggregateObservationKey ForwardAggregateObservationValue Number Number SourceList)))
+!(bind! &forward_aggregate_observation (new-space))
+(: &forward_aggregate_read (SpaceOf (Number Number ForwardAggregateObservationKey)))
+(: &ctx_forward_aggregate_read (SpaceOf (Number Number ForwardAggregateObservationKey)))
+!(bind! &forward_aggregate_read (new-space))
 
 ;; The skeleton fold key each base-rate aggregate is the estimate of: aggregate
 ;; id, fold key hash. A member whose value depends on that key was derived
@@ -162,3 +178,6 @@
                (if (materialized-forward-fact? $fact) (empty)
                   (if $copies $fact
                      (if (space-row-present? &sk_forward_stored ((index-hash (sk-key $ftype $fkb)) $_key $fact $_ev $_deps)) (empty) $fact)))))))))
+
+(: update-aggregate-sources!
+   (-[det]-> Number ForwardAggregateObservationKey SourceList Number SourceList Number Bool))

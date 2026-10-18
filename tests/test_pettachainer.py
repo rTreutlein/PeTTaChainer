@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from pettachainer import PeTTaChainer
+from pettachainer.query_diagnostics import _parse
 
 
 class TestPeTTaChainer(unittest.TestCase):
@@ -26,10 +27,10 @@ class TestPeTTaChainer(unittest.TestCase):
         for timeout_sec in (0, 30):
             with self.subTest(timeout_sec=timeout_sec):
                 self.assertEqual(
-                    handler.query("(: $prf (Leak q) $tv)", steps=400, timeout_sec=timeout_sec),
-                    ["(: ((inverted sensor with cpu (prior (STV 0.11904761904761901 0.8))) aq) "
-                     "(Leak q) "
-                     "(STV 0.37815126050420156 0.5514604290276861))"],
+                    [_parse(row) for row in handler.query(
+                        "(: $prf (Leak q) $tv)", steps=400, timeout_sec=timeout_sec)],
+                    [_parse("(: ((inverted sensor with cpu (prior (STV 0.11904761904761901 0.8))) aq) "
+                            "(Leak q) (STV 0.37815126050420156 0.5514604290276861))")],
                 )
 
     def test_rule_refinement_applies_in_process_and_to_timed_queries(self):
@@ -195,16 +196,19 @@ class TestPeTTaChainer(unittest.TestCase):
             + [f"(: l{i} (Leak u{i}) (STV {1 if i == 1 else 0} 1))" for i in range(1, 5)]
             + ["(: aq (Alarm q) (STV 1 1))"]
         )
-        # A prior this strong outweighs the weakly supported likelihood, so
-        # the alarm says nothing, and it reads the leak rate of one in four
-        # as the prior of one more unit at its centre, 0.5, live and in the
-        # subprocess that a timed query spawns.
+        # Unknown branch provenance selects neutral .5 for the finite .9
+        # likelihood. The certain .2 branch stays exact, so the alarm remains
+        # informative. Population and likelihood reads replay in the worker.
+        count = 800 * .01 / .99
+        likelihood = (.9 * count + .5 * 1e6) / (count + 1e6)
+        prior = (1 + .5 * 1e6) / (4 + 1e6)
+        expected = likelihood * prior / (likelihood * prior + .2 * (1 - prior))
         for timeout_sec in (0, 30):
             with self.subTest(timeout_sec=timeout_sec):
                 result = handler.query("(: $prf (Leak q) $tv)", steps=400, timeout_sec=timeout_sec)
                 self.assertEqual(len(result), 1)
                 strength = float(re.search(r"\(STV ([^ ]+) [^)]+\)\)$", result[0]).group(1))
-                self.assertAlmostEqual(strength, 0.5, delta=1e-5)
+                self.assertAlmostEqual(strength, expected, delta=1e-10)
 
     def test_rule_search_ignores_base_rate_strength(self):
         answers = []
@@ -703,7 +707,8 @@ class TestPeTTaChainer(unittest.TestCase):
             self.assertIn(f"materialized_{side}_rule", unpaid[0][0])
         paid_tv = re.search(r"\(STV ([^ ]+) ([^)]+)\)\)$", materialized[0][0])
         unpaid_tv = re.search(r"\(STV ([^ ]+) ([^)]+)\)\)$", unpaid[0][0])
-        self.assertEqual(float(unpaid_tv[1]), float(paid_tv[1]))
+        # Finite endpoint views use continuous numerical clipping in odds.
+        self.assertAlmostEqual(float(unpaid_tv[1]), float(paid_tv[1]), delta=2e-12)
         self.assertLessEqual(float(unpaid_tv[2]), 0.8)  # shared premise confidence
         self.assertEqual(
             handler.query_many_materialization(query, steps=10),
@@ -827,10 +832,19 @@ class TestPeTTaChainer(unittest.TestCase):
 
         proofs = handler.query("(: $prf (More heavy horse pony) $tv)", steps=100, timeout_sec=0)
 
-        # Both derivations use the same two facts through STV rules, which
-        # lifting cannot factor: the more confident derivation stands.
+        # #89 changes the confidence ranking after the inferred branch read.
+        # The selected path conditions on the shared gap; both rule templates
+        # still accept this concrete variable-headed term.
         self.assertEqual(len(proofs), 1)
-        self.assertIn("by pole_moreby_more ", proofs[0])
+        self.assertIn("by pole_more ", proofs[0])
+        self.assertIn("by morebydiff ", proofs[0])
+        direct = PeTTaChainer()
+        for rule in rules[2:]:
+            direct.add_atom(rule)
+        alternate = direct.query("(: $prf (More heavy horse pony) $tv)",
+                                 steps=100, timeout_sec=0)
+        self.assertEqual(len(alternate), 1)
+        self.assertIn("by pole_moreby_more ", alternate[0])
 
     def test_conjunction_frontier_keeps_individual_derivations(self):
         handler = PeTTaChainer()

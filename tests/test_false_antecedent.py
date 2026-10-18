@@ -96,15 +96,17 @@ class FalseAntecedentTests(unittest.TestCase):
                       'no-evidence (STV 0.7 0.9)', '(STV 0 0) (STV 1 0)',
                       '(STV 1 0.001) (STV 1 0.002)'):
             with self.subTest(rates=rates):
-                result = _parse(h._call('ImplicationCTVFormula',
-                                       [rates + ' (STV 0.5 0.9)'])[0])
+                result = _parse(h._call('ImplicationLikelihoodsFormula',
+                                       [rates + ' (STV 0.5 0.9)'])[0])[2]
                 self.assertEqual(result[2], ['STV', '0.5', '0.0'])
 
     def test_informative_rates_still_estimate_negative_branch(self):
         h = PeTTaChainer()
-        result = _parse(h._call('ImplicationCTVFormula',
-                               ['(STV 0.25 0.9) (STV 0.5 0.9) (STV 0.8 0.9)'])[0])
-        self.assertAlmostEqual(float(result[2][1]), 0.4)
+        result = _parse(h._call('ImplicationLikelihoodsFormula',
+                               ['(STV 0.25 0.9) (STV 0.5 0.9) (STV 0.8 0.9)'])[0])[2]
+        # #89 reads the raw .4/.225 complement once at neutral .5.
+        count = 800 * .225 / (1 - .225)
+        self.assertAlmostEqual(float(result[2][1]), (.4 * count + .2 * .5) / (count + .2))
         self.assertAlmostEqual(float(result[2][2]), 0.225)
         h.add_atom('(: a (A x) (STV 0 1))')
         h.add_atom('(: r (Implication (A $x) (B $x)) (STV 0.8 0.9))')
@@ -115,5 +117,5 @@ class FalseAntecedentTests(unittest.TestCase):
         h._call('set-base-rate', [f'{h.kb} (A $x) (STV 0.25 0.9)'])
         h._call('set-base-rate', [f'{h.kb} (B $x) (STV 0.5 0.9)'])
         answer = h.query_many_refs(['(: $p (B x) $tv)'], steps=600)[0][0]
-        self.assertAlmostEqual(float(answer.tv[1]), 0.4)
+        self.assertAlmostEqual(float(answer.tv[1]), (.4 * count + .2 * .5) / (count + .2))
         self.assertGreater(float(answer.tv[2]), 0.2)

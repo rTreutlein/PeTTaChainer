@@ -25,22 +25,4 @@
    (collapse
       (query 300 ravenDerivedKb
          (: $prf (Inheritance raven (IntSet black)) $tv)))
-   ((:
-      (inheritance-implication-fold
-         (total-implication
-            (merge/revision
-               (by (inheritance-implication rv1BlackObserved) ((inverted (inheritance-implication rv1RavenObserved)
-                       with cpu (prior (STV 0.25000694425154857 0.9)))
-                     (ctx proof 0)))
-               (by (inheritance-implication rv2BlackObserved) ((inverted (inheritance-implication rv2RavenObserved)
-                       with cpu (prior (STV 0.25000694425154857 0.9)))
-                     (ctx proof 0))))
-            (merge/revision
-               (by (inheritance-implication rv1BlackObserved) ((inverted (inheritance-implication rv1RavenObserved)
-                       with cpu (prior (STV 0.25000694425154857 0.9)))
-                     (ctx proof 1)))
-               (by (inheritance-implication rv2BlackObserved) ((inverted (inheritance-implication rv2RavenObserved)
-                       with cpu (prior (STV 0.25000694425154857 0.9)))
-                     (ctx proof 1))))))
-      (Inheritance raven (IntSet black))
-      (STV 0.43345020907450954 0.5239873801149307))))
+   ((: (inheritance-implication-fold (total-implication (merge/revision (by (inheritance-implication rv1BlackObserved) ((inverted (inheritance-implication rv1RavenObserved) with cpu (prior (STV 0.25000694425154857 0.9))) (ctx proof 0))) (by (inheritance-implication rv2BlackObserved) ((inverted (inheritance-implication rv2RavenObserved) with cpu (prior (STV 0.25000694425154857 0.9))) (ctx proof 0)))) (merge/revision (by (inheritance-implication rv1BlackObserved) ((inverted (inheritance-implication rv1RavenObserved) with cpu (prior (STV 0.25000694425154857 0.9))) (ctx proof 1))) (by (inheritance-implication rv2BlackObserved) ((inverted (inheritance-implication rv2RavenObserved) with cpu (prior (STV 0.25000694425154857 0.9))) (ctx proof 1)))))) (Inheritance raven (IntSet black)) (STV 0.43369118943707236 0.5240592216633683))))

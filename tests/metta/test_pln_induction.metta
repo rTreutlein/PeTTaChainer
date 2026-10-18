@@ -93,5 +93,5 @@
           (== $completion-tv $inversion-tv)) true)
 !(test (let (: $_prf $_stmt (STV $s $_c))
           (query 2000 premiseKb (: $p (Assuming (Action now) (Cause now)) $tv))
-          (< (max (- $s 0.29392076412140383) (- 0.29392076412140383 $s)) 0.000001)) true)
+          (< (max (- $s 0.29393311641031633) (- 0.29393311641031633 $s)) 0.000001)) true)
 !(set-context-reuse-threshold 0.000001)

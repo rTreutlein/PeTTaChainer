@@ -100,11 +100,7 @@
 ;; inversion, and projects A(2) from the reconstructed antecedent.
 !(test
    (query 300 computeInverseKb (: $proof (A 2) $tv))
-   (: (marginal-proj 0
-         ((inverted addOne with cpu (prior (STV 0.6599999999869455 0.0009990009985938653)))
-          observed-b-three))
-      (A 2)
-      (STV 0.8756842458937392 0.014383562110185317)))
+   (: (marginal-proj 0 ((inverted addOne with cpu (prior (STV 0.6599999999869455 0.0009990009985938653))) observed-b-three)) (A 2) (STV 0.875683508370345 0.014383358120611879)))
 
 ;; The same reversible computation remains executable when inversion is
 ;; disabled. The observations above demonstrate that its reverse would

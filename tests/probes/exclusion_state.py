@@ -147,7 +147,11 @@ class ExclusionStateTests(unittest.TestCase):
                     "(Invalidate=true -> 'sk-invalidate-branches!'(_Input,_) ; true), "
                     "'sk-stale-held!'(_), findall(true,'&sk_stale'(_RH,_ReaderRow),Stale), "
                     "findall(true,'&sk_held'(_RH,_ReaderRow,_),Held), "
-                    "'sk-drop-row!'(_RH,_Reader,_ReaderRow,_Row,_)",
+                    "'sk-drop-row!'(_RH,_Reader,_ReaderRow,_Row,_), "
+                    # This synthetic cache owner has no producer row to retire.
+                    # Invalidation now queues its held read; retire that owner
+                    # too, so it cannot consume another fixture's tier budget.
+                    "'sk-drop-branch!'([],_Slot,_)",
                     {'Kb': self.h.kb, 'Fresh': 'true' if fresh else 'false',
                      'Compatible': 'true' if compatible else 'false',
                      'StaleInput': 'true' if stale_input else 'false',

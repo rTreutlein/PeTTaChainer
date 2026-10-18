@@ -85,4 +85,4 @@
 !(test
    (let (: $prf $_type $tv) (query 100 rtKb (: $prf (D i) $tv))
       ($tv (car-atom $prf)))
-   ((STV 0.17965779467680607 0.014827336747463922) conditioned))
+   ((STV 0.17965779467755605 0.014827336747515504) conditioned))

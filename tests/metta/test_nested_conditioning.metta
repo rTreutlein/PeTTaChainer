@@ -36,6 +36,6 @@
 !(set-backward-query-metrics true)
 ;; #81: nested hard given contexts do not suppress independent updates.
 !(test (map-flat nested-tv (collapse (query 300 nestedKb (: $p (Degraded plant t5) $tv))))
-   ((STV 0.0 0.9832143359287459)))
+   ((STV 0.0 0.9832143359076109)))
 !(test (< (fold-flat nested-count 0 (backward-query-metrics)) 10000) true)
 !(set-backward-query-metrics false)

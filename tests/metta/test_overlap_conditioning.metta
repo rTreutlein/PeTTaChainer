@@ -36,13 +36,13 @@
 ;; soft fact applies no rules, so the weight is its stored value.
 !(test (map-flat overlap-step (collapse (query 2000 stage3Kb (: $p (Degraded plant t1) $tv)))) (conditioned))
 !(test (map-flat overlap-tv (collapse (query 2000 stage3Kb (: $p (Degraded plant t1) $tv))))
-   ((STV 0.05887282355682909 0.9998816871581414)))
+   ((STV 0.0588728408972088 0.9998816871399366)))
 
 ;; Degraded plant t2: the persistence from t1 and the t2 report share the
 ;; storm too; the running plant settles it in either branch (exact: 0), and t3
 ;; is the persistence's start rate 0.05 (exact: 0.05).
 !(test (map-flat overlap-tv (collapse (query 2000 stage3Kb (: $p (Degraded plant t2) $tv))))
-   ((STV 0.0 0.9999423386451703)))
+   ((STV 0.0 0.999942338645465)))
 ;; Its confidence propagates the t2 update's own confidence above; shared
 ;; estimates did not supply an independent confidence increment.
 !(test (map-flat overlap-tv (collapse (query 2000 stage3Kb (: $p (Degraded plant t3) $tv))))
@@ -68,7 +68,7 @@
 !(test (map-flat overlap-step (collapse (query 10 budgetKb (: $p (Degraded plant t1) $tv)))) (factored-revision))
 !(test (== (collapse (match &sk_given_pending ($_hash -1 $cost) $cost)) ()) false)
 !(test (map-flat overlap-tv (collapse (query 200 budgetKb (: $p (Degraded plant t1) $tv))))
-   ((STV 0.05887282355682909 0.9998816871581414)))
+   ((STV 0.0588728408972088 0.9998816871399366)))
 
 ;; Views that share only a fact no rule concludes, here the link both rules
 ;; read, and hold evidence of their own are independent given it. These

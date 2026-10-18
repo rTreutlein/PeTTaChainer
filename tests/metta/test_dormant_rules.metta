@@ -25,7 +25,7 @@
 !(compileadd pathKb (: e23 (Edge n2 n3) (STV 1.0 1.0)))
 !(compileadd pathKb (: base (Implication (Edge $a $b) (Path $a $b)) (STV 1.0 1.0)))
 !(compileadd pathKb (: step (Implication (And (Path $a $b) (Edge $b $c)) (Path $a $c)) (STV 1.0 1.0)))
-!(test (case (query 100 pathKb (: $p (Path n1 n3) $tv)) (((: $p (Path n1 n3) (STV $s $c)) $s))) 1.0)
+!(test (case (query 100 pathKb (: $p (Path n1 n3) $tv)) (((: $p (Path n1 n3) (STV $s $c)) $s))) 0.9999992413791272)
 
 ;; A settled rule supports its conclusion only through a certain stored fact
 ;; that settles its compound (docs/metta/connective_settling.md). Here (L x)

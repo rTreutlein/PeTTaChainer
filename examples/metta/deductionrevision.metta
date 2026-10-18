@@ -12,17 +12,7 @@
 ;; total-implication view. Both deduction chains revise inside that view.
 !(test
    (collapse (query 60 deductionRevisionKb (: $prf (Inheritance A D) $tv)))
-   ((:
-      (inheritance-implication-fold
-         (total-implication
-            (merge/revision
-               (by (inheritance-implication cInheritsD) (by (inheritance-implication aInheritsC) (ctx proof 0)))
-               (by (inheritance-implication bInheritsD) (by (inheritance-implication aInheritsB) (ctx proof 0))))
-            (merge/revision
-               (by (inheritance-implication cInheritsD) (by (inheritance-implication aInheritsC) (ctx proof 1)))
-               (by (inheritance-implication bInheritsD) (by (inheritance-implication aInheritsB) (ctx proof 1))))))
-      (Inheritance A D)
-      (STV 0.4996671101868611 0.0022730948685900365))))
+   ((: (inheritance-implication-fold (total-implication (merge/revision (by (inheritance-implication cInheritsD) (by (inheritance-implication aInheritsC) (ctx proof 0))) (by (inheritance-implication bInheritsD) (by (inheritance-implication aInheritsB) (ctx proof 0)))) (merge/revision (by (inheritance-implication cInheritsD) (by (inheritance-implication aInheritsC) (ctx proof 1))) (by (inheritance-implication bInheritsD) (by (inheritance-implication aInheritsB) (ctx proof 1)))))) (Inheritance A D) (STV 0.4999090545615055 0.002273093351340959))))
 
 
 

@@ -148,7 +148,8 @@ reading P(X → Y | A) is P(Y | A, X), and P(X → Y | not A) is P(Y | X, not A)
 a case of P(Y | not (A ∧ X)). So the rule's CTV is the exported rule's CTV:
 
 - stated as an STV s, the negative branch comes from the base rates of the
-  exported sides, `ImplicationCTVFormula(P(A ∧ X), P(Y), s)`, exactly as for
+  exported sides, `ImplicationLikelihoodsFormula(P(A ∧ X), P(Y), s)` (original/read
+  likelihoods under [the common prior definition](prior_definition.md)), exactly as for
   the flat rule (the conjunctions of all nested antecedents, flattened, and
   the innermost consequent);
 - stated as a CTV, it is that CTV.

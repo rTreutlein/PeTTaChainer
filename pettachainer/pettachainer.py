@@ -293,8 +293,10 @@ class PeTTaChainer:
         The prior weight also accounts for uncertainty of its centre: it is
         max(0, 1/(1/(n_g+1) + 1/(kappa+1)) - 1), with n_g from the centre's
         confidence and the process-wide k. Certain centres give weight kappa;
-        certain likelihoods/rates are unchanged. The method and parameter name
-        are retained; a now denotes kappa. Timed queries replay this setting.
+        certain likelihoods/rates are unchanged. Centres exclude the estimate's
+        own evidence; finite instance priors use the neutral centre like
+        population priors. Zero disables smoothing. See prior_definition.md.
+        The method and parameter name are retained; timed queries replay it.
         """
         self.handler.process_metta_string(
             f"!(set-bayes-prior-count {float(a)!r})"

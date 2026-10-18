@@ -239,17 +239,20 @@ conditions under which that implication was derived, so `A -> (B -> C)` and
 `(A AND B) -> C` have the same class. Compatible premise reads perform the same
 selection after filtering evidence.
 
-A containing general class supplies the specific estimate's prior, with
-`bayes-prior-count` pseudo-observations. Original general views revise into one
-prior; the specific estimate is shrunk once. The proof
-`(specializes specific general raw-tv prior-tv)` records both values. Its
-likelihood evidence remains the specific view's: the general class's current
-instance observations do not become new evidence. Both proofs and refresh
-dependencies remain, so changing a learned prior still refreshes its readers.
-Thus .99
-at confidence .4, specific to .25 at confidence .7, gives .81923 under the
-default .2-observation prior, rather than lifting to .41444. Same-condition
-rules retain revision.
+A containing general class supplies the specific estimate's prior under
+[the common definition](prior_definition.md). Only independent estimates of the
+same containing class revise. Nearest incomparable containing classes form an
+equal distribution mixture; their disagreement increases centre variance rather
+than confidence. Select the nearest classes first, then recompute learned
+generals without the specific estimate's training observations using the
+incremental tally. Omit a selected general only when that read is impossible;
+an overlapping nearest class never promotes its ancestor.
+
+The proof `(specializes specific general raw-tv prior-tv)` records the original
+estimate and centre. The general class supplies a parameter and refresh
+dependencies, not new likelihood evidence. At k=1, general (.25,.7) supplies zero
+weight at default κ=.2, so specific (.99,.4) reads .99. The earlier fixed-weight
+.81923 example no longer applies. Same-condition independent rules still revise.
 
 Applicable sibling conditions, including a negative branch against a positive
 branch, combine rather than competing for a representative. For overlapping

@@ -30,7 +30,7 @@
 ;; inversion still proves (And A B) itself and does not also project to B.
 !(test
    (query 2000 completionKb (: $proof B $tv))
-   (: ((antecedent-completion ab_c 1 with cpu (prior (STV 0.30000555540123885 0.9))) (conjunction a c)) B (STV 0.6310143532939941 0.284178666310838)))
+   (: ((antecedent-completion ab_c 1 with cpu (prior (STV 0.30000555540123885 0.9))) (conjunction a c)) B (STV 0.6313810957394036 0.2838513298366603)))
 
 ;; A rule named no_inverse gets no completion either: B has no proof.
 !(compileadd noInverseCompletionKb (: a A (STV 1.0 0.9)))
@@ -97,7 +97,7 @@
 
 !(test
    (query 2000 ctvCompletionKb (: $proof B $tv))
-   (: ((antecedent-completion ab_c 1 with cpu (prior (STV 0.30000555540123885 0.9))) (conjunction a c)) B (STV 0.5625065081261639 0.8847444032286949)))
+   (: ((antecedent-completion ab_c 1 with cpu (prior (STV 0.30000555540123885 0.9))) (conjunction a c)) B (STV 0.5625065101906185 0.8847444033358305)))
 
 ;; A base rate of 1 stated with confidence 0.9 is read as the prior of one
 ;; more instance under the Bayes prior, (7200 + 0.1) / (7200 + 0.2) at k =
@@ -113,7 +113,7 @@
 
 !(test
    (query 2000 saturatedKb (: $proof B $tv))
-   (: ((antecedent-completion ab_c 1 with cpu (prior (STV 0.999986111496903 0.9))) (conjunction a c)) B (STV 0.9999953704560639 0.964288261409941)))
+   (: ((antecedent-completion ab_c 1 with cpu (prior (STV 0.999986111496903 0.9))) (conjunction a c)) B (STV 0.9999953704561027 0.9642882616995045)))
 
 !(set-positive-only-predicate positiveKb B)
 !(compileadd positiveKb (: a A (STV 1.0 0.9)))
@@ -125,7 +125,7 @@
 !(set-base-rate positiveKb B (STV 1.0 0.9))
 
 !(test (query 2000 positiveKb (: $proof B $tv))
-   (: ((antecedent-completion ab_c 1 with cpu (prior (STV 0.999986111496903 0.9))) (conjunction a c)) B (STV 0.9999953704560639 0.964288261409941)))
+   (: ((antecedent-completion ab_c 1 with cpu (prior (STV 0.999986111496903 0.9))) (conjunction a c)) B (STV 0.9999953704561027 0.9642882616995045)))
 
 ;; An uncertain other conjunct enters C's likelihood given B: P(C|B) =
 ;; 0.5 * 0.9 + 0.5 * 0.3 = 0.6 and P(C|not B) = 0.3, so C doubles B's odds:
@@ -142,7 +142,7 @@
 
 !(test
    (query 2000 uncertainOtherKb (: $proof B $tv))
-   (: ((antecedent-completion ab_c 1 with cpu (prior (STV 0.30000555540123885 0.9))) (conjunction a c)) B (STV 0.46154374381914853 0.8783775155988923)))
+   (: ((antecedent-completion ab_c 1 with cpu (prior (STV 0.30000555540123885 0.9))) (conjunction a c)) B (STV 0.4615450359497025 0.8783775421697927)))
 
 ;; A three-child conjunction completes the middle child from the other
 ;; children plus the original consequence: (And A D C) -> Mid.
@@ -158,7 +158,7 @@
 
 !(test
    (query 2000 ternaryCompletionKb (: $proof Mid $tv))
-   (: ((antecedent-completion abd_c 1 with cpu (prior (STV 0.30000555540123885 0.9))) (conjunction a d c)) Mid (STV 0.46154503439126615 0.883752726108109)))
+   (: ((antecedent-completion abd_c 1 with cpu (prior (STV 0.30000555540123885 0.9))) (conjunction a d c)) Mid (STV 0.4615450359497024 0.8837527260587049)))
 
 ;; Source computations in the antecedent block every child completion.
 !(compileadd computeSkipKb
@@ -295,7 +295,7 @@
 !(compileadd softKb (: plant-maybe (Producing plant t5) (STV 0.8 1)))
 !(compileadd softKb (: reported (Reported mine t5) (STV 1 1)))
 !(test (query 2000 softKb (: $prf (Degraded mine t5) $tv))
-   (: ((antecedent-completion runs-mine 1 with cpu (prior (STV 0.25000694425154857 0.9))) (conjunction plant-maybe ((inverted report with cpu (prior (STV 0.5 0.9))) reported))) (Degraded mine t5) (STV 0.08064790789637291 0.9927124129541681)))
+   (: ((antecedent-completion runs-mine 1 with cpu (prior (STV 0.25000694425154857 0.9))) (conjunction plant-maybe ((inverted report with cpu (prior (STV 0.5 0.9))) reported))) (Degraded mine t5) (STV 0.08064790721346496 0.9927124134707642)))
 
 ;; The degradation persists with 0.75 and starts with 0.1. Inspected sound in
 ;; t4, the mine is degraded in t5 with 0.1 by persistence alone; the plant
@@ -310,7 +310,7 @@
 !(compileadd chainKb (: plant-on (Producing plant t5) (STV 1 1)))
 !(compileadd chainKb (: mine-off (Producing mine t5) (STV 0 1)))
 !(test (query 2000 chainKb (: $prf (Degraded mine t6) $tv))
-   (: (by persist (conjunction next-t6 (factored-revision (by persist (conjunction next-t5 degraded-t4)) (prior (STV 0.1 0.99990000952965)) (((antecedent-completion runs-mine 1 with cpu (prior (STV 0.25000694425154857 0.9))) (conjunction plant-on mine-off)))))) (Degraded mine t6) (STV 0.75 0.9999000075223136)))
+   (: (by persist (conjunction next-t6 (factored-revision (by persist (conjunction next-t5 degraded-t4)) (prior (STV 0.10000001000004669 0.99990000952965)) (((antecedent-completion runs-mine 1 with cpu (prior (STV 0.25000694425154857 0.9))) (conjunction plant-on mine-off)))))) (Degraded mine t6) (STV 0.7499980499318961 0.9998999906297061)))
 
 ;; A backup feed's independent production prediction supports PLN induction.
 ;; With the plant on, P(Producing mine | Degraded) = 0 and its complement
@@ -362,4 +362,4 @@
 !(compileadd refKb (: b-q (B q) (STV 1 1)))
 !(compileadd refKb (: c-q (C q) (STV 1 1)))
 !(test (query 2000 refKb (: $prf (A q) $tv))
-   (: ((antecedent-completion rC 0 with cpu (prior (STV 0.7439024390243903 0.6153846153846154))) (conjunction b-q c-q)) (A q) (STV 0.9332337716213122 0.6940410115653394)))
+   (: ((antecedent-completion rC 0 with cpu (prior (STV 0.7439024390243903 0.6153846153846154))) (conjunction b-q c-q)) (A q) (STV 0.9308779221070141 0.690902642185726)))

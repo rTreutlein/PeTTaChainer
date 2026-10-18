@@ -98,36 +98,53 @@
    (let ($params $pattern) (copy_term ($params (rule-query-pattern $side)))
       (brand Statement $pattern)))
 
+(: RatePlan Type)
+(: rate-plan (-[det]-> (List Goal) Atom RatePlan))
+(: base-rate-read-plan (-[det]-> KB Statement RatePlan))
+(= (base-rate-read-plan $kb $pattern)
+   (let $goals (base-rate-premises $kb $pattern $result)
+      (rate-plan $goals $result)))
+
 ;; Rules stored with an STV need a CTV derived from antecedent/consequent base
 ;; rates before modus ponens can use them. An explicit CTV already carries both
 ;; directions and therefore needs no runtime base-rate scans. `$value` is the
 ;; truth the rule applies with, of its stored truth's kind: the stored truth,
 ;; or a refined rule's resolved truth.
 (: compile-implication-ctv-execs
-   (-[semidet]-> KB (List Variable) Statement Statement TV Atom
-       ((List Goal) CTVType)))
-(= (compile-implication-ctv-execs $_kb $_params $_a $_b (CTV $_pos $_neg) $value)
-   (data () (the CTVType $value)))
-(= (compile-implication-ctv-execs $kb $params $a $b (STV $_s $_c) $value)
-   (implication-ctv-goals $kb $params $a $b $value))
+   (-[semidet]-> KB (List Variable) Statement Statement TV Atom Bool
+       ((List Goal) CTVType LikelihoodRead)))
+(= (compile-implication-ctv-execs $_kb $_params $_a $_b (CTV $original-pos $original-neg) $value $_defer)
+   (data () (the CTVType $value)
+      (likelihood-read (the CTVType $value) (the CTVType $value) (stated (CTV $original-pos $original-neg)))))
+(= (compile-implication-ctv-execs $kb $params $a $b (STV $_s $_c) $value $defer)
+   (implication-ctv-goals $kb $params $a $b $value $defer))
 
 ;; The goals deriving a CTV from the positive branch `$value` and the base
 ;; rates of both sides; a rule's instance fold and its refined truth derive
 ;; theirs the same way.
 (: implication-ctv-goals
-   (-[det]-> KB (List Variable) Statement Statement Atom ((List Goal) CTVType)))
-(= (implication-ctv-goals $kb $params $a $b $value)
+   (-[det]-> KB (List Variable) Statement Statement Atom Bool ((List Goal) CTVType LikelihoodRead)))
+(= (implication-ctv-goals $kb $params $a $b $value $defer)
    (let*
       (($a1 (rule-base-rate-pattern $params $a))
         ($b1 (rule-base-rate-pattern $params $b)))
-      (data
-         (append-goals (antecedent-rate-premises $kb $a1 $rule-atv)
-            (append-goals (base-rate-premises $kb $b1 $rule-btv)
-               (cons (CPU ImplicationCTVFormula
-                        (quote ($rule-atv $rule-btv $value))
-                        $rule-ctv)
-                  ())))
-         (the CTVType $rule-ctv))))
+      (let $rates (append-goals (antecedent-rate-premises $kb $a1 $rule-atv)
+                       (base-rate-premises $kb $b1 $rule-btv))
+         (if $defer
+            (let* (($ctv (CTV (the STVType $value) (STV 0.5 0)))
+                   ($a-plan (base-rate-read-plan $kb $a1))
+                   ($b-plan (base-rate-read-plan $kb $b1)))
+               (data (append-goals $rates
+                        ((CPU ReadRate (quote ($kb $a1 $rule-atv $a-plan false)) (rate-read $admissible-a $_read-a))
+                         (CPU ReadRate (quote ($kb $b1 $rule-btv $b-plan false)) (rate-read $admissible-b $_read-b))))
+                  $ctv (likelihood-read $ctv $ctv
+                     (negative-source (the OptionalSTV $admissible-a) (the OptionalSTV $admissible-b) (the STVType $value)))))
+            (data
+               (append-goals $rates
+                  (cons (CPU ImplicationLikelihoodsFormula
+                           (quote ($rule-atv $rule-btv $value)) $likelihoods)
+                     ((CPU likelihood-read-tv (quote ($likelihoods)) $rule-ctv))))
+               (the CTVType $rule-ctv) (the LikelihoodRead $likelihoods))))))
 
 ;; A negated conclusion is stored as positive evidence for its inner expression
 ;; with a negated proof and transformed TV. Keeping the runtime type positive
@@ -225,8 +242,8 @@
        (once
          (let*
             (($proof-token (implication-proof-token $proofs))
-              (($ctv-execs $rule-ctv)
-                 (compile-implication-ctv-execs $kb $params $rate-a $last $tv $value))
+              (($ctv-execs $rule-ctv $rule-likelihoods)
+                 (compile-implication-ctv-execs $kb $params $rate-a $last $tv $value false))
               (($out-execs $out-prf $out-type $out-tv)
                  (compile-implication-output
                     $prf $proof-token $out-b (the STVType $btv)))
@@ -438,17 +455,22 @@
 ;; view in the base rate's place. A predicate declared positive-only has no
 ;; such empirical prior; an explicit user rate still permits an update.
 ;; Functional inputs remain non-derivable regardless of population settings.
-(: prior-base-rate-premises (-[semidet]-> KB Statement $truth-value (List Goal)))
-(= (prior-base-rate-premises $kb $pattern $brtv)
+(: prior-base-rate-premises (-[semidet]-> KB Statement $raw-value $truth-value (List Goal)))
+(= (prior-base-rate-premises $kb $pattern $raw $brtv)
    (if (functional-pattern? $kb $pattern) (empty)
-      (append-goals (base-rate-premises $kb $pattern $rate)
-         (cons (CPU configured-population-prior-tv (quote ($kb $pattern $rate)) $brtv) ()))))
+      (let $plan (base-rate-read-plan $kb $pattern)
+         (append-goals (base-rate-premises $kb $pattern $rate)
+            (cons (CPU ReadRate (quote ($kb $pattern $rate $plan true)) (rate-read $raw $brtv)) ())))))
 (: configured-population-prior-tv (-[semidet]-> KB Statement TV TV))
 (= (configured-population-prior-tv $kb $pattern $rate)
    (if (if (positive-only-pattern? $kb $pattern) (user-base-rate? $kb $pattern) true)
       (population-prior-tv $rate) (empty)))
 (: population-prior-tv (-[det]-> TV TV))
 (= (population-prior-tv (STV $s $c)) (STV (bayes-shrink $s $c 0.5 1.0) $c))
+(= (population-prior-tv (CTV $pos $neg)) (CTV $pos $neg))
+;; A supported inversion may need a neutral bridge when excluding the target
+;; drains its population. This carries no observation or prior evidence.
+(= (population-prior-tv no-evidence) (STV 0.5 0.0))
 
 ;; A KB may declare that it stores only the true instances of a predicate
 ;; (logic KBs of Provable, Path or Ancestor facts): its stored instances are
@@ -556,8 +578,8 @@
                                ImplicationInstanceAcc $finish result-tv))
                          $fold-tv))
                    ($positive (CPU MemberInheritanceEvidenceFormula ($fold-tv) $instance-tv))
-                   (($ctv-goals $instance-ctv)
-                      (implication-ctv-goals $kb () $antecedent $consequent $instance-tv))
+                   (($ctv-goals $instance-ctv $_instance-likelihoods)
+                      (implication-ctv-goals $kb () $antecedent $consequent $instance-tv false))
                    ($fold-premises (cons $fold (cons $positive (if $ctv? $ctv-goals ()))))
                    ($fold-result (if $ctv? $instance-ctv $instance-tv)))
                   ;; Built with cons: the determinism checker reads a tuple
@@ -598,12 +620,17 @@
    (let*
       (($a1 (rule-base-rate-pattern $params $a))
         ($b1 (rule-base-rate-pattern $params $b))
-        ($a-base-rates (prior-base-rate-premises $kb $a1 $atv))
-        ($b-base-rates (base-rate-premises $kb $b1 $btv))
+        ($a-base-rates (prior-base-rate-premises $kb $a1 $raw-atv $atv))
+        ($b-plan (base-rate-read-plan $kb $b1))
+        ($b-base-rates (append-goals (base-rate-premises $kb $b1 $raw-btv)
+                          ((CPU ReadRate (quote ($kb $b1 $raw-btv $b-plan false)) (rate-read $btv $_read-btv)))))
+        ($ctv (CTV (the STVType $itv) (STV 0.5 0)))
+        ($rule-likelihoods (likelihood-read $ctv $ctv (negative-source (the OptionalSTV $raw-atv) (the OptionalSTV $btv) (the STVType $itv))))
         ($formula-goals
            (the (List Goal)
-              ((CPU ImplicationCTVFormula (quote ($atv $btv $itv)) $rule-ctv)
-               (CPU CTVInversionFormula (quote ($atv $btv $rule-ctv)) $iitv)
+              ((CPU ReadLikelihoodContext () $read-context)
+               (CPU rule-likelihood-read (quote ($kb $prf $a1 $b1 $rule-likelihoods $read-context)) $read-likelihoods)
+               (CPU CTVInversionFormula (quote ($atv $btv $read-likelihoods)) $iitv)
                (CPU sk-observation-prior (quote ($prfb_wit $btv_wit)) $obs-prior)
                (CPU ObservationRatioFormula (quote ($btv_wit $obs-prior $atv $iitv)) $obs-tv)
                (CPU CTVModusPonensFormula (quote ($obs-tv $iitv)) $mp-tv))))
@@ -623,6 +650,23 @@
               ((inverted $prf with cpu (prior $atv)) $prfb_wit)
               $a $mp-tv))))
 
+;; Resolve a finite likelihood once after reading its observation. Certain
+;; CTVs are already resolved: no contextual CPU goals or centre dependency.
+;; STV lowering already watches both marginals, so it needs no second watch.
+(: likelihood-read-premises
+   (-[semidet]-> KB Proof Statement Statement TV LikelihoodRead ((List Goal) Atom)))
+(= (likelihood-read-premises $kb $rule $antecedent $consequent $tv $initial)
+   (let $goals (the (List Goal)
+          ((CPU ReadLikelihoodContext () $context)
+           (CPU rule-likelihood-read
+              (quote ($kb $rule $antecedent $consequent $initial $context)) $read)))
+      (case $tv (
+         ((CTV (STV $_u $cu) (STV $_v $cv))
+            (if (if (>= $cu 1.0) (>= $cv 1.0) false)
+               (data () $initial)
+               (data (append-goals (base-rate-premises $kb $consequent $_centre) $goals) $read)))
+         ($_stv (data $goals $read))))))
+
 ;; A rule declared `(WithPrior p (Implication a b))` is inverted per
 ;; instance by Bayes' rule: P(a) is the instance's prior and P(b) follows from
 ;; it and the rule by total probability, so an observation of b updates what is
@@ -640,22 +684,27 @@
 (= (prior-inverse-implication $kb $prf $params $prior $a $b $tv $value
       $truth-premises $inverse-execs)
    (let*
-      (($population (== $prior population))
+      (($a-rate-pattern (rule-base-rate-pattern $params $a))
+       ($b-rate-pattern (rule-base-rate-pattern $params $b))
+       ($population (== $prior population))
        ($prior-goals
           (if $population
-             (prior-base-rate-premises $kb (rule-base-rate-pattern $params $a) $atv)
-             (cons (: (make-kb-context $kb $ctx $vars) $prior-prf (brand Statement $prior) $atv) ())))
+             (prior-base-rate-premises $kb (rule-base-rate-pattern $params $a) $_raw-prior $atv)
+             (cons (: (make-kb-context $kb $ctx $vars) $prior-prf (brand Statement $prior) $raw-atv)
+                ((CPU instance-prior-tv (quote ($prior-prf $raw-atv)) $atv)))))
        ($prior-token (if $population cpu $prior-prf))
-       (($ctv-execs $rule-ctv)
-          (compile-implication-ctv-execs $kb $params $a $b $tv $value))
+       (($ctv-execs $rule-ctv $rule-likelihoods)
+          (compile-implication-ctv-execs $kb $params $a $b $tv $value true))
+       (($read-goals $read-likelihoods)
+          (likelihood-read-premises $kb $prf $a-rate-pattern $b-rate-pattern $tv $rule-likelihoods))
        ($premises
           (append-goals $truth-premises
              (cons (: (make-kb-context $kb $ctx $vars) $prfb_wit $b $btv_wit)
                 (append-goals $inverse-execs
                    (append-goals $prior-goals
-                      (append-goals $ctv-execs
+                      (append-goals (append-goals $ctv-execs $read-goals)
                          (the (List Goal)
-                            ((CPU CTVBayesFormula (quote ($atv $rule-ctv)) $iitv)
+                            ((CPU CTVBayesFormula (quote ($atv $read-likelihoods)) $iitv)
                              (CPU sk-observation-prior (quote ($prfb_wit $btv_wit)) $obs-prior)
                              (CPU ObservationRatioFormula (quote ($btv_wit $obs-prior $atv $iitv)) $obs-tv)
                              (CPU CTVModusPonensFormula (quote ($obs-tv $iitv)) $mp-tv))))))))))
@@ -723,8 +772,13 @@
                       (once
                          (lower-implication-antecedent
                             $kb $ctx $vars $consequent)))
-                   (($rule-execs $rule-ctv)
-                      (compile-implication-ctv-execs $kb $params $full $consequent $tv $value))
+                   ($antecedent-rate-pattern (rule-base-rate-pattern $params $full))
+                   ($consequence-rate-pattern (rule-base-rate-pattern $params $consequent))
+                   (($rule-execs $rule-ctv $rule-likelihoods)
+                      (compile-implication-ctv-execs $kb $params $full $consequent $tv $value true))
+                   (($read-goals $read-rule-likelihoods)
+                      (likelihood-read-premises $kb $prf $antecedent-rate-pattern $consequence-rate-pattern
+                         $tv $rule-likelihoods))
                    ($proof-token
                       (implication-proof-token (append $others-proofs $consequent-proofs)))
                    ($consequent-proof (implication-proof-token $consequent-proofs))
@@ -734,17 +788,15 @@
                       (append-goals $truth-premises
                          (append-goals $others-execs
                             (append-goals $consequent-execs
-                            (append-goals $rule-execs
+                            (append-goals (append-goals $rule-execs $read-goals)
                                (append-goals
                                   (prior-base-rate-premises $kb
-                                     (rule-base-rate-pattern $params $target) $target-base-tv)
+                                     (rule-base-rate-pattern $params $target) $_raw-target $target-base-tv)
                                   (the (List Goal)
-                                     ((CPU (if (== $connective And) ConjunctLikelihoodFormula DisjunctLikelihoodFormula)
-                                         (quote ($negated $others-tv $rule-ctv))
-                                         $likelihood-ctv)
+                                     ((CPU CompletionLikelihoodsFormula
+                                         (quote ($connective $negated $others-tv $read-rule-likelihoods)) $likelihood-read)
                                       (CPU CTVBayesFormula
-                                         (quote ($target-base-tv $likelihood-ctv))
-                                         $completion-ctv)
+                                         (quote ($target-base-tv $likelihood-read)) $completion-ctv)
                                       (CPU sk-observation-prior
                                          (quote ($consequent-proof $consequent-tv))
                                          $consequent-prior)
@@ -1335,8 +1387,8 @@
                         ((STV $s $c)
                            (let* (($rate-a (if (== $inner ()) $a
                                      (brand Statement (cons And (append (implication-side-conjuncts $a) $inner)))))
-                                  (($ctv-execs $source-ctv)
-                                     (compile-implication-ctv-execs $kb $params $rate-a $last $tv $tv)))
+                                  (($ctv-execs $source-ctv $_source-likelihoods)
+                                     (compile-implication-ctv-execs $kb $params $rate-a $last $tv $tv false)))
                               (superpose (
                                  (brand CompiledAddition
                                     (() |- (: $source-kb $prf $source-type $tv)))

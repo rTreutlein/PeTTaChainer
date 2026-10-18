@@ -83,6 +83,10 @@ class DeepConditioningTests(unittest.TestCase):
 
     def check_plant(self, periods, budget):
         handler = PeTTaChainer()
+        # This checks an exact probability oracle, without regularizing the
+        # finite intermediate instance predictions (#89 is tested separately).
+        handler.set_bayes_prior_count(0)
+        self.addCleanup(handler.set_bayes_prior_count, .2)
         plant(handler, periods)
         handler.set_query_metrics(True)
         rows = handler.query_many_refs([f'(: $p (Degraded plant t{periods}) $tv)'], steps=budget)[0]
@@ -114,32 +118,67 @@ class DeepConditioningTests(unittest.TestCase):
     def test_two_period_reports(self):
         self.assertEqual(self.check_plant(2, 20000)['conditions_unpaid'], 0)
 
-    def test_dead_claim_pruning_costs_52_rows_and_requery_zero(self):
+    def test_dead_claim_pruning_costs_26_rows_and_requery_zero(self):
         handler = PeTTaChainer()
         plant(handler, 2)
         handler.set_query_metrics(True)
         query = ['(: $p (Degraded plant t2) $tv)']
         first = handler.query_many_refs(query, steps=20000)[0][0].tv
-        self.assertEqual(first, ['STV', 0.10719520036917493, 0.9998941423648195])
-        self.assertEqual(handler.last_query_metrics()['conditioned_evaluations'], 52)
+        # Default κ reads each finite report/instance prior once before updates.
+        self.assertEqual(first, ['STV', 0.1071952240649727, 0.999894142365972])
+        self.assertEqual(handler.last_query_metrics()['conditioned_evaluations'], 26)
         second = handler.query_many_refs(query, steps=20000)[0][0].tv
         self.assertEqual(first, second)
         self.assertEqual(handler.last_query_metrics()['conditioned_evaluations'], 0)
         self.assertEqual(handler.last_query_metrics()['conditions_unpaid'], 0)
 
-    def test_three_period_third_query_is_quiescent(self):
+    def test_three_period_second_query_is_quiescent(self):
         handler = PeTTaChainer()
         plant(handler, 3)
         handler.set_query_metrics(True)
         query = ['(: $p (Degraded plant t3) $tv)']
-        answers = [handler.query_many_refs(query, steps=20000)[0][0].tv
-                   for _ in range(3)]
+        answers, work = [], []
+        for _ in range(3):
+            answers.append(handler.query_many_refs(query, steps=20000)[0][0].tv)
+            metrics = handler.last_query_metrics()
+            work.append(metrics['conditioned_evaluations'])
+            if len(answers) > 1:
+                for name in ('conditioned_evaluations', 'row_computes',
+                             'branch_builds', 'conditions_unpaid'):
+                    with self.subTest(query=len(answers), metric=name):
+                        self.assertEqual(metrics[name], 0)
         self.assertEqual(answers, [answers[0]] * 3)
-        metrics = handler.last_query_metrics()
-        for name in ('conditioned_evaluations', 'row_computes', 'branch_builds',
-                     'conditions_unpaid'):
-            with self.subTest(metric=name):
-                self.assertEqual(metrics[name], 0)
+        self.assertEqual(work, [21362, 0, 0])
+
+    def test_repeated_query_preserves_later_different_root_answer(self):
+        answers = []
+        for repeats in (1, 2):
+            handler = PeTTaChainer()
+            plant(handler, 3)
+            for _ in range(repeats):
+                handler.query_many_refs(['(: $p (Degraded plant t3) $tv)'], steps=20000)
+            # One step observes the reusable state without paying for another
+            # conditioning turn. The removed repeat policy changed this TV.
+            answers.append([row.tv for row in handler.query_many_refs(
+                ['(: $p (Fuelled plant t3) $tv)'], steps=1)[0]])
+        self.assertEqual(len(answers[0]), 1)
+        self.assertEqual(answers[0], answers[1])
+
+    def test_rate_takes_completed_fold_independent_members_in_first_query(self):
+        handler = PeTTaChainer()
+        plant(handler, 3)
+        handler.query_many_refs(['(: $p (Degraded plant t3) $tv)'], steps=20000)
+        members = janus.query_once(
+            "findall([_T,_S], '&ctx_forward_aggregate_observation'(_,_,"
+            " ['forward-base-rate-observation-value',"
+            "  [['Fuelled',plant,_T],[Kb,'MAIN','Nil'],_,['STV',_S,_]]],_,_,_), Members)",
+            {'Kb': handler.kb},
+        )['Members']
+        self.assertIn(['t2', .522], members)
+        self.assertIn(['t3', .5388], members)
+        self.assertEqual(janus.query_once(
+            "findall(1,'&ctx_sk_branch_hold'(_,_,_,_,_), Holds)"
+        )['Holds'], [])
 
     def test_three_period_work_is_deterministic_across_processes(self):
         # Separate processes give the KB different random identities. Work

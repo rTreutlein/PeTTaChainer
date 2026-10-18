@@ -92,24 +92,24 @@
 !(test (collapse (match &kb ((B warm) (materialRetireKb MAIN Nil) $_proof $_tv) true)) ())
 !(test (collapse (match &materialized_facts (materialized-row $_h (B warm) (materialRetireKb MAIN Nil) $_fact $_ev) true)) ())
 
-;; General rates form one revised prior. The specific estimate is shrunk once,
-;; independent of merge order for independent general rules.
-(: merge-prior-views (-[semidet]-> SkeletonValue SkeletonValue SkeletonValue SkeletonValue))
-(= (merge-prior-views $a $b $c)
-   (let* (($ab (sk-merge-step true () $a $b))) (sk-merge-step true () $ab $c)))
-(: prior-strength (-[semidet]-> SkeletonValue Number))
-(= (prior-strength (sk-val ($_type $_ctx $_proof (STV $s $_c)) $_ev $_deps)) $s)
+;; Incomparable containing classes form a distribution mixture, rather than
+;; a recursively revised prior. Build the complete frontier in either order;
+;; its disagreement makes #69's centre weight zero for this specific view.
+!(compileadd priorOrderA (: specific (Implication (And (A $x) (B $x)) (Win $x)) (CTV (STV 0.99 0.4) (STV 0.5 0))))
+!(compileadd priorOrderA (: general-a (Implication (A $x) (Win $x)) (CTV (STV 0.2 0.5) (STV 0.5 0))))
+!(compileadd priorOrderA (: general-b (Implication (B $x) (Win $x)) (CTV (STV 0.8 0.5) (STV 0.5 0))))
+!(compileadd priorOrderB (: general-b (Implication (B $x) (Win $x)) (CTV (STV 0.8 0.5) (STV 0.5 0))))
+!(compileadd priorOrderB (: general-a (Implication (A $x) (Win $x)) (CTV (STV 0.2 0.5) (STV 0.5 0))))
+!(compileadd priorOrderB (: specific (Implication (And (A $x) (B $x)) (Win $x)) (CTV (STV 0.99 0.4) (STV 0.5 0))))
+!(compileadd priorOrderA (: a (A new) (STV 1 1)))
+!(compileadd priorOrderA (: b (B new) (STV 1 1)))
+!(compileadd priorOrderB (: a (A new) (STV 1 1)))
+!(compileadd priorOrderB (: b (B new) (STV 1 1)))
 !(test
-   (let* (($s (sk-val ((Win new) (priorKb MAIN Nil) (by specific (conjunction a b)) (STV 1 0.001)) (evidence-set (specific a b)) 0))
-          ($g1 (sk-val ((Win new) (priorKb MAIN Nil) (by general-a a) (STV 0.2 0.5)) (evidence-set (general-a a)) 0))
-          ($g2 (sk-val ((Win new) (priorKb MAIN Nil) (by general-b b) (STV 0.8 0.5)) (evidence-set (general-b b)) 0))
-          ($g1-other (sk-val ((Win new) (priorKb MAIN Nil) (by general-a b) (STV 0.2 0.5)) (evidence-set (general-a b)) 0))
-          ($sg (sk-merge-step true () $s $g1)))
-      (data
-         (== (prior-strength (sk-merge-step true () $sg $g1-other)) (prior-strength $sg))
-         (== (prior-strength (merge-prior-views $s $g1 $g2)) (prior-strength (merge-prior-views $s $g2 $g1)))
-         (== (prior-strength (merge-prior-views $s $g1 $g2)) (prior-strength (merge-prior-views $g1 $g2 $s)))))
-   (true true true))
+   (let* (((: $_p $_type (STV $first $_c)) (query 100 priorOrderA (: $p (Win new) $tv)))
+          ((: $_q $_other (STV $second $_d)) (query 100 priorOrderB (: $p (Win new) $tv))))
+      (data $first $second))
+   (0.99 0.99))
 
 ;; A forward copy leaves the KB when its supporting rule is withdrawn.
 !(compileadd forwardRetireKb (: f-old (Implication (A $t) (B $t)) (STV 0.9 1)))

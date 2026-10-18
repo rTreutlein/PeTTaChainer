@@ -30,7 +30,7 @@
              ($stored-descriptor (the ForwardAggregateDescriptor $d))
              ($_identity (once (context-add! &forward_aggregate_identity
                 ($hash (forward-aggregate-identity-row $stored-identity $id)))))
-             ($_state (once (context-add! &forward_aggregate_state (forward-aggregate-state $id 0.0 0.0))))
+             ($_state (once (context-add! &forward_aggregate_state ($id 0.0 0.0 0))))
              ($_interests (fold-flat (fa-add-interest! $id $stored-descriptor) () (the (List ForwardTriggerKey) $triggers))))
          ())
       ()))
@@ -127,11 +127,71 @@
 (= (fa-acc $a (extract-inheritance-tv $b $c)(BaseRateEvidence $d $e) WeightedBaseRateAcc $f $g)(let $h (fa-mass-scale $a)(BaseRateEvidence (* $h $f)(* $h $g))))
 (= (fa-acc $a (extract-inheritance-tv $b $c)(BaseRateEvidenceWithPrior $d (BaseRateEvidence $e $f)) WeightedBaseRateWithPriorAcc $g $h)(let $i (fa-mass-scale $a)(BaseRateEvidenceWithPrior $d (BaseRateEvidence (* $i $g)(* $i $h)))))
 (: fa-state (-[semidet]-> Number ForwardAggregateState))
-(= (fa-state $a)(once (match &ctx_forward_aggregate_state (forward-aggregate-state $a $b $c)(forward-aggregate-state $a $b $c))))
+(= (fa-state $id)
+   (once (match &ctx_forward_aggregate_state ($id $sum $mass $members)
+      (forward-aggregate-state $id $sum $mass $members))))
 (: fa-obs (-[det]-> ForwardAggregateObservationKey (List ForwardAggregateObservation)))
-(= (fa-obs $a)(let $h (index-hash $a)(collapse (match &ctx_forward_aggregate_observation ($h $a $b $c $d)(forward-aggregate-observation $a $b $c $d)))))
-(: fa-swap! (-[semidet]-> Number (List ForwardAggregateObservation) ForwardAggregateObservation Bool ForwardAggregateState))
-(= (fa-swap! $a $b (forward-aggregate-observation $c $d $e $f) $g)(let* ((($h $i)(case $b ( (()(data 0.0 0.0))((cons (forward-aggregate-observation $j $k $l $m) $n)(data $l $m)))))((forward-aggregate-state $o $p $q)(fa-state $a))($r (+ (- $p $h) $e))($s (+ (- $q $i) $f))($t (once (context-remove! &forward_aggregate_state (forward-aggregate-state $a $p $q))))($t2 (once (context-add! &forward_aggregate_state (forward-aggregate-state $a $r $s))))($x (index-hash $c))($u (context-remove! &forward_aggregate_observation ($x $c $_v $_w $_m)))($v (if $g (once (context-add! &forward_aggregate_observation ($x $c $d $e $f)))())))(forward-aggregate-state $a $r $s)))
+(= (fa-obs $a)(let $h (index-hash $a)(collapse (match &ctx_forward_aggregate_observation ($h $a $b $c $d $_sources)(forward-aggregate-observation $a $b $c $d)))))
+(: fa-physical-sources (-[semidet]-> SkFact SourceList))
+(= (fa-physical-sources ($type $ctx $proof $_tv))
+   (if (is-expr $proof)
+      (observation-sources (proof-term-evidence proof-walk-in-kb $proof))
+      (observation-sources (fact-evidence-entry $ctx $proof $type))))
+
+(: fa-observation-sources (-[semidet]-> SkFact ForwardAggregateObservationValue SourceList))
+(= (fa-observation-sources $fact $value)
+   (case $value (
+      ((forward-member-inheritance-observation-value
+           (forward-derived $left $_left-known) (forward-derived $right $_right-known))
+         (source-list-union (fa-physical-sources $left) (fa-physical-sources $right)))
+      ($_other (fa-physical-sources $fact)))))
+
+(: fa-read-step (-[det]-> Number (List ForwardAggregateObservationKey) Number (List ForwardAggregateObservationKey)))
+(= (fa-read-step $id $keys $read)
+   (append-flat (collapse (match &ctx_forward_aggregate_read ($read $id $key) $key)) $keys))
+
+(: fa-left-out (-[det]-> Number (List Number) (List ForwardAggregateObservation)))
+(= (fa-left-out $id $exclude)
+   (fold-flat append-flat () (map-flat fa-obs
+      (list_to_set (fold-flat (fa-read-step $id) () $exclude)))))
+
+(: fa-result (-[semidet]-> ForwardAggregateDescriptor ForwardAggregateState TV))
+(= (fa-result (forward-base-rate-descriptor $kb $_pattern $extractor $init $step $finish)
+      (forward-aggregate-state $_id $sum $mass $_members))
+   (the TV (finish-aggregate $kb $finish (fa-acc $kb $extractor $init $step $sum $mass))))
+(= (fa-result (forward-member-inheritance-descriptor $kb $_sub $_super $_statement)
+      (forward-aggregate-state $_id $sum $mass $_members))
+   (the TV (finish-aggregate $kb (member-inheritance $kb) (BaseRateEvidence $sum $mass))))
+
+(: fa-subtract-step (-[det]-> ForwardAggregateState ForwardAggregateObservation ForwardAggregateState))
+(= (fa-subtract-step (forward-aggregate-state $id $sum $mass $members)
+      (forward-aggregate-observation $_key $_value $s $m))
+   (let $remaining (- $members (if (> $m 0) 1 0))
+      (if (<= $remaining 0) (forward-aggregate-state $id 0.0 0.0 0)
+         (forward-aggregate-state $id (- $sum $s) (max 0.0 (- $mass $m)) $remaining))))
+
+(: fa-swap! (-[semidet]-> Number (List ForwardAggregateObservation) ForwardAggregateObservation Bool SourceList ForwardAggregateState))
+(= (fa-swap! $id $previous (forward-aggregate-observation $key $value $sum $mass) $keep $sources)
+   (let* ((($old-sum $old-mass)
+             (case $previous (
+                (() (data 0.0 0.0))
+                ((cons (forward-aggregate-observation $_key $_value $s $m) $_rest) (data $s $m)))))
+          ((forward-aggregate-state $_id $total $weight $members) (fa-state $id))
+          ($new-count (+ $members (- (if (if $keep (> $mass 0) false) 1 0) (if (> $old-mass 0) 1 0))))
+          ($new-sum (if (<= $new-count 0) 0.0 (+ $total (- $sum $old-sum))))
+          ($new-mass (if (<= $new-count 0) 0.0 (+ $weight (- $mass $old-mass))))
+          ($_old-state (once (context-remove! &forward_aggregate_state ($id $total $weight $members))))
+          ($_new-state (once (context-add! &forward_aggregate_state ($id $new-sum $new-mass $new-count))))
+          ($hash (index-hash $key))
+          ($old-sources (chainer-first-or (source-list ()) (collapse (once
+             (match &ctx_forward_aggregate_observation ($hash $key $_old-v $_old-s $_old-m $reads) $reads)))))
+          ($_sources (update-aggregate-sources! $id $key $old-sources (if (> $old-mass 0) 1 0)
+                         $sources (if (if $keep (> $mass 0) false) 1 0)))
+          ($_old (context-remove! &forward_aggregate_observation ($hash $key $_value $_sum $_mass $_reads)))
+          ($_new (if $keep
+                    (once (context-add! &forward_aggregate_observation ($hash $key $value $sum $mass $sources))) ())))
+      (forward-aggregate-state $id $new-sum $new-mass $new-count)))
+
 (: fa-dist-acc (-[det]-> $a DistributionSumCount))
 (= (fa-dist-acc $a)(the DistributionSumCount $a))
 (: fa-ev-acc (-[det]-> $a BaseRateEvidenceState))
@@ -185,12 +245,21 @@
 (= (fa-store-cache! $a $b (forward-base-rate-descriptor $c $d $e $f $g $h) $i $j)(if (and (== $a aggregate-remove)(<= $j 0.0))(remove-produced-base-rate! $c $d $h)(let* (($k (fa-acc $c $e $f $g $i $j))($l (the TV (finish-aggregate $c $h $k))))(fa-publish-cache! $c $d $l $h))))
 (= (fa-store-cache! $a $b (forward-member-inheritance-descriptor $c $d $e $f) $g $h)(if (<= $h 0.0)(remove-produced-base-rate! $c $f (member-inheritance $c))(fa-publish-cache! $c $f (the TV (finish-aggregate $c (member-inheritance $c) (BaseRateEvidence $g $h))) (member-inheritance $c))))
 (: fa-update! (-[semidet]-> (Statement KBContext Proof TV) Number ForwardAggregateDescriptor (List $a)))
-(= (fa-update! $a $b $c)(let* (($d (copy_term $c))((fa-sample $e $f $g $h $i)(fa-sample-for $a $c))($j (brand ForwardAggregateObservationKey (quote ($b $e))))((forward-aggregate-state $k $l $m)(fa-swap! $b (fa-obs $j)(forward-aggregate-observation $j $f $g $h) $i))($n (fa-store-cache! aggregate-update $b $d $l $m)))()))
+(= (fa-update! $fact $id $descriptor)
+   (let* (($publish-descriptor (copy_term $descriptor))
+          ((fa-sample $member $value $sum $mass $keep) (fa-sample-for $fact $descriptor))
+          ($key (brand ForwardAggregateObservationKey (quote ($id $member))))
+          ($sources (if (if $keep (> $mass 0) false) (fa-observation-sources $fact $value) (source-list ())))
+          ((forward-aggregate-state $_id $total $weight $_members)
+             (fa-swap! $id (fa-obs $key) (forward-aggregate-observation $key $value $sum $mass) $keep $sources))
+          ($_published (fa-store-cache! aggregate-update $id $publish-descriptor $total $weight))) ()))
+
 (: fa-item (-[semidet]-> (Statement KBContext Proof TV) ForwardAggregateDescriptor Atom))
 (= (fa-item $a (forward-base-rate-descriptor $b $c $d $e $f $g))(forward-fact-key $a))
 (= (fa-item $a (forward-member-inheritance-descriptor $b $c $d $e))(let ((Member $f $g)($h MAIN Nil) $i $j)(copy_term $a)(brand Term $f)))
 (: fa-remove! (-[semidet]-> (Statement KBContext Proof TV) Number ForwardAggregateDescriptor (List $a)))
-(= (fa-remove! $a $b $c)(let* (($d (copy_term $c))($e (fa-item $a $c))($f (brand ForwardAggregateObservationKey (quote ($b $e))))($g (fa-obs $f)))(if (== $g ())(case $d ( ((forward-member-inheritance-descriptor $h $i $j $k)(let (forward-aggregate-state $l $m $n)(fa-state $b)(if (<= $n 0.0)()(fa-store-cache! aggregate-update $b $d $m $n))))($o ())))(let* (((forward-aggregate-state $l $m $n)(fa-swap! $b $g (forward-aggregate-observation $f no-forward-aggregate-observation-value 0.0 0.0) false))($p (fa-store-cache! aggregate-remove $b $d $m $n)))(case $d ( ((forward-member-inheritance-descriptor $h $i $j $k)(progn (fa-update! $a $b $d)()))($o ())))))))
+(= (fa-remove! $a $b $c)(let* (($d (copy_term $c))($e (fa-item $a $c))($f (brand ForwardAggregateObservationKey (quote ($b $e))))($g (fa-obs $f)))(if (== $g ())(case $d ( ((forward-member-inheritance-descriptor $h $i $j $k)(let (forward-aggregate-state $l $m $n $_members)(fa-state $b)(if (<= $n 0.0)()(fa-store-cache! aggregate-update $b $d $m $n))))($o ())))(let* (((forward-aggregate-state $l $m $n $_members)(fa-swap! $b $g (forward-aggregate-observation $f no-forward-aggregate-observation-value 0.0 0.0) false (source-list ())))($p (fa-store-cache! aggregate-remove $b $d $m $n)))(case $d ( ((forward-member-inheritance-descriptor $h $i $j $k)(progn (fa-update! $a $b $d)()))($o ())))))))
+
 ;; The trigger directory answers a miss in one row. Reading the interests
 ;; directly is a scan once most of them share one trigger, as every rule's
 ;; antecedent base rate under one head does: bulk rule import then slows as

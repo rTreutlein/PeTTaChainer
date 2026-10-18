@@ -141,7 +141,7 @@
 !(set-base-rate f3and (A $x) (STV 0.44 1.0))
 !(set-base-rate f3and (B $x) (STV 0.2 1.0))
 !(test (query 2000 f3and (: $prf (E a) $tv))
-   (: (by rE ((antecedent-completion rC 0 with cpu (prior (STV 0.44 1.0))) (conjunction (population-prior (B $_0)) obs-C-a))) (E a) (STV 0.5592468833317317 0.9998831101258783)))
+   (: (by rE ((antecedent-completion rC 0 with cpu (prior (STV 0.44 1.0))) (conjunction (population-prior (B $_0)) obs-C-a))) (E a) (STV 0.5592468619246861 0.999883110124726)))
 
 ;; The same for an Or: (Or A B) -> D, deterministic, D = 0, so A is certainly
 ;; false, exact 0 (before: no answer).
@@ -152,7 +152,7 @@
 !(set-base-rate f3or (B $x) (STV 0.0846 1.0))
 !(set-base-rate f3or (D $x) (STV 0.249372 1.0))
 !(test (query 2000 f3or (: $prf (A a) $tv))
-   (: ((antecedent-completion rD 0 with cpu (prior (STV 0.18 1.0))) (conjunction (population-prior (B $_0)) obs-D-a)) (A a) (STV 0.0 0.9999421512249334)))
+   (: ((antecedent-completion rD 0 with cpu (prior (STV 0.18 1.0))) (conjunction (population-prior (B $_0)) obs-D-a)) (A a) (STV 0.0 0.9999421506206913)))
 
 ;; F5. In a loop of complete predicates, C <- (Or B D) and D <- C, the rule
 ;; application of C reads the observed D = 0 as a cause and the inversion of
@@ -169,7 +169,7 @@
 !(set-base-rate f5loop (B $x) (STV 0.781 1.0))
 !(set-base-rate f5loop (C $x) (STV 0.36707 1.0))
 !(test (query 2000 f5loop (: $prf (C a) $tv))
-   (: (factored-revision (by rC (conjunction obs-B-a obs-D-a)) (prior (STV 0.47 0.9999000099103349)) (((inverted rD with cpu (prior (STV 0.36707 1.0))) obs-D-a))) (C a) (STV 0.050519527051236156 0.9999055997327737)))
+   (: (factored-revision (by rC (conjunction obs-B-a obs-D-a)) (prior (STV 0.4700001199996264 0.9999000099103349)) (((inverted rD with cpu (prior (STV 0.36707 1.0))) obs-D-a))) (C a) (STV 0.050519550158662 0.9999055996924524)))
 
 ;; F4 in a loop. B <- (Or A D), D <- B, both complete, B observed true. The
 ;; completion onto A reads its sibling D apart from B: D's value is B's own,
@@ -182,7 +182,7 @@
 !(compileadd f4loop (: obs-B-a (B a) (STV 1 1)))
 !(set-base-rate f4loop (A $x) (STV 0.65 1.0))
 !(test (query 2000 f4loop (: $prf (A a) $tv))
-   (: ((antecedent-completion rB 0 with cpu (prior (STV 0.65 1.0))) (conjunction (by rD unfounded) obs-B-a)) (A a) (STV 0.9999965863327596 0.9998309893087479)))
+   (: ((antecedent-completion rB 0 with cpu (prior (STV 0.65 1.0))) (conjunction (by rD unfounded) obs-B-a)) (A a) (STV 1.0 0.9998435619422289)))
 
 ;; F6. A loop B <- (Or A C), C <- B over a soft A, read by D outside it.
 ;; Complete statements always have a value once settled, so rD is not dormant
@@ -259,7 +259,7 @@
 !(set-base-rate f5root (A $x) (STV 0.18 1.0))
 !(set-base-rate f5root (B $x) (STV 0.0846 1.0))
 !(set-base-rate f5root (D $x) (STV 0.18 1.0))
-!(test (let (: $prf $s $tv) (query 2000 f5root (: $prf (A a) $tv)) $tv) (STV 0.0 0.999895197158209))
+!(test (let (: $prf $s $tv) (query 2000 f5root (: $prf (A a) $tv)) $tv) (STV 0.0 0.999895192324321))
 
 ;; F8. Two completions onto A through different observations: rC's of C
 ;; false, and rD's of D true, which reads C as a sibling. rD's antecedent
@@ -275,7 +275,7 @@
 !(set-base-rate f8sibling (A $x) (STV 0.25 1.0))
 !(set-base-rate f8sibling (B $x) (STV 0.8 1.0))
 !(test (query 2000 f8sibling (: $prf (A a) $tv))
-   (: (factored-revision cpu (prior (STV 0.25 1.0)) (((antecedent-completion rC 0 with cpu (prior (STV 0.25 1.0))) (conjunction (population-prior (B $_0)) obs-C-a)) ((antecedent-completion rD 1 with cpu (prior (STV 0.25 1.0))) (conjunction (conjunction (population-prior (B $_1)) obs-C-a) obs-D-a)))) (A a) (STV 0.2745643207016601 0.9998773921385876)))
+   (: (factored-revision cpu (prior (STV 0.25 1.0)) (((antecedent-completion rC 0 with cpu (prior (STV 0.25 1.0))) (conjunction (population-prior (B $_0)) obs-C-a)) ((antecedent-completion rD 1 with cpu (prior (STV 0.25 1.0))) (conjunction (conjunction (population-prior (B $_1)) obs-C-a) obs-D-a)))) (A a) (STV 0.2745643461671426 0.9998773921292862)))
 
 ;; A settled step gives way to the complete step whatever order the views
 ;; merge in. C <- (Or B F) with B true, D <- C certain, D observed false: C
@@ -296,4 +296,4 @@
 !(compileadd f8settled (: obs-D-a (D a) (STV 0 1)))
 !(compileadd f8settled (: obs-E-a (E a) (STV 0 1)))
 !(test (query 2000 f8settled (: $prf (C a) $tv))
-   (: (factored-revision (by rC (conjunction obs-B-a (by rF obs-E-a))) (prior (STV 0.18 0.9999000099770509)) (((inverted rD with cpu (prior (STV 0.12727658600505792 0.2856930494608916))) obs-D-a))) (C a) (STV 0.0 0.9999128861501843)))
+   (: (factored-revision (by rC (conjunction obs-B-a (by rF obs-E-a))) (prior (STV 0.18000127999516105 0.9999000099770509)) (((inverted rD with cpu (prior (STV 0.12727658600505792 0.2856930494608916))) obs-D-a))) (C a) (STV 0.0 0.9998688820932553)))

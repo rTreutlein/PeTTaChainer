@@ -70,30 +70,4 @@
 
 !(test
    (collapse (query 200 toothbrushKb (: $prf (Inheritance X removed) $tv)))
-   ((:
-      (inheritance-implication-fold
-         (total-implication
-            ((inheritance-rule-lift unscrewRemovesHardened)
-               xUnscrew
-               ((inheritance-rule-lift waitHardensScrewlike)
-                  xWait
-                  ((inheritance-rule-lift reshapePliableScrewlike)
-                     xReshape
-                     (by meltedPliable
-                        (by heatedMelts
-                           ((inheritance-rule-lift lighterHeatsPlastic)
-                              xLighter
-                              (by (inheritance-implication xPlastic) (ctx proof 0))))))))
-            ((inheritance-rule-lift unscrewRemovesHardened)
-               xUnscrew
-               ((inheritance-rule-lift waitHardensScrewlike)
-                  xWait
-                  ((inheritance-rule-lift reshapePliableScrewlike)
-                     xReshape
-                     (by meltedPliable
-                        (by heatedMelts
-                           ((inheritance-rule-lift lighterHeatsPlastic)
-                              xLighter
-                              (by (inheritance-implication xPlastic) (ctx proof 1))))))))))
-      (Inheritance X removed)
-      (STV 0.8959832714414285 0.9897979854412593))))
+   ((: (inheritance-implication-fold (total-implication ((inheritance-rule-lift unscrewRemovesHardened) xUnscrew ((inheritance-rule-lift waitHardensScrewlike) xWait ((inheritance-rule-lift reshapePliableScrewlike) xReshape (by meltedPliable (by heatedMelts ((inheritance-rule-lift lighterHeatsPlastic) xLighter (by (inheritance-implication xPlastic) (ctx proof 0)))))))) ((inheritance-rule-lift unscrewRemovesHardened) xUnscrew ((inheritance-rule-lift waitHardensScrewlike) xWait ((inheritance-rule-lift reshapePliableScrewlike) xReshape (by meltedPliable (by heatedMelts ((inheritance-rule-lift lighterHeatsPlastic) xLighter (by (inheritance-implication xPlastic) (ctx proof 1)))))))))) (Inheritance X removed) (STV 0.8960103413108825 0.989769492533671))))

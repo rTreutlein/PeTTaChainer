@@ -2,7 +2,8 @@
 
 ;; #74: an unaffordable pass retains the waiting value; a later large query
 ;; completes the original conditioned calculation. The small affordable-cut
-;; regression is in test_premise_conditioning.metta (budget 3).
+;; regression is in test_premise_conditioning.metta (budget 3). The cheaper
+;; certain-likelihood reads now reach this waiting stage at budget 10.
 (= (finite-tv (: $_proof $_type $tv)) $tv)
 
 !(compileadd finiteKb (: storm-t1 (Storm t1) (STV 0.6 1)))
@@ -19,10 +20,10 @@
 !(compileadd finiteKb (: off-t1 (Producing plant t1) (STV 0 1)))
 !(compileadd finiteKb (: on-t2 (Producing plant t2) (STV 1 1)))
 
-!(test (map-flat finite-tv (collapse (query 15 finiteKb (: $p (Degraded plant t1) $tv))))
-   ((STV 0.01366120218579236 0.999967519870426)))
+!(test (map-flat finite-tv (collapse (query 10 finiteKb (: $p (Degraded plant t1) $tv))))
+   ((STV 0.013661205377171628 0.9999675198689901)))
 !(test (map-flat finite-tv (collapse (query 2000 finiteKb (: $p (Degraded plant t1) $tv))))
-   ((STV 0.05887282355682909 0.9998816871581414)))
+   ((STV 0.0588728408972088 0.9998816871399366)))
 !(test (search-id-value sk_claim_state) -1)
 
 ;; Metering itself: one unit buys two conditioned rows, including nested

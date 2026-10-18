@@ -55,6 +55,7 @@
              (CTV
                 $pos
                 $neg))
+          ((likelihood-read $_raw $read $_support) (expected-tv $read))
           (no-evidence no-evidence)
           ($other (the TV $other))))))
 
@@ -88,6 +89,7 @@
              (CTV
                 (normalize-expected-stv $pos)
                 (normalize-expected-stv $neg)))
+          ((likelihood-read $_raw $read $_support) (expected-tv $read))
           (no-evidence no-evidence)
           ($other (the TV $other))))))
 
@@ -96,14 +98,24 @@
 ;; current_op per call) dominated backward-search profiles. Failure modes are
 ;; preserved -- a formula clause that does not match (or yields empty) makes
 ;; this function fail exactly like the reduce-based call did.
+(: normalize-expected-likelihoods (-[semidet]-> $candidate LikelihoodRead))
+(= (normalize-expected-likelihoods $candidate)
+   (if (is-var $candidate)
+      (likelihood-read (CTV (STV 1 1) (STV 1 1)) (CTV (STV 1 1) (STV 1 1)) unknown-support)
+      (case $candidate (
+         ((likelihood-read $raw $read $support)
+            (likelihood-read (normalize-expected-ctv $raw) (normalize-expected-ctv $read) $support))))))
+
 (: cpu-expected-tv
-   (-[nondet]-> $formula $arguments  (| TV (List Atom))))
+   (-[nondet]-> $formula $arguments Atom))
 (= (cpu-expected-tv $fun ($a))
+   (if (== $fun likelihood-read-tv)
+      (likelihood-read-tv (normalize-expected-likelihoods $a))
    (if (== $fun NotFormula)
       (if (is-var $a)
          (STV 1.0 1.0)
          (NotFormula (normalize-expected-stv $a)))
-      ()))
+      ())))
 
 (= (cpu-expected-tv $fun ($a $b))
    (case $fun
@@ -126,9 +138,8 @@
          (if (is-var $a)
             (let $confidence (* 0.9 (tv-confidence (expected-tv $b)))
                (CTV (STV 1.0 $confidence) (STV 1.0 $confidence)))
-            (CTVBayesFormula
-               (normalize-expected-evidence-tv $a)
-               (normalize-expected-ctv $b))))
+            (CTVBayesFormula (normalize-expected-evidence-tv $a)
+               (normalize-expected-likelihoods $b))))
        (AndFormula
          (AndFormula
             (normalize-expected-stv $a)
@@ -148,6 +159,9 @@
        ($_other ()))))
 
 (= (cpu-expected-tv $fun ($a $b $ctv))
+   (if (== $fun ImplicationLikelihoodsFormula)
+      (ImplicationLikelihoodsFormula (the OptionalSTV (expected-tv $a))
+         (the OptionalSTV (expected-tv $b)) (the (| STVType CTVType) (expected-tv $ctv)))
    (if (== $fun CTVInversionFormula)
       (let*
          (($na (expected-tv $a))
@@ -157,15 +171,35 @@
              (* (min-atom
                   ((tv-confidence $na)
                    (tv-confidence $nb)
-                   (tv-confidence $nctv)))
+                   (case $nctv (((CTV $positive $_negative) (tv-confidence $positive)) ($_other (tv-confidence $nctv))))))
                 0.9)))
          (if (or (is-var $a) (is-var $b))
             (CTV (STV 1.0 $confidence) (STV 1.0 $confidence))
-            (CTVInversionFormula $na $nb $nctv)))
+            (CTVInversionFormula $na $nb (normalize-expected-likelihoods $ctv))))
+      ())))
+
+(= (cpu-expected-tv $fun ($a $b $c $d))
+   (if (== $fun CompletionLikelihoodsFormula)
+      (CompletionLikelihoodsFormula $a
+         (if (is-var $b) false (case $b ((true true) (false false))))
+         (expected-tv $c) (normalize-expected-likelihoods $d))
+      ()))
+
+;; Open proof templates are optimistic bounds, not evidence to resolve.
+;; Only a closed observation can be used to select an empirical centre.
+(= (cpu-expected-tv $fun ($kb $rule $antecedent $consequent $candidate $context))
+   (if (== $fun rule-likelihood-read)
+      (if (if (is-var $kb) true (if (is-var $rule) true
+                   (not (== (extract-vars $context) ()))))
+         (normalize-expected-likelihoods $candidate)
+         (let $record (normalize-expected-likelihoods $candidate)
+            (the LikelihoodRead (reduce (reduce
+               (cons rule-likelihood-read
+                  (quote ($kb $rule $antecedent $consequent $record $context))))))))
       ()))
 
 (: first-cpu-expected-tv
-   (-[det]-> $formula $arguments (| TV (List Atom))))
+   (-[det]-> $formula $arguments Atom))
 (= (first-cpu-expected-tv $fun $args)
    (let $hits (collapse (cpu-expected-tv $fun $args))
       (if (== $hits ()) () (car-atom $hits))))

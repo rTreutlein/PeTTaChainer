@@ -35,6 +35,10 @@
 (= (aggregate-fold-function? $function)
    (or (== $function FoldAllCompiled) (== $function GroupedFoldAllCompiled)))
 
+(: contextual-cpu? (-[det]-> $formula Bool))
+(= (contextual-cpu? $fun)
+   (if (== $fun ContextRule) true (if (== $fun ReadRate) true (== $fun ReadLikelihoodContext))))
+
 ;; Signatures of the mutually recursive functions below.
 (: sk-drop-branch! (-[det]-> Atom Number Atom))
 (: sk-stale-branch! (-[det]-> Atom Number Atom))
@@ -807,7 +811,7 @@
                      (let $_fold (if (== (search-id-value sk_forward_run) 1) (sk-forward-note-fold! $premise) ())
                         (sk-wait-on! $owner $rule $premise
                            (sk-partial $owner $rule $concl $done $remaining $keys)))
-                     (if (if (== $fun ContextRule) false (== (extract-vars $args) ()))
+                     (if (if (contextual-cpu? $fun) false (== (extract-vars $args) ()))
                         (fold-semidet
                            (sk-cpu-step
                               (sk-partial $owner $rule $concl $done $remaining $keys))
@@ -984,11 +988,24 @@
 ;; A computation whose arguments were ground when its join was built was
 ;; computed then and bound its result; recomputing a sampling formula would
 ;; draw again. The formulas over premise truth values run in evaluation.
+;; The truth's instance producer is registered once as its row is built.
+(: sk-truth-fold-step! (-[semidet]-> Number Atom SkPattern Atom))
+(= (sk-truth-fold-step! $truth $_acc $premise)
+   (case $premise (
+      ((CPU FoldAllCompiled $args $_res)
+         (case $args (
+            (($_kb (ImplicationInstanceSample $_a $_b $_atv $_btv) $_extract $_zero $_accumulator $_finish $_result)
+               (let* (($fold (sk-fold $args)) ($hash (index-hash $fold)))
+                  (if (space-row-present? &ctx_sk_truth_fold ($truth $hash $fold)) ()
+                     (context-add! &sk_truth_fold ($truth $hash $fold)))))
+            ($_other ()))))
+      ($_other ()))))
+
 (: sk-evaluated-premise-step (-[det]-> (List SkPattern) SkPattern (List SkPattern)))
 (= (sk-evaluated-premise-step $kept $premise)
    (case $premise (
       ((CPU $fun $args $_res)
-         (if (if (== $fun ContextRule) true (aggregate-fold-function? $fun)) (cons $premise $kept)
+         (if (if (contextual-cpu? $fun) true (aggregate-fold-function? $fun)) (cons $premise $kept)
             (if (== (extract-vars $args) ()) $kept (cons $premise $kept))))
       ($_fact (cons $premise $kept)))))
 
@@ -1062,6 +1079,10 @@
                    ($_add
                       (if (chainer-acyclic-term? $row)
                          (let* (($_stored (add-atom &sk_row ($khash $key $rhash $row)))
+                                ($_truth-folds (case $key (
+                                   ((sk-key (RuleTruth $_truth) $_ctx)
+                                      (fold-semidet (sk-truth-fold-step! $khash) () $premises))
+                                   ($_other ()))))
                                 ($_aggregate (if (fold-semidet sk-aggregate-reader-step false $premises)
                                            (add-atom &sk_aggregate_row ($khash $key $rhash)) ()))
                                 ($_touched (sk-touch-key! $khash $key))
@@ -1413,7 +1434,7 @@
    (once
       (case $premise (
          ((CPU $fun $args $res)
-            (if (if (== $fun ContextRule) true (aggregate-fold-function? $fun)) false
+            (if (if (contextual-cpu? $fun) true (aggregate-fold-function? $fun)) false
                (if (if (is-var $fun) false (== (extract-vars $args) ()))
                   (case (collapse (cpu-call 0 $fun $args)) (
                      (() true)
@@ -1748,8 +1769,8 @@
       (let* (((sk-match $rule $premises $_goal) (superpose $matches))
              ((CPU FoldAllCompiled $args $_result) (superpose $premises))
              ((base-rate-aggregate-key-value $kbid $pattern $_mode) (base-rate-aggregate-key $args)))
-         (if (= (copy_term $pattern) (copy_term $type))
-            (sk-prior-fold $rule $args)
+         (if (if (positive-only-pattern? $kbid $pattern) (user-base-rate? $kbid $pattern) true)
+            (if (= (copy_term $pattern) (copy_term $type)) (sk-prior-fold $rule $args) (empty))
             (empty)))))
 
 (: sk-application-match? (-[det]-> Bool SkeletonMatch Bool))
@@ -2088,6 +2109,11 @@
          (collapse (match &ctx_sk_branch_owner ($slot $_hash $key $_rhash $inputs)
             (let* (($_dirty (context-add! &sk_branch_dirty ($slot)))
                    ($_unlinked (fold-semidet (sk-branch-unlink! $slot) () $inputs))
+                   ($_wanted
+                      (if (== (search-id-value sk_holding) 1)
+                         (collapse (match &ctx_sk_branch_hold ($slot $hash $held $row $exclude)
+                            (if (space-row-present? &ctx_sk_branch_wanted ($slot $hash $held $row $exclude)) ()
+                               (context-add! &sk_branch_wanted ($slot $hash $held $row $exclude))))) ()))
                    ($_views
                       (collapse (match &ctx_sk_branch ($slot $stored $rhash $cuts true $view)
                          (let $_old (remove-variant-row! &sk_branch (quote ($slot $stored $rhash $cuts true $view)))

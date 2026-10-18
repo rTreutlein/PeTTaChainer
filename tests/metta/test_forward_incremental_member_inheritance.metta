@@ -33,7 +33,7 @@
       (list-count
          (collapse
             (match &forward_aggregate_observation
-               ($_obs-hash ($id $_obj) $_value $_weight $_mass)
+               ($_obs-hash ($id $_obj) $_value $_weight $_mass $_sources)
                true)))))
 
 (: materialized-inheritance-facts
@@ -79,7 +79,7 @@
             $_key
             (forward-member-inheritance-observation-value
                $_subject $_concept)
-            $_weight $_mass)
+            $_weight $_mass $_sources)
          true))
    ())
 
@@ -127,7 +127,7 @@
             $_key
             (forward-member-inheritance-observation-value
                $_subject $_concept)
-            $_weight $_mass)
+            $_weight $_mass $_sources)
          true))
    ())
 
@@ -179,7 +179,7 @@
                ($_id a)
                (forward-member-inheritance-observation-value
                   $_subject $_concept)
-               $_weight $_mass)
+               $_weight $_mass $_sources)
             true)))
    1)
 
@@ -203,7 +203,7 @@
                ($_id $_obj)
                (forward-member-inheritance-observation-value
                   $_subject $_concept)
-               $_weight $_mass)
+               $_weight $_mass $_sources)
             true)))
    2)
 
@@ -222,7 +222,7 @@
                ($_id $_obj)
                (forward-member-inheritance-observation-value
                   $_subject $_concept)
-               $_weight $_mass)
+               $_weight $_mass $_sources)
             true)))
    2)
 
@@ -242,7 +242,7 @@
          forwardMemberFoldKb Human Mortal))
       (collapse
          (match &forward_aggregate_state
-            (forward-aggregate-state $id $weight $mass)
+            ($id $weight $mass $_members)
             ($weight $mass))))
    ((0.19999999999999996 0.5)))
 
@@ -262,7 +262,7 @@
                ($_id $_obj)
                (forward-member-inheritance-observation-value
                   $_subject $_concept)
-               $_weight $_mass)
+               $_weight $_mass $_sources)
             true)))
    1)
 
@@ -450,7 +450,7 @@
 !(test (member-fold-cache sameConceptKb Human Human) ((STV 1.0 0.0012484394506866417)))
 !(test
    (let $id (fa-id (forward-member-inheritance-identity sameConceptKb Human Human))
-      (collapse (match &forward_aggregate_state (forward-aggregate-state $id $weight $mass) ($weight $mass))))
+      (collapse (match &forward_aggregate_state ($id $weight $mass $_members) ($weight $mass))))
    ((1.0 1.0)))
 
 ;; Registering the same premises again adds no identity, interest or state, and
@@ -480,7 +480,7 @@
 !(test (member-fold-interest-count repeatRegisterKb A B) 2)
 !(test
    (let $id (fa-id (forward-member-inheritance-identity repeatRegisterKb A B))
-      (list-count (collapse (match &forward_aggregate_state (forward-aggregate-state $id $weight $mass) true))))
+      (list-count (collapse (match &forward_aggregate_state ($id $weight $mass $_members) true))))
    1)
 !(forward-seed-fold!
    (CPU FoldAllCompiled
@@ -491,7 +491,7 @@
 !(test (member-fold-observation-count repeatRegisterKb A B) 1)
 !(test
    (let $id (fa-id (forward-member-inheritance-identity repeatRegisterKb A B))
-      (collapse (match &forward_aggregate_state (forward-aggregate-state $id $weight $mass) ($weight $mass))))
+      (collapse (match &forward_aggregate_state ($id $weight $mass $_members) ($weight $mass))))
    ((0.8 1.0)))
 !(test (member-fold-cache repeatRegisterKb A B) ((STV 0.8 0.0012484394506866417)))
 !(forward-seed-fold!
@@ -502,6 +502,6 @@
       $result))
 !(test
    (let $id (fa-id (forward-member-inheritance-identity repeatRegisterKb A B))
-      (collapse (match &forward_aggregate_state (forward-aggregate-state $id $weight $mass) ($weight $mass))))
+      (collapse (match &forward_aggregate_state ($id $weight $mass $_members) ($weight $mass))))
    ((0.8 1.0)))
 !(test (member-fold-interest-count repeatRegisterKb A B) 2)

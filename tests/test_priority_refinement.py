@@ -56,13 +56,14 @@ class TestPriorityRefinement(unittest.TestCase):
                     proof, tv = answer[1], answer[3]
                     with self.subTest(root=root, check="truth value"):
                         self.assertEqual(tv[0], "STV")
+                        # Finite inferred branches now use the neutral #89 read.
                         # Fixed reference, compared numerically rather
                         # than by string formatting.
                         self.assertAlmostEqual(
-                            float(tv[1]), 0.49982848672541863, delta=1e-10
+                            float(tv[1]), 0.4999998306455424, delta=1e-10
                         )
                         self.assertAlmostEqual(
-                            float(tv[2]), 4.198674712641071e-06, delta=1e-10
+                            float(tv[2]), 4.248248936507523e-06, delta=1e-10
                         )
                     self.assertEqual(proof[0], "inheritance-implication-fold")
                     self.assertEqual(proof[1][0], "total-implication")

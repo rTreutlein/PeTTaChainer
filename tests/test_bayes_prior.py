@@ -20,6 +20,9 @@ class BayesPriorTests(unittest.TestCase):
     def formula(self, name, args):
         return _parse(self.h._call(name, [args])[0])
 
+    def read(self, raw, centre='(STV 0.5 1)'):
+        return self.h._call('read-likelihoods', [f'{raw} (CTV {centre} {centre}) test-support'])[0]
+
     def test_variance_sum_weight_and_boundaries(self):
         # At kappa=.2, n_g <= 5 yields zero after the required clamp.
         for confidence in (0, 0.01, 0.7, 5 / 6):
@@ -47,31 +50,29 @@ class BayesPriorTests(unittest.TestCase):
     def test_inversion_uses_consequent_centre_confidence(self):
         for centre_c, expected in ((0.2, 0.42), (0.9, 0.40838709677419355)):
             with self.subTest(centre_c=centre_c):
-                tv = self.formula("CTVInversionFormula",
-                    f"(STV 0.3 0.8) (STV 0.5 {centre_c}) "
-                    "(CTV (STV 0.7 0.4) (STV 0.1 0.4))")
+                centre = f'(STV 0.5 {centre_c})'
+                read = self.read('(CTV (STV 0.7 0.4) (STV 0.1 0.4))', centre)
+                tv = self.formula("CTVInversionFormula", f"(STV 0.3 0.8) {centre} {read}")
                 self.assertAlmostEqual(float(tv[1][1]), expected)
                 self.assertAlmostEqual(float(tv[2][1]), 0.6 - expected)
 
-    def test_bayes_uses_pooled_branch_confidence(self):
-        # Counts 2/3 and 1: pooled centre .44 with count 5/3. Default
-        # kappa=.2 gives zero weight; kappa=10 gives a=47/41.
-        for kappa, expected in ((0.2, 4 / 7), (10, 140404 / 381913)):
+    def test_bayes_without_provenance_uses_neutral_centres(self):
+        # Branch names alone do not certify disjoint data. Each finite rate
+        # reads the structural .5 centre with kappa, not its own pooled count.
+        for kappa, expected in ((0.2, 38 / 77), (10, 913 / 3409)):
             self.h.set_bayes_prior_count(kappa)
             for prior_c in (0.1, 0.9):
                 tv = self.formula("CTVBayesFormula",
-                    f"(STV 0.25 {prior_c}) (CTV (STV 0.8 0.4) (STV 0.2 0.5))")
+                    f"(STV 0.25 {prior_c}) {self.read('(CTV (STV 0.8 0.4) (STV 0.2 0.5))')}")
                 self.assertAlmostEqual(float(tv[1][1]), expected)
 
-    def test_pooled_centre_keeps_certain_branch_confidence(self):
-        # One branch is given: the pooled centre has confidence 1, not
-        # the finite confidence obtained from confidence-to-count's cap.
+    def test_certain_branch_is_not_automatically_a_centre(self):
         self.h.set_bayes_prior_count(1e6)
         tv = self.formula("CTVBayesFormula",
-            "(STV 0.25 0.8) (CTV (STV 0.8 0.4) (STV 0.2 1))")
-        # The existing count-weighted pooled mean is 0.2000399973335;
-        # the uncertain branch shrinks with weight exactly 10^6.
-        self.assertAlmostEqual(float(tv[1][1]), 0.2500378705625824, places=12)
+            f"(STV 0.25 0.8) {self.read('(CTV (STV 0.8 0.4) (STV 0.2 1))')}")
+        # The certain .2 remains stated; unknown shared provenance means the
+        # other branch shrinks towards neutral .5, not towards that .2.
+        self.assertAlmostEqual(float(tv[1][1]), 0.4545455537189293, places=12)
 
     def test_certain_likelihood_and_rate_are_unchanged(self):
         self.assertEqual(self.formula("bayes-shrink", "0.9 1 0.1 0.9"), "0.9")
@@ -82,15 +83,15 @@ class BayesPriorTests(unittest.TestCase):
         self.assertAlmostEqual(float(tv[1]), 1 / 12)
         self.assertEqual(float(tv[2]), 0.5)
         for centre_c in (0.2, 0.9, 1):
-            tv = self.formula("CTVInversionFormula",
-                f"(STV 0.3 0.8) (STV 0.5 {centre_c}) "
-                "(CTV (STV 0.7 1) (STV 0.1 1))")
+            centre = f'(STV 0.5 {centre_c})'
+            read = self.read('(CTV (STV 0.7 1) (STV 0.1 1))', centre)
+            tv = self.formula("CTVInversionFormula", f"(STV 0.3 0.8) {centre} {read}")
             self.assertAlmostEqual(float(tv[1][1]), 0.42)
         tv = self.formula("CTVBayesFormula",
-            "(STV 0.25 0.8) (CTV (STV 0.8 1) (STV 0.2 1))")
+            f"(STV 0.25 0.8) {self.read('(CTV (STV 0.8 1) (STV 0.2 1))')}")
         self.assertAlmostEqual(float(tv[1][1]), 4 / 7)
 
-    def test_zero_weight_and_zero_evidence_preserve_estimate(self):
-        self.assertEqual(float(self.h._call("bayes-shrink", ["0.9 0 0.1 0"])[0]), 0.9)
+    def test_zero_evidence_is_neutral_even_with_zero_weight(self):
+        self.assertEqual(float(self.h._call("bayes-shrink", ["0.9 0 0.1 0"])[0]), 0.5)
         self.h.set_bayes_prior_count(0)
-        self.assertEqual(float(self.h._call("bayes-shrink", ["0.9 0 0.1 1"])[0]), 0.9)
+        self.assertEqual(float(self.h._call("bayes-shrink", ["0.9 0 0.1 1"])[0]), 0.5)

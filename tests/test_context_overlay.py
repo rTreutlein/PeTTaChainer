@@ -45,7 +45,9 @@ class OverlayChecks:
         # read is p=(.3*7200+.1)/7200.2, rather than exactly .3.
         p = (.3 * 7200 + .1) / 7200.2
         q = .4 * (.9 * p / (.9 * p + .2 * (1 - p))) + .6 * (.1 * p / (.1 * p + .8 * (1 - p)))
-        odds = (.3 / .7) * (q / (1 - q)) / (p / (1 - p))
+        # The finite stored instance prior gets the same neutral read once.
+        instance = (.3 * 3200 + .1) / 3200.2
+        odds = (instance / (1 - instance)) * (q / (1 - q)) / (p / (1 - p))
         rows = self.answers("(Assuming (Action now) (Cause now))")
         self.assertEqual(len(rows), 1, rows)
         self.assertAlmostEqual(float(rows[0].tv[1]), odds / (1 + odds), delta=1e-6)
@@ -190,7 +192,7 @@ class OverlayChecks:
         )
         self.assertEqual([len(group) for group in rows], [1] * 22)
         for group in rows:
-            self.assertAlmostEqual(group[0].tv[1], .29392076412140383, delta=1e-6)
+            self.assertAlmostEqual(group[0].tv[1], .29393311641031633, delta=1e-6)
 
     def test_assumed_member_updates_only_local_base_rate(self):
         self.h.add_atoms_no_check([

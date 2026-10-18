@@ -19,15 +19,14 @@
 ;; P(P | not (Q and R)) = 0.2 * 0.7 / (0.2 * 0.7 + 0.9 * 0.3).
 !(test
    (query 300 inverseCompoundKb (: $prf (P alice) $tv))
-   (: ((inverted p_qr with cpu (prior (STV 0.6599999999999998 0.0009990009990009992)))
-       (conjunction q-alice r-alice))
-      (P alice)
-      (STV 0.7608238698423264 0.01627022239637397)))
+   (: ((inverted p_qr with cpu (prior (STV 0.6599999999999998 0.0009990009990009992))) (conjunction q-alice r-alice)) (P alice) (STV 0.760823053647666 0.016270192255568902)))
 
 ;; A rule stated with an STV is inverted over the base rates of both sides.
 ;; The compound consequent's base-rate scan keeps the shared `$x`, so it
 ;; counts only valid same-entity conjunctions: alice's, not carol's Q with
-;; alice's R.
+;; alice's R. The inversion excludes Alice's own observation: no independent
+;; consequent remains, so it returns the population prior rather than
+;; increasing confidence with its own evidence.
 !(compileadd inverseCompoundStvKb
    (: p_qr
       (Implication
@@ -41,10 +40,7 @@
 
 !(test
    (query 300 inverseCompoundStvKb (: $prf (P alice) $tv))
-   (: ((inverted p_qr with cpu (prior (STV 0.6599999999999998 0.0009990009990009992)))
-       (conjunction q-alice r-alice))
-      (P alice)
-      (STV 0.6599999999999999 0.0010700023797469776)))
+   (: (population-prior (P $x)) (P alice) (STV 0.6599999999999998 0.0009990009990009992)))
 !(test
    (cached-base-rate inverseCompoundStvKb (And (Q $x) (R $x)))
    ((STV 0.7200000000000002 0.0010134642737165396)))

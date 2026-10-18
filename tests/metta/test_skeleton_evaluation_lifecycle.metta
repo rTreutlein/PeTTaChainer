@@ -49,3 +49,24 @@
 !(test
    (collapse (query 0 forceKb (: $proof (ForceRoot) $tv)))
    ((: (by (no_inverse forceRule) seed) (ForceRoot) (STV 1.0 0.7999359651197002))))
+
+;; Invalidation re-requests every held exclusion context on this slot. The
+;; hold journal is query-local and leaves when answers have been captured.
+!(test
+   (match &sk_row ($hash (sk-key (ForceRoot) (forceKb MAIN Nil)) $rhash
+                     (sk-row $ident $concl $premises $seq))
+      (let* (($key (sk-key (ForceRoot) (forceKb MAIN Nil)))
+             ($slot (index-hash ($hash $rhash)))
+             ($view (sk-latest-view $hash $key $rhash))
+             ($_cached (sk-cache-branch! $slot $hash $key $rhash
+                (cons (sk-key (ForceSeed) (forceKb MAIN Nil)) ()) () true $view))
+             ($_holding (change-state! sk_holding 1))
+             ($_reading (add-atom &sk_reading ($hash $key $rhash)))
+             ($_first (sk-hold-branch-reader! $slot $key $rhash (111)))
+             ($_second (sk-hold-branch-reader! $slot $key $rhash (222)))
+             ($_read (remove-variant-row! &sk_reading (quote ($hash $key $rhash))))
+             ($_dirty (sk-stale-branch! () $slot))
+             ($requested (collapse (match &ctx_sk_branch_wanted ($slot $hash $key $rhash $exclude) $exclude)))
+             ($_released (sk-stale-held!)))
+         ($requested (collapse (match &ctx_sk_branch_hold ($slot $_h $_k $_r $_e) true)))))
+   (((111) (222)) ()))

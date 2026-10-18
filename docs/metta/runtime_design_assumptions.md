@@ -190,6 +190,17 @@ The important tradeoff is intentional: a tightly budgeted query may initially
 use an older estimate. Add-time work must not eagerly make every cached estimate
 current.
 
+A base-rate fold takes changed members with its own fold excluded from their
+views (#89). When it reads the updated estimate back, it consumes only its own
+new cache-change notification. Dirtiness already present on entry survives;
+other folds reading the same cache entry, forward updates and user base-rate
+changes retain their notifications. Without this consumption, the next query
+would drop a current fold view, invalidate its branches and retake unchanged
+members. That cross-query poll was needed when member reads could depend on
+the rate itself; fold-excluded reads remove that feedback. Actual independent
+member changes and completed excluded branches still dirty the member take
+and wake its fold through the ordinary indexed paths.
+
 ### The backward chainer keeps a durable skeleton
 
 The backward chainer keeps the structure of search across queries, in
@@ -391,6 +402,14 @@ consumer. Ordinary stale-input holds are separate and cannot be discharged
 by branch settlement. Holds are checked before cleanup propagates staleness,
 so cleanup does not invalidate the very settlement that discharged them.
 
+A held exclusion read is also indexed by branch slot in a context-local
+journal. Dirtied slots re-request every held context during evaluation;
+release clears that journal. Base-rate member takes register as readers of
+fold-excluded branches. A completed branch dirties that member's take and
+stales its fold, so the next ordinary read in the same evaluation takes it.
+Capture answers before releasing holds. Cleanup spends no further evaluation
+allowance and does not depend on the identity of preceding query batches.
+
 On an unchanged KB, repeated queries with enough allowance must finish
 pending search, conditioning and branch refreshes, reach a stable answer,
 and then perform zero branch builds and zero row computations. Cache
@@ -528,9 +547,10 @@ A key's value merges its stored facts and one view per row:
   mined parent/child rules. Counts and confidence do not rank conditions;
 - a containing general view supplies the specific estimate's prior. Its
   weight accounts for uncertainty of the general estimate and heterogeneity
-  κ (`set-bayes-prior-count`, default 0.2), as described below. General views
-  revise into one prior, whose confidence sets the weight, and the original
-  specific estimate is shrunk once; `specializes`
+  κ (`set-bayes-prior-count`, default 0.2). Only estimates of the same
+  containing class revise. Nearest incomparable containing classes form an
+  equal distribution mixture, including between-centre variance; the original
+  specific estimate is read once ([prior definition](prior_definition.md)); `specializes`
   records both TVs. Derived implication applications include their source
   conditions. Prior observations do not enter the specific likelihood's
   evidence; its proof and refresh dependencies retain the general class.
@@ -878,39 +898,26 @@ computed fold does; a forward take reads the taken key with the base rates it
 is a member of excluded. Only stored facts count as seeded or remaining
 members: a forward run's copy of a key's value is reported by the run itself.
 
-Bayes' rule and inversion read a likelihood estimated from finite evidence
-under a prior centred on independence: the pooled P(B) of both branches,
-or P(B) for P(B|A). The configured heterogeneity count κ
-(`set-bayes-prior-count`, default 0.2; existing API names retained) is no
-longer a fixed prior weight. Add the centre estimate variance
-`g(1−g)/(n_g+1)` and subclass heterogeneity variance `g(1−g)/(κ+1)`, where
-`n_g = c_g·k/(1−c_g)`, and convert back to pseudo-observations:
+All prior reads follow [the common prior definition](prior_definition.md).
+The weight is #69's confidence-dependent heterogeneity weight; the centre
+contains no evidence of the estimate being read. Specificity uses nearest
+containing classes; Bayes uses independent P(B), or leave-one-out branches with
+proven disjoint sources, otherwise neutral .5. Same-class estimates can revise;
+incomparable containing classes cannot inflate one another's confidence.
 
-    a = max(0, 1/(1/(n_g+1) + 1/(κ+1)) − 1)
+Population and finite instance priors, including stored uncertain targets and
+WithPrior beliefs, use the neutral centre at the same κ weight. Their original
+and read values remain distinguishable in row data, and later sensors reuse the
+read prior. Public proofs contain logical sources and the read prior TV, not
+support records, evidence handles, raw marginals or exclusion hashes.
+Finite endpoints do not act as certain vetoes. Certain observations and certified
+zero likelihoods retain their logical force. A positive-only predicate still has
+no empirical population prior unless an explicit user rate supplies one.
 
-A certain centre has no estimate variance and gives `a = κ`. An uncertain
-centre reduces the pull; for finite counts a positive weight requires
-`n_g·κ > 1` (at default κ, counts at most 5 give zero). With κ large relative
-to n_g the weight approaches n_g, and with n_g large it approaches κ.
-Specificity uses the containing general view's confidence; STV inversion
-uses P(B)'s confidence before reconciliation; Bayes' rule pools branch
-counts and converts their sum back to the centre's confidence (certain if
-either branch is certain). This changes only the strength read from the
-likelihood, not its evidence count. At k=1,
-general (0.25, 0.7), specific (0.99, 0.4) now reads 0.99, since a clamps to
-zero, rather than the fixed-weight 0.8192307583. κ is configured, not
-estimated from sibling spread.
-
-Without a prior, a false-alarm rate estimated as 0 from a handful of cases
-can make every alarm certain. A base rate read as the prior of an inversion
-or a completion is the prior of one more member, read the same way, centred
-on the given 0.5 (confidence 1, so a = κ): a rate of 0 or 1 from finitely many
-members leaves an instance either way possible, so its
-updates keep their likelihood ratios. A predicate whose stored instances are
-only its true ones is declared positive-only (`set-positive-only-predicate`)
-and has no empirical prior. An explicit user base rate overrides that sampling
-restriction; setting or clearing it updates existing readers. A certain likelihood, a certain rate, and the instance
-prior are read as they are.
+An STV's inferred negative likelihood is read once after deriving its raw
+estimate. Its already-consumed marginals cannot also be its centre. Unknown
+negative branches remain (.5,0); explicit CTVs keep both stated branches. The
+quarter-minimum inferred confidence remains a calibration heuristic.
 
 ### Queries read what their roots reach
 

@@ -189,7 +189,7 @@
 !(test (let (: $p $t $tv) (query 50 ovKb (: $p (RuleTruth (Implication (B $x) (C $x))) $tv)) $tv)
    (STV 0.7934110109537581 0.6681312812545516))
 !(test (let (: $p $t $tv) (query 200 ovKb (: $p (C new) $tv)) $tv)
-   (STV 0.7934110109537581 0.6681312811007503))
+   (STV 0.7934110109537581 0.6681312811163517))
 
 ;; Refined trust rules, one per source, learned from ten labelled claims each
 ;; (ChainerGame's conflicting sources, in small; test_certain_merge.metta has
@@ -272,8 +272,9 @@
 ;; benchmarks/ona/repros/specificity.py): with L b the case always wins (3
 ;; cases), with L c never (9). For a case with S a and L b both apply; the
 ;; specific application reads a proper superset of the general one's facts,
-;; so its antecedent entails the general one's, whose rate (0.25) is a
-;; marginal over this case and cases it is not. The narrowest reference class
+;; so its antecedent entails the general one's, whose rate (0.25) mixes the specific
+;; samples with the others. Its centre is recomputed without the three
+;; specific wins, leaving nine losses, before the #69 read. The narrowest reference class
 ;; decides: the general rate is only the prior the specific one is read
 ;; under. Revised, the two gave 0.40. Both rules are reviewed before the new
 ;; case arrives, as a client reviews hypotheses after a round of labels.
@@ -323,4 +324,4 @@
 !(compileadd specKb (: sx (S a new) (STV 1 1)))
 !(compileadd specKb (: lx (L b new) (STV 1 1)))
 !(test (query 200 specKb (: $p (Win new) $tv))
-   (: (specializes (by spec (conjunction sx lx)) (by gen sx) (STV 0.9917202260594017 0.37887466671136305) (STV 0.24569397197102627 0.7056385431925628)) (Win new) (STV 0.9683823763848897 0.37887466671136305)))
+   (: (specializes (by spec (conjunction sx lx)) (by gen sx) (STV 0.9917202260594017 0.37887466671136305) (STV 0.0027901785714285715 0.6441408966745946)) (Win new) (STV 0.9689109131062922 0.37887466671136305)))

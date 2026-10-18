@@ -139,8 +139,9 @@ keeps its value until it is merged again, as a base rate lags its members.
   singles from a specific rule. Overlapping sibling forward views combine by
   odds, with shared uncertain statements conditioned through the existing
   machinery and a conservative combined fallback while unpaid. Disjoint signs
-  retain the learned mode. Same-condition rules and containing general views
-  used as a specialization prior revise.
+  retain the learned mode. Only same-condition independent estimates revise.
+  Nearest incomparable containing classes supply an equal distribution mixture
+  as the specific estimate's centre ([prior definition](prior_definition.md)).
 - **Hypothesis rules.** Refined rules are scored with their truth key's
   value. Their views carry no samples (an implication instance fold carries
   none), so views of two refined rules into C are independent and combine

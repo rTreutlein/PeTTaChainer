@@ -50,14 +50,14 @@
             (LocalProblem current)
             (ProblemDependency current))
          $tv))
-   (: (by (bi-backward problemDefinition) (factored-revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) (prior (STV 0.52 0.9140621947055227)) (((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455289852 0.003629357526433342))) currentAlarm)))) (Or (LocalProblem current) (ProblemDependency current)) (STV 0.9069767441860465 0.9691291286369965)))
+   (: (by (bi-backward problemDefinition) (factored-revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) (prior (STV 0.5199995299237518 0.9140621947055227)) (((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455289852 0.003629357526433342))) currentAlarm)))) (Or (LocalProblem current) (ProblemDependency current)) (STV 0.906976585290498 0.9691290850214814)))
 
 ;; The general Problem estimate can use both the definition and the alarm.
 ;; The base rates count the whole population, including the derived alarm.
 !(test
    (query 5000 orInversionConditionedMergeKb
       (: $proof (Problem current) $tv))
-   (: (factored-revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) (prior (STV 0.52 0.9140621947055227)) (((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455289852 0.003629357526433342))) currentAlarm))) (Problem current) (STV 0.9069767441860465 0.9691291295624406)))
+   (: (factored-revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) (prior (STV 0.5199995299237518 0.9140621947055227)) (((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455289852 0.003629357526433342))) currentAlarm))) (Problem current) (STV 0.906976585290498 0.9691290859469237)))
 
 ;; LocalProblem cannot reuse evidence that depends on itself: the general
 ;; Problem estimate does. The completion of the definition onto it reads the
@@ -69,4 +69,4 @@
 !(test
    (query 20000 orInversionConditionedMergeKb
       (: $proof (LocalProblem current) $tv))
-   (: (factored-revision localPrior (prior (STV 0.4 0.9)) (((antecedent-completion (bi-forward problemDefinition) 0 with cpu (prior (STV 0.4185934569191004 0.0011238544987638187))) (conjunction dependencyPrior ((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455289852 0.003629357526433342))) currentAlarm))))) (LocalProblem current) (STV 0.6976600100605307 0.9110360738380232)))
+   (: (factored-revision localPrior (prior (STV 0.4000027777006194 0.9)) (((antecedent-completion (bi-forward problemDefinition) 0 with cpu (prior (STV 0.5 0.0))) (conjunction dependencyPrior ((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455289852 0.003629357526433342))) currentAlarm))))) (LocalProblem current) (STV 0.6976768597879697 0.9110388213710066)))

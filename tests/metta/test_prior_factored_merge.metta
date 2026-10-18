@@ -17,8 +17,8 @@
 !(compileadd noisyKb (: n0 (Noise0 m) (STV 1.0 1.0)))
 !(compileadd noisyKb (: n1 (Noise1 m) (STV 0.0 1.0)))
 
-!(test (case (query 100 alarmKb (: $p (SealLeak m) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.3534797477533504 0.5373665367120787))
-!(test (case (query 100 noisyKb (: $p (SealLeak m) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.3534797477533504 0.5373391025469572))
+!(test (case (query 100 alarmKb (: $p (SealLeak m) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.3535530522561636 0.5373975857284105))
+!(test (case (query 100 noisyKb (: $p (SealLeak m) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.3535530522561636 0.5373701458221191))
 
 ;; Two informative sensors that both fire compound as Bayes' rule does.
 !(compileadd twoKb (: alarm (WithPrior (LeakPredicted $u) (Implication (SealLeak $u) (Alarm $u))) (CTV (STV 0.85 0.9) (STV 0.15 0.9))))
@@ -26,4 +26,4 @@
 !(compileadd twoKb (: p1 (LeakPredicted m) (STV 0.088 0.8)))
 !(compileadd twoKb (: a1 (Alarm m) (STV 1.0 1.0)))
 !(compileadd twoKb (: b1 (Alarm2 m) (STV 1.0 1.0)))
-!(test (case (query 100 twoKb (: $p (SealLeak m) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.7559766393462969 0.5510294681321045))
+!(test (case (query 100 twoKb (: $p (SealLeak m) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.7560357977009485 0.5511163316231898))

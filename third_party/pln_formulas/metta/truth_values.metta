@@ -60,14 +60,15 @@
 ;; Read an estimate under a prior centred on m with centre confidence gc:
 ;; (s n + a m)/(n+a), n = c k/(1-c), a = bayes-prior-weight(gc).
 ;; Prior observations do not increase the likelihood's evidence. A certain
-;; estimate, or one with neither evidence nor prior, is read as it is.
+;; estimate stays exact; a zero-evidence estimate is always neutral.
 (: bayes-shrink (-[det]-> Number Number Number Number Number))
 (= (bayes-shrink $s $c $m $gc)
+   (if (<= $c 0.0) 0.5
    (if (>= $c 1.0) $s
       (let* (($n (confidence-to-count $c))
              ($a (bayes-prior-weight $gc)))
-         (if (<= (+ $n $a) 0.0) $s
-            (/ (+ (* $s $n) (* $a $m)) (+ $n $a))))))
+         (if (<= (+ $n $a) 0.0) 0.5
+            (/ (+ (* $s $n) (* $a $m)) (+ $n $a)))))))
 
 (: count-confidence (-[det]-> Number Number))
 (= (count-confidence $n) (/ $n (+ $n (evidence-confidence-k))))
@@ -433,28 +434,43 @@
 
 ; TV is the nominal domain shared by STV, CTV, and no-evidence. The result is a
 ; CTV for either concrete input variant.
-(: ImplicationCTVFormula
-   (-[det]-> OptionalSTV OptionalSTV
-       (| STVType CTVType) CTVType))
-(= (ImplicationCTVFormula $atv $btv $itv)
-   (case $itv
-      (((CTV $pos $neg) (CTV $pos $neg))
-       ;; P(B|not A) = (P(B) - P(A) P(B|A)) / (1 - P(A)) over the reconciled
-       ;; estimates, which keeps it in [0, 1] up to rounding; its confidence is
-       ;; a heuristic quarter of the weakest input's.
-       ((STV $s $c)
-          (case (ConsistentTriple (normalize-stv $atv) (normalize-stv $btv) (STV $s $c)) (
-             ((stv-triple (STV $sa $ca) (STV $sb $cb) (STV $sab $cab))
-                (CTV
-                   (STV $sab $cab)
-                   ;; Total probability determines the missing branch only
-                   ;; while all reconciled estimates have evidence and not A
-                   ;; is possible. An absent/drained rate supplies no update.
-                   (if (if (>= $sa 1.0) true (<= (min $ca (min $cb $cab)) 0.0))
-                      (STV 0.5 0.0)
-                      (STV
-                         (max 0.0 (min 1.0 (/ (- $sb (* $sa $sab)) (- 1.0 $sa))))
-                         (* 0.25 (min $ca (min $cb $cab)))))))))))))
+(: LikelihoodOrigin Type)
+(: stated (-[det]-> CTVType LikelihoodOrigin))
+(: negative-source (-[det]-> OptionalSTV OptionalSTV STVType LikelihoodOrigin))
+(: resolved-negative (-[det]-> OptionalSTV OptionalSTV LikelihoodOrigin LikelihoodOrigin))
+(: inferred-negative (-[det]-> OptionalSTV OptionalSTV (| STVType CTVType) STVType LikelihoodOrigin))
+(: centres (-[det]-> CTVType Atom LikelihoodOrigin))
+(: completion (-[det]-> Atom Bool TV LikelihoodOrigin LikelihoodOrigin))
+(: unknown-support LikelihoodOrigin)
+
+(: RateRead Type)
+(: rate-read (-[det]-> TV TV RateRead))
+(: LikelihoodRead (Newtype Atom))
+;; Original/read likelihoods and the centre/support used for that read. Numeric
+;; formulas consume the recorded read; they never smooth it a second time.
+(: likelihood-read (-[det]-> CTVType CTVType LikelihoodOrigin LikelihoodRead))
+
+(: likelihood-read-tv (-[det]-> LikelihoodRead CTVType))
+(= (likelihood-read-tv (likelihood-read $_raw $read $_support)) $read)
+
+(: ImplicationLikelihoodsFormula
+   (-[det]-> OptionalSTV OptionalSTV (| STVType CTVType) LikelihoodRead))
+(= (ImplicationLikelihoodsFormula $atv $btv $itv)
+   (case $itv (
+      ((CTV $pos $neg)
+         (likelihood-read (CTV $pos $neg) (CTV $pos $neg) (stated (CTV $pos $neg))))
+      ((STV $s $c)
+         (case (ConsistentTriple (normalize-stv $atv) (normalize-stv $btv) (STV $s $c)) (
+            ((stv-triple (STV $sa $ca) (STV $sb $cb) (STV $sab $cab))
+               (let* (($confidence (if (if (>= $sa 1.0) true (<= (min $ca (min $cb $cab)) 0))
+                                     0.0 (* 0.25 (min $ca (min $cb $cab)))))
+                      ($raw (if (<= $confidence 0) 0.5
+                               (max 0.0 (min 1.0 (/ (- $sb (* $sa $sab)) (- 1.0 $sa))))))
+                      ($read (if (<= $confidence 0) 0.5 (bayes-shrink $raw $confidence 0.5 1.0)))
+                      ($positive (STV $sab $cab)))
+                  (likelihood-read (CTV $positive (STV $raw $confidence))
+                     (CTV $positive (STV $read $confidence))
+                     (inferred-negative $atv $btv $itv (STV 0.5 1)))))))))))
 
 ; Uniform 1/N node prior for individuals, where N is the number of distinct
 ; subjects observed. The fold collects each matched subject; UniformPriorTv
@@ -482,11 +498,10 @@
       (if (<= $n 0) no-evidence
          (STV (/ 1.0 $n) 1.0))))
 
-(: CTVInversionFormula (-[semidet]-> TV TV TV TV))
+(: CTVInversionFormula (-[semidet]-> TV TV LikelihoodRead TV))
 (= (CTVInversionFormula no-evidence $_btv $_itv) (empty))
-(= (CTVInversionFormula (STV $_sa $_ca) no-evidence $_itv) (empty))
 ;; Inversion of a rule stated with an STV, whose negative branch is derived
-;; from the base rates (ImplicationCTVFormula); a rule stating both branches is
+;; from the base rates (ImplicationLikelihoodsFormula); a rule stating both branches is
 ;; inverted by CTVBayesFormula, which needs no P(B).
 ;; P(B|A) is read under the Bayes prior centred on P(B) (bayes-shrink).
 ;; Idealized inversion confidence. The inverted strength is a Bayes ratio
@@ -505,14 +520,21 @@
          (+ (* (* $d2 $d2) $Vsa)
             (* (* $d3 $d3) $Vq)))))
 
-(= (CTVInversionFormula (STV $sa0 $ca0) (STV $sb0 $cb0) (CTV (STV $sb_a0 $cb_a0) (STV $_sb_na $_cb_na)))
-   (if (or (<= $sb0 0.0) (>= $sb0 1.0))
-      (CTV (STV 0.0 0.0) (STV 0.0 0.0))
-      ;; The base rates and P(B|A) are reconciled first, so the ratios stay
+(= (CTVInversionFormula (STV $sa0 $ca0) $btv
+      (likelihood-read $_raw (CTV (STV $sb_a0 $cb_a0) $_negative) $origin))
+   (let $marginal (case $origin (
+            ((resolved-negative $_atv $admissible $_source) $admissible)
+            ($_other $btv)))
+      (case $marginal (
+         (no-evidence (empty))
+         ((STV $sb0 $cb0)
+   ;; The base rates and P(B|A) are reconciled first, so the ratios stay
       ;; within [0, 1] up to rounding and contradictory inputs invert at the
       ;; confidence their consistent part supports.
-      (case (ConsistentTriple (STV $sa0 $ca0) (STV $sb0 $cb0) (STV (bayes-shrink $sb_a0 $cb_a0 $sb0 $cb0) $cb_a0)) (
+      (case (ConsistentTriple (STV $sa0 $ca0) (STV $sb0 $cb0) (STV $sb_a0 $cb_a0)) (
          ((stv-triple (STV $sa $ca) (STV $sb $cb) (STV $sb_a $cb_a))
+            (if (or (<= $sb 0.0) (>= $sb 1.0))
+               (CTV (STV 0.5 0.0) (STV 0.5 0.0))
             (let*
                (($Va (ideal-var $sb_a $cb_a))
                 ($Vsa (ideal-var $sa $ca))
@@ -521,7 +543,7 @@
                 ($s_neg (min 1.0 (/ (* (- 1.0 $sb_a) $sa) (- 1.0 $sb)))))
                (CTV
                   (STV $s_pos (ideal-conf-from-var $s_pos (ideal-ratio-var $sb_a $Va $sa $Vsa $sb $Vsb)))
-                  (STV $s_neg (ideal-conf-from-var $s_neg (ideal-ratio-var (- 1.0 $sb_a) $Va $sa $Vsa (- 1.0 $sb) $Vsb))))))))))
+                  (STV $s_neg (ideal-conf-from-var $s_neg (ideal-ratio-var (- 1.0 $sb_a) $Va $sa $Vsa (- 1.0 $sb) $Vsb))))))))))))))
 
 ;; Bayes' rule for an instance whose prior P(A) and likelihoods P(B|A),
 ;; P(B|not A) are independent inputs: P(A|B) = u sa / (u sa + v (1 - sa)) with
@@ -529,8 +551,9 @@
 ;; is not an input, so the delta-method variance needs no independence between
 ;; P(B) and the likelihoods it is computed from, and a certain prior keeps a
 ;; certain posterior. The likelihoods are read under the Bayes prior centred on
-;; their pooled value, P(B) over both branches (bayes-shrink), so a likelihood
-;; estimated from few observations moves the posterior little.
+;; independently resolved centres (bayes-shrink). The runtime records the
+;; original rates, read rates and support; the raw formula API uses neutral
+;; centres because its arguments carry no observation provenance.
 (: ideal-bayes-stv (-[det]-> Number Number Number Number Number Number STVType))
 (= (ideal-bayes-stv $u $Vu $v $Vv $sa $Va)
    (let $d (+ (* $u $sa) (* $v (- 1.0 $sa)))
@@ -546,16 +569,19 @@
                   (+ (* (* $du $du) $Vu)
                      (+ (* (* $dv $dv) $Vv) (* (* $ds $ds) $Va)))))))))
 
-(: CTVBayesFormula (-[semidet]-> TV TV TV))
-(= (CTVBayesFormula no-evidence $_ctv) (empty))
-(= (CTVBayesFormula (STV $sa $ca) (CTV (STV $u0 $cu) (STV $v0 $cv)))
-   (let* (($nu (confidence-to-count $cu))
-          ($nv (confidence-to-count $cv))
-          ($m (if (<= (+ $nu $nv) 0.0) 0.5 (/ (+ (* $u0 $nu) (* $v0 $nv)) (+ $nu $nv))))
-          ($cm (if (or (>= $cu 1.0) (>= $cv 1.0)) 1.0 (count-confidence (+ $nu $nv))))
-          ($u (bayes-shrink $u0 $cu $m $cm))
-          ($v (bayes-shrink $v0 $cv $m $cm))
-          ($Va (ideal-var $sa $ca))
+(: read-likelihoods (-[det]-> CTVType CTVType Atom LikelihoodRead))
+(= (read-likelihoods (CTV (STV $u $cu) (STV $v $cv))
+      (CTV (STV $gu $cgu) (STV $gv $cgv)) $support)
+   (likelihood-read (CTV (STV $u $cu) (STV $v $cv))
+      (CTV (STV (bayes-shrink $u $cu $gu $cgu) $cu)
+           (STV (bayes-shrink $v $cv $gv $cgv) $cv))
+      (centres (CTV (STV $gu $cgu) (STV $gv $cgv)) $support)))
+
+(: CTVBayesFormula (-[semidet]-> TV LikelihoodRead TV))
+(= (CTVBayesFormula no-evidence $_likelihoods) (empty))
+(= (CTVBayesFormula (STV $sa $ca)
+      (likelihood-read $_raw (CTV (STV $u $cu) (STV $v $cv)) $_support))
+   (let* (($Va (ideal-var $sa $ca))
           ($Vu (ideal-var $u $cu))
           ($Vv (ideal-var $v $cv)))
       (CTV
@@ -588,6 +614,17 @@
    (if (certain-at? 1.0 $so $co) (empty)
       (let $given (if (certain-at? 0.0 $so $co) $neg (CTVModusPonensFormula (STV $so $co) (CTV $pos $neg)))
          (if $negated (CTV $given $pos) (CTV $pos $given)))))
+
+(: CompletionLikelihoodsFormula (-[semidet]-> Atom Bool TV LikelihoodRead LikelihoodRead))
+(= (CompletionLikelihoodsFormula $connective $negated $others
+      (likelihood-read $raw $read $support))
+   (if (== $connective And)
+      (likelihood-read (ConjunctLikelihoodFormula $negated $others $raw)
+         (ConjunctLikelihoodFormula $negated $others $read)
+         (completion And $negated $others $support))
+      (likelihood-read (DisjunctLikelihoodFormula $negated $others $raw)
+         (DisjunctLikelihoodFormula $negated $others $read)
+         (completion Or $negated $others $support))))
 
 ;; An inversion reads an observation of b as a likelihood ratio. A soft
 ;; observation's strength s is a posterior under the prior p it was formed

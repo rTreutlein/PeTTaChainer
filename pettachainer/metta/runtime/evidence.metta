@@ -216,6 +216,8 @@
       ;; from it.
       (cpu (ev-set 0))
       ((population-prior $_pattern) (ev-set 0))
+      ((class-mixture $sources)
+         (proof-term-evidence-children $mode (proof-children $sources)))
       ;; A factored merge's evidence is its prior view's and its updates';
       ;; the prior's truth value is none.
       ((factored-revision $base $_prior $parts)
@@ -321,8 +323,8 @@
                   (rule-evidence-head (brand Proof $name))
                   (brand Proof $name)))
             ((cons (antecedent-completion $src $_idx with $_c1 $_c2) $_rest)
-               (brand Proof $src))
-            ((cons (inverted $inv with $_pa $_pb) $_rest) (brand Proof $inv))
+               (rule-evidence-head (brand Proof $src)))
+            ((cons (inverted $inv with $_pa $_pb) $_rest) (rule-evidence-head (brand Proof $inv)))
             ((cons (bi-forward $fwd) $_rest) (brand Proof $fwd))
             ((cons (bi-backward $bwd) $_rest) (brand Proof $bwd))
             ((cons (no_inverse $inner) $_rest) (brand Proof $inner))

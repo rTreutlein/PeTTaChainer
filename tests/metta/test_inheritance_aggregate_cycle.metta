@@ -13,14 +13,4 @@
    (collapse
       (query 100 inheritanceAggregateCycleKb
          (: $proof (Inheritance Raven Penguin) $tv)))
-   ((:
-      (inheritance-implication-fold
-         (total-implication
-            ((inverted (inheritance-implication penguinBird)
-                with cpu (prior (STV 0.3333749895859368 0.5)))
-             (by (inheritance-implication ravenBird) (ctx proof 0)))
-            ((inverted (inheritance-implication penguinBird)
-                with cpu (prior (STV 0.3333749895859368 0.5)))
-             (by (inheritance-implication ravenBird) (ctx proof 1)))))
-      (Inheritance Raven Penguin)
-      (STV 0.9978639641851278 1.0e-06))))
+   ((: (inheritance-implication-fold (total-implication ((inverted (inheritance-implication penguinBird) with cpu (prior (STV 0.3333749895859368 0.5))) (by (inheritance-implication ravenBird) (ctx proof 0))) ((inverted (inheritance-implication penguinBird) with cpu (prior (STV 0.3333749895859368 0.5))) (by (inheritance-implication ravenBird) (ctx proof 1))))) (Inheritance Raven Penguin) (STV 0.9978683976403822 1.0e-06))))

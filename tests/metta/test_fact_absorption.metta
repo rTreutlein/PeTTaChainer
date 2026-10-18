@@ -30,9 +30,7 @@
 !(compileadd absorbKb (: s1-t1 (Late s1 t1) (STV 1 1)))
 !(test
    (collapse (query 0 absorbKb (: $proof (Blocked k1 t1) $tv)))
-   ((: ((inverted delayed-d1 with cpu (prior (STV 0.5 0.2857142857142857)))
-         ((inverted late-s1 with cpu (prior (STV 0.5 0.2857142857142857))) s1-t1))
-       (Blocked k1 t1) (STV 0.8930635838150288 0.8483958636340054))))
+   ((: ((inverted delayed-d1 with cpu (prior (STV 0.5 0.2857142857142857))) ((inverted late-s1 with cpu (prior (STV 0.5 0.2857142857142857))) s1-t1)) (Blocked k1 t1) (STV 0.8930635838150288 0.8483958636340054))))
 
 ;; So is the second, through its own rule.
 !(compileadd absorbKb (: s2-t1 (Late s2 t1) (STV 1 1)))

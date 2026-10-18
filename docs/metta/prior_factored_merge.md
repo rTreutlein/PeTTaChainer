@@ -15,11 +15,12 @@ population base rate of `a` as the prior: stated with a CTV, by Bayes' rule
 with its stated likelihoods (`prior-inverse-implication` with `population`,
 `CTVBayesFormula`); stated with an STV, by `inverse-implication`, which
 recovers P(b | not a) from the base rates of both sides
-(`ImplicationCTVFormula`, `CTVInversionFormula`); then modus ponens. Several
+(`ImplicationLikelihoodsFormula`, resolved `likelihood-read`,
+`CTVInversionFormula`); then modus ponens. Several
 such rules on the same `a` (several routes blocked by one storm) give several
 updates of that one base rate.
 
-Today `sk-merge-facts` combines views by their evidence. Inversions over the
+Before prior factoring, views combined only by their evidence. Inversions over the
 same prior share the prior's evidence, so:
 
 - When the prior is the population base rate (`with cpu derived`), base rates
@@ -65,7 +66,7 @@ Var(s) = (s(1−s))² Var(logit s).
 The merge is associative: merging a third view into a merged one applies the
 same update, so views fold pairwise in any order.
 
-## Worked example
+## Historical worked example (before #89)
 
 Computed with the chainer's own formulas (`CTVBayesFormula`, modus ponens,
 `ideal-var`, revision), k = 5. Prior
@@ -87,45 +88,32 @@ alarm = 1, noise0 = 1, noise1 = 0.
 
 The noise sensors leave the alarm-only posterior unchanged; two informative
 sensors compound as Bayes' rule does (the small gap is the likelihoods'
-shrinkage toward their pooled value); a noise sensor whose likelihoods are
+historical shrinkage toward their pooled value); a noise sensor whose likelihoods are
 uncertain leaves the strength and lowers the confidence, since it could have
 been informative.
 
 ## Confidence of the shrinkage centre
 
-Since issue #69 (October 16, 2026), `set-bayes-prior-count` and Python
-`set_bayes_prior_count(a)` retain their signatures but configure heterogeneity
-κ, default 0.2. A finite-evidence likelihood is read under weight
+All these reads use [the common prior definition](prior_definition.md) (#89).
+`set-bayes-prior-count` configures κ, default .2, with #69's confidence-dependent
+weight. A centre never includes the likelihood's own observations. Incomparable
+containing classes mix rather than revise; Bayes branch pools require disjoint
+support and leave the branch being read out. Unknown provenance falls back to
+neutral .5. Read strengths retain the original evidence count.
 
-    a = max(0, 1/(1/(n_g+1) + 1/(κ+1)) − 1),  n_g = c_g k/(1−c_g)
-
-This adds uncertainty of the prior centre to subclass heterogeneity. STV
-inversion uses P(B)'s confidence; `CTVBayesFormula` uses the confidence of its
-pooled branches, their summed evidence count converted back to confidence
-(certain if either branch is certain).
-The pooled mean remains count-weighted as before. Specificity uses the merged
-general rule's confidence and shrinks the original specific estimate once.
-Certain centres give a = κ; certain likelihoods/rates stay as stated. The
-population prior's centre is the given 0.5, so its weight remains κ. Prior
-observations change the read strength, not the likelihood's evidence count.
-No estimate of κ from sibling spread is implemented.
-
-The historical measured tables in this document predate this centre-confidence
-change; current evidence is in the issue #69 comparison reports.
+The numerical tables above are historical measurements, preceding #89's
+instance-prior and centre corrections; they are not current expected values.
 
 ## Recognising views to factor
 
 Two views are factored when each is a prior-based inversion, or a factored
 merge, over the same prior, and their observations differ.
 
-- The prior has to be known at the merge. The inversion's proof today is
-  `((inverted R with P derived) O)`: R the rule, P the prior's proof (or `cpu`
-  for the population base rate), O the observation's proof. The prior's truth
-  value is not in it. The compiled rule binds it (`$atv`), so the marker
-  `derived` becomes `(prior <TV>)`: `((inverted R with P (prior (STV s c))) O)`.
-  The prior is then identified by `P` and its truth value together, so two
-  population priors of the same pattern match and two different instance
-  priors do not.
+- The inversion proof records both source/read likelihoods and the prior:
+  `((inverted R with P (prior <TV>)) O)`.
+  `P` is the prior proof (`cpu` for a population), and `O` the observation.
+  Identity uses `P` together with its TV; arithmetic differences below 1e-12
+  from incremental subtraction do not turn the same prior into two estimates.
 - A merged view's proof is `(factored-revision P (prior <TV>) proof-1 proof-2
   …)`, with the views' proofs in a fixed order, so a further view with the
   same prior merges into it.
@@ -144,20 +132,22 @@ precedence over keeping one view and over revising.
 
 ## Edge cases
 
-- A prior of strength 0 or 1 makes every view equal to it; the result is the
-  prior.
-- A view of strength 0 or 1 at a prior strictly between is a certain
-  observation; it decides the result. Two certain views that contradict fall
-  back to today's rule.
+- Certain endpoint priors remain exact. Finite-confidence priors, including
+  stored instance beliefs, are read at the neutral centre and do not veto updates.
+- Endpoint strength alone does not establish certainty. Certain facts and
+  certified certain-zero likelihoods retain exact outcomes; conflicting certain
+  views keep the contradiction fallback.
 - Strengths are clipped as the formulas do (`ideal-clip`), so the log-odds
   stay finite.
 - A plain implication is inverted with its antecedent's base rate as the
   prior, `((inverted R with cpu (prior <TV>)) O)`, and factors like a
   `WithPrior` inversion over the population base rate. A rule stated with a
-  CTV is inverted by Bayes' rule with its stated likelihoods and reads no base
-  rate of `b`; a rule stated with an STV reads only the positive likelihood
-  and recovers the negative one from the two base rates, so it is Bayes' rule
-  over the reconciled base rates (`ConsistentTriple`). Either way an
+  CTV is inverted by Bayes' rule with its two read likelihoods. Finite branches
+  watch `b` as a possible independent centre, but the denominator uses the
+  likelihoods. Certain branches need no centre dependency. An STV recovers its
+  negative likelihood from raw, exclusion-filtered marginals, reads that branch
+  once, and reconciles the positive read afterwards (`ConsistentTriple`). A
+  consumed observation cannot supply either marginal for its own inversion. Either way an
   observation as likely with `a` as without leaves the prior's strength.
 
 ## A view in the base rate's place
@@ -201,7 +191,10 @@ other prior when
 - the other view is uncertain: a certain view stands for unlimited evidence
   and stays as it is, as revision leaves it.
 
-A stored target belief is the instance prior the update applies to (#42).
+A stored target belief supplies the instance prior the update applies to (#42),
+read once under the common neutral prior (#89). The row retains original/read
+TVs; the logical `(prior TV)` marker lets later sensors reuse that read rather
+than smoothing the posterior again.
 The population estimate is removed from the inversion by its likelihood ratio;
 the stored belief is not revised with the posterior of that population prior.
 The evidence and dependency independence checks still apply. This does not
@@ -217,15 +210,15 @@ one after the other gives the same value as merged with their factored merge.
 Two forward views still revise; when the views are revised first, the
 inversions apply to the revision.
 
-### Worked example
+### Historical worked example (before #89)
 
 `tests/metta/test_population_prior_factoring.metta`: P(Storm) = 0.3 (0.9);
 storm blocks routes r1 and r2 with P(Blocked | Storm) = 0.8,
 P(Blocked | no storm) = 0.03, so P(Blocked) = 0.261; a blocked route delays
 its shipment with 0.9, an open one with 0.05. Route r1 is inspected blocked,
 r2's shipment is late. Blocked r2 has two views (the confidences are those
-since a CTV rule's inversion reads no consequent base rate; see "Inversion
-of rules stating both likelihoods" below):
+from the original CTV-inversion change below; #89 additionally permits an
+independent consequent rate as the finite likelihoods' shrinkage centre):
 
 | view | proof | strength | confidence |
 |---|---|---|---|
@@ -242,7 +235,7 @@ additional rule reading the storm off the late shipment directly, the forward
 view of r2 contains the shipment's observation, and the views are not
 factored.
 
-## What changes
+## Original factoring change (before #89)
 
 - Proof terms of prior-based inversions print `(prior <TV>)` instead of
   `derived`; tests and documents that show them change with them.
@@ -250,7 +243,7 @@ factored.
   inversion has nothing to factor with. Shift-1 views over the population
   prior stop counting it more than once when there are several sensors.
 
-## Evaluation
+## Historical factoring evaluation (before #89)
 
 - Unit tests: the worked example's rows (noise leaves the alarm-only value;
   two alarms compound; uncertain noise lowers confidence); associativity of a
@@ -324,7 +317,9 @@ inverted by `CTVBayesFormula` over its antecedent's base rate, as a
 v from the two base rates. For s3-1, P(Blocked) = 1/6 and the stated 0.9 and
 0.05 give 0.783 for one late shipment, whatever P(Late) the history shows
 (`tests/metta/test_implication_inversion.metta`). Every inversion of a CTV
-rule folds one base rate less.
+rule with certain branches folds one base rate less. Finite branches under
+#89 also watch an independent consequent-rate centre; that rate never replaces
+the likelihood-based denominator.
 
 SupplyNet stage 1, budget 100, seeds 1–4:
 
@@ -446,8 +441,9 @@ P(M) = 0.325, so
 P(M | O, C) = 0.7 · 0.448 / 0.324 = 0.969 and the completion of Storm w1 was
 0.103 where Bayes' rule gives 0.204; recognised as an update, it made
 smoothing worse (0.7305). Bayes'
-rule with the stated likelihoods reads no P(C) or P(O, C), as for plain
-inversions of rules stating both likelihoods.
+rule with the stated likelihoods needs no P(C) or P(O, C) in its denominator.
+Under #89, finite likelihoods may use an independently supported consequent
+rate as their centre, as for plain CTV inversions.
 
 A base rate is read as the prior of one more member of its population: its
 mean under the Bayes prior with which Bayes' rule reads a likelihood,
@@ -458,8 +454,8 @@ for inversions of STV and CTV rules over a population base rate alike, and
 for a root's population prior). A rate of 0 or 1 from finitely many members
 then leaves an instance either way possible, and its updates keep their
 likelihood ratios for a view in the base rate's place (see "Degenerate
-rates" below). A certain rate, and an instance prior of a `WithPrior` rule
-(the instance's own belief), keep their values.
+rates" below). Certain rates stay exact. A finite WithPrior instance belief is
+read by the same neutral operator, once; its evidence count is unchanged.
 
 A knowledge base that stores only the true instances of a predicate (logic
 KBs of Provable, Path or Ancestor facts) declares it positive-only
@@ -500,7 +496,7 @@ since the plant is running and production is the complement of degradation.
 A closed read's unfounded value is still refused by `sk-observation-prior`:
 it is a circular-support hypothesis, not a value.
 
-### Worked example: production reports and degradation
+### Historical worked example (before #89): production reports and degradation
 
 `tests/metta/test_antecedent_completion.metta`, SupplyNet stage 3 in small:
 the mine runs exactly when the power plant runs and the mine is not degraded,
@@ -530,7 +526,7 @@ exact. Stages 1 and 2 are identical to master; StationOps temporal replay
 (seeds 1–4, budgets 25 and 50) plays and believes identically, compute
 within ±3%.
 
-### Worked example: a certain conjunct
+### Historical worked example (before #89): a certain conjunct
 
 `tests/metta/test_antecedent_completion.metta`: P(Rain) = 0.3 (0.9); rain
 wets an outdoor place, `(Implication (And (Outdoor $x) (Rain $x)) (Wet $x))`
@@ -550,7 +546,7 @@ shares the completion's observation; the views are not factored, and the
 completion, whose evidence contains the inversion's, is kept (0.6585, where
 factoring would count wet-d twice: 0.897).
 
-### Worked example: smoothing a persistent storm
+### Historical worked example (before #89): smoothing a persistent storm
 
 `tests/metta/test_certain_merge.metta`, SupplyNet stage 2 in small: a storm
 persists, `(Implication (And (NextPeriod $p $t) (Storm north $p)) (Storm north

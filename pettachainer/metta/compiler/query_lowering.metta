@@ -232,8 +232,8 @@
 
 (: rule-truth-query-adds (-[det]-> KB Atom Atom Atom (List CompiledAddition)))
 (= (rule-truth-query-adds $kb $Type $antecedent $consequent)
-   (let* ((($ctv-goals $ctv)
-             (implication-ctv-goals $kb () (brand Statement $antecedent) (brand Statement $consequent) $truth-tv))
+   (let* ((($ctv-goals $ctv $_likelihoods)
+             (implication-ctv-goals $kb () (brand Statement $antecedent) (brand Statement $consequent) $truth-tv false))
           ($premises (cons (: (kbctx $kb) $truth-prf (RuleTruth $Type) $truth-tv) $ctv-goals)))
       (cons
          (brand CompiledAddition

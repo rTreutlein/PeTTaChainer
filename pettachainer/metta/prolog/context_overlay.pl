@@ -48,8 +48,9 @@ context_removed(C, Space, Row) :-
 
 'context-remove!'(Space, Pattern, true) :-
     ( context_active(C)
-    -> forall((clause(context_entry(_,C,Space,Row,_),true,Ref), Row = Pattern), erase(Ref)),
-       ( Pattern=[Hash|_], ground(Hash) -> Index=Hash ; Index=all ),
+    -> ( Pattern=[Hash|_], ground(Hash) -> Lookup=Hash ; true ),
+       forall(clause(context_entry(Lookup,C,Space,Pattern,_),true,Ref), erase(Ref)),
+       ( ground(Lookup) -> Index=Lookup ; Index=all ),
        assertz(context_hidden(Index, C, Space, Pattern, removed))
     ; Head =.. [Space|Pattern], retractall(Head) ).
 
@@ -67,6 +68,7 @@ context_local_only('&sk_given_pending').
 context_local_only('&sk_conditioning').
 context_local_only('&sk_restale').
 context_local_only('&sk_held').
+context_local_only('&sk_branch_hold').
 context_local_only('&sk_instance_changed').
 context_local_only('&sk_instance_checked').
 context_local_only('&sk_branch_wanted').
@@ -96,6 +98,7 @@ context_store('&sk_conditioning',2).
 context_store('&sk_refresh',2).
 context_store('&sk_restale',2).
 context_store('&sk_held',3).
+context_store('&sk_branch_hold',5).
 context_store('&sk_instance_changed',2).
 context_store('&sk_instance_checked',1).
 context_store('&sk_instance_tally',3).
@@ -104,6 +107,10 @@ context_store('&sk_instance_regime',3).
 context_store('&sk_instance_digest',2).
 context_store('&sk_instance_sig',3).
 context_store('&sk_instance_read',4).
+context_store('&sk_sample_support',7).
+context_store('&sk_sample_source',6).
+context_store('&sk_branch_support',3).
+context_store('&sk_truth_fold',3).
 context_store('&sk_rate_dirty',4).
 context_store('&sk_rate_folds',2).
 context_store('&sk_truth_factor',2).
@@ -112,8 +119,9 @@ context_store('&forward_aggregate_identity',2).
 context_store('&forward_aggregate_interest_by_trigger',2).
 context_store('&forward_aggregate_triggers',2).
 context_store('&forward_aggregate_state',4).
-context_store('&forward_aggregate_observation',5).
+context_store('&forward_aggregate_observation',6).
 context_store('&forward_aggregate_fold',2).
+context_store('&forward_aggregate_read',3).
 
 % Separate read relations leave the ordinary physical MAIN stores inspectable
 % by collectors and provenance audits. No runtime predicate is monkey-patched.

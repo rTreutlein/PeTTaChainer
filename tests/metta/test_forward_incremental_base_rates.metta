@@ -51,10 +51,7 @@
 
 !(test
    (query 200 forwardBackwardDedupKb (: $proof (P alice) $tv))
-   (: ((inverted pToQ with cpu (prior (STV 0.6599999999999998 0.0009990009990009992)))
-       qa)
-      (P alice)
-      (STV 0.8756842458979404 0.016392040302468155)))
+   (: ((inverted pToQ with cpu (prior (STV 0.6599999999999998 0.0009990009990009992))) qa) (P alice) (STV 0.8756835083745458 0.016391821881426412)))
 
 ;; Revising an input changes its key's value, so a later run that takes it
 ;; carries the change to the rules downstream.
@@ -109,7 +106,7 @@
 ;; P=.593224. The update adds variance; it does not add prior evidence.
 !(test
    (query 200 forwardFrontierKb (: $prf (P a) $tv))
-   (: (factored-revision frontierP1 (prior (STV 0.2 0.5)) (((inverted pToQ with cpu (prior (STV 0.28571428571428575 0.0006246096189881324))) (by sToQ frontierS1)))) (P a) (STV 0.5932241657135251 0.39854268990605285)))
+   (: (factored-revision frontierP1 (prior (STV 0.2000749812546863 0.5)) (((inverted pToQ with cpu (prior (STV 0.5 0.0))) (by sToQ frontierS1)))) (P a) (STV 0.36853470599882066 0.4073489899280713)))
 
 ;; Adding evidence can raise an antecedent's confidence while moving its
 ;; strength toward an implication branch with much greater uncertainty.  The
@@ -159,18 +156,17 @@
       $source)
    computed)
 
-;; The rule states both branches, so its inversion reads no base rate of Q.
+;; Finite CTV branches watch Q as an optional independent shrinkage centre.
+;; That cache is maintained even when it cannot supply an admissible centre.
 !(test
-   (cached-base-rate forwardBaseRateKb (Q $x))
-   ())
+   (list-len (cached-base-rate forwardBaseRateKb (Q $x)))
+   1)
 
 ;; A query's fold updates the same estimate. The forward run's inverted
 ;; P(alice) was derived through the P base rate, which does not count it.
 !(test
    (query 200 forwardBaseRateKb (: $proof (P alice) $tv))
-   (: ((inverted pToQ with cpu (prior (STV 0.6599999999999998 0.0009990009990009992))) qa)
-      (P alice)
-      (STV 0.8756842458979404 0.016392040302468155)))
+   (: ((inverted pToQ with cpu (prior (STV 0.6599999999999998 0.0009990009990009992))) qa) (P alice) (STV 0.8756835083745458 0.016391821881426412)))
 
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)
@@ -207,7 +203,7 @@
                      (forwardBudgetBaseRateKb MAIN Nil)
                      (P $_which)))
                (forward-base-rate-observation-value $_fact)
-               $_weight $_count)
+               $_weight $_count $_sources)
             true)))
    2)
 
@@ -228,7 +224,7 @@
                      (forwardBudgetBaseRateKb MAIN Nil)
                      (P $_which)))
                (forward-base-rate-observation-value $_fact)
-               $_weight $_count)
+               $_weight $_count $_sources)
             true)))
    2)
 
@@ -274,14 +270,7 @@
 !(test
    (query 100 forwardInheritanceBaseRateKb
       (: $proof (Inheritance Raven Penguin) $tv))
-   (: (inheritance-implication-fold
-          (total-implication
-             ((inverted (inheritance-implication penguinBird) with cpu (prior (STV 0.3333749895859368 0.5)))
-                (by (inheritance-implication ravenBird) (ctx proof 0)))
-             ((inverted (inheritance-implication penguinBird) with cpu (prior (STV 0.3333749895859368 0.5)))
-                (by (inheritance-implication ravenBird) (ctx proof 1)))))
-      (Inheritance Raven Penguin)
-      (STV 0.9978639641851278 1.0e-06)))
+   (: (inheritance-implication-fold (total-implication ((inverted (inheritance-implication penguinBird) with cpu (prior (STV 0.3333749895859368 0.5))) (by (inheritance-implication ravenBird) (ctx proof 0))) ((inverted (inheritance-implication penguinBird) with cpu (prior (STV 0.3333749895859368 0.5))) (by (inheritance-implication ravenBird) (ctx proof 1))))) (Inheritance Raven Penguin) (STV 0.9978683976403822 1.0e-06)))
 
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)
@@ -303,10 +292,7 @@
 
 !(test
    (query 200 computedForwardBaseRateKb (: $proof (P alice) $tv))
-   (: ((inverted pToQ with cpu (prior (STV 0.6599999999999998 0.0009990009990009992)))
-       qa)
-      (P alice)
-      (STV 0.8756842458979404 0.016392040302468155)))
+   (: ((inverted pToQ with cpu (prior (STV 0.6599999999999998 0.0009990009990009992))) qa) (P alice) (STV 0.8756835083745458 0.016391821881426412)))
 
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)
@@ -324,7 +310,7 @@
                      (computedForwardBaseRateKb MAIN Nil)
                      (P $_which)))
                (forward-base-rate-observation-value $_fact)
-               $_weight $_count)
+               $_weight $_count $_sources)
             true)))
    1)
 
@@ -350,7 +336,7 @@
                      (computedForwardBaseRateKb MAIN Nil)
                      (P $_which)))
                (forward-base-rate-observation-value $_fact)
-               $_weight $_count)
+               $_weight $_count $_sources)
             true)))
    2)
 
@@ -379,7 +365,7 @@
                      (computedForwardBaseRateKb MAIN Nil)
                      (P $_which)))
                (forward-base-rate-observation-value $_fact)
-               $_weight $_count)
+               $_weight $_count $_sources)
             true)))
    2)
 

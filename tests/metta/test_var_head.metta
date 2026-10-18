@@ -17,7 +17,7 @@
 
 !(test
    (query 100 kb (: $prf (Friend alice $x) $tv))
-   (: (by sum_rel (conjunction tag f1)) (Friend alice bob) (STV 0.9 0.03939074332138302)))
+   (: (by sum_rel (conjunction tag f1)) (Friend alice bob) (STV 0.8642193246799066 0.02243916988834716)))
 
 !(compileadd openFirstKb (: sum_rel (Implication (And (Symmetric $r) ($r $x $y)) ($r $y $x)) (STV 0.9 0.9)))
 !(compileadd openFirstKb (: tag (Symmetric Friend) (STV 0.9 0.9)))
@@ -29,7 +29,7 @@
 
 !(test
    (query 100 openFirstKb (: $prf (Friend alice bob) $tv))
-   (: (by sum_rel (conjunction tag f1)) (Friend alice bob) (STV 0.9 0.03939074332138302)))
+   (: (by sum_rel (conjunction tag f1)) (Friend alice bob) (STV 0.8642193246799066 0.02243916988834716)))
 
 ;; A variable-headed singleton antecedent is not mistaken for an `And` merely
 ;; because its head can unify with that symbol.

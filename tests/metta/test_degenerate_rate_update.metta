@@ -35,7 +35,7 @@
 !(compileadd k (: a2-t1 (Alarm a2 t1) (STV 1 1)))
 !(test
    (query 4 k (: $p (Front t1) $tv))
-   (: (factored-revision (by persist (conjunction next-t1 front-h3)) (prior (STV 0.05 0.9999000084782169)) (((inverted storm with cpu (prior (STV 0.03125 0.375))) (factored-revision cpu (prior (STV 0.34375 0.375)) (((inverted alarm1 with cpu (prior (STV 0.34375 0.375))) a1-t1) ((inverted alarm2 with cpu (prior (STV 0.34375 0.375))) a2-t1)))))) (Front t1) (STV 0.15552523874488405 0.999723563231898)))
+   (: (factored-revision (by persist (conjunction next-t1 front-h3)) (prior (STV 0.050001800020179385 0.9999000084782169)) (((inverted storm with cpu (prior (STV 0.03125 0.375))) (factored-revision cpu (prior (STV 0.34375 0.375)) (((inverted alarm1 with cpu (prior (STV 0.34375 0.375))) a1-t1) ((inverted alarm2 with cpu (prior (STV 0.34375 0.375))) a2-t1)))))) (Front t1) (STV 0.155530215767092 0.9997235654422796)))
 
 ;; The mirror case: a front on throughout its history (rate 1), and neither
 ;; alarm rings in t1. Exact:
@@ -63,4 +63,4 @@
 !(compileadd on (: a2-t1 (Alarm a2 t1) (STV 0 1)))
 !(test
    (query 4 on (: $p (Front t1) $tv))
-   (: (factored-revision (by persist (conjunction next-t1 front-h3)) (prior (STV 0.9 0.9999000083937291)) (((inverted storm with cpu (prior (STV 0.96875 0.375))) (factored-revision cpu (prior (STV 0.65625 0.375)) (((inverted alarm1 with cpu (prior (STV 0.65625 0.375))) a1-t1) ((inverted alarm2 with cpu (prior (STV 0.65625 0.375))) a2-t1)))))) (Front t1) (STV 0.8232802508858391 0.9998383661191916)))
+   (: (factored-revision (by persist (conjunction next-t1 front-h3)) (prior (STV 0.8999983999807107 0.9999000083937291)) (((inverted storm with cpu (prior (STV 0.96875 0.375))) (factored-revision cpu (prior (STV 0.65625 0.375)) (((inverted alarm1 with cpu (prior (STV 0.65625 0.375))) a1-t1) ((inverted alarm2 with cpu (prior (STV 0.65625 0.375))) a2-t1)))))) (Front t1) (STV 0.8232776643714399 0.9998383665600461)))

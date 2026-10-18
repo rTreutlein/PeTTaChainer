@@ -37,7 +37,7 @@
 !(compileadd surePriorKb (: ac (Alarm c) (STV 0.0 1.0)))
 !(test
    (query 400 surePriorKb (: $p (SealLeak c) $tv))
-   (: ((inverted sensor with pc (prior (STV 1.0 0.99))) ac) (SealLeak c) (STV 1.0 0.6071721767418005)))
+   (: ((inverted sensor with pc (prior (STV 0.9999987373769259 0.99))) ac) (SealLeak c) (STV 0.9999898991046826 0.9252287453007967)))
 ;; Without a prior for z, the leak base rate stands in as the prior.
 !(test
    (query 400 priorKb (: $p (SealLeak z) $tv))
@@ -60,4 +60,4 @@
    (: (by persist (conjunction n12 ((inverted sensor with p1 (prior (STV 0.1 1.0))) a1))) (LeakPredicted m2) (STV 0.3666666666666667 0.9996988559387328)))
 !(test
    (query 400 chainKb (: $p (SealLeak m2) $tv))
-   (: ((inverted sensor with (by persist (conjunction n12 ((inverted sensor with p1 (prior (STV 0.1 1.0))) a1))) (prior (STV 0.3666666666666667 0.9996988559387328))) a2) (SealLeak m2) (STV 0.7226277372262774 0.9996577117394115)))
+   (: ((inverted sensor with (by persist (conjunction n12 ((inverted sensor with p1 (prior (STV 0.1 1.0))) a1))) (prior (STV 0.3666666767078251 0.9996988559387328))) a2) (SealLeak m2) (STV 0.7226277458930558 0.9996577117489951)))

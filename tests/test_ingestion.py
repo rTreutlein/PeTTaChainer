@@ -255,10 +255,10 @@ class TestIngestion(unittest.TestCase):
                     # #83 leaves the unsupported negative branch at (0.5, 0)
                     # until the population join supplies complementary evidence.
                     cold_tv = ((0.8240000000000001, 0.018452857158991698)
-                               if head == 'variable' else (0.9, 0.03939074332138302))
+                               if head == 'variable' else (0.8642193246799066, 0.02243916988834716))
                     for query, (strength, confidence) in ((goal, cold_tv),
-                                                         (other, (0.9, 0.03939074332138302)),
-                                                         (goal, (0.9, 0.03939074332138302))):
+                                                         (other, (0.8642193246799066, 0.02243916988834716)),
+                                                         (goal, (0.8642193246799066, 0.02243916988834716))):
                         answer = h.query_many_refs([f'(: $p {query} $tv)'], steps=100)[0]
                         self.assertEqual([a.statement for a in answer], [['Friend', 'alice', 'bob']])
                         self.assertAlmostEqual(answer[0].tv[1], strength)

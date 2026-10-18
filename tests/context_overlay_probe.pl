@@ -92,7 +92,7 @@ overlay_probe_provenance_leak(Kb,Text) :-
         ; catch('&sk_view'(_,_,_,['sk-val',[_,[Kb,'MAIN','Nil'],P,_],_,D]),
                 error(existence_error(procedure,_),_),fail)
         ; '&kb'(_,[Kb,'MAIN','Nil'],P,_)
-        ; catch('&forward_aggregate_observation'(_,_,['forward-base-rate-observation-value',[_,[Kb,'MAIN','Nil'],P,_]],_,_),
+        ; catch('&forward_aggregate_observation'(_,_,['forward-base-rate-observation-value',[_,[Kb,'MAIN','Nil'],P,_]],_,_,_),
                 error(existence_error(procedure,_),_),fail) ),
         (overlay_probe_has_assumption(P)
         ; nonvar(D),overlay_probe_seeds(Seeds),member(H,Seeds),

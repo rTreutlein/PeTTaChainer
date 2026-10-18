@@ -53,9 +53,9 @@
 !(compileadd flatRatesKb (: r (Implication (And (A $x) (B $x)) (C $x)) (STV 0.9 0.9)))
 
 !(test (query 20 nestedRatesKb (: $p (C x) $tv))
-   (: (by (by r a) b) (C x) (STV 0.5289398930037215 0.012957435091911673)))
+   (: (by (by r a) b) (C x) (STV 0.6057083238733734 0.008091397689716036)))
 !(test (query 20 flatRatesKb (: $p (C x) $tv))
-   (: (by r (conjunction a b)) (C x) (STV 0.5289398930037214 0.007970898072552928)))
+   (: (by r (conjunction a b)) (C x) (STV 0.6057083238733734 0.004799410373005461)))
 
 ;; A nested implication query is judged as its exported form: the contexts
 ;; assume (A x) and (B x) and prove (C x), returning the exported positive
@@ -63,12 +63,12 @@
 ;; proof applies the nested rule step by step, (by (by r A) B).
 !(test
    (query 20 nestedRatesKb (: $p (Implication (A x) (Implication (B x) (C x))) $tv))
-   (: (merge/revision r (implication-instance-fold cpu)) (Implication (A x) (Implication (B x) (C x))) (STV 0.9 0.9000112464854588)))
+   (: (merge/revision r (implication-instance-fold cpu)) (Implication (A x) (Implication (B x) (C x))) (STV 0.9 0.9000112464854617)))
 !(test
    (query 20 nestedRatesKb (: $p (Implication (And (A x) (B x)) (C x)) $tv))
-   (: (merge/revision (conditional-implication (by (by r (ctx proof 2)) (ctx proof 2 1))) (implication-instance-fold cpu)) (Implication (And (A x) (B x)) (C x)) (STV 0.9 0.9000112453459356)))
+   (: (merge/revision (conditional-implication (by (by r (ctx proof 2)) (ctx proof 2 1))) (implication-instance-fold cpu)) (Implication (And (A x) (B x)) (C x)) (STV 0.9000000000000001 0.900011245581929)))
 !(test (query 20 nestedRatesKb (: $p (Implication (A x) (Implication (B x) (C x))) (STV $s $c)))
-   (: (merge/revision r (implication-instance-fold cpu)) (Implication (A x) (Implication (B x) (C x))) (STV 0.9 0.9000112464854588)))
+   (: (merge/revision r (implication-instance-fold cpu)) (Implication (A x) (Implication (B x) (C x))) (STV 0.9 0.9000112464854617)))
 
 ;; Three levels, A → (B → (C → D)), against (A ∧ B ∧ C) → D:
 ;; q = 0.8 · 0.6 · 0.7, then q · 0.9 + (1-q) · 0.5 = 0.6344.

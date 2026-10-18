@@ -26,12 +26,12 @@
 ;; Grounded computation: base rate over the real (Friend ...) facts.
 !(test
    (query 100 kb (: $prf (Friend alice bob) $tv))
-   (: (by sum_rel (conjunction tag f1)) (Friend alice bob) (STV 0.9 0.03939074332138302)))
+   (: (by sum_rel (conjunction tag f1)) (Friend alice bob) (STV 0.8642193246799066 0.02243916988834716)))
 
 ;; The structurally indexed conclusion remains reachable from an open query.
 !(test
    (query 100 kb (: $prf (Friend alice $x) $tv))
-   (: (by sum_rel (conjunction tag f1)) (Friend alice bob) (STV 0.9 0.03939074332138302)))
+   (: (by sum_rel (conjunction tag f1)) (Friend alice bob) (STV 0.8642193246799066 0.02243916988834716)))
 
 ;; The (Symmetric Friend) fact is still stored as a normal fact.
 !(test (match &kb ((Symmetric $x) ($kb MAIN Nil) $p $tv) ($x $p)) (Friend tag))
@@ -43,7 +43,7 @@
 
 !(test
    (query 100 kb2 (: $prf (Sibling alice bob) $tv))
-   (: (by sum_rel2 (conjunction tag2 g1)) (Sibling alice bob) (STV 0.9 0.03939074332138302)))
+   (: (by sum_rel2 (conjunction tag2 g1)) (Sibling alice bob) (STV 0.8642193246799066 0.02243916988834716)))
 
 ;; Equal grounded rule types with distinct proof ids/TVs remain independent
 ;; specialization results. Deduplicating only by type used to discard alt_rel.
