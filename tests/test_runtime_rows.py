@@ -39,6 +39,29 @@ class TestRuntimeRows(unittest.TestCase):
             "retractall(prof95_variant_row(_,_)))")
         self.assertEqual((result['Count'], result['Shared'], result['Unbound']), (1, 'false', 'true'))
 
+    def test_forcing_membership_has_evaluation_and_context_lifetimes(self):
+        result = janus.query_once(
+            "setup_call_cleanup('context-clear!'(_),"
+            "('sk-force-causes!'(-7001,-7002,[111,111],_),"
+            " 'remove-data-rows!'('&sk_forced',[-7001,-7002,_],_),"
+            " nb_setval(context_overlay,prof95_force_context),"
+            " 'sk-force-causes!'(-7001,-7002,[111],_),"
+            " 'remove-data-rows!'('&sk_forced',[-7001,-7002,_],_),"
+            " 'sk-force-reset!'(_),'sk-force-causes!'(-7001,-7002,[111],_),"
+            " findall(_C,'&ctx_sk_forced'(-7001,-7002,_C),Overlay),"
+            " nb_setval(context_overlay,main),"
+            " 'sk-force-causes!'(-7001,-7002,[111],_),"
+            " findall(_C,'&ctx_sk_forced'(-7001,-7002,_C),AlreadyUsed),"
+            " 'sk-force-reset!'(_),'sk-force-causes!'(-7001,-7002,[111],_),"
+            " findall(_C,'&ctx_sk_forced'(-7001,-7002,_C),NextEvaluation),"
+            " 'context-clear!'(_),aggregate_all(count,sk_forced_seen(_,_),Handles)),"
+            "(nb_setval(context_overlay,main),'context-clear!'(_),"
+            " 'remove-data-rows!'('&sk_forced',[-7001,-7002,_],_)))")
+        self.assertEqual(result['Overlay'], [111])
+        self.assertEqual(result['AlreadyUsed'], [])
+        self.assertEqual(result['NextEvaluation'], [111])
+        self.assertEqual(result['Handles'], 0)
+
 
 if __name__ == '__main__':
     unittest.main()

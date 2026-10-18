@@ -4241,6 +4241,7 @@
 ;; fold, so feedback still ends. A row never computed is not forced: its first
 ;; view changes its key whatever caused it.
 (: sk-force-causes! (-[det]-> Number Number (List Number) Atom))
+(: sk-force-reset! (-[det]-> Atom))
 
 (: sk-force! (-[det]-> (List Number) SkeletonItem Atom))
 (= (sk-force! $causes (sk-row-item $_seq $khash $_key $rhash $_row))
@@ -4924,7 +4925,7 @@
 (= (sk-evaluate!)
    (let* (($_queued (remove-data-rows! &sk_queued (quote ($qpass $qkhash $qrhash))))
           ($_cleared-forced (remove-data-rows! &sk_forced (quote ($khash $rhash $cause))))
-          ($_used (remove-data-rows! &sk_forced_used (quote ($khash $rhash $cause))))
+          ($_used (sk-force-reset!))
           ($_pending (remove-data-rows! &sk_fold_pending (quote ($fhash $member))))
           ;; an incomplete fold the query needs is checked again: its members
           ;; may have been searched, or found to derive nothing, since

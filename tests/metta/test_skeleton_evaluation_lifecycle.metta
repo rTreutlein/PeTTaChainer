@@ -40,12 +40,11 @@
           ($_empty (sk-evaluate!))
           ($cleared
              ((collapse (match &sk_forced ($key $row $cause) true))
-              (collapse (match &sk_forced_used ($key $row $cause) true))
               (collapse (match &sk_queued ($pass $key $row) true))
               (collapse (match &sk_fold_pending ($fold $member) true))))
           ($_reuse (sk-force-causes! -1 -1 (111))))
       ($cleared (collapse (match &sk_forced (-1 -1 $cause) $cause))))
-   ((() () () ()) (111)))
+   ((() () ()) (111)))
 !(test
    (collapse (query 0 forceKb (: $proof (ForceRoot) $tv)))
    ((: (by (no_inverse forceRule) seed) (ForceRoot) (STV 1.0 0.7999359651197002))))

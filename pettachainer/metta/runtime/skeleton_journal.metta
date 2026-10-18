@@ -390,13 +390,10 @@
 (: &sk_score (SpaceOf (Number SkPattern Number)))
 !(bind! &sk_score (new-space))
 ;; rows one evaluation must recompute for a change from outside it, with the
-;; causes that forced them, and which row was already forced by which cause
+;; causes that forced them. Evaluation-local native tries deduplicate causes.
 (: &sk_forced (SpaceOf (Number Number Number)))
 (: &ctx_sk_forced (SpaceOf (Number Number Number)))
 !(bind! &sk_forced (new-space))
-(: &sk_forced_used (SpaceOf (Number Number Number)))
-(: &ctx_sk_forced_used (SpaceOf (Number Number Number)))
-!(bind! &sk_forced_used (new-space))
 ;; fact keys that answered a node, by key hash, and by their statement and
 ;; context for structural lookup
 (: &sk_keys (SpaceOf (Number SkeletonKey)))

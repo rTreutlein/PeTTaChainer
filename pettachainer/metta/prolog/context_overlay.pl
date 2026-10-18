@@ -3,6 +3,7 @@
 % MAIN clauses. Independent cold reads perform ordinary MAIN maintenance.
 :- dynamic context_root/4, context_rule/2, context_seed/3, context_scope/2, context_threshold/1.
 :- dynamic context_entry/5, context_hidden/5, context_propagated/4.
+:- dynamic sk_forced_seen/2.
 :- dynamic '&sk_row'/4.
 % Mutable settings must be runtime entries: a source-owned dynamic clause
 % prevents PeTTa from recording and replaying the library load snapshot.
@@ -60,7 +61,6 @@ context_local_only('&sk_new').
 context_local_only('&sk_dirty').
 context_local_only('&sk_queued').
 context_local_only('&sk_forced').
-context_local_only('&sk_forced_used').
 context_local_only('&sk_fold_pending').
 context_local_only('&sk_refresh').
 context_local_only('&sk_given_granted').
@@ -89,7 +89,6 @@ context_store('&sk_new',6).
 context_store('&sk_dirty',2).
 context_store('&sk_queued',3).
 context_store('&sk_forced',3).
-context_store('&sk_forced_used',3).
 context_store('&sk_fold_pending',2).
 context_store('&sk_partial',2).
 context_store('&sk_given_pending',3).
@@ -308,6 +307,7 @@ context_numerical_change(T,Old,New) :-
     ; 'sk-same-view?'(New,Old,false) ).
 
 'context-clear!'(true) :-
+    forall(retract(sk_forced_seen(_,Trie)),trie_destroy(Trie)),
     retractall(context_propagated(_,_,_,_)),
     retractall(context_entry(_,_,_,_,_)), retractall(context_hidden(_,_,_,_,_)),
     retractall(context_scope(_,_)), retractall(context_root(_,_,_,_)), retractall(context_rule(_,_)), retractall(context_seed(_,_,_)),

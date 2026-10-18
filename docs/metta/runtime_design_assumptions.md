@@ -1496,3 +1496,13 @@ for free variables does not make internal open keys or rule patterns ground.
 The acceptance test for each change is not merely a faster benchmark. It must
 preserve monotonic proof semantics, evidence deduplication, strict step budgets,
 caller-selected late-rule activation, and the complete test/example suite.
+
+### Forced-cause membership
+
+The unordered set of `(key hash, row hash, cause)` tuples is private to one
+whole evaluation and one assumption context. Native exact tries retain this
+membership without dynamic clauses per tuple. Starting an evaluation destroys
+only that context's prior trie; finishing the query destroys all remaining
+tries, including MAIN. Pending causes remain in the ordered journal and are
+consumed independently of membership, so consuming a pending cause does not
+allow it to force the same row twice within the evaluation.
