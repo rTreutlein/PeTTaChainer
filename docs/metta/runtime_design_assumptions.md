@@ -1184,6 +1184,28 @@ that same allowance. An exhausted closed-read claim marks its rebuild frame
 unfinished, so an unpaid approximation cannot settle a branch cache. No claim
 can borrow from another query or exceed the remaining allowance.
 
+**Known limit: coupled conditioning periods do not settle (#81, parked).**
+Conditioning requests have no single owner of their status: requests and grants
+are keyed by owner and row, rather than by exclusion context. Invalidation can
+drop an owner's request while branch incumbents in other contexts remain, and a
+repaid target can wait again on inputs that are themselves waiting. Up to three
+coupled conditioning periods in the T8 plant KB settle with enough allowance.
+On master after #89, at 20k steps, conditioned-row counts for q0/q1/q2 are
+26/0/0 for two periods and 21,362/0/0 for three: the first repeated query does
+no conditioning work. Smaller allowances can leave requests unpaid after three
+queries. Four periods can require a much larger budget. In archived B1 runs
+before #89, 4p reached strength 0.11849421725848162 after 3,724,683 conditioned
+rows at 1M steps; the same-process re-query exhausted its allowance after
+3,999,462 rows and fell back to 0.05. These historical 1M figures have not been
+remeasured after #89. Five periods remain unsettled at the tested budgets,
+including the expected failure in tests/test_deep_conditioning.py.
+`conditions_unpaid` counts the needed, readable pending conditioning requests.
+The settlement designs tried so far (request-as-status stores, one-shot payment
+licences, invalidation that keeps incumbents) and why they failed are archived
+in /nexus/Dev/OpenCog/bench/results/history-bug/ (settle81-design.md,
+settle81e-design.md, settle81f-design.md, settle81f-implementation/,
+fix91-design.md). Read #81 and those designs before reopening this.
+
 A completed inversion or antecedent completion can certify an impossible
 outcome: its prior is interior, its evaluated likelihood has a strength-zero,
 confidence-one branch and a possible opposite branch, and the resulting
