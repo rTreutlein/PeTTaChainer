@@ -129,12 +129,32 @@
          ((cons $value $_rest) $value)
          (() sk-none)))))
 
+;; A key's forward bookkeeping leaves when it is replaced or the key is frozen
+;; (forgetting.metta).
+(: sk-forget-taken! (-[det]-> Number SkeletonKey Atom))
+(= (sk-forget-taken! $hash $key)
+   (let $_removed
+      (collapse (match &sk_forward_taken ($hash $stored $value)
+         (if (=alpha $stored $key) (remove-atom &sk_forward_taken ($hash $stored $value)) (empty))))
+      ()))
+
+(: sk-forget-forward-copy! (-[det]-> Number SkeletonKey Atom))
+(= (sk-forget-forward-copy! $hash $key)
+   (let $_removed
+      (collapse (match &sk_forward_stored ($hash $stored $old $old-ev $old-deps)
+         (if (=alpha $stored $key)
+            (let* (($_kb (remove-atom &kb $old))
+                   ($_unindex (kb-unindex-fact! $old))
+                   ($_rules (forget-stored-rules! forward $hash $key)))
+               (remove-atom &sk_forward_stored ($hash $stored $old $old-ev $old-deps)))
+            (empty))))
+      ()))
+
 (: sk-record-taken! (-[semidet]-> SkeletonKey Atom))
 (= (sk-record-taken! $key)
    (let* (($hash (index-hash $key))
           ($value (sk-key-value $key))
-          ($_old (collapse (match &sk_forward_taken ($hash $stored $was)
-             (if (=alpha $stored $key) (remove-atom &sk_forward_taken ($hash $stored $was)) (empty))))))
+          ($_old (sk-forget-taken! $hash $key)))
       (add-atom &sk_forward_taken ($hash $key $value))))
 
 ;; The keys of the stale rows that read a key: needing them brings the rows
@@ -326,15 +346,7 @@
       ((sk-val ($type $kbctx $proof $tv) $ev $deps)
          (let* (($hash (index-hash $key))
                 ($fact (assemble-runtime-fact $type $kbctx $proof $tv))
-                ($_old
-                   (collapse (match &sk_forward_stored ($hash $stored $old $old-ev $old-deps)
-                      (if (=alpha $stored $key)
-                         (let* (($_kb (remove-atom &kb $old))
-                                ($_unindex (kb-unindex-fact! $old))
-                                ($_rules (forget-stored-rules! forward $hash $key))
-                                ($_row (remove-atom &sk_forward_stored ($hash $stored $old $old-ev $old-deps))))
-                            ())
-                         (empty)))))
+                ($_old (sk-forget-forward-copy! $hash $key))
                 ($_copy
                    (if (kb-fact-present? $fact) ()
                       (let* (($_rules (record-stored-rules! forward $hash $key $proof))

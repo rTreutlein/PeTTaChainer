@@ -518,11 +518,6 @@
                    (remove-data-rows! &sk_reader_prefix (quote ($prefix $type $kbctx $h $_prefix-key))))))))
       ()))
 
-;; the key itself and every registered key whose term unifies with it
-(: sk-key-term-hashes (-[det]-> Number Statement KBContext (List Number)))
-(= (sk-key-term-hashes $khash $type $kbctx)
-   (hash-set (cons $khash (sk-unifying-key-hashes $type $kbctx))))
-
 (: sk-unifier-hashes (-[det]-> Number SkeletonKey (List Number)))
 (= (sk-unifier-hashes $khash $key)
    (case (collapse (once (match &sk_unifiers ($khash $stored $hashes)
@@ -533,7 +528,7 @@
             ((sk-key $type $kbctx)
                ;; Named apart from the match's $hashes: the translator loses
                ;; a reused name's type and would check the row at run time.
-               (let* (($computed (sk-key-term-hashes $khash $type $kbctx))
+               (let* (($computed (hash-set (cons $khash (sk-unifying-key-hashes $type $kbctx))))
                       ($_cached (add-atom &sk_unifiers ($khash $key $computed)))
                       ;; A ground reader unifies with no other key, so only
                       ;; an open one waits for the keys registered later.
@@ -673,7 +668,10 @@
             (() ())
             ((cons $group-args $_rest)
                (let* (($group-key (sk-group $group-args))
-                      ($_group-of (sk-add-group-of! $group-key $fold))
+                      ($ghash (index-hash $group-key))
+                      ($_group-of (if (== (collapse (once (match &sk_group_of ($ghash $stored $_gfold)
+                                          (if (=alpha $stored $group-key) true (empty))))) ())
+                                     (add-atom &sk_group_of ($ghash $group-key $fold)) ()))
                       ($_use (sk-add-use! $key $group-key))
                       ($_dirty (sk-mark-dirty! $group-key)))
                   (sk-add-answer! $fold $group-key))))))
@@ -690,15 +688,6 @@
       (if (= $unbound-group $group) (cons $unbound ()) ())
       ()))
 
-(: sk-add-group-of! (-[det]-> SkeletonKey SkPattern Atom))
-(= (sk-add-group-of! $group-key $fold)
-   (let $hash (index-hash $group-key)
-      (if (== (collapse (once (match &sk_group_of ($hash $stored $_fold)
-                 (if (=alpha $stored $group-key) true (empty)))))
-              ())
-         (let $_row (add-atom &sk_group_of ($hash $group-key $fold)) ())
-         ())))
-
 ;; An antecedent completion, `((antecedent-completion rule index with cpu
 ;; prior) premises)`.
 (: sk-completion-proof? (-[det]-> Atom Bool))
@@ -714,11 +703,6 @@
    (case $waiter (
       ((sk-partial $_owner $_rule ($_type $_kbctx $proof $_tv) $_done $_remaining $_keys) (sk-completion-proof? $proof))
       ($_other false))))
-
-(: sk-prior-answers (-[det]-> SkPattern (List SkeletonKey)))
-(= (sk-prior-answers $node)
-   (let $hash (sk-node-hash $node)
-      (collapse (match &sk_prior_answer ($hash $stored $key) (if (=alpha $stored $node) $key (empty))))))
 
 ;; --- Partial joins and rows -------------------------------------------------
 
@@ -881,7 +865,8 @@
       ;; Read existing keys, including aggregate registrations before the
       ;; completed-row check. A known conclusion leaves no future subscriber.
       (let* (($_read (fold-semidet (sk-extend-waiter-step $waiter) ()
-                (if (sk-completion-waiter? $waiter) (append-flat (sk-answers $premise) (sk-prior-answers $premise)) (sk-answers $premise))))
+                (if (sk-completion-waiter? $waiter) (append-flat (sk-answers $premise)
+                   (collapse (match &sk_prior_answer ($hash $pstored $pkey) (if (=alpha $pstored $premise) $pkey (empty))))) (sk-answers $premise))))
              ($_retired (sk-functional-delivered! $subscription)))
          ())))))
 
@@ -1990,13 +1975,10 @@
             (sk-growth true $seen)
             (fold-semidet sk-grows (sk-growth false (cons $hash $seen)) (sk-children $hash $node))))))
 
-(: sk-seen? (-[det]-> Number SkPattern Bool))
-(= (sk-seen? $hash $node)
-   (not (== (collapse (once (match &sk_seen ($hash $stored) (if (=alpha $stored $node) true (empty))))) ())))
-
 (: sk-seen! (-[det]-> Number SkPattern Bool))
 (= (sk-seen! $hash $node)
-   (if (sk-seen? $hash $node) true (let $_row (add-atom &sk_seen ($hash $node)) false)))
+   (if (== (collapse (once (match &sk_seen ($hash $stored) (if (=alpha $stored $node) true (empty))))) ())
+      (let $_row (add-atom &sk_seen ($hash $node)) false) true))
 
 ;; Joins extended after their owner was walked link new children to it; the
 ;; walk picks those up from &sk_fresh at the next level.

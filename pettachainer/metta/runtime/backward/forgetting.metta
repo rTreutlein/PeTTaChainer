@@ -36,25 +36,6 @@
 (: SkeletonRowRef Type)
 (: sk-row-ref (-[det]-> SkeletonKey Number SkeletonRow SkeletonRowRef))
 
-(: sk-forget-taken! (-[det]-> Number SkeletonKey Atom))
-(= (sk-forget-taken! $hash $key)
-   (let $_removed
-      (collapse (match &sk_forward_taken ($hash $stored $value)
-         (if (=alpha $stored $key) (remove-atom &sk_forward_taken ($hash $stored $value)) (empty))))
-      ()))
-
-(: sk-forget-forward-copy! (-[det]-> Number SkeletonKey Atom))
-(= (sk-forget-forward-copy! $hash $key)
-   (let $_removed
-      (collapse (match &sk_forward_stored ($hash $stored $old $old-ev $old-deps)
-         (if (=alpha $stored $key)
-            (let* (($_kb (remove-atom &kb $old))
-                   ($_unindex (kb-unindex-fact! $old))
-                   ($_rules (forget-stored-rules! forward $hash $key)))
-               (remove-atom &sk_forward_stored ($hash $stored $old $old-ev $old-deps)))
-            (empty))))
-      ()))
-
 ;; A frozen key nothing reads any more, and that is a member of no fold but
 ;; base rates and implication instance folds (which keep their members'
 ;; contributions), is buried: it leaves
@@ -81,12 +62,6 @@
                    (let $_dropped (sk-drop-fold-view! $input) (sk-drop-merged! $input))))))))))
       ()))
 
-(: sk-open-node? (-[det]-> SkPattern Bool))
-(= (sk-open-node? $node)
-   (case $node (
-      (($type $kbctx $_proof $_tv) (not (== (extract-vars (data $type $kbctx)) ())))
-      ($_cpu false))))
-
 (: sk-bury-answer! (-[det]-> SkeletonKey Atom (Number SkPattern) Atom))
 (= (sk-bury-answer! $key $_acc ($nhash $node))
    (let* (($_answer (remove-atom &sk_answer ($nhash $node $key)))
@@ -103,7 +78,8 @@
                       (collapse (match &sk_answered ($hash $stored $nhash $node)
                          (if (=alpha $stored $key)
                             (let $_row (remove-atom &sk_answered ($hash $stored $nhash $node))
-                               (if (sk-open-node? $node) ($nhash $node) (empty)))
+                               (if (case $node ((($ntype $nctx $_np $_nt) (not (== (extract-vars (data $ntype $nctx)) ()))) ($_cpu false)))
+                                  ($nhash $node) (empty)))
                             (empty)))))
                    ($_answers (fold-flat (sk-bury-answer! $key) () $answers))
                    ($_uses
