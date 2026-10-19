@@ -997,7 +997,12 @@ read prior. Public proofs contain logical sources and the read prior TV, not
 support records, evidence handles, raw marginals or exclusion hashes.
 Finite endpoints do not act as certain vetoes. Certain observations and certified
 zero likelihoods retain their logical force. A positive-only predicate still has
-no empirical population prior unless an explicit user rate supplies one.
+no empirical population prior unless an explicit user rate supplies one. A row
+that reads such a prior (an inversion or antecedent completion onto the
+predicate) is registered under the rate it reads and is a rule only while that
+rate is set: `set-base-rate` adds exactly those rows and `clear-base-rate`
+withdraws them. A live row without the rate could never conclude, yet it would
+never settle either and be recomputed on every pass (75x on ONA conditioning).
 
 An STV's inferred negative likelihood is read once after deriving its raw
 estimate. Its already-consumed marginals cannot also be its centre. Unknown

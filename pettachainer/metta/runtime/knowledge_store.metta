@@ -219,37 +219,21 @@
             ()))
       ($_other ()))))
 
+;; The positive-only population priors a rule's premises read.
+(: positive-only-prior-read (-[det]-> (List Atom) Atom (List Atom)))
+(= (positive-only-prior-read $reads $premise)
+   (case $premise (
+      ((CPU ReadRate ($kb $pattern $_raw $_plan true) $_read)
+         (if (positive-only-pattern? (brand KB $kb) (brand Statement $pattern)) (cons (data $kb $pattern) $reads) $reads))
+      ($_other $reads))))
+
 (: kb-add-expr (-[nondet]-> KbBackend RuntimeAddition (| Bool (List $none))))
 (= (kb-add-expr $backend $expr)
    (if (= $expr (rules ($args |- $ccls)))
-      (let*
-         (($typed-ccls (typed-runtime-fact $ccls))
-          ($rule-args (context-rule-premises $typed-ccls (typed-runtime-premises $args)))
-          ;; Temp (per-query) rule ids are offset so they can never collide
-          ;; with live ones: both counters start at 0 and both backends'
-          ;; rules/rule_expected/prem_index rows share the same spaces.
-          ($id
-             (if (== $backend temp)
-                (+ 1000000000 (next-search-id bwd_tmp_ruleid))
-                (next-search-id ruleid)))
-           ($_context (context-note-rule! $id $typed-ccls))
-           ($_functional (functional-rule! $typed-ccls))
-           ($_1 (if (== $backend backward) 0 (fold-flat (kb-add-prem $backend $id) 0 $rule-args)))
-           ($ccls-row (make-space-row3 $typed-ccls $id $rule-args))
-           ($_2 (kb-add-atom $backend ccls_index $ccls-row))
-           ($_3
-              (kb-add-atom $backend rules
-                 (brand SpaceAtom (runtime-rule-row $id $typed-ccls $rule-args))))
-           ($_expected (store-rule-expected-score! $backend $id $rule-args))
-           ;; A refined rule reads its truth goal first (rule-truth-premises); the
-           ;; rule's search score follows that goal's value.
-           ($_truth (case (copy_term $rule-args) (
-              ((cons $truth-first $_truth-rest) (register-truth-premise! $id $truth-first))
-              (() ()))))
-           ($_name-idx (register-rule-name! $backend $id $typed-ccls))
-           ($_journal (sk-note-rule! $id $typed-ccls))
-           ($_aggregates (register-forward-aggregate-premises! (== $backend live) $rule-args)))
-         ())
+      (case (fold-flat positive-only-prior-read () (the (List Atom) $args)) (
+         (() (let $_id (once (kb-add-rule! $backend $args $ccls)) ()))
+         ((cons ($gated-kb $gated-pattern) $_more)
+            (kb-add-gated-rule! $backend (brand KB $gated-kb) (brand Statement $gated-pattern) $args $ccls))))
       (let $fact
          (typed-runtime-fact $expr)
          (if (== $backend live)
@@ -270,6 +254,85 @@
                      (no-forward-output-candidate ())))))
             (let $_index (kb-index-fact! $backend $fact)
                (kb-add-atom $backend &kb (brand SpaceAtom $fact)))))))
+
+(: kb-add-rule! (-[nondet]-> KbBackend Atom Atom Number))
+(= (kb-add-rule! $backend $args $ccls)
+   (let*
+      (($typed-ccls (typed-runtime-fact $ccls))
+       ($rule-args (context-rule-premises $typed-ccls (typed-runtime-premises $args)))
+       ;; Temp (per-query) rule ids are offset so they can never collide
+       ;; with live ones: both counters start at 0 and both backends'
+       ;; rules/rule_expected/prem_index rows share the same spaces.
+       ($id
+          (if (== $backend temp)
+             (+ 1000000000 (next-search-id bwd_tmp_ruleid))
+             (next-search-id ruleid)))
+       ($_context (context-note-rule! $id $typed-ccls))
+       ($_functional (functional-rule! $typed-ccls))
+       ($_1 (if (== $backend backward) 0 (fold-flat (kb-add-prem $backend $id) 0 $rule-args)))
+       ($ccls-row (make-space-row3 $typed-ccls $id $rule-args))
+       ($_2 (kb-add-atom $backend ccls_index $ccls-row))
+       ($_3
+          (kb-add-atom $backend rules
+             (brand SpaceAtom (runtime-rule-row $id $typed-ccls $rule-args))))
+       ($_expected (store-rule-expected-score! $backend $id $rule-args))
+       ;; A refined rule reads its truth goal first (rule-truth-premises); the
+       ;; rule's search score follows that goal's value.
+       ($_truth (case (copy_term $rule-args) (
+          ((cons $truth-first $_truth-rest) (register-truth-premise! $id $truth-first))
+          (() ()))))
+       ($_name-idx (register-rule-name! $backend $id $typed-ccls))
+       ($_journal (sk-note-rule! $id $typed-ccls))
+       ($_aggregates (register-forward-aggregate-premises! (== $backend live) $rule-args)))
+      $id))
+
+;; An inversion or antecedent completion onto a positive-only predicate reads
+;; a population prior that only an explicit user rate supplies (#12). Without
+;; one the row can never conclude, and a live row that never settles would be
+;; recomputed on every pass. So the row is registered under the rate it reads,
+;; and is a rule only while that rate is set: set-base-rate adds it and
+;; clear-base-rate withdraws it (prior-gated-rate-changed!), at a cost of the
+;; rows reading that rate. A temporary query row is compiled again by the next
+;; query, so it is only dropped.
+(: &prior_gated_rules (SpaceOf (Number KB Statement Proof KbBackend Atom Atom)))
+!(bind! &prior_gated_rules (new-space))
+(: &prior_gated_live (SpaceOf (Number KB Statement Proof Number)))
+!(bind! &prior_gated_live (new-space))
+
+(: kb-add-gated-rule! (-[semidet]-> KbBackend KB Statement Atom Atom (List $none)))
+(= (kb-add-gated-rule! $backend $kb $pattern $args $ccls)
+   (let $user (user-base-rate? $kb $pattern)
+      (if (== $backend temp)
+         (if $user (let $_id (once (kb-add-rule! temp $args $ccls)) ()) ())
+         (let* ((($_type $_kbctx $prf $_tv) (typed-runtime-fact $ccls))
+                ($hash (base-rate-cache-hash $kb $pattern))
+                ($name (rule-evidence-head $prf))
+                ($_row (add-atom &prior_gated_rules ($hash $kb $pattern $name $backend $args $ccls))))
+            (if $user (prior-gated-add! $hash $kb $pattern $name $backend $args $ccls) ())))))
+
+(: prior-gated-add! (-[semidet]-> Number KB Statement Proof KbBackend Atom Atom (List $none)))
+(= (prior-gated-add! $hash $kb $pattern $name $backend $args $ccls)
+   (let* (($id (once (kb-add-rule! $backend $args $ccls)))
+          ($_live (add-atom &prior_gated_live ($hash $kb $pattern $name $id))))
+      ()))
+
+;; Adds the rows reading a newly set rate, or withdraws those of a cleared one.
+(: prior-gated-rate-changed! (-[det]-> KB Statement (List $none)))
+(= (prior-gated-rate-changed! $kb $pattern)
+   (let $hash (base-rate-cache-hash $kb $pattern)
+      (if (user-base-rate? $kb $pattern)
+         (if (== (collapse (once (match &prior_gated_live ($hash $kb $stored $name $id)
+                   (if (=alpha $stored $pattern) true (empty))))) ())
+            (let $_added (collapse (match &prior_gated_rules ($hash $kb $stored $name $backend $args $ccls)
+                  (if (=alpha $stored $pattern) (prior-gated-add! $hash $kb $stored $name $backend $args $ccls) (empty))))
+               ())
+            ())
+         (let $_withdrawn
+               (withdraw-rule-ids! (collapse (match &prior_gated_live ($hash $kb $stored $name $id)
+                  (if (=alpha $stored $pattern)
+                     (let $_row (remove-variant-row! &prior_gated_live (quote ($hash $kb $stored $name $id))) $id)
+                     (empty)))))
+            ()))))
 
 (: clear-temp-query-adds (-[det]-> (List $none)))
 (= (clear-temp-query-adds)
@@ -310,16 +373,22 @@
              ($_row (remove-atom rules (runtime-rule-row $id $ccls $args))))
             (brand KB $kbid)))))
 
-;; The rule rows registered under a statement name leave the rule indexes, so
-;; their durable joins and views are retired by identity too. Returns
-;; the KBs they belonged to.
-(: withdraw-named-rules! (-[det]-> Proof (List KB)))
-(= (withdraw-named-rules! $name)
-   (let* (($ids (list_to_set (collapse (match rule_name_index ($name $id) (the Number $id)))))
-          ($kbs (list_to_set (fold-flat (|-> ($acc $id) (append-flat $acc (remove-rule-row! $id))) () $ids)))
-          ($_index (collapse (remove-atom rule_name_index ($name $_any))))
+;; Rule rows leave the rule indexes, their durable joins and views are
+;; retired by identity too, and their KBs' inputs change. Returns those KBs.
+(: withdraw-rule-ids! (-[det]-> (List Number) (List KB)))
+(= (withdraw-rule-ids! $ids)
+   (let* (($kbs (list_to_set (fold-flat (|-> ($acc $id) (append-flat $acc (remove-rule-row! $id))) () $ids)))
           ($_copies (foreach-flat sk-retire-store! (withdrawn-stores! $ids)))
           ($_inputs (foreach-flat sk-input-changed! $kbs)))
+      $kbs))
+
+;; The rule rows registered under a statement name, with its gated rows.
+(: withdraw-named-rules! (-[det]-> Proof (List KB)))
+(= (withdraw-named-rules! $name)
+   (let* (($kbs (withdraw-rule-ids! (list_to_set (collapse (match rule_name_index ($name $id) (the Number $id))))))
+          ($_index (collapse (remove-atom rule_name_index ($name $_any))))
+          ($_gated (remove-data-rows! &prior_gated_rules (quote ($_h $_k $_p $name $_b $_a $_c))))
+          ($_live (remove-data-rows! &prior_gated_live (quote ($_lh $_lk $_lp $name $_lid)))))
       $kbs))
 
 ;; A removed fact's statement is observed by the aggregates as what its

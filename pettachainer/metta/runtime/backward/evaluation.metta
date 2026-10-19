@@ -3789,11 +3789,8 @@
                            (sk-rate-read (brand KB $kb) (brand Statement $pattern) (the TV $raw)
                               (rate-plan (the (List Goal) $goals) $rate) $exclude $observations)))) (
                      ((cons $admissible ())
-                        (case (collapse (once (if (the Bool $prior)
-                                  (configured-population-prior-tv (brand KB $kb) (brand Statement $pattern) (the TV $admissible))
-                                  (the TV $admissible)))) (
-                           ((cons $read ()) (if (= $result (rate-read (the TV $admissible) (the TV $read))) $state sk-fail))
-                           (() sk-fail))))
+                        (let $read (if (the Bool $prior) (population-prior-tv (the TV $admissible)) (the TV $admissible))
+                           (if (= $result (rate-read (the TV $admissible) (the TV $read))) $state sk-fail)))
                      (() sk-fail)))))
             ((CPU FoldAllCompiled $fold-args $fold-res)
                (if (== $policy sk-reference-read)
@@ -5525,7 +5522,8 @@
 ;; --- Base-rate API ----------------------------------------------------------
 
 ;; Setting or clearing a user base rate changes the folds over its pattern,
-;; which recompute with their readers at the next evaluation.
+;; which recompute with their readers at the next evaluation, and adds or
+;; withdraws the positive-only rows reading it.
 (: set-base-rate (-[det]-> KB Statement TV (List $none)))
 (= (set-base-rate $kbid $pattern $tv)
    (let* (($_valid (validate-base-rate! $pattern (conjunct-parts (implication-side-conjuncts $pattern))))
@@ -5533,12 +5531,15 @@
           ($stored (copy_term $pattern))
           ($hash (base-rate-cache-hash $kbid $pattern))
           ($_old (base-rate-cache-remove! $kbid $pattern))
-          ($_new (context-add! &base_rate_cache ($hash (base-rate $kbid $stored $tv user any)))))
+          ($_new (context-add! &base_rate_cache ($hash (base-rate $kbid $stored $tv user any))))
+          ($_gated (prior-gated-rate-changed! $kbid $pattern)))
       (base-rate-readers-changed! $kbid $pattern)))
 
 (: clear-base-rate (-[det]-> KB Statement (List $none)))
 (= (clear-base-rate $kbid $pattern)
-   (let* (($_old (base-rate-cache-remove! $kbid $pattern)) ($_input (sk-input-changed! $kbid)))
+   (let* (($_old (base-rate-cache-remove! $kbid $pattern))
+          ($_input (sk-input-changed! $kbid))
+          ($_gated (prior-gated-rate-changed! $kbid $pattern)))
       (base-rate-readers-changed! $kbid $pattern)))
 
 ;; --- Materialization --------------------------------------------------------

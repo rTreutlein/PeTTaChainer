@@ -28,6 +28,21 @@
    (query 1000 noPriorKb (: $q (A q) $tv)) $s)) (0.9))
 !(clear-base-rate noPriorKb (A $x))
 !(test (collapse (query 1000 noPriorKb (: $p (A q) $tv))) ())
+;; A row that could read A's population prior is a rule only while a user
+;; rate supplies one: without it the inversions onto A are never searched.
+(= (prior-rows $kb)
+   (collapse (match rules (runtime-rule-row $id ($type ($kb $ctx $vars) $proof $tv) $args)
+      (if (== (fold-flat positive-only-prior-read () $args) ()) (empty) $type))))
+!(set-positive-only-predicate gateKb A)
+!(compileadd gateKb (: r (Implication (A $x) (B $x)) (CTV (STV 0.9 1) (STV 0.1 1))))
+!(test (prior-rows gateKb) ())
+!(test (size-atom (collapse (match rules (runtime-rule-row $id ($type (gateKb $ctx $vars) $proof $tv) $args) $id))) 1)
+!(set-base-rate gateKb (A $x) (STV 0.5 1))
+!(test (prior-rows gateKb) ((A $_y)))
+!(clear-base-rate gateKb (A $x))
+!(test (prior-rows gateKb) ())
+!(set-base-rate gateKb (A $x) (STV 0.5 1))
+!(test (size-atom (prior-rows gateKb)) 1)
 ;; Classifying an open predicate against immutable inputs is nonbinding.
 !(set-functional-predicate priorShapeKb At 2 (1))
 !(test (let* (($pattern ($head a))

@@ -405,7 +405,8 @@
 ;; A rate of 0 or 1 from finitely many members then leaves an instance
 ;; either way possible, and its updates keep their likelihood ratios for a
 ;; view in the base rate's place. A predicate declared positive-only has no
-;; such empirical prior; an explicit user rate still permits an update.
+;; such empirical prior; an explicit user rate still permits an update, and
+;; the row is a rule only while one is set (kb-add-gated-rule!).
 ;; Functional inputs remain non-derivable regardless of population settings.
 (: prior-base-rate-premises (-[semidet]-> KB Statement $raw-value $truth-value (List Goal)))
 (= (prior-base-rate-premises $kb $pattern $raw $brtv)
