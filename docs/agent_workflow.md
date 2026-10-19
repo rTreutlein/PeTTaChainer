@@ -299,6 +299,10 @@ passed:
    anchor <rebased> --full`, which reuses the candidate's runs. Against the
    anchor seconds may be 15% worse per case, flags read
    `<metric> vs anchor`, and a case the anchor cannot run is not compared.
+   While master is behind the anchor, an anchor flag blocks only where the
+   candidate is also worse than master beyond the master thresholds; the
+   others are printed as behind the anchor, and a case the candidate
+   improves over master as progress toward it.
    `--accept-flags <file>`
    allows only the exact case and metric pairs explicitly approved by the
    user. Every regression must match; any new flag, unapproved accuracy

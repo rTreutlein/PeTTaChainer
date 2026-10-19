@@ -290,6 +290,12 @@ try:
         if len(keys) != 1 or keys[0] not in approved:
             raise ValueError(f'unapproved, ambiguous or non-waivable flag: {flag}')
         accepted.append(f'{flag}\n  Reason: {approved[keys[0]]}')
+    # Anchor flags master shares do not block; they and the progress stay visible.
+    for title, field in (('Behind the anchor, on master too (not blocking)', 'behind_anchor'),
+                         ('Progress toward the anchor', 'progress')):
+        if data.get(field):
+            print(f'{title} ({sys.argv[1]}):')
+            print('\n'.join(f'  {line}' for line in data[field]))
     if accepted:
         print(f'Report: {sys.argv[1]}')
         print('Accepted flags (explicit coordinator approvals):')
@@ -306,10 +312,12 @@ PY_FLAGS
 # The canary against the anchor build (bench/anchor.txt) first: a few
 # minutes, and it holds the presentation workloads and the slowdown
 # accumulated since the anchor, which a comparison with master cannot see.
-bench anchor-canary anchor "$rebased" --canary
+# An anchor flag blocks only where the candidate is also worse than master.
+master_sha=$(git -C "$main" rev-parse master)
+bench anchor-canary anchor "$rebased" --canary --master "$master_sha"
 bench compare master "$rebased" --full
-# Against the anchor the candidate's runs above are reused.
-bench anchor-full anchor "$rebased" --full
+# Against the anchor and master the runs above are reused.
+bench anchor-full anchor "$rebased" --full --master "$master_sha"
 cat "$logs/accepted-flags.log"
 
 step "Land"

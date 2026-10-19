@@ -358,7 +358,7 @@ done
 # candidate failure still stops the landing. The canary against the anchor
 # runs first, the full profile against master and the anchor after it.
 anchor_json=$tmp/anchor.json
-for scenario in cannot-run approved master-approval candidate-failed; do
+for scenario in cannot-run approved master-approval candidate-failed on-master worse-than-master progress; do
   fixture "anchor-$scenario"
   python3 - "$anchor_json" "$scenario" <<'PY_REPORT'
 import json
@@ -367,22 +367,40 @@ import sys
 scenario = sys.argv[2]
 records = [{'suite': 'suite', 'case': 'case', 'base': {'exit': 0}, 'candidate': {'exit': 0}}]
 flags = []
+behind, progress = [], []
 if scenario in ('cannot-run', 'candidate-failed'):
     records[0]['base']['exit'] = 1
     records[0]['candidate']['exit'] = 1 if scenario == 'candidate-failed' else 0
+elif scenario == 'on-master':
+    # compare.py moved the flag master shares out of the regressions.
+    behind = ['suite case seconds vs anchor 1 -> 2']
+elif scenario == 'progress':
+    behind = ['suite case seconds vs anchor 1 -> 2']
+    progress = ['suite case seconds vs anchor 1 -> 2: master 3 -> candidate 2']
 else:
     flags = ['suite case seconds vs anchor 1 -> 2']
 verdict = f"REGRESSIONS ({len(flags)}): " + '; '.join(flags) if flags else 'PASS'
 with open(sys.argv[1], 'w') as stream:
-    json.dump({'verdict': verdict, 'regressions': flags, 'records': records, 'anchor': True}, stream)
+    json.dump({'verdict': verdict, 'regressions': flags, 'records': records, 'anchor': True,
+               'behind_anchor': behind, 'progress': progress}, stream)
 PY_REPORT
   metric='seconds vs anchor'
   [[ $scenario != master-approval ]] || metric=seconds
   printf 'suite case\t%s\tUser accepted the slowdown since the anchor\n' "$metric" >"$tmp/anchor-approval.tsv"
+  accept=(--accept-flags "$tmp/anchor-approval.tsv")
+  # No approval: a flag master shares passes, one worse than master stops.
+  [[ $scenario != on-master && $scenario != worse-than-master && $scenario != progress ]] || accept=()
   master=$(git -C "$pc" rev-parse master)
   : >"$tmp/compare-calls"
-  LAND_TEST_ANCHOR_REPORT=$anchor_json run_land feat --push --accept-flags "$tmp/anchor-approval.tsv"
+  LAND_TEST_ANCHOR_REPORT=$anchor_json run_land feat --push ${accept[@]+"${accept[@]}"}
   case $scenario in
+    on-master|progress)
+      expect_status 0
+      expect_retired "$wt" "$pc" feat
+      [[ $out == *'Behind the anchor, on master too (not blocking)'*'suite case seconds vs anchor 1 -> 2'* ]] || fail "behind-anchor lines missing: $out"
+      if [[ $scenario == progress ]]; then
+        [[ $out == *'Progress toward the anchor'*'master 3 -> candidate 2'* ]] || fail "progress line missing: $out"
+      fi ;;
     cannot-run|approved)
       expect_status 0
       expect_retired "$wt" "$pc" feat
