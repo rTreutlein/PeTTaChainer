@@ -662,10 +662,11 @@
 ;; --- Overlapping views (docs/metta/overlap_conditioning.md) ------------------
 
 ;; A statement both views depend on, with the size of its dependency set,
-;; negated so the largest sorts first, that set, and its spread: the largest
-;; variance s (1 - s) of its facts' and views' strengths.
+;; negated so the largest sorts first, that set, its spread: the largest
+;; variance s (1 - s) of its facts' and views' strengths, and whether stored
+;; facts supply its probability.
 (: SkeletonShared Type)
-(: sk-shared-key (-[det]-> Number SkeletonKey Number Number SkeletonShared))
+(: sk-shared-key (-[det]-> Number SkeletonKey Number Number Bool SkeletonShared))
 ;; A statement to condition on with its expected impact, negated so the
 ;; largest sorts first.
 (: SkeletonRanked Type)
@@ -674,7 +675,10 @@
 ;; A statement is known when a stored fact gives it strength 0 or 1 at
 ;; confidence 1, or when every view its rows have does. A shared statement is
 ;; read off its stored facts and its rows' latest views, never by merging it:
-;; its merge may read the very key being merged. A rule's truth is no
+;; its merge may read the very key being merged. Stored facts supply their
+;; statement's probability: it ranks by their spread, depending on its own
+;; key, as its rules' views are updates its weight keeps only apart from the
+;; branches (sk-mix-on). A rule's truth is no
 ;; statement: it is a parameter of every view through the rule, and given it
 ;; the rule's applications are independent.
 (: sk-known-view-step (-[det]-> Bool SkeletonValue Bool))
@@ -695,10 +699,11 @@
       (if (if (fold-semidet sk-known-leaf-step false $leaves) true
              (if (== $views ()) (== $leaves ()) (fold-semidet sk-known-view-step true $views)))
          $found
-         (let $deps (fold-semidet sk-view-deps-step (deps-key $hash) $views)
-            (cons (sk-shared-key (- 0 (deps-size $deps)) $key $deps
-                     (fold-semidet sk-view-spread-step (fold-semidet sk-leaf-spread-step 0 $leaves) $views))
-               $found))))))
+         (if (== $leaves ())
+            (let $deps (fold-semidet sk-view-deps-step (deps-key $hash) $views)
+               (cons (sk-shared-key (- 0 (deps-size $deps)) $key $deps (fold-semidet sk-view-spread-step 0 $views) false)
+                  $found))
+            (cons (sk-shared-key -1 $key (deps-key $hash) (fold-semidet sk-leaf-spread-step 0 $leaves) true) $found))))))
 
 (: sk-spread (-[det]-> Number TV Number))
 (= (sk-spread $spread $tv)
@@ -715,7 +720,7 @@
 ;; spread, how far its two branches lie apart in weight, times one more than
 ;; its dependency count, how much of the views it reaches.
 (: sk-shared-rank (-[det]-> SkeletonShared SkeletonRanked))
-(= (sk-shared-rank (sk-shared-key $size $key $_deps $spread)) (sk-ranked (* $spread (- $size 1)) $key))
+(= (sk-shared-rank (sk-shared-key $size $key $_deps $spread $_source)) (sk-ranked (* $spread (- $size 1)) $key))
 
 (: sk-ranked-key (-[det]-> SkeletonRanked SkeletonKey))
 (= (sk-ranked-key (sk-ranked $_impact $key)) $key)
@@ -726,24 +731,32 @@
       (fold-semidet sk-shared-candidate $found (collapse (match &sk_keys ($hash $key) $key)))))
 
 (: sk-below-step (-[det]-> Number Bool SkeletonShared Bool))
-(= (sk-below-step $hash $found (sk-shared-key $_size $_key $deps $_spread)) (if $found true (deps-has? $deps $hash)))
+(= (sk-below-step $hash $found (sk-shared-key $_size $_key $deps $_spread $_source)) (if $found true (deps-has? $deps $hash)))
 
-(: sk-frontier-step (-[semidet]-> (List SkeletonShared) SkeletonShared (List SkeletonShared)))
-(= (sk-frontier-step $kept $shared)
+(: sk-frontier-step (-[semidet]-> Bool (List SkeletonShared) SkeletonShared (List SkeletonShared)))
+(= (sk-frontier-step $group $kept $shared)
    (case $shared (
-      ((sk-shared-key $_size $key $_deps $_spread)
-         (if (fold-flat (sk-below-step (index-hash $key)) false $kept) $kept (cons $shared $kept))))))
+      ((sk-shared-key $_size $key $_deps $_spread $source)
+         (if (== $source $group)
+            (if (fold-flat (sk-below-step (index-hash $key)) false $kept) $kept (cons $shared $kept))
+            $kept)))))
 
 ;; The shared statements, among the keys of the hashes less the ignored ones,
 ;; whose value is uncertain: first the ones no other one depends on (the
-;; largest dependency set decides first), then the others, each the most
-;; impact first. A stored fact depends on its own key, and a fold is no
-;; statement.
+;; largest dependency set decides first), those stored facts supply before
+;; derived ones, then the others, each group the most impact first. A stored
+;; fact depends on its own key, and a fold is no statement. A stored
+;; statement's weight leaves out the views that share the branches' evidence,
+;; so its mix is not refused after both branches were paid; a derived one's
+;; can be (#94).
 (: sk-shared-statements (-[semidet]-> (List Number) (List Number) (List SkeletonKey)))
 (= (sk-shared-statements $ignore $hashes)
    (let* (($candidates (sort-atom (fold-semidet (sk-shared-hash-step $ignore) () $hashes)))
-          ($frontier (fold-semidet sk-frontier-step () $candidates)))
-      (append-flat (sk-ranked-statements $frontier) (sk-ranked-statements (fold-semidet (sk-below-frontier-step $frontier) () $candidates)))))
+          ($sources (fold-semidet (sk-frontier-step true) () $candidates))
+          ($frontier (fold-semidet (sk-frontier-step false) () $candidates))
+          ($below (fold-semidet (sk-below-frontier-step (append-flat $sources $frontier)) () $candidates)))
+      (append-flat (sk-ranked-statements $sources)
+         (append-flat (sk-ranked-statements $frontier) (sk-ranked-statements $below)))))
 
 (: sk-below-frontier-step (-[det]-> (List SkeletonShared) (List SkeletonShared) SkeletonShared (List SkeletonShared)))
 (= (sk-below-frontier-step $frontier $below $shared) (if (stored-list-member? $shared $frontier) $below (cons $shared $below)))
@@ -3923,17 +3936,34 @@
 ;; The target evaluated with a statement known true and known false, mixed
 ;; by the statement's value read without the target: the first statement in
 ;; order whose mix is possible, its value's evidence outside the branches.
+;; A statement with stored facts weighs by its facts and those of its views
+;; whose evidence the branches do not hold, in either polarity, as a premise
+;; selects compatible views: a soft fact's rules let reports below the views
+;; invert into it, and its merged value would count them again (#94).
 (: sk-mix-on (-[semidet]-> (List SkeletonGiven) SkeletonTarget (List Number) (List SkeletonKey) (List SkeletonValue)))
 (= (sk-mix-on $given $target $wexclude $keys)
    (case $keys (
       (() ())
       ((cons $pin $more)
          (let* (($phash (index-hash $pin))
+                ($stored (not (== (sk-key-leaves $pin sk-any-filter) ())))
                 ($before (search-id-value sk_claim_cut)))
             (case (collapse (once
-                     (sk-mix (sk-given-value $given $pin sk-any-filter $wexclude)
-                        (sk-target-value (cons (sk-given $phash $pin true) $given) $target)
-                        (sk-target-value (cons (sk-given $phash $pin false) $given) $target)))) (
+                     (let* (($yes (sk-target-value (cons (sk-given $phash $pin true) $given) $target))
+                            ($no (sk-target-value (cons (sk-given $phash $pin false) $given) $target)))
+                        (sk-mix
+                           (if $stored
+                              (case $yes (
+                                 ((sk-val $_yfact $yev $_ydeps)
+                                    (case $no (
+                                       ((sk-val $_nfact $nev $_ndeps)
+                                          (let $branch-ev (evidence-union $yev $nev)
+                                             (sk-compatible-value $given $pin sk-any-filter $wexclude
+                                                (evidence-union $branch-ev (evidence-negated $branch-ev)) () true)))
+                                       ($_nother sk-none))))
+                                 ($_yother sk-none)))
+                              (sk-given-value $given $pin sk-any-filter $wexclude))
+                           $yes $no)))) (
                (()
                   ;; A discarded candidate's truncated branches do not make a
                   ;; successful alternative incomplete. Preserve all failures

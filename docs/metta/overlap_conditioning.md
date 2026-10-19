@@ -53,6 +53,9 @@ statements two views share are the keys in both sets, less
   rows whose every view is.
 
 Shared uncertain facts are among them: a stored fact depends on its own key.
+A statement with stored facts ranks by those facts' spread and depends on its
+own key alone: its rules' views are updates its weight keeps only apart from
+the branches (see "The weight").
 
 ## Rule
 
@@ -136,12 +139,25 @@ conditions on it in turn. What bounds this is the claim's budget, and what
 makes it anytime is the depth.
 
 **Order.** The candidates are the shared statements whose value is uncertain.
-They are tried in two groups, each by expected impact:
+They are tried in three groups, each by expected impact:
 
-1. the frontier: the statements no other shared statement depends on (the
-   largest dependency set decides first), since a statement below another
-   is usually read through it, and giving the upper one removes both;
-2. the statements below the frontier.
+1. the frontier of the statements stored facts supply, those no other
+   stored one depends on: their weight leaves out the views that share the
+   branches' evidence, so their mix is not refused after both branches were
+   paid, and giving one removes every statement shared only through its
+   rules' views (T8 with a soft `Storm t1` shares `Fuelled plant t1` through
+   the storm's inversion of the report; tried later, the derived statements
+   cost 69 rows instead of 26 at two periods with the storm at (0.6, 0.9),
+   and exceed the root cap at four);
+2. the frontier of the derived statements: those no other shared statement
+   depends on (the largest dependency set decides first), since a statement
+   below another is usually read through it, and giving the upper one
+   removes both;
+3. the statements below either frontier.
+
+When several stored statements could mix and a pass stops early, the first
+of them decides the approximate answer; they rank by their facts' spread,
+a choice made for cost, not for the value it settles on.
 
 Expected impact is the statement's spread, the largest variance s (1 - s) of
 its facts' and views' strengths, times one more than its dependency count.
@@ -150,9 +166,10 @@ branches; the spread is the first factor, and the dependency count stands in
 for the second, how much of the views the statement reaches, which is not
 known before the branches are evaluated. A statement whose mix is impossible
 (its value's evidence enters the branches by another path, see "The weight")
-gives way to the next one in order: SupplyNet's derived `Fuelled plant t1`
-ranks first in `test_nested_conditioning` and fails; the stored storm below
-it mixes.
+gives way to the next one in order. Each failed candidate has paid for its
+two branches, which is why stored statements go first: SupplyNet's derived
+`Fuelled plant t1` ranked first in `test_nested_conditioning` and failed
+before the stored storm mixed.
 
 **Depth.** A claim's pass has a depth d: the number of statements conditioned
 on along any path from the target, a cutset of 2^d branches. A conditioning
@@ -196,7 +213,7 @@ query's evaluation allowance, capped at 256 units (512 conditioned rows),
 and also spend the ordinary remaining allowance. These internal settings are
 `sk-root-claim-share` and `sk-root-claim-limit`. The share leaves room for
 ordinary work and other claims; the fixed ceiling covers the cheap two-period
-(26 rows) and four-period (510 rows) T8 cuts while bounding longer-history
+(26 rows) and four-period (308 rows) T8 cuts while bounding longer-history
 retries independently of history length. Each input world receives its own
 slice, as it receives its own evaluation allowance. Exhaustion retains the
 last completed pass, or the factored summary. A root that spends its whole
@@ -437,11 +454,22 @@ K's value is read without views depending on the merged key. The mix is the
 total probability over K when that value is K's probability given all the
 evidence, the views' included. Evidence the views hold about K and K's value
 does not, such as a report that tells the storm through the fuel, is lost to
-the weight but still counts in each branch. A stored soft fact applies no
-rules, so its value is its stored value, and observations below the views
-never update it. The chainer propagates observations up through inversions and
-completions, so a derived K (Storm north t1 in SupplyNet) carries what reached
-it. The same holds for row conditioning.
+the weight but still counts in each branch. A statement with stored facts
+weighs by the merge of those facts and of the views whose evidence the two
+branches do not hold, in either polarity, as a premise selects compatible
+views (Jeffrey on what the branches do not already count). A soft fact of
+confidence below 1 is expanded, so reports below the views invert into its
+merged value; that value reads the same reports as the branches, and the mix
+on it would be refused (#94: T8 with `Storm t1` at (0.6, 0.9) published the
+waiting value). Those views drop out of the weight; a report, forecast or
+derivation the branches do not read stays in it, so the cut agrees with the
+chainer's own answer for the statement. Reweighting the stored prior by the
+branches' own evidence (Pearl) is a separate decision (#91 B2). The branches
+are evaluated before the weight. A derived statement weighs by its value as
+read without the target, as before. The chainer
+propagates observations up through inversions and completions, so a derived K
+(Storm north t1 in SupplyNet) carries what reached it. The same holds for row
+conditioning.
 
 ## Cost
 

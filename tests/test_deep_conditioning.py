@@ -68,9 +68,9 @@ def bk_t8(periods, *, branched=True):
     return result
 
 
-def plant(handler, periods):
+def plant(handler, periods, storm_confidence=1):
     handler.add_atoms_no_check([
-        '(: storm-t1 (Storm t1) (STV 0.6 1))',
+        f'(: storm-t1 (Storm t1) (STV 0.6 {storm_confidence}))',
         '(: persist-storm (Implication (And (NextPeriod $p $t) (Storm $p)) (Storm $t)) (CTV (STV 0.7 1) (STV 0.3 1)))',
         '(: fuel (Implication (Storm $t) (Fuelled plant $t)) (CTV (STV 0.2 1) (STV 0.9 1)))',
         '(: runs-plant (Implication (And (Fuelled plant $t) (Not (Degraded plant $t))) (Producing plant $t)) (CTV (STV 1 1) (STV 0 1)))',
@@ -170,6 +170,69 @@ class DeepConditioningTests(unittest.TestCase):
             self.assertEqual(aliases, [])
         self.assertLessEqual(handler.last_query_metrics()['conditioned_evaluations'], 4 * budget)
         return handler.last_query_metrics()
+
+    def test_uncertain_stored_cut_fact_weighs_by_its_stored_value(self):
+        # #94: a soft stored Storm t1 has rule views (the reports invert into
+        # it), but they share the branches' reports, so the cut weighs by the
+        # stored value (Jeffrey) and the strengths are those of the
+        # certain-confidence fact. The weight's lower confidence lowers the
+        # mix's through its formula.
+        for periods, expected in ((2, exact_t8(2)), (4, bk_t8(4))):
+            confidences = []
+            for storm_confidence in (1, .9, .5):
+                with self.subTest(periods=periods, storm_confidence=storm_confidence):
+                    handler = PeTTaChainer()
+                    handler.set_bayes_prior_count(0)
+                    self.addCleanup(handler.set_bayes_prior_count, .2)
+                    plant(handler, periods, storm_confidence)
+                    handler.set_query_metrics(True)
+                    rows = handler.query_many_refs([f'(: $p (Degraded plant t{periods}) $tv)'], steps=20000)[0]
+                    self.assertEqual(len(rows), 1)
+                    self.assertAlmostEqual(rows[0].tv[1], float(expected), delta=1e-8)
+                    self.assertLess(abs(rows[0].tv[1]-float(exact_t8(periods))), .0011)
+                    self.assertTrue(handler.expand_proof(rows[0].proof).startswith('(conditioned storm-t1 '))
+                    self.assertEqual(handler.last_query_metrics()['conditions_unpaid'], 0)
+                    confidences.append(rows[0].tv[2])
+            # The weight's confidence enters the mix; 1 and .9 may round alike.
+            self.assertGreaterEqual(confidences[0], confidences[1])
+            self.assertGreater(confidences[1], confidences[2])
+
+    def check_stored_cut_keeps_disjoint_storm_views(self, facts):
+        # A soft stored storm with views apart from T's branches: the cut
+        # weighs by the storm as the chainer answers it, not by the stored
+        # fact alone. Branches: .8 * .7 with a storm, .1 * .2 without.
+        handler = PeTTaChainer()
+        handler.set_bayes_prior_count(0)
+        self.addCleanup(handler.set_bayes_prior_count, .2)
+        handler.add_atoms_no_check(facts + [
+            '(: ra (Implication (Storm t1) (A x)) (CTV (STV 0.8 1) (STV 0.1 1)))',
+            '(: rb (Implication (Storm t1) (B x)) (CTV (STV 0.7 1) (STV 0.2 1)))',
+            '(: rt (Implication (And (A x) (B x)) (T x)) (CTV (STV 1 1) (STV 0 1)))',
+        ])
+        storm = handler.query_many_refs(['(: $p (Storm t1) $tv)'], steps=20000)[0][0].tv[1]
+        rows = handler.query_many_refs(['(: $p (T x) $tv)'], steps=20000)[0]
+        self.assertEqual(len(rows), 1)
+        self.assertTrue(handler.expand_proof(rows[0].proof).startswith('(conditioned '))
+        self.assertAlmostEqual(rows[0].tv[1], .56 * storm + .02 * (1 - storm), delta=1e-9)
+        return storm
+
+    def test_stored_cut_weight_keeps_a_disjoint_diagnostic_report(self):
+        storm = self.check_stored_cut_keeps_disjoint_storm_views([
+            '(: s (Storm t1) (STV 0.6 0.5))', '(: rep2 (Report x) (STV 1 1))',
+            '(: rr (Implication (Storm t1) (Report x)) (CTV (STV 0.9 1) (STV 0.2 1)))'])
+        self.assertAlmostEqual(storm, .8709677419354838, delta=1e-9)
+
+    def test_stored_cut_weight_keeps_a_disjoint_forward_view(self):
+        storm = self.check_stored_cut_keeps_disjoint_storm_views([
+            '(: s (Storm t1) (STV 0.6 0.5))', '(: f (Forecast x) (STV 0.9 0.9))',
+            '(: rf (Implication (Forecast x) (Storm t1)) (CTV (STV 0.9 1) (STV 0.1 1)))'])
+        self.assertAlmostEqual(storm, .810847779210004, delta=1e-9)
+
+    def test_stored_cut_weight_keeps_a_near_certain_derivation(self):
+        storm = self.check_stored_cut_keeps_disjoint_storm_views([
+            '(: s (Storm t1) (STV 0.6 0.9))', '(: h (Hurricane x) (STV 1 1))',
+            '(: rh (Implication (Hurricane x) (Storm t1)) (CTV (STV 1 1) (STV 0 1)))'])
+        self.assertAlmostEqual(storm, .9992812935817147, delta=1e-9)
 
     def test_claim_debt_metric_counts_needed_readable_requests(self):
         handler = PeTTaChainer()
@@ -356,7 +419,7 @@ print(json.dumps({'tv': [r.tv for r in rows], 'metrics': metrics}, sort_keys=Tru
             self.assertLess(abs(answer.tv[1]-float(exact_t8(4))), .0011)
             metrics = handler.last_query_metrics()
             self.assertEqual(metrics['conditions_unpaid'], 0)
-            self.assertEqual(metrics['conditioned_evaluations'], 510 if repeat == 0 else 0)
+            self.assertEqual(metrics['conditioned_evaluations'], 308 if repeat == 0 else 0)
 
     def test_cached_summary_can_be_promoted_to_a_root_claim(self):
         handler = PeTTaChainer()

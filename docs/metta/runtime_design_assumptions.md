@@ -750,7 +750,9 @@ K twice, is exact. A complete premise's closed value conditions like any
 other. There is nothing to condition when the clashing value is a projection,
 or when the conclusion is not a simple truth value; such premises are refused
 as before. The mix needs the weight's evidence to be outside the
-branches; when it is not, the next shared statement is tried.
+branches; when it is not, the next shared statement is tried. A statement
+with stored facts weighs by those facts and the views whose evidence the
+branches do not hold (Jeffrey), and is tried before derived statements (#94).
 
 Premises can depend on one another without sharing uncertain evidence: E <-
 (Or C B) with C <- B, all from the certain fact (A b), multiplied P(C) and
@@ -1251,7 +1253,7 @@ query's evaluation allowance, capped at 256 units (512 conditioned rows),
 and also spend the ordinary remaining allowance. These internal settings are
 `sk-root-claim-share` and `sk-root-claim-limit`. The share leaves room for
 ordinary work and other claims; the fixed ceiling covers the cheap two-period
-(26 rows) and four-period (510 rows) T8 cuts while bounding longer-history
+(26 rows) and four-period (308 rows) T8 cuts while bounding longer-history
 retries independently of history length. Each input world receives its own
 slice, as it receives its own evaluation allowance. Exhaustion retains the
 last completed pass, or the factored summary. Once a root key has spent its
