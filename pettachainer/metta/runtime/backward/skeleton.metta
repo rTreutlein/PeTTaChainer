@@ -14,7 +14,6 @@
 (: sk-match (-[det]-> Number (List SkPattern) SkFact SkeletonMatch))
 (: SkeletonRuleDef Type)
 (: sk-rule-def (-[det]-> SkFact (List SkPattern) SkeletonRuleDef))
-(: sk-any Atom)
 
 (: fold-semidet
    (-[semidet]-> (-[semidet]-> $acc $item $acc) $acc (List $item) $acc))

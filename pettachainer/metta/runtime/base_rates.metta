@@ -129,12 +129,6 @@
    (if (base-rate-entry-user? $entry) true
       (base-rate-cache-user-present? $rest)))
 
-(: base-rate-entry-source (-[det]-> BaseRateEntry BaseRateSource))
-(= (base-rate-entry-source
-      (base-rate $_kbid $_stored $_tv $source $_mode))
-   $source)
-
-
 
 (: cached-base-rate
    (-[nondet]-> KB Statement (List TV)))
