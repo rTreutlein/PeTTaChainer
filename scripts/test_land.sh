@@ -25,9 +25,12 @@ exec "$@"
 EOF
 cat >"$tmp/stubs/compare" <<'EOF'
 #!/usr/bin/env bash
+printf '%s %s\n' "$1" "$3" >>"$LAND_TEST_DIR/compare-calls"
 dir=$(mktemp -d "$LAND_TEST_DIR/report.XXXXXX")
 printf 'summary for %s\nThresholds:\n' "$2" >"$dir/report.md"
-if [[ -n ${LAND_TEST_REPORT:-} ]]; then
+if [[ $1 == anchor && -n ${LAND_TEST_ANCHOR_REPORT:-} ]]; then
+  cp "$LAND_TEST_ANCHOR_REPORT" "$dir/compare.json"
+elif [[ -n ${LAND_TEST_REPORT:-} ]]; then
   cp "$LAND_TEST_REPORT" "$dir/compare.json"
 else
   printf '{"verdict": "%s", "regressions": [], "records": []}\n' "${LAND_TEST_VERDICT:-PASS}" >"$dir/compare.json"
@@ -346,6 +349,45 @@ PY_REPORT
       ;;
     *) expect_status 1
        expect_untouched "$wt" "$before" "$pc" feat
+       expect_master "$master" ;;
+  esac
+done
+
+# Against the anchor (compare.json "anchor": true) a case the anchor cannot
+# run is no failure and its flags are approved as "<metric> vs anchor"; a
+# candidate failure still stops the landing. The canary against the anchor
+# runs first, the full profile against master and the anchor after it.
+anchor_json=$tmp/anchor.json
+for scenario in cannot-run approved master-approval candidate-failed; do
+  fixture "anchor-$scenario"
+  python3 - "$anchor_json" "$scenario" <<'PY_REPORT'
+import json
+import sys
+
+scenario = sys.argv[2]
+records = [{'suite': 'suite', 'case': 'case', 'base': {'exit': 0}, 'candidate': {'exit': 0}}]
+flags = []
+if scenario in ('cannot-run', 'candidate-failed'):
+    records[0]['base']['exit'] = 1
+    records[0]['candidate']['exit'] = 1 if scenario == 'candidate-failed' else 0
+else:
+    flags = ['suite case seconds vs anchor 1 -> 2']
+verdict = f"REGRESSIONS ({len(flags)}): " + '; '.join(flags) if flags else 'PASS'
+with open(sys.argv[1], 'w') as stream:
+    json.dump({'verdict': verdict, 'regressions': flags, 'records': records, 'anchor': True}, stream)
+PY_REPORT
+  metric='seconds vs anchor'
+  [[ $scenario != master-approval ]] || metric=seconds
+  printf 'suite case\t%s\tUser accepted the slowdown since the anchor\n' "$metric" >"$tmp/anchor-approval.tsv"
+  master=$(git -C "$pc" rev-parse master)
+  : >"$tmp/compare-calls"
+  LAND_TEST_ANCHOR_REPORT=$anchor_json run_land feat --push --accept-flags "$tmp/anchor-approval.tsv"
+  case $scenario in
+    cannot-run|approved)
+      expect_status 0
+      expect_retired "$wt" "$pc" feat
+      [[ $(cat "$tmp/compare-calls") == $'anchor --canary\nmaster --full\nanchor --full' ]] || fail "comparisons: $(cat "$tmp/compare-calls")" ;;
+    *) expect_status 1
        expect_master "$master" ;;
   esac
 done

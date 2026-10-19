@@ -291,13 +291,21 @@ passed:
    -q tests`) and the live SupplyNet tests
    (`SUPPLYNET_LIVE_PETTACHAINER=1`, the rebased PeTTaChainer's `.venv`
    running `unittest tests.test_supplynet`).
-6. It runs `compare.sh master <rebased> --full` and stops unless the report
-   says `PASS`, printing the summary either way. `--accept-flags <file>`
+6. It runs three comparisons, each stopping the landing unless its report
+   says `PASS` (printing the summary either way): `compare.sh anchor
+   <rebased> --canary`, the presentation workloads against the pinned anchor
+   build (bench `anchor.txt`, README "Canary and anchor"), first because it
+   takes a few minutes; `compare.sh master <rebased> --full`; and `compare.sh
+   anchor <rebased> --full`, which reuses the candidate's runs. Against the
+   anchor seconds may be 15% worse per case, flags read
+   `<metric> vs anchor`, and a case the anchor cannot run is not compared.
+   `--accept-flags <file>`
    allows only the exact case and metric pairs explicitly approved by the
    user. Every regression must match; any new flag, unapproved accuracy
    regression, failed/unsupported run or nondeterminism stops the landing.
-   Every present `base`, `candidate` or `reference` run must have exit 0 and
-   no `unsupported` marker, even when the report says `PASS`.
+   Every present `base` (except the anchor's), `candidate` or `reference`
+   run must have exit 0 and no `unsupported` marker, even when the report
+   says `PASS`.
    False timing flags that a paired rerun did not repeat are not regressions.
 7. Only with `--push`: it fast-forwards `master` (and `supply-network`),
    pushes both to `origin`, then retires each landed branch's worktree and

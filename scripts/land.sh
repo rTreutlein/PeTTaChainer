@@ -228,18 +228,23 @@ if [[ -n $cg_branch ]]; then
   tail -n 3 "$logs/supplynet_live.log"
 fi
 
-step "Benchmarks: compare.sh master ${rebased:0:8} --full (log $logs/compare.log)"
-"$compare" master "$rebased" --full >"$logs/compare.log" 2>&1 || {
-  tail -n 20 "$logs/compare.log" >&2
-  die "compare.sh failed"
-}
-report=$(sed -n 's/^report: \(.*\) ([0-9]* s wall)$/\1/p' "$logs/compare.log")
-[[ -f $report ]] || die "compare.sh printed no report"
-sed -n '/^Thresholds:/q;p' "$report"
-# compare.json is the authoritative report. Match whole case+metric keys,
-# never substrings or globs, and refuse failure/nondeterminism regardless of
-# the approval file. Save reasons beside the other landing logs.
-if ! python3 - "${report%/*}/compare.json" "$accept_flags" >"$logs/accepted-flags.log" <<'PY_FLAGS'
+# Runs compare.sh with the arguments after the log name, then accepts its
+# compare.json only when every flag is approved. compare.json is the
+# authoritative report. Match whole case+metric keys, never substrings or
+# globs, and refuse failure/nondeterminism regardless of the approval file.
+# Reasons go beside the other landing logs.
+bench() {
+  local name=$1 report
+  shift
+  step "Benchmarks: compare.sh $* (log $logs/$name.log)"
+  "$compare" "$@" >"$logs/$name.log" 2>&1 || {
+    tail -n 20 "$logs/$name.log" >&2
+    die "compare.sh $* failed"
+  }
+  report=$(sed -n 's/^report: \(.*\) ([0-9]* s wall)$/\1/p' "$logs/$name.log")
+  [[ -f $report ]] || die "compare.sh $* printed no report"
+  sed -n '/^Thresholds:/q;p' "$report"
+  if ! python3 - "${report%/*}/compare.json" "$accept_flags" >>"$logs/accepted-flags.log" <<'PY_FLAGS'
 import json
 from pathlib import Path
 import re
@@ -264,8 +269,9 @@ try:
     flags = data['regressions']
     # A failure can exist in records even when compare labels it PASS (for
     # example when both sides failed). Approvals cannot waive failed runs.
+    # Against the anchor, a case the anchor cannot run is not compared.
     for row in data['records']:
-        for side in ('base', 'candidate', 'reference'):
+        for side in ('candidate', 'reference') if data.get('anchor') else ('base', 'candidate', 'reference'):
             if side in row and (row[side].get('exit') != 0 or 'unsupported' in row[side]):
                 raise ValueError(f"failed/unsupported run: {row['suite']} {row['case']} {side}")
     if verdict == 'PASS':
@@ -292,9 +298,18 @@ except (OSError, ValueError, KeyError, TypeError) as error:
     print(f'land: STOP: {error}', file=sys.stderr)
     raise SystemExit(1)
 PY_FLAGS
-then
-  die "benchmark report not accepted; see $report"
-fi
+  then
+    die "benchmark report not accepted; see $report"
+  fi
+}
+
+# The canary against the anchor build (bench/anchor.txt) first: a few
+# minutes, and it holds the presentation workloads and the slowdown
+# accumulated since the anchor, which a comparison with master cannot see.
+bench anchor-canary anchor "$rebased" --canary
+bench compare master "$rebased" --full
+# Against the anchor the candidate's runs above are reused.
+bench anchor-full anchor "$rebased" --full
 cat "$logs/accepted-flags.log"
 
 step "Land"
