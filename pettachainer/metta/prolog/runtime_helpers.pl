@@ -56,7 +56,7 @@
     ( ground(Lookup) -> Index=Lookup ; Index=all ),
     assertz(context_hidden(Index,C,Space,Row,variant)).
 'remove-variant-row!'('&sk_wait', [H, N, W], true) :- !,
-    sk_remove_wait(H, N, W).
+    ( sk_wait_ref(H, N, W, Ref) -> erase(Ref) ; true ).
 % Find candidates through the caller's bound indexes, but inspect the
 % original stored head before erasing: lookup unification can instantiate
 % an open stored row and must not turn it into a false variant match.
@@ -189,13 +189,8 @@ existential_source(Term, Source, Before, After) :-
     ->  ( get_assoc(I, Before, Source) -> After = Before
         ; put_assoc(I, Before, Source, After) )
     ;   is_list(Term)
-    ->  existential_source_terms(Term, Source, Before, After)
+    ->  foldl(existential_source, Term, Source, Before, After)
     ;   Source = Term, After = Before ).
-
-existential_source_terms([], [], State, State).
-existential_source_terms([Term|Terms], [Source|Sources], Before, After) :-
-    existential_source(Term, Source, Before, Next),
-    existential_source_terms(Terms, Sources, Next, After).
 
 % The shape a fold's member is compiled for (sk-shape-members). A user
 % predicate compiles to its own lookup goal, and a connective over user
@@ -418,10 +413,8 @@ opaque_proof_step(Step) :-
     size_nb_set(Live, Kept), flag(deps_gc_kept, _, Kept),
     length(Roots, Read), flag(deps_gc_roots, _, Read),
     flag(deps_next_id, Next, Next), flag(deps_gc_next, _, Next),
-    forall(( clause(deps_node(Id, _, _, _), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)),
-    forall(( clause(deps_cut(Id, _), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)),
-    forall(( clause(deps_size_memo(Id, _), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)),
-    forall(( clause(deps_leaf(Id, _), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)).
+    forall(( member(Head, [deps_node(Id, _, _, _), deps_cut(Id, _), deps_size_memo(Id, _), deps_leaf(Id, _)]),
+             clause(Head, true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)).
 % A collection is due once more ids were interned since the last one than it
 % kept and roots it read (at least 4096), so its cost, a walk of the stores
 % that hold the roots and of the ids, stays proportional to what was interned.
@@ -568,7 +561,7 @@ refs_gc_units(roots([holder(Head, Columns)|Rest]), Units, Left) :-
     refs_gc_through(roots(Rest), Head, Units, Left, Ref,
         ( clause(Head, true, Ref) -> refs_gc_mark_columns(Columns, Head) ; true )).
 refs_gc_units(mark, Units, Left) :-
-    (   refs_gc_follow(Units, Left) -> true
+    (   refs_gc_grey(_) -> refs_gc_follow_loop(Units, Left)
     ;   nb_getval(refs_gc_holders, Holders),
         forall(member(holder(Head, Columns), Holders), prolog_unlisten(user:Head, refs_gc_removed(Columns))),
         nb_setval(refs_gc_phase, sweep([proofs, unions, sets])), Left = Units ).
@@ -667,8 +660,7 @@ refs_gc_through(After, Head, Units, Left, Ref, Goal) :-
     (   Units == inf -> Left = inf ; Left is Units - (Last - First + 1) ),
     (   Next > Size -> nb_setval(refs_gc_phase, After), refs_gc_take(none) ; true ).
 
-% Follows marked proofs to what they hold; fails when none is left.
-refs_gc_follow(Units, Left) :- refs_gc_grey(_), !, refs_gc_follow_loop(Units, Left).
+% Follows marked proofs to what they hold.
 refs_gc_follow_loop(Units, Left) :-
     (   Units == 0 -> Left = 0
     ;   retract(refs_gc_grey(Pid))
@@ -821,9 +813,8 @@ deps_covered(Id, Nodes, Keys, Seen) :-
 % row read), held by two of the sets. Entangled premises of a row
 % (sk-entangle) are found so by masked lookups, without collecting the sets.
 'deps-entangled'(Ids, Hashes) :-
-    foldl(deps_near_step, Ids, [], Near0), sort(Near0, Near),
+    foldl(deps_near_child(2), Ids, [], Near0), sort(Near0, Near),
     include(deps_held_twice(Ids), Near, Hashes).
-deps_near_step(Id, Acc0, Acc) :- deps_near(Id, 2, Near), append(Near, Acc0, Acc).
 deps_near(0, _, []) :- !.
 deps_near(Id, _, [Hash]) :- deps_leaf(Id, Hash), !.
 deps_near(Id, Depth, Near) :-
@@ -839,12 +830,8 @@ deps_held_twice(Ids, Hash) :-
 % (near in both), the one-step horizon of a key merge's views.
 'deps-near-shared'(Ids, Hashes) :-
     maplist([Id, Near]>>(deps_near(Id, 2, Near0), sort(Near0, Near)), Ids, Nears),
-    append(Nears, All), msort(All, Sorted), deps_dupes(Sorted, Hashes).
-deps_dupes([A, A | Rest], [A | Out]) :- !, deps_skip(A, Rest, Rest1), deps_dupes(Rest1, Out).
-deps_dupes([_ | Rest], Out) :- !, deps_dupes(Rest, Out).
-deps_dupes([], []).
-deps_skip(A, [A | Rest], Out) :- !, deps_skip(A, Rest, Out).
-deps_skip(_, Rest, Rest).
+    append(Nears, All), msort(All, Sorted), clumped(Sorted, Runs),
+    findall(Hash, (member(Hash-Count, Runs), Count > 1), Hashes).
 
 % The keys two sets both hold, in order.
 'deps-shared'(A, B, Hashes) :-
@@ -1004,25 +991,24 @@ likelihood_source_key(Source, Key) :-
 
 % Ordered member-local lists yield deltas; retained sources are not rewritten.
 likelihood_replace_sources(Fold,Old,OP,ON,Sources,Pos,Neg) :-
-    ( Sources==Old, Pos=:=OP, Neg=:=ON -> true
-    ; 'index-hash'(Fold,H), 'likelihood-support-counts'(Fold,C0),
-      ord_subtract(Old,Sources,Removed), ord_subtract(Sources,Old,Added),
-      DP is -OP, DN is -ON,
-      foldl(likelihood_source_delta(Fold,H,DP,DN),Removed,C0,C1),
-      foldl(likelihood_source_delta(Fold,H,Pos,Neg),Added,C1,C2),
-      CP is Pos-OP, CN is Neg-ON,
-      ( CP=:=0, CN=:=0 -> C=C2
-      ; ord_intersection(Old,Sources,Shared),
-        foldl(likelihood_source_delta(Fold,H,CP,CN),Shared,C2,C) ),
-      C=['support-counts',D,A,B,RawBad,Both],
-      ( Old==[], OP+ON>0 -> OldMissing=1 ; OldMissing=0 ),
-      ( Sources==[], Pos+Neg>0 -> Missing=1 ; Missing=0 ),
-      Bad is RawBad+Missing-OldMissing,
-      Counts=['support-counts',D,A,B,Bad,Both],
-      ( Counts==C0 -> true
-      ; 'remove-variant-row!'('&sk_branch_support',[H,Fold,C0],_),
-        ( Counts==['support-counts',0,0,0,0,0] -> true
-        ; 'context-add!'('&sk_branch_support',[H,Fold,Counts],_) ) ) ).
+    'index-hash'(Fold,H), 'likelihood-support-counts'(Fold,C0),
+    ord_subtract(Old,Sources,Removed), ord_subtract(Sources,Old,Added),
+    DP is -OP, DN is -ON,
+    foldl(likelihood_source_delta(Fold,H,DP,DN),Removed,C0,C1),
+    foldl(likelihood_source_delta(Fold,H,Pos,Neg),Added,C1,C2),
+    CP is Pos-OP, CN is Neg-ON,
+    ( CP=:=0, CN=:=0 -> C=C2
+    ; ord_intersection(Old,Sources,Shared),
+      foldl(likelihood_source_delta(Fold,H,CP,CN),Shared,C2,C) ),
+    C=['support-counts',D,A,B,RawBad,Both],
+    ( Old==[], OP+ON>0 -> OldMissing=1 ; OldMissing=0 ),
+    ( Sources==[], Pos+Neg>0 -> Missing=1 ; Missing=0 ),
+    Bad is RawBad+Missing-OldMissing,
+    Counts=['support-counts',D,A,B,Bad,Both],
+    ( Counts==C0 -> true
+    ; 'remove-variant-row!'('&sk_branch_support',[H,Fold,C0],_),
+      ( Counts==['support-counts',0,0,0,0,0] -> true
+      ; 'context-add!'('&sk_branch_support',[H,Fold,Counts],_) ) ).
 
 % Reverse edges are unique per read hash and observation. Hash collisions
 % remain conservative even when one of two colliding physical sources leaves.
@@ -1354,12 +1340,9 @@ dormancy_complete(Type, [Kb|_]) :-
 % compound (docs/metta/connective_settling.md), so it supports its conclusion
 % only through such a fact: the part's formulas run on the fact up to the
 % settling check. A refined rule's truth goal is supported.
-dormancy_settles([['CPU', 'SettlesFormula', Args, Res]|_]) :- !,
-    append(Args, [Out], CallArgs), G =.. ['SettlesFormula'|CallArgs],
-    catch(G, _, fail), Out = Res.
 dormancy_settles([['CPU', Fun, Args, Res]|Rest]) :- !,
     append(Args, [Out], CallArgs), G =.. [Fun|CallArgs],
-    catch(G, _, fail), Out = Res, dormancy_settles(Rest).
+    catch(G, _, fail), Out = Res, ( Fun == 'SettlesFormula' -> true ; dormancy_settles(Rest) ).
 dormancy_settles([[Type, _, _, _]|Rest]) :-
     nonvar(Type), Type = [Head|_], Head == 'RuleTruth', !, dormancy_settles(Rest).
 dormancy_settles([[Type, Ctx, Proof, Tv]|Rest]) :-
@@ -1688,48 +1671,17 @@ inference_seconds(Seconds) :- flag(pettachainer_inference_seconds, Seconds, Seco
 % check and enabled scalar updates native so diagnostics do not distort normal
 % query performance with thousands of MeTTa state or space operations.
 query_metrics_enabled(Enabled) :-
-    (   nb_current(pettachainer_query_metrics_enabled, Stored)
-    ->  Enabled = Stored
-    ;   Enabled = false
-    ).
-
-query_metrics_set_enabled(Enabled, Enabled) :-
-    nb_setval(pettachainer_query_metrics_enabled, Enabled).
-
-query_metric_global_key(Key, GlobalKey) :-
-    atom_concat(pettachainer_query_metric_, Key, GlobalKey).
-
-query_metric_value(Key, Value) :-
-    query_metric_global_key(Key, GlobalKey),
-    (   nb_current(GlobalKey, Stored)
-    ->  Value = Stored
-    ;   Value = 0
-    ).
-
-query_metric_set(Key, Value, Result) :-
-    query_metrics_enabled(Enabled),
-    (   Enabled == true
-    ->  query_metric_global_key(Key, GlobalKey),
-        nb_setval(GlobalKey, Value)
-    ;   true
-    ),
-    Result = Value.
-
+    ( nb_current(pettachainer_query_metrics_enabled, Stored) -> Enabled = Stored ; Enabled = false ).
+query_metrics_set_enabled(Enabled, Enabled) :- nb_setval(pettachainer_query_metrics_enabled, Enabled).
+query_metric_value(Key, Value) :- atom_concat(pettachainer_query_metric_, Key, G), 'search-id-value'(G, Value).
+query_metric_set(Key, Value, Value) :-
+    ( query_metrics_enabled(true) -> atom_concat(pettachainer_query_metric_, Key, G), nb_setval(G, Value) ; true ).
 query_metric_increment(Key, Result) :-
-    query_metrics_enabled(Enabled),
-    (   Enabled == true
-    ->  query_metric_increment_enabled(Key, Result)
+    (   query_metrics_enabled(true)
+    ->  query_metric_value(Key, Old), Result is Old + 1,
+        atom_concat(pettachainer_query_metric_, Key, G), nb_setval(G, Result)
     ;   Result = 0
     ).
-
-query_metric_increment_enabled(Key, Result) :-
-    query_metric_global_key(Key, GlobalKey),
-    (   nb_current(GlobalKey, Old)
-    ->  true
-    ;   Old = 0
-    ),
-    Result is Old + 1,
-    nb_setval(GlobalKey, Result).
 
 % KL divergence of Beta(A1,B1) from Beta(A2,B2): how far a key's new value,
 % read as a Beta over its strength, moved from its old one.
@@ -2535,9 +2487,6 @@ sk_wait_ref(H, N, Waiter, Ref) :-
     subsumes_term(Template, Waiter), Template = Waiter,
     clause(sk_wait_payload(H, Stored, TemplateId, B), true, Ref),
     attribute_free_variant(Stored-B, N-Bindings), !.
-
-sk_remove_wait(H, N, Waiter) :-
-    ( sk_wait_ref(H, N, Waiter, Ref) -> erase(Ref) ; true ).
 
 sk_retire_wait_ref(Ref) :-
     setup_call_cleanup(nb_setval(sk_retiring, true), erase(Ref), nb_delete(sk_retiring)).
