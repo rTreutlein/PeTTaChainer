@@ -10,7 +10,7 @@ overlay_probe_install(Mode) :-
     ; assertz(overlay_probe_installed),
       % Wrappers can run in a specialization module; audit the physical MAIN
       % relations explicitly, and inject faults into those same relations.
-      forall(context_store(Space,Arity),
+      forall(context_store(Space,Arity,_),
         prolog_listen(user:Space/Arity,user:overlay_probe_physical_write(Space))),
       wrap_predicate('context-finish!'(_Allowance,_Reserve,Goals,Bases,Results), overlay_probe, Wrapped,
         ((overlay_probe_mutation(shared_budget)

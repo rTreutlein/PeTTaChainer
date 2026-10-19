@@ -23,7 +23,7 @@ context_active(C) :- nb_current(context_overlay, C), C \== main.
 % context and space. The complete term checks collisions and open identities.
 context_overlay_rows(C, Space, Row) :-
     ( Row = [Hash|_], context_entry(Hash, C, Space, Row, _)
-    ; \+ context_local_only(Space),
+    ; \+ context_store(Space,_,local),
       Goal =.. [Space|Row], call(Goal),
       \+ context_removed(C, Space, Row), context_borrowable(C,Space,Row) ).
 
@@ -55,81 +55,63 @@ context_removed(C, Space, Row) :-
        assertz(context_hidden(Index, C, Space, Pattern, removed))
     ; Head =.. [Space|Pattern], retractall(Head) ).
 
-% Transient scheduling state starts empty. Durable values, aggregate tallies
-% and per-reader compatibility history fall through to MAIN.
-context_local_only('&sk_representative').
-context_local_only('&sk_summary_reference').
-context_local_only('&sk_new').
-context_local_only('&sk_dirty').
-context_local_only('&sk_queued').
-context_local_only('&sk_forced').
-context_local_only('&sk_fold_pending').
-context_local_only('&sk_refresh').
-context_local_only('&sk_given_granted').
-context_local_only('&sk_given_pending').
-context_local_only('&sk_root_exhausted').
-context_local_only('&sk_root_spent').
-context_local_only('&sk_conditioning').
-context_local_only('&sk_restale').
-context_local_only('&sk_held').
-context_local_only('&sk_branch_hold').
-context_local_only('&sk_instance_changed').
-context_local_only('&sk_instance_checked').
-context_local_only('&sk_branch_wanted').
+% Each overlay store, its arity, and whether a context starts it empty
+% (local: transient scheduling state) or reads MAIN beneath it (main: durable
+% values, aggregate tallies and per-reader compatibility history).
 
-context_store('&sk_latest',3).
-context_store('&sk_view',4).
-context_store('&sk_representative',6).
-context_store('&sk_summary_reference',7).
-context_store('&sk_branch',6).
-context_store('&sk_branch_owner',5).
-context_store('&sk_branch_dirty',1).
-context_store('&sk_branch_reader',3).
-context_store('&sk_branch_wanted',5).
-context_store('&sk_support',3).
-context_store('&sk_merged',5).
-context_store('&sk_reader',4).
-context_store('&sk_stale_reader',4).
-context_store('&sk_stale',2).
-context_store('&sk_new',6).
-context_store('&sk_dirty',2).
-context_store('&sk_queued',3).
-context_store('&sk_forced',3).
-context_store('&sk_fold_pending',2).
-context_store('&sk_partial',2).
-context_store('&sk_given_pending',3).
-context_store('&sk_root_exhausted',3).
-context_store('&sk_input_epoch',2).
-context_store('&sk_root_spent',3).
-context_store('&sk_given_granted',2).
-context_store('&sk_conditioning',2).
-context_store('&sk_refresh',2).
-context_store('&sk_restale',2).
-context_store('&sk_held',3).
-context_store('&sk_branch_hold',5).
-context_store('&sk_instance_changed',2).
-context_store('&sk_instance_checked',1).
-context_store('&sk_instance_tally',3).
-context_store('&sk_instance_member',6).
-context_store('&sk_instance_regime',3).
-context_store('&sk_instance_digest',2).
-context_store('&sk_instance_sig',3).
-context_store('&sk_instance_read',4).
-context_store('&sk_sample_support',7).
-context_store('&sk_sample_source',6).
-context_store('&sk_branch_support',3).
-context_store('&sk_truth_fold',3).
-context_store('&sk_rate_dirty',4).
-context_store('&sk_rate_folds',2).
-context_store('&sk_truth_factor',2).
-context_store('&base_rate_cache',2).
-context_store('&forward_aggregate_identity',2).
-context_store('&forward_aggregate_interest_by_trigger',2).
-context_store('&forward_aggregate_triggers',2).
-context_store('&forward_aggregate_state',4).
-context_store('&forward_aggregate_observation',6).
-context_store('&forward_aggregate_fold',2).
-context_store('&forward_aggregate_read',3).
+context_store('&sk_latest',3,main).
+context_store('&sk_view',4,main).
+context_store('&sk_representative',6,local).
+context_store('&sk_summary_reference',7,local).
+context_store('&sk_branch',6,main).
+context_store('&sk_branch_owner',5,main).
+context_store('&sk_branch_dirty',1,main).
+context_store('&sk_branch_reader',3,main).
+context_store('&sk_branch_wanted',5,local).
+context_store('&sk_support',3,main).
+context_store('&sk_merged',5,main).
+context_store('&sk_reader',4,main).
+context_store('&sk_stale_reader',4,main).
+context_store('&sk_stale',2,main).
+context_store('&sk_new',6,local).
+context_store('&sk_dirty',2,local).
+context_store('&sk_queued',3,local).
+context_store('&sk_forced',3,local).
+context_store('&sk_fold_pending',2,local).
+context_store('&sk_partial',2,main).
+context_store('&sk_given_pending',3,local).
+context_store('&sk_root_exhausted',3,local).
+context_store('&sk_input_epoch',2,main).
+context_store('&sk_root_spent',3,local).
+context_store('&sk_given_granted',2,local).
+context_store('&sk_conditioning',2,local).
+context_store('&sk_refresh',2,local).
+context_store('&sk_restale',2,local).
+context_store('&sk_held',3,local).
+context_store('&sk_branch_hold',5,local).
+context_store('&sk_instance_changed',2,local).
+context_store('&sk_instance_checked',1,local).
+context_store('&sk_instance_tally',3,main).
+context_store('&sk_instance_member',6,main).
+context_store('&sk_instance_regime',3,main).
+context_store('&sk_instance_digest',2,main).
+context_store('&sk_instance_sig',3,main).
+context_store('&sk_instance_read',4,main).
+context_store('&sk_sample_support',7,main).
+context_store('&sk_sample_source',6,main).
+context_store('&sk_branch_support',3,main).
+context_store('&sk_truth_fold',3,main).
+context_store('&sk_rate_dirty',4,main).
+context_store('&sk_rate_folds',2,main).
+context_store('&sk_truth_factor',2,main).
+context_store('&base_rate_cache',2,main).
+context_store('&forward_aggregate_identity',2,main).
+context_store('&forward_aggregate_interest_by_trigger',2,main).
+context_store('&forward_aggregate_triggers',2,main).
+context_store('&forward_aggregate_state',4,main).
+context_store('&forward_aggregate_observation',6,main).
+context_store('&forward_aggregate_fold',2,main).
+context_store('&forward_aggregate_read',3,main).
 
 % Separate read relations leave the ordinary physical MAIN stores inspectable
 % by collectors and provenance audits. No runtime predicate is monkey-patched.
@@ -137,7 +119,7 @@ context_store('&forward_aggregate_read',3).
 % are declared here so the direct call also fails cleanly before a first write.
 % The load-cache prelude can consult this source twice; bootstrap each facade
 % once, since compile_predicates makes it static.
-:- forall(context_store(Space, Arity),
+:- forall(context_store(Space, Arity, _),
           ( dynamic(Space/Arity),
             atom_concat('&', Name, Space), atom_concat('&ctx_', Name, Read),
             ( current_predicate(Read/Arity) -> true

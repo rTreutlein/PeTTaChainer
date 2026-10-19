@@ -31,7 +31,7 @@
 % Data-only spaces have no function definitions or compiler metadata. In
 % particular, an open first column must not enter remove-atom's function case.
 'remove-data-rows!'(Space, Pattern, true) :-
-    context_store(Space,_), context_active(_), !, 'context-remove!'(Space,Pattern,true).
+    context_store(Space,_,_), context_active(_), !, 'context-remove!'(Space,Pattern,true).
 'remove-data-rows!'(Space, Pattern, true) :-
     Row =.. [Space|Pattern],
     retractall(Row).
@@ -42,7 +42,7 @@
 % the add itself (PeTTa's analysis hooks raise and catch an exception per
 % checked column); the callers build rows of the declared shape.
 'add-space-atom!'(Space, Row, true) :-
-    context_store(Space,_), !, 'context-add!'(Space,Row,true).
+    context_store(Space,_,_), !, 'context-add!'(Space,Row,true).
 'add-space-atom!'(Space, Row, true) :-
     Term =.. [Space|Row],
     assertz(Term).
@@ -50,7 +50,7 @@
 % Erase the one stored row that is a variant of Row. A removal by unification
 % could also take a different row with the same coarse hash; a variant cannot.
 'remove-variant-row!'(Space, Row, true) :-
-    context_store(Space,_), context_active(C), !,
+    context_store(Space,_,_), context_active(C), !,
     ( Row=[Hash|_], ground(Hash) -> Lookup=Hash ; true ),
     forall((clause(context_entry(Lookup,C,Space,Stored,_),true,Ref), Stored =@= Row), erase(Ref)),
     ( ground(Lookup) -> Index=Lookup ; Index=all ),
@@ -1551,11 +1551,12 @@ particle_merge_resample(Pairs, Budget, Result) :-
     Budget > 0,
     indexed_particle_pairs(Pairs, 0, Ranked),
     keysort(Ranked, Sorted),
-    take_particle_anchors(Budget, Sorted, Anchors0, Overflow),
-    predsort(compare_particle_index, Anchors0, Anchors),
+    length(Sorted, Length), Taken is min(Budget, Length),
+    length(Strongest, Taken), append(Strongest, Overflow, Sorted), pairs_values(Strongest, Anchors0),
+    sort(1, @<, Anchors0, Anchors),
     absorb_overflow_particles(Overflow, Anchors, Merged),
-    predsort(compare_particle_index, Merged, Ordered),
-    particle_components_pairs(Ordered, Result).
+    sort(1, @<, Merged, Ordered),
+    maplist([component(_, Value, Weight), [Value, Weight]]>>true, Ordered, Result).
 
 indexed_particle_pairs([], _, []).
 indexed_particle_pairs([[Value, Weight]|Rest], Index,
@@ -1563,16 +1564,6 @@ indexed_particle_pairs([[Value, Weight]|Rest], Index,
     NegativeWeight is -Weight,
     NextIndex is Index + 1,
     indexed_particle_pairs(Rest, NextIndex, Ranked).
-
-take_particle_anchors(0, Rest, [], Rest) :- !.
-take_particle_anchors(_, [], [], []).
-take_particle_anchors(Count, [_-Component|Rest], [Component|Anchors], Overflow) :-
-    NextCount is Count - 1,
-    take_particle_anchors(NextCount, Rest, Anchors, Overflow).
-
-compare_particle_index(Order, component(LeftIndex, _, _),
-        component(RightIndex, _, _)) :-
-    compare(Order, LeftIndex, RightIndex).
 
 absorb_overflow_particles([], Anchors, Anchors).
 absorb_overflow_particles([_-Particle|Rest], Anchors0, Anchors) :-
@@ -1589,21 +1580,13 @@ closest_particle_anchor(
             Anchor, AnchorWeight, Value, Weight, Mean, DistanceSquared)
     ->  MergedWeight is AnchorWeight + Weight,
         Cost is AnchorWeight * Weight / MergedWeight * DistanceSquared,
-        prefer_particle_anchor(
-            Best0, candidate(Cost, AnchorIndex, Mean, MergedWeight), Best1)
+        (   Best0 = best(BestCost, _, _, _), \+ Cost < BestCost
+        ->  Best1 = Best0
+        ;   Best1 = best(Cost, AnchorIndex, Mean, MergedWeight) )
     ;   Best1 = Best0
     ),
     closest_particle_anchor(
         Rest, component(_, Value, Weight), Best1, Best).
-
-prefer_particle_anchor(none, candidate(Cost, Index, Value, Weight),
-        best(Cost, Index, Value, Weight)).
-prefer_particle_anchor(best(BestCost, BestIndex, BestValue, BestWeight),
-        candidate(Cost, Index, Value, Weight), Best) :-
-    (   Cost < BestCost
-    ->  Best = best(Cost, Index, Value, Weight)
-    ;   Best = best(BestCost, BestIndex, BestValue, BestWeight)
-    ).
 
 replace_particle_anchor(
         [component(Index, _, _)|Rest], Index, Value, Weight,
@@ -1611,11 +1594,6 @@ replace_particle_anchor(
 replace_particle_anchor([Anchor|Rest], Index, Value, Weight,
         [Anchor|Updated]) :-
     replace_particle_anchor(Rest, Index, Value, Weight, Updated).
-
-particle_components_pairs([], []).
-particle_components_pairs(
-        [component(_, Value, Weight)|Rest], [[Value, Weight]|Pairs]) :-
-    particle_components_pairs(Rest, Pairs).
 
 particle_merge_term(Left, _, Right, _, Left, 0.0) :-
     Left == Right,
