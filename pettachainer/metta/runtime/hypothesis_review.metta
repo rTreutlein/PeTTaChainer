@@ -45,18 +45,10 @@
    (: $prf (RuleTruth (Implication $antecedent $consequent)) $tv))
 
 (: hm-confidence (-[det]-> Atom Number))
-(= (hm-confidence $tv)
-   (case $tv (
-      ((STV $_s $c) $c)
-      ((CTV (STV $_s1 $c1) $_neg) $c1)
-      ($_none 0))))
+(= (hm-confidence $tv) (case $tv (((STV $_s $c) $c) ((CTV (STV $_s1 $c1) $_neg) $c1) ($_none 0))))
 
 (: hm-strength (-[det]-> Atom Number))
-(= (hm-strength $tv)
-   (case $tv (
-      ((STV $s $_c) $s)
-      ((CTV (STV $s1 $_c1) $_neg) $s1)
-      ($_none 0.5))))
+(= (hm-strength $tv) (case $tv (((STV $s $_c) $s) ((CTV (STV $s1 $_c1) $_neg) $s1) ($_none 0.5))))
 
 ;; |s - p| beyond hm-z standard errors of p over n observations. Clamp
 ;; only its variance estimate, never the comparison center: identical rates
@@ -98,8 +90,7 @@
              ($phash (hm-pattern-hash $kb $consequent)))
          (if (if (hypothesis-generalizes? $general $rule)
                  (space-row-present? &hm_live ($phash $kb $_stored $name $_antecedent $_born)) false)
-            (let $p (hm-strength $truth)
-               (if (hm-differs? $s $p $n) true (screen $general)))
+            (let $p (hm-strength $truth) (if (hm-differs? $s $p $n) true (screen $general)))
             true))
       $decision))
 

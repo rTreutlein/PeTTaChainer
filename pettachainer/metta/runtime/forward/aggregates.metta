@@ -85,9 +85,7 @@
              (BaseRateEvidence 0.0 0.0) WeightedBaseRateAcc (member-inheritance $kb) result-tv) $_r)
          (if (== (extract-vars $sub) ())
             (if (== (extract-vars $super) ())
-               (let* (($k (brand KB $kb))
-                      ($j (brand Term $sub))
-                      ($i (brand Term $super)))
+               (let* (($k (brand KB $kb)) ($j (brand Term $sub)) ($i (brand Term $super)))
                   (cons (fa-subscription (forward-member-inheritance-identity $k $j $i)
                            (forward-member-inheritance-descriptor $k $j $i
                               (brand Statement (MemberInheritanceSample $x $sub $super $s $c)))
@@ -147,8 +145,7 @@
       ($_other (fa-physical-sources $fact)))))
 
 (: fa-read-step (-[det]-> Number (List ForwardAggregateObservationKey) Number (List ForwardAggregateObservationKey)))
-(= (fa-read-step $id $keys $read)
-   (append-flat (aggregate-readers $id $read) $keys))
+(= (fa-read-step $id $keys $read) (append-flat (aggregate-readers $id $read) $keys))
 
 (: fa-left-out (-[det]-> Number (List Number) (List ForwardAggregateObservation)))
 (= (fa-left-out $id $exclude)
@@ -294,8 +291,7 @@
 
 (: forward-rate-folds (-[det]-> (Statement KBContext Proof TV) (List Number)))
 (= (forward-rate-folds $fact)
-   (let* ((($head $wildcard) (forward-premise-keys $fact))
-          ($type (the Statement (car-atom $fact))))
+   (let* ((($head $wildcard) (forward-premise-keys $fact)) ($type (the Statement (car-atom $fact))))
       (hash-set
          (if (== $head $wildcard) (fa-trigger-folds $type $head)
             (append-flat (fa-trigger-folds $type $head) (fa-trigger-folds $type $wildcard))))))
@@ -317,8 +313,7 @@
 (: fa-seed-facts
    (-[det]-> ForwardAggregateDescriptor ForwardTriggerKey (List (Statement KBContext Proof TV))))
 (= (fa-seed-facts (forward-base-rate-descriptor $kb $pattern $_extractor $_init $_step $_finish) $_trigger)
-   (let* (($kbctx (make-kb-context $kb MAIN Nil))
-          ($type (copy_term $pattern)))
+   (let* (($kbctx (make-kb-context $kb MAIN Nil)) ($type (copy_term $pattern)))
       (fold-flat (fa-seed-statement $kbctx) ()
          (list_to_set (collapse (match &kb ($type $kbctx $_proof $_tv) (brand Statement $type)))))))
 (= (fa-seed-facts (forward-member-inheritance-descriptor $kb $_sub $_super $_stmt) $trigger)

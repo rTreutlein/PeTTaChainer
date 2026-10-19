@@ -20,32 +20,21 @@
 ;; resolve against working_dir. Build both supported paths from working_dir so
 ;; loading works from the package, repository root, Python, and benchmarks.
 !(let*
-   (($metta-dir
-      (let $_
-         (callPredicate
-            (Predicate (working_dir $metta-dir)))
-         $metta-dir))
+   (($metta-dir (let $_ (callPredicate (Predicate (working_dir $metta-dir))) $metta-dir))
     ($helper-relative "prolog/runtime_helpers.pl")
     ($runtime-helper
       (let $_
          (callPredicate
-            (Predicate
-               (directory_file_path
-                  $metta-dir $helper-relative $runtime-helper)))
+            (Predicate (directory_file_path $metta-dir $helper-relative $runtime-helper)))
          $runtime-helper))
     ($metta-parent
       (let $_
-         (callPredicate
-            (Predicate
-               (file_directory_name
-                  $metta-dir $metta-parent)))
+         (callPredicate (Predicate (file_directory_name $metta-dir $metta-parent)))
          $metta-parent))
     ($parent-runtime-helper
       (let $_
          (callPredicate
-            (Predicate
-               (directory_file_path
-                  $metta-parent $helper-relative $parent-runtime-helper)))
+            (Predicate (directory_file_path $metta-parent $helper-relative $parent-runtime-helper)))
          $parent-runtime-helper)))
    (import_prolog_functions_from_file
       (if (== $runtime-helper $parent-runtime-helper)

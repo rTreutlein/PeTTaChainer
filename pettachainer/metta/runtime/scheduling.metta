@@ -1,6 +1,5 @@
 ;; Shared proof scoring and bounded-agenda policy.
-(: premises-expected-confidence
-   (-[det]-> (List (| Goal (Statement KBContext Proof TV))) Number))
+(: premises-expected-confidence (-[det]-> (List (| Goal (Statement KBContext Proof TV))) Number))
 (= (premises-expected-confidence ()) 1.0)
 (= (premises-expected-confidence (cons $prem $rest))
    (case $prem
@@ -9,9 +8,7 @@
       (((CPU $fun $args $res)
           (if (if (= $rest
                      (cons
-                        (CPU CTVModusPonensFormula
-                           (quote ($mp-premise-tv $rule-tv))
-                           $_mp-tv)
+                        (CPU CTVModusPonensFormula (quote ($mp-premise-tv $rule-tv)) $_mp-tv)
                         $remaining))
                  (== $mp-premise-tv $res)
                  false)
@@ -22,23 +19,12 @@
                       (premises-expected-confidence $rest))
                    (min-atom
                       ((tv-confidence $expected)
-                       (cpu-expected-confidence
-                          CTVModusPonensFormula
-                          (quote ($expected $rule-tv)))
-                       (premises-expected-confidence
-                          (cdr-atom $rest))))))
-             (min
-                (term-confidence (CPU $fun $args $res))
-                (premises-expected-confidence $rest))))
-       ($other
-          (min
-             (term-confidence $other)
-             (premises-expected-confidence $rest))))))
+                       (cpu-expected-confidence CTVModusPonensFormula (quote ($expected $rule-tv)))
+                       (premises-expected-confidence (cdr-atom $rest))))))
+             (min (term-confidence (CPU $fun $args $res)) (premises-expected-confidence $rest))))
+       ($other (min (term-confidence $other) (premises-expected-confidence $rest))))))
 
-(: term-confidence
-   (-[det]-> (| Goal
-          (Statement KBContext Proof TV))
-       Number))
+(: term-confidence (-[det]-> (| Goal (Statement KBContext Proof TV)) Number))
 (= (term-confidence $proof-term)
    (case $proof-term
       (((CPU $fun $args $res)
@@ -68,8 +54,7 @@
 (: HeapSplit Type)
 (: heap-split (-[det]-> (Heap $item) (Heap $item) HeapSplit))
 
-(: heap-split-best
-   (-[semidet]-> Number (Heap $item) (Heap $item) HeapSplit))
+(: heap-split-best (-[semidet]-> Number (Heap $item) (Heap $item) HeapSplit))
 (= (heap-split-best $count $src $kept)
    (if (<= $count 0)
       (heap-split $kept $src)
@@ -77,23 +62,16 @@
          (heap-split $kept $src)
          (heap-split-best-pop $count $kept (heap_pop $src)))))
 
-(: heap-split-best-pop
-   (-[semidet]-> Number (Heap $item)
-       (Number $item (Heap $item)) HeapSplit))
+(: heap-split-best-pop (-[semidet]-> Number (Heap $item) (Number $item (Heap $item)) HeapSplit))
 (= (heap-split-best-pop $count $kept ($key $item $rest))
-   (heap-split-best
-      (- $count 1) $rest
-      (add_to_heap $kept $key $item)))
+   (heap-split-best (- $count 1) $rest (add_to_heap $kept $key $item)))
 
 (: bounded-agenda-prune-needed? (-[det]-> (Heap $item) Bool))
 (= (bounded-agenda-prune-needed? $agenda)
    (if (the Bool (car-atom (collapse (get-state bounded_agenda_pruning))))
       (let* (($target (bounded-agenda-target-size))
              ($size-values (collapse (heap_size $agenda)))
-             ($size
-                (if (== $size-values ())
-                   0
-                   (car-atom $size-values))))
+             ($size (if (== $size-values ()) 0 (car-atom $size-values))))
          (> $size (* $target 64)))
       false))
 
@@ -108,8 +86,5 @@
        (Statement KBContext Proof TV)
        (Statement KBContext Proof TV)))
 
-(: assemble-runtime-fact
-   (-[det]-> Statement KBContext Proof TV
-       (Statement KBContext Proof TV)))
-(= (assemble-runtime-fact $type $kb $proof $tv)
-   (data $type $kb $proof $tv))
+(: assemble-runtime-fact (-[det]-> Statement KBContext Proof TV (Statement KBContext Proof TV)))
+(= (assemble-runtime-fact $type $kb $proof $tv) (data $type $kb $proof $tv))

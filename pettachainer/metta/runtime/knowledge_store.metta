@@ -80,10 +80,7 @@
             (empty)))
       ($_other (empty)))))
 
-(: kb-add-prem
-   (-[det]-> KbBackend Number Number
-       (| Goal (Statement KBContext Proof TV))
-       Number))
+(: kb-add-prem (-[det]-> KbBackend Number Number (| Goal (Statement KBContext Proof TV)) Number))
 (= (kb-add-prem $backend $id $idx $prem)
    (progn
       (case $prem (
@@ -92,8 +89,7 @@
                (once
                   (kb-add-atom $backend prem_index
                      (make-space-row4
-                        (forward-type-trigger-key
-                           (brand KB $kbid) (brand Statement $type))
+                        (forward-type-trigger-key (brand KB $kbid) (brand Statement $type))
                         $prem $id $idx)))
                (if (if (is-var $type) true (if (is-expr $type) (is-var (car-atom $type)) false)) ()
                   (let $key
@@ -114,14 +110,12 @@
 ;; Keep an empty fold live so later sample proofs can refine it, but do not let
 ;; its provisional no-evidence value become a public Inheritance proof.
 (: MemberInheritanceEvidenceFormula (-[nondet]-> TV  TV))
-(= (MemberInheritanceEvidenceFormula $tv)
-   (if (== $tv no-evidence) (empty) $tv))
+(= (MemberInheritanceEvidenceFormula $tv) (if (== $tv no-evidence) (empty) $tv))
 
 (: inheritance-subject-prior-tv (-[det]-> KB Statement TV))
 (= (inheritance-subject-prior-tv $kbid $subj)
    (if (space-row-present? &inheritance_subject ($kbid $subj))
-      (let $scale (fa-mass-scale $kbid)
-         (if (== $scale 0.0) no-evidence (STV $scale 1.0)))
+      (let $scale (fa-mass-scale $kbid) (if (== $scale 0.0) no-evidence (STV $scale 1.0)))
       no-evidence))
 
 ;; A rule's expected premise confidence is a pure function of its premise
@@ -129,18 +123,12 @@
 ;; rule-goal expansion. No entry (the computation can fail on exotic premise
 ;; shapes) scores the rule 1.0 (sk-rule-score).
 (: store-rule-expected-score!
-   (-[det]-> KbBackend Number
-       (List (| Goal (Statement KBContext Proof TV)))
-       (| Bool (List $none))))
+   (-[det]-> KbBackend Number (List (| Goal (Statement KBContext Proof TV))) (| Bool (List $none))))
 (= (store-rule-expected-score! $backend $id $args)
    (let $hits
-      (collapse
-         (premises-expected-confidence
-            (copy_term $args)))
+      (collapse (premises-expected-confidence (copy_term $args)))
       (if (== $hits ()) ()
-         (once
-            (kb-add-atom $backend rule_expected
-               (make-space-pair $id (car-atom $hits)))))))
+         (once (kb-add-atom $backend rule_expected (make-space-pair $id (car-atom $hits)))))))
 
 (: register-truth-premise! (-[det]-> Number (| Goal (Statement KBContext Proof TV)) Atom))
 (= (register-truth-premise! $id $premise)
@@ -158,8 +146,7 @@
 ;; Rules whose proof carries no extractable name (open query adapters,
 ;; negated outputs) are simply not indexed -- they cannot be removed by name.
 (: register-rule-name!
-   (-[det]-> KbBackend Number (Statement KBContext Proof TV)
-       (| Bool (List $none))))
+   (-[det]-> KbBackend Number (Statement KBContext Proof TV) (| Bool (List $none))))
 (= (register-rule-name! $backend $id $ccls)
    (case $ccls (
       (($_type $_kb $prf $_tv)
@@ -167,13 +154,10 @@
             (let $name (rule-evidence-head $prf)
                (if (is-var $name) ()
                   (if (is-expr $name) ()
-                     (once
-                        (kb-add-atom $backend rule_name_index
-                           (make-space-pair $name $id))))))))
+                     (once (kb-add-atom $backend rule_name_index (make-space-pair $name $id))))))))
       ($_other ()))))
 
-(: typed-runtime-fact
-   (-[det]-> Atom (Statement KBContext Proof TV)))
+(: typed-runtime-fact (-[det]-> Atom (Statement KBContext Proof TV)))
 (= (typed-runtime-fact $fact)
    (case $fact
       ((($type $kb $proof $tv)
@@ -183,9 +167,7 @@
             (brand Proof $proof)
             (checked-stored-tv $tv))))))
 
-(: typed-runtime-premise
-   (-[semidet]-> Atom
-       (| Goal (Statement KBContext Proof TV))))
+(: typed-runtime-premise (-[semidet]-> Atom (| Goal (Statement KBContext Proof TV))))
 (= (typed-runtime-premise $premise)
    (if (= $premise (CPU $formula $arguments $result))
       (CPU $formula $arguments $result)
@@ -194,16 +176,12 @@
 ;; Compiler output crosses an erased-expression storage boundary here. Restore
 ;; each premise's nominal role while walking the list we already consume,
 ;; rather than reflectively checking the complete list with `(the ...)`.
-(: typed-runtime-premises
-   (-[semidet]-> Atom
-       (List (| Goal (Statement KBContext Proof TV)))))
+(: typed-runtime-premises (-[semidet]-> Atom (List (| Goal (Statement KBContext Proof TV)))))
 (= (typed-runtime-premises $premises)
    (case $premises (
       (() ())
       ((cons $premise $rest)
-         (cons
-            (typed-runtime-premise $premise)
-            (typed-runtime-premises $rest))))))
+         (cons (typed-runtime-premise $premise) (typed-runtime-premises $rest))))))
 
 ;; An Inheritance fact records its concepts as nodes, and its subject too when
 ;; the fact is an observation rather than a materialized conclusion.
@@ -241,8 +219,7 @@
             ()))
       ($_other ()))))
 
-(: kb-add-expr
-   (-[nondet]-> KbBackend RuntimeAddition  (| Bool (List $none))))
+(: kb-add-expr (-[nondet]-> KbBackend RuntimeAddition (| Bool (List $none))))
 (= (kb-add-expr $backend $expr)
    (if (= $expr (rules ($args |- $ccls)))
       (let*
@@ -258,27 +235,20 @@
            ($_context (context-note-rule! $id $typed-ccls))
            ($_functional (functional-rule! $typed-ccls))
            ($_1 (if (== $backend backward) 0 (fold-flat (kb-add-prem $backend $id) 0 $rule-args)))
-           ($ccls-row
-              (make-space-row3 $typed-ccls $id $rule-args))
-           ($_2
-              (kb-add-atom $backend ccls_index $ccls-row))
+           ($ccls-row (make-space-row3 $typed-ccls $id $rule-args))
+           ($_2 (kb-add-atom $backend ccls_index $ccls-row))
            ($_3
               (kb-add-atom $backend rules
-                 (brand SpaceAtom
-                    (runtime-rule-row
-                       $id $typed-ccls $rule-args))))
+                 (brand SpaceAtom (runtime-rule-row $id $typed-ccls $rule-args))))
            ($_expected (store-rule-expected-score! $backend $id $rule-args))
            ;; A refined rule reads its truth goal first (rule-truth-premises); the
            ;; rule's search score follows that goal's value.
            ($_truth (case (copy_term $rule-args) (
               ((cons $truth-first $_truth-rest) (register-truth-premise! $id $truth-first))
               (() ()))))
-           ($_name-idx
-              (register-rule-name! $backend $id $typed-ccls))
+           ($_name-idx (register-rule-name! $backend $id $typed-ccls))
            ($_journal (sk-note-rule! $id $typed-ccls))
-           ($_aggregates
-              (register-forward-aggregate-premises!
-                 (== $backend live) $rule-args)))
+           ($_aggregates (register-forward-aggregate-premises! (== $backend live) $rule-args)))
          ())
       (let $fact
          (typed-runtime-fact $expr)
@@ -312,10 +282,8 @@
       (rule-dormancy-forget-temp!)
       ()))
 
-(: inject-compiled-adds
-   (-[nondet]-> (List RuntimeAddition)  (List $none)))
-(= (inject-compiled-adds $adds)
-   (foreach-flat (kb-add-expr temp) $adds))
+(: inject-compiled-adds (-[nondet]-> (List RuntimeAddition) (List $none)))
+(= (inject-compiled-adds $adds) (foreach-flat (kb-add-expr temp) $adds))
 
 ;; --- Removal of compiled statements by name ---------------------------------
 ;; Inverse of compileadd for one named statement: retracts the &kb facts whose
@@ -334,18 +302,12 @@
          (runtime-rule-row $id $ccls $args)
          (let*
             (($_retired (withdraw-rule! $id))
-             ($_prems
-                (remove-atom prem_index ($_pkey $_prem $id $_pidx)))
-             ($_prefixes
-                (remove-atom &prem_prefix ($_prefix $_pprem $id $_ppidx)))
-             ($_ccls-idx
-                (remove-atom ccls_index ($ccls $id $_prems2)))
-             ($_expected
-                (remove-atom rule_expected ($id $_score)))
+             ($_prems (remove-atom prem_index ($_pkey $_prem $id $_pidx)))
+             ($_prefixes (remove-atom &prem_prefix ($_prefix $_pprem $id $_ppidx)))
+             ($_ccls-idx (remove-atom ccls_index ($ccls $id $_prems2)))
+             ($_expected (remove-atom rule_expected ($id $_score)))
              (($_type ($kbid $_ctx $_vars) $_prf $_tv) $ccls)
-             ($_row
-                (remove-atom rules
-                   (runtime-rule-row $id $ccls $args))))
+             ($_row (remove-atom rules (runtime-rule-row $id $ccls $args))))
             (brand KB $kbid)))))
 
 ;; The rule rows registered under a statement name leave the rule indexes, so

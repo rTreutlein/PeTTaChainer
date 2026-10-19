@@ -54,8 +54,7 @@
          (case (sk-leaf-facts $type $kbctx sk-any-filter) (
             (() (gap $premise (foldr-flat diagnostic-statement-step () (cons $premise $rest)) $evidence))
             ($facts
-               (let* (($fact (superpose $facts))
-                      (($type $kbctx $_fact-proof $_fact-tv) $fact))
+               (let* (($fact (superpose $facts)) (($type $kbctx $_fact-proof $_fact-tv) $fact))
                   (diagnostic-gap $rest (append-flat (evidence-entries (leaf-evidence-for-result $fact)) $evidence))))))))))
 
 ;; A node's routes are the joins waiting on its children, each child read

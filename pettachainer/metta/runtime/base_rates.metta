@@ -30,28 +30,21 @@
    (case $tv (
       ((STV $s $c)
          (if (== (collapse (once (match &base_rate_smoothing ($kb true) true))) ()) $tv
-            (let* (($n (confidence-to-count $c))
-                   ($k (evidence-confidence-k)))
+            (let* (($n (confidence-to-count $c)) ($k (evidence-confidence-k)))
                (STV (/ (+ (* $s $n) (* 0.5 $k)) (+ $n $k)) $c))))
       ($_other $tv))))
 
 (: BaseRateAggregateKey Type)
-(: base-rate-aggregate-key-value
-   (-[det]-> KB Statement $mode BaseRateAggregateKey))
+(: base-rate-aggregate-key-value (-[det]-> KB Statement $mode BaseRateAggregateKey))
 (: NoBaseRateAggregateKey Type)
 (: no-base-rate-aggregate-key NoBaseRateAggregateKey)
 
-(: base-rate-aggregate-key
-   (-[det]-> $arguments
-       (| BaseRateAggregateKey NoBaseRateAggregateKey)))
+(: base-rate-aggregate-key (-[det]-> $arguments (| BaseRateAggregateKey NoBaseRateAggregateKey)))
 (= (base-rate-aggregate-key $args)
    (case $args (
       (($kbid $pattern $_extractor $_init $_fun $finish $_tv-mode)
          (if (base-rate-finish? $finish)
-            (base-rate-aggregate-key-value
-               (brand KB $kbid)
-               (brand Statement $pattern)
-               $finish)
+            (base-rate-aggregate-key-value (brand KB $kbid) (brand Statement $pattern) $finish)
             no-base-rate-aggregate-key))
       ($_other no-base-rate-aggregate-key))))
 
@@ -65,31 +58,24 @@
    (let $hash (base-rate-cache-hash $kbid $pattern)
       (collapse
          (match &ctx_base_rate_cache ($hash (base-rate $kbid $stored $tv $source $mode))
-            (if (=alpha $stored $pattern)
-               (base-rate $kbid $stored $tv $source $mode)
-               (empty))))))
+            (if (=alpha $stored $pattern) (base-rate $kbid $stored $tv $source $mode) (empty))))))
 
 ;; Binding the hash in a let around this match makes the checker lose the
 ;; entries' determinism at foreach-flat callers, so it is passed in.
-(: base-rate-cache-mode-rows
-   (-[det]-> Number KB Statement $mode (List BaseRateEntry)))
+(: base-rate-cache-mode-rows (-[det]-> Number KB Statement $mode (List BaseRateEntry)))
 (= (base-rate-cache-mode-rows $hash $kbid $pattern $mode)
    (collapse
       (match &ctx_base_rate_cache ($hash (base-rate $kbid $stored $tv $source $emode))
-         (if (and (=alpha $stored $pattern)
-                  (or (== $emode any) (== $emode $mode)))
+         (if (and (=alpha $stored $pattern) (or (== $emode any) (== $emode $mode)))
             (base-rate $kbid $stored $tv $source $emode)
             (empty)))))
 
-(: base-rate-cache-entries-for-mode
-   (-[det]-> KB Statement $mode (List BaseRateEntry)))
+(: base-rate-cache-entries-for-mode (-[det]-> KB Statement $mode (List BaseRateEntry)))
 (= (base-rate-cache-entries-for-mode $kbid $pattern $mode)
    (base-rate-cache-mode-rows (base-rate-cache-hash $kbid $pattern) $kbid $pattern $mode))
 
-(: base-rate-cache-remove-derived-entry!
-   (-[det]-> BaseRateEntry (List $none)))
-(= (base-rate-cache-remove-derived-entry!
-      (base-rate $kbid $stored $tv $source $mode))
+(: base-rate-cache-remove-derived-entry! (-[det]-> BaseRateEntry (List $none)))
+(= (base-rate-cache-remove-derived-entry! (base-rate $kbid $stored $tv $source $mode))
    (if (== $source user) ()
       (let* (($hash (base-rate-cache-hash $kbid $stored))
              ;; Exactly this row: an open pattern would also remove another
@@ -112,41 +98,31 @@
       ()))
 
 (: base-rate-entry-tv (-[det]-> BaseRateEntry TV))
-(= (base-rate-entry-tv
-      (base-rate $_kbid $_stored $tv $_source $_mode))
-   $tv)
+(= (base-rate-entry-tv (base-rate $_kbid $_stored $tv $_source $_mode)) $tv)
 
 (: base-rate-entry-user? (-[det]-> BaseRateEntry Bool))
-(= (base-rate-entry-user?
-      (base-rate $_kbid $_stored $_tv $source $_mode))
-   (== $source user))
+(= (base-rate-entry-user? (base-rate $_kbid $_stored $_tv $source $_mode)) (== $source user))
 
-(: base-rate-cache-user-present?
-   (-[det]-> (List BaseRateEntry) Bool))
+(: base-rate-cache-user-present? (-[det]-> (List BaseRateEntry) Bool))
 (= (base-rate-cache-user-present? ()) false)
 (= (base-rate-cache-user-present? (cons $entry $rest))
-   (if (base-rate-entry-user? $entry) true
-      (base-rate-cache-user-present? $rest)))
+   (if (base-rate-entry-user? $entry) true (base-rate-cache-user-present? $rest)))
 
-(: cached-base-rate
-   (-[nondet]-> KB Statement (List TV)))
+(: cached-base-rate (-[nondet]-> KB Statement (List TV)))
 (= (cached-base-rate $kbid $pattern)
    (case (base-rate-cache-entries $kbid $pattern) (
       (() ())
-      ((cons $entry $_rest)
-         (cons (base-rate-entry-tv $entry) ())))))
+      ((cons $entry $_rest) (cons (base-rate-entry-tv $entry) ())))))
 
 ;; The backward folds reading a pattern's cache entries, in any mode,
 ;; recompute when one changes.
 (: base-rate-readers-changed! (-[det]-> KB Statement (List $none)))
 (= (base-rate-readers-changed! $kbid $pattern)
    (let* (($hash (base-rate-cache-hash $kbid $pattern))
-          ($_dirty
-             (collapse (match &ctx_sk_rate_folds ($hash $key) (sk-dirty! $key)))))
+          ($_dirty (collapse (match &ctx_sk_rate_folds ($hash $key) (sk-dirty! $key)))))
       ()))
 
-(: store-produced-base-rate!
-   (-[det]-> KB Statement TV $mode (List $none)))
+(: store-produced-base-rate! (-[det]-> KB Statement TV $mode (List $none)))
 (= (store-produced-base-rate! $kbid $pattern $tv $mode)
    (if (== $tv no-evidence) ()
       (let $entries (base-rate-cache-entries-for-mode $kbid $pattern $mode)
@@ -154,17 +130,14 @@
             ()
             (let* (($stored (copy_term $pattern))
                    ($hash (base-rate-cache-hash $kbid $pattern))
-                   ($_old
-                      (foreach-flat
-                         base-rate-cache-remove-derived-entry! $entries))
+                   ($_old (foreach-flat base-rate-cache-remove-derived-entry! $entries))
                    ($_new
                       (context-add! &base_rate_cache
                          ($hash (base-rate $kbid $stored $tv computed $mode))))
                    ($_readers (base-rate-readers-changed! $kbid $pattern)))
                ())))))
 
-(: remove-produced-base-rate!
-   (-[det]-> KB Statement $mode (List $none)))
+(: remove-produced-base-rate! (-[det]-> KB Statement $mode (List $none)))
 (= (remove-produced-base-rate! $kbid $pattern $mode)
    (let* (($_old
              (foreach-flat base-rate-cache-remove-derived-entry!
@@ -174,8 +147,7 @@
 (: invalidate-computed-base-rates! (-[det]-> KB (List $none)))
 (= (invalidate-computed-base-rates! $kbid)
    (let $_computed
-      (context-remove! &base_rate_cache
-         (quote ($_h1 (base-rate $kbid $_s1 $_tv1 computed $_m1))))
+      (context-remove! &base_rate_cache (quote ($_h1 (base-rate $kbid $_s1 $_tv1 computed $_m1))))
       ()))
 
 ;; Inheritance subjects and concept nodes are recorded once per KB, and their
@@ -213,9 +185,7 @@
 (: clear-concept-prior-confidence (-[det]-> KB (List $none)))
 (= (clear-concept-prior-confidence $kbid)
    (let*
-      (($_remove
-          (remove-atom &concept_prior_confidence
-             (concept-prior-confidence $kbid $_c)))
+      (($_remove (remove-atom &concept_prior_confidence (concept-prior-confidence $kbid $_c)))
        ($_invalidate (invalidate-computed-base-rates! $kbid)))
       ()))
 
@@ -223,17 +193,13 @@
 (= (set-concept-prior-confidence $kbid $c)
    (let*
       (($_old (clear-concept-prior-confidence $kbid))
-       ($_new
-          (add-atom &concept_prior_confidence
-             (concept-prior-confidence $kbid $c))))
+       ($_new (add-atom &concept_prior_confidence (concept-prior-confidence $kbid $c))))
       ()))
 
 (: known-concept-node? (-[det]-> KB Statement Bool))
-(= (known-concept-node? $kbid $node)
-   (space-row-present? &concept_node ($kbid $node)))
+(= (known-concept-node? $kbid $node) (space-row-present? &concept_node ($kbid $node)))
 
-(: concept-node-prior-tv
-   (-[det]-> KB Statement OptionalSTV))
+(: concept-node-prior-tv (-[det]-> KB Statement OptionalSTV))
 (= (concept-node-prior-tv $kbid $node)
    (if (known-concept-node? $kbid $node)
       (let $n (kb-node-count $kbid concept-node)
@@ -246,14 +212,11 @@
                         (stored-number $c)))))))
       no-evidence))
 
-(: resolve-base-rate-prior
-   (-[det]-> BaseRatePrior OptionalSTV))
+(: resolve-base-rate-prior (-[det]-> BaseRatePrior OptionalSTV))
 (= (resolve-base-rate-prior (ConceptNodePriorRuntime $kbid $node))
-   (concept-node-prior-tv
-      (brand KB $kbid) (brand Statement $node)))
+   (concept-node-prior-tv (brand KB $kbid) (brand Statement $node)))
 (= (resolve-base-rate-prior (STV $s $c)) (STV $s $c))
 (= (resolve-base-rate-prior no-evidence) no-evidence)
 
-(: member-inheritance-tv
-   (-[det]-> KB BaseRateEvidenceState OptionalSTV))
+(: member-inheritance-tv (-[det]-> KB BaseRateEvidenceState OptionalSTV))
 (= (member-inheritance-tv $_kbid $ev) (WeightedCountBaseRateTv $ev))

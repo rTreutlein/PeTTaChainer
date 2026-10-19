@@ -159,9 +159,7 @@
 ;; beside the rows the key gets later.
 (: sk-summary-fact? (-[det]-> SkFact Bool))
 (= (sk-summary-fact? ($_type $_kbctx $proof $_tv))
-   (case $proof (
-      ((forgotten $_hash $_epoch) true)
-      ($_other false))))
+   (case $proof (((forgotten $_hash $_epoch) true) ($_other false))))
 
 ;; The fact a forward run stored for a key is a copy of the key's own value: it
 ;; lets a reader reach the key without searching for it, and stands for the
@@ -172,8 +170,7 @@
 ;; whose key an outer reader excluded, even though no ordinary row can use it.
 (: sk-leaf-step (-[semidet]-> Number Bool (List Number) (List SkeletonValue) SkFact (List SkeletonValue)))
 (= (sk-leaf-step $hash $computed $exclude $kept $fact)
-   (let* (($view (sk-leaf-view $hash $fact))
-          ($deps (sk-view-deps-step 0 $view)))
+   (let* (($view (sk-leaf-view $hash $fact)) ($deps (sk-view-deps-step 0 $view)))
       (if (== $deps (sk-leaf-deps $hash $fact))
          (if (sk-branch-excludes? $deps) $kept (cons $view $kept))
          (if (if $computed (not (sk-summary-fact? $fact)) false) $kept
@@ -226,8 +223,7 @@
    (let $c (ideal-clip $p) (if (== $link odds) (* $c (- 1.0 $c)) (- 1.0 $c))))
 
 (: sk-link-var (-[det]-> Atom Number Number Number))
-(= (sk-link-var $link $s $c)
-   (let $q (sk-link-slope $link $s) (/ (ideal-var $s $c) (* $q $q))))
+(= (sk-link-var $link $s $c) (let $q (sk-link-slope $link $s) (/ (ideal-var $s $c) (* $q $q))))
 
 (: sk-factored-tv (-[det]-> Atom Number Number Number Number Number Number Number Number STVType))
 (= (sk-factored-tv $link $spa $cpa $spb $cpb $sa $ca $sb $cb)
@@ -530,9 +526,7 @@
                               (sk-contradict? (the Number $sa) (the Number $sb)) false) false
                       (if (same-proof? $base-a $base-b)
                          (if (< (abs-math (- (the Number $spa) (the Number $spb))) 0.000000000001) (if (< (abs-math (- (the Number $cpa) (the Number $cpb))) 0.000000000001) (if (== $parts-a ()) false (if (== $parts-b ()) false (if (if $population-a (if $independent false true) false) false (not (sk-sources-meet? $parts-a $parts-b))))) false) false)
-                         (if $population-b
-                            (if (< $ca 1.0) $independent false)
-                            false)))
+                         (if $population-b (if (< $ca 1.0) $independent false) false)))
                   (let* (((STV $combined-s $combined-c)
                               (sk-factored-tv odds (the Number $spa) (the Number $cpa)
                                  (the Number $spb) (the Number $cpb)
@@ -654,8 +648,7 @@
 ;; combine by it; two certain views that contradict each other revise.
 (: sk-combined-merge (-[det]-> SkFact SkFact EvidenceSet Number SkeletonValue))
 (= (sk-combined-merge ($type $kbctx $proof-a $tv-a) ($_btype $_bkbctx $proof-b $tv-b) $ev $deps)
-   (let* (($parts-a (sk-forward-parts $proof-a))
-          ($parts-b (sk-forward-parts $proof-b)))
+   (let* (($parts-a (sk-forward-parts $proof-a)) ($parts-b (sk-forward-parts $proof-b)))
       (if (if (== $parts-a ()) true (== $parts-b ())) sk-none
          (case (collapse (once (sk-combination-mode (brand KB (car-atom $kbctx)) $type))) (
             ((cons $choice $_none)
@@ -945,9 +938,7 @@
 (= (sk-value-digests (sk-val ($type $ctx $proof $_tv) $_ev $deps))
    (let $own (sk-rule-digests $type $ctx $proof)
       (if (== $own ())
-         (case (sk-truth-digests $deps) (
-            ((cons $one ()) (cons $one ()))
-            ($_many ())))
+         (case (sk-truth-digests $deps) (((cons $one ()) (cons $one ())) ($_many ())))
          $own)))
 
 (: sk-same-samples? (-[semidet]-> (List SkeletonDigest) (List SkeletonDigest) Bool))
@@ -1192,11 +1183,9 @@
 (: sk-contained? (-[det]-> SkeletonReference SkeletonReference Bool))
 (= (sk-contained? $specific $general)
    (case (data $specific $general) (
-      (((sk-reference (sk-class true $parts-a) $_a)
-        (sk-reference (sk-class true $parts-b) $_b))
+      (((sk-reference (sk-class true $parts-a) $_a) (sk-reference (sk-class true $parts-b) $_b))
          (if (< (list-len $parts-b) (list-len $parts-a)) (all-members? $parts-a $parts-b) false))
-      (((sk-reference (sk-class false $parts-a) $_a)
-        (sk-reference (sk-class false $parts-b) $_b))
+      (((sk-reference (sk-class false $parts-a) $_a) (sk-reference (sk-class false $parts-b) $_b))
          (if (< (list-len $parts-a) (list-len $parts-b)) (all-members? $parts-b $parts-a) false))
       ($_other false))))
 
@@ -1347,8 +1336,7 @@
 
 (: sk-reference-siblings? (-[semidet]-> Bool SkeletonReference SkeletonReference Bool))
 (= (sk-reference-siblings? $overlap-only $a $b)
-   (let* (((sk-reference $class-a $_a) $a)
-          ((sk-reference $class-b $_b) $b))
+   (let* (((sk-reference $class-a $_a) $a) ((sk-reference $class-b $_b) $b))
       (if (== $class-a no-class) false
          (if (if (== $class-b no-class) true (=alpha $class-a $class-b)) false
             (if (sk-contained? $a $b) false
@@ -1514,8 +1502,7 @@
 
 (: sk-sibling-tv-step (-[semidet]-> STVType STVType SkeletonValue STVType))
 (= (sk-sibling-tv-step $prior $acc (sk-val $_fact $_ev $_deps))
-   (let ($_type $_ctx $_proof (STV $s $c)) $_fact
-      (sk-mode-step odds $prior $acc (STV $s $c))))
+   (let ($_type $_ctx $_proof (STV $s $c)) $_fact (sk-mode-step odds $prior $acc (STV $s $c))))
 
 ;; The envelope includes population, every homogeneous separator correction,
 ;; and inclusion-exclusion of the known distinct separators. It bounds all
@@ -1691,8 +1678,7 @@
 ;; A proof's strength with the shared facts replaced by the probe.
 (: sk-lift-eval (-[semidet]-> KB (List Evidence) (List Evidence) STVType Atom STVType))
 (= (sk-lift-eval $kb $ev $shared $probe $proof)
-   (let* (($step (sk-step-proof (brand Proof $proof)))
-          ($facts (sk-lift-facts $step $ev)))
+   (let* (($step (sk-step-proof (brand Proof $proof))) ($facts (sk-lift-facts $step $ev)))
       (case $facts (
          ((cons $fact $_rest)
             (if (stored-list-member? $fact $shared) $probe (sk-lift-fact-tv $fact)))
@@ -1726,10 +1712,7 @@
    (CTV (mergetvs $pos1 $pos2) (mergetvs $neg1 $neg2)))
 
 (: sk-value-evidence (-[det]-> SkeletonValue EvidenceSet))
-(= (sk-value-evidence $value)
-   (case $value (
-      ((sk-val $_fact $ev $_deps) $ev)
-      ($_other (ev-set 0)))))
+(= (sk-value-evidence $value) (case $value (((sk-val $_fact $ev $_deps) $ev) ($_other (ev-set 0)))))
 
 (: sk-lift-residual-ev-step (-[semidet]-> EvidenceSet EvidenceSet SkeletonValue EvidenceSet))
 (= (sk-lift-residual-ev-step $shared $seen $value)
@@ -1796,8 +1779,7 @@
    (case $view (
       ((sk-val $fact $_ev $deps)
          (if (sk-excludes? $exclude $deps) false (sk-fact-matches? $filter $fact)))
-      ((sk-goal-val $_goal $_proof $_ev $deps)
-         (if (sk-excludes? $exclude $deps) false true))
+      ((sk-goal-val $_goal $_proof $_ev $deps) (if (sk-excludes? $exclude $deps) false true))
       (sk-none false))))
 
 (: sk-admit-older (-[det]-> SkeletonFilter (List Number) SkeletonValue SkeletonValue SkeletonValue))
@@ -2047,9 +2029,7 @@
 
 (: sk-rule-truth-key? (-[det]-> SkeletonKey Bool))
 (= (sk-rule-truth-key? $key)
-   (case $key (
-      ((sk-key $type $_kbctx) (head-is? $type RuleTruth))
-      ($_fold false))))
+   (case $key (((sk-key $type $_kbctx) (head-is? $type RuleTruth)) ($_fold false))))
 
 ;; Whether a consumer excluding these keys reads the key with a sample left
 ;; out: an instance fold, or a refined rule's truth, which reads one.
@@ -2225,9 +2205,7 @@
       ((extract-inheritance-tv $kbid $_statement)
          (let* ((((Inheritance $subject $_concept) ($_kb $_ctx $_vars) $_proof $tv) (copy_term $fact)))
             ($fun $acc (WeightedTv (inheritance-subject-prior-tv $kbid (brand Statement $subject)) $tv))))
-      (extract-tv
-         (let* ((($_type $_kbctx $_proof $tv) $fact))
-            ($fun $acc $tv))))))
+      (extract-tv (let* ((($_type $_kbctx $_proof $tv) $fact)) ($fun $acc $tv))))))
 
 ;; Members are read without the views that depend on the fold itself: a
 ;; member derived through this fold's own output is left out of it. Their
@@ -2279,8 +2257,7 @@
                        ((sk-val $old-fact $_old-ev $_old-deps)
                           (sk-existential-preferred? $fact $old-fact))))
                   (sk-exists-state
-                     (if $floor $tv
-                        (if (== $proofs ()) (STV $s $c) (OrFormula $tv (STV $s $c))))
+                     (if $floor $tv (if (== $proofs ()) (STV $s $c) (OrFormula $tv (STV $s $c))))
                      (if $take (sk-val $fact $member-ev $member-deps) $best)
                      (if $floor false
                         (if $overlap true
@@ -2543,8 +2520,7 @@
 ;; changed, never the instances.
 (: sk-instance-take! (-[semidet]-> Number ScalarFoldSpec Atom))
 (= (sk-instance-take! $hash $args)
-   (let* (($fold (sk-fold $args))
-          ($changed (sk-rate-changed $hash $fold)))
+   (let* (($fold (sk-fold $args)) ($changed (sk-rate-changed $hash $fold)))
       (if (== $changed ()) ()
          (let $filter
                (case (sk-fold-node-member (CPU FoldAllCompiled $args $_result)) (
@@ -2682,8 +2658,7 @@
 (= (sk-group-member? ($kbctx $pattern $_group $_e $_i $_f $_fi $_m) $key)
    (= (sk-key $pattern $kbctx) $key))
 
-(: sk-keep-group-member
-   (-[semidet]-> $spec (List SkeletonKey) SkeletonKey (List SkeletonKey)))
+(: sk-keep-group-member (-[semidet]-> $spec (List SkeletonKey) SkeletonKey (List SkeletonKey)))
 (= (sk-keep-group-member $args $kept $key)
    (if (sk-group-member? (copy_term $args) (copy_term $key)) (cons $key $kept) $kept))
 
@@ -2731,8 +2706,7 @@
           ($versions (case $key (
              ((sk-key $_type $_kbctx) $stored)
              ($_fold (case $stored (
-                ((cons (sk-version $_seq $_rhash $view) $_rest)
-                   $stored)
+                ((cons (sk-version $_seq $_rhash $view) $_rest) $stored)
                 (() (sk-fold-views $hash $key)))))))))
       (fold-semidet sk-cons-step () (fold-semidet (sk-admit-step $hash $key $filter $exclude) () $versions))))
 
@@ -2960,9 +2934,7 @@
                               (if (fold-semidet sk-zero-likelihood-step false $premises)
                                  (sk-version $seq $rhash $candidate) (empty)) (empty)))
                         ($_other (empty)))) (empty)))
-               (empty))))) (
-      ((cons $reference $_rest) (cons $reference $kept))
-      (() $kept))))
+               (empty))))) (((cons $reference $_rest) (cons $reference $kept)) (() $kept))))
 
 ;; Keep the reference kernel in its fold boundary: PeTTa specializes its
 ;; writable row variables there. Only the immutable diagnostic is memoized;
@@ -3042,8 +3014,7 @@
            ((sk-filter $proof $_tv) (head-is? $proof derived-implication))
            ($_any false)))
       (if $derived
-         (let $hash (index-hash $key)
-            (sk-admitted-merge $hash $key $filter $exclude))
+         (let $hash (index-hash $key) (sk-admitted-merge $hash $key $filter $exclude))
          (let* (($hash (index-hash $key))
                 ($merged
                    (if (sk-leaves-out? $hash $key $exclude)
@@ -3103,9 +3074,7 @@
 (= (replace-token $term $proofs)
    (if (is-var $term) (token-state $term $proofs)
       (if (== $term cpu)
-         (case $proofs (
-            ((cons $proof $rest) (token-state $proof $rest))
-            (() (token-state cpu ()))))
+         (case $proofs (((cons $proof $rest) (token-state $proof $rest)) (() (token-state cpu ()))))
          (if (is-expr $term) (replace-token-list $term $proofs) (token-state $term $proofs)))))
 
 ;; A compiled query adapter proves (_ inner) with an open head; its proof is
@@ -3116,9 +3085,7 @@
       (if (is-expr $proof)
          (if (== $proof ()) $proof
             (if (is-var (car-atom $proof))
-               (case (cdr-atom $proof) (
-                  ((cons $inner ()) $inner)
-                  ($_other $proof)))
+               (case (cdr-atom $proof) (((cons $inner ()) $inner) ($_other $proof)))
                $proof))
          $proof)))
 
@@ -3191,8 +3158,7 @@
 ;; particular, NotFormula transforms the last read before conjunction pooling.
 (: sk-pool-parts (-[det]-> (List SkeletonPart) (List SkeletonPart)))
 (= (sk-pool-parts $parts)
-   (let $ordered (reverse $parts)
-      (fold-flat sk-add-part () (the (List SkeletonPart) $ordered))))
+   (let $ordered (reverse $parts) (fold-flat sk-add-part () (the (List SkeletonPart) $ordered))))
 
 (: sk-pooled? (-[det]-> (List SkeletonPart) Bool))
 (= (sk-pooled? $parts) (sk-has-pool? (sk-pool-parts $parts)))
@@ -3240,8 +3206,7 @@
 ;; Whether a value depends on a given statement.
 (: sk-given-meets? (-[semidet]-> (List SkeletonGiven) SkeletonValue Bool))
 (= (sk-given-meets? $given $value)
-   (if (== $given ()) false
-      (deps-meet? (sk-given-hashes $given) (sk-view-deps-step 0 $value))))
+   (if (== $given ()) false (deps-meet? (sk-given-hashes $given) (sk-view-deps-step 0 $value))))
 
 (: sk-pinned-step (-[semidet]-> SkeletonKey (List SkeletonValue) SkeletonGiven (List SkeletonValue)))
 (= (sk-pinned-step $key $found $pin)
@@ -4199,8 +4164,7 @@
    (-[semidet]-> (List SkeletonGiven) (List SkeletonGiven) (List Number) Bool SkeletonReadPolicy SkeletonRowState (List SkPattern)
        SkeletonRowState))
 (= (sk-projection-state $pin $given $exclusions $shared $policy $start (cons $premise $parts))
-   (let* ((($type $kbctx $_proof $_tv) $premise)
-          ($compound (sk-key $type $kbctx)))
+   (let* ((($type $kbctx $_proof $_tv) $premise) ($compound (sk-key $type $kbctx)))
       (fold-semidet
          (sk-premise-step $pin $given (hash-union (sk-unifier-hashes (index-hash $compound) $compound) $exclusions)
             $shared false $policy)
@@ -4282,9 +4246,7 @@
 ;; into sk-row-result leaves a residual runtime TV check in strict mode.
 (: sk-unsupported-tv (-[det]-> TV TV))
 (= (sk-unsupported-tv $tv)
-   (case $tv (
-      ((CTV $_pos $_neg) (CTV (STV 0.0 0.0) (STV 0.0 0.0)))
-      ($_other (STV 0.0 0.0)))))
+   (case $tv (((CTV $_pos $_neg) (CTV (STV 0.0 0.0) (STV 0.0 0.0))) ($_other (STV 0.0 0.0)))))
 
 ;; Only a likelihood with a certain zero branch can certify impossibility.
 ;; The opposite branch must allow the observation; a zero prior, a rounded
@@ -4467,8 +4429,7 @@
 
 ;; A changed key schedules the rows it affects. A fold or group over it is
 ;; recomputed when next read, and all of its readers are scheduled.
-(: sk-key-changed
-   (-[semidet]-> Number Number SkeletonChange SkeletonWork SkeletonKey SkeletonWork))
+(: sk-key-changed (-[semidet]-> Number Number SkeletonChange SkeletonWork SkeletonKey SkeletonWork))
 (= (sk-key-changed $pass $order $change $work $key)
    (if (context-propagate? $key)
    (let* (($hash (index-hash $key))
@@ -4611,8 +4572,7 @@
    (let* (($causes (list_to_set (collapse (match &ctx_sk_fold_pending ($hash $member) $member))))
           ($_taken (remove-data-rows! &sk_fold_pending (quote ($hash $member))))
           ($old (sk-latest-view $hash $fold 0)))
-      (if (if (== $causes ()) true
-             (if (sk-existential-fold? $fold) false (== $old sk-none))) $work
+      (if (if (== $causes ()) true (if (sk-existential-fold? $fold) false (== $old sk-none))) $work
          (let* (($_merged (sk-drop-merged! $fold)))
             (case (sk-fold-views $hash $fold) (
                ((cons (sk-version $_seq $_rhash $new) $_rest)
@@ -4776,8 +4736,7 @@
 ;; Retake it through the ordinary fold read and wake that fold's consumers.
 (= (sk-branch-ready-step $_cause $exclude $member $_acc (sk-fold-check $hash $fold))
    (if (stored-list-member? $hash $exclude)
-      (let $_dirty (sk-rate-dirty! $fold $member)
-         (sk-stale-fold! $fold)) ()))
+      (let $_dirty (sk-rate-dirty! $fold $member) (sk-stale-fold! $fold)) ()))
 
 (: sk-restale-step (-[semidet]-> (Heap SkeletonItem) (Number Number) (Heap SkeletonItem)))
 (= (sk-restale-step $todo ($khash $rhash))
@@ -4802,8 +4761,7 @@
                 (sk-determined-row? $item)))
           true)
       (sk-work-off! $pass (once (sk-compute $pass $order (sk-work $rest $next) $item)))
-      (let* (($_unpaid (query_metric_increment rows-unpaid))
-             ($_stale (sk-mark-stale! $item)))
+      (let* (($_unpaid (query_metric_increment rows-unpaid)) ($_stale (sk-mark-stale! $item)))
          (sk-work-off! $pass (sk-work $rest $next)))))
 
 ;; A query computes the rows and folds within two steps of a root from a
@@ -5099,8 +5057,7 @@
 (: sk-stale-fold! (-[det]-> SkeletonKey Atom))
 (= (sk-stale-fold! $fold)
    (if (not (sk-fold-read? (index-hash $fold) $fold)) ()
-      (let* (($_view (sk-drop-fold-view! $fold))
-             ($_merged (sk-drop-merged! $fold)))
+      (let* (($_view (sk-drop-fold-view! $fold)) ($_merged (sk-drop-merged! $fold)))
          (sk-stale-key! $fold))))
 
 ;; While a query's evaluation runs, the stale cascade does not stale a row the
@@ -5305,9 +5262,7 @@
                    (empty_heap))
                 $dirty))
           ($last (sk-work-off! $pass $seeded)))
-      (case (sk-instance-checks!) (
-         (() $last)
-         ($checks (sk-evaluate-pass! (+ $last 1) $checks))))))
+      (case (sk-instance-checks!) ((() $last) ($checks (sk-evaluate-pass! (+ $last 1) $checks))))))
 
 ;; An evaluation brings current every implication instance fold that rows read,
 ;; has a view and has members still to take, with the keys reading it, a refined rule's
@@ -5449,8 +5404,7 @@
 
 (: clear-base-rate (-[det]-> KB Statement (List $none)))
 (= (clear-base-rate $kbid $pattern)
-   (let* (($_old (base-rate-cache-remove! $kbid $pattern))
-          ($_input (sk-input-changed! $kbid)))
+   (let* (($_old (base-rate-cache-remove! $kbid $pattern)) ($_input (sk-input-changed! $kbid)))
       (base-rate-readers-changed! $kbid $pattern)))
 
 ;; --- Materialization --------------------------------------------------------
@@ -5491,9 +5445,7 @@
    (if (if (head-is? $kbid implication-query) false (== $ctx MAIN))
       (if (if (head-is-member? $type (ExistsJudgment ExistentialAlternatives)) false (== $vars Nil))
          (if (== (extract-vars $type) ())
-            (case $tv (
-               ((STV $_s $_c) (== (extract-vars $tv) ()))
-               ($_other false)))
+            (case $tv (((STV $_s $_c) (== (extract-vars $tv) ())) ($_other false)))
             false)
          false)
       false))
@@ -5512,15 +5464,12 @@
 (: sk-proof-refs-in (-[det]-> Atom (List Number)))
 (= (sk-proof-refs $term)
    (if (is-expr $term)
-      (case $term (
-         ((proof-ref $pid) (cons $pid ()))
-         ($_other (sk-proof-refs-in $term))))
+      (case $term (((proof-ref $pid) (cons $pid ())) ($_other (sk-proof-refs-in $term))))
       ()))
 ;; Atom parameters take their arguments unevaluated, so each part is bound first.
 (= (sk-proof-refs-in $terms)
    (if (== $terms ()) ()
-      (let* (($first (car-atom $terms))
-             ($rest (cdr-atom $terms)))
+      (let* (($first (car-atom $terms)) ($rest (cdr-atom $terms)))
          (append-flat (sk-proof-refs $first) (sk-proof-refs-in $rest)))))
 
 ;; A materialized answer brings the derived facts of its proof along: each
@@ -5815,27 +5764,16 @@
       $results))
 
 (: chainer-many
-   (-[nondet]-> Number
-       (List (| Goal (Statement KBContext Proof TV)))
-       (List (List RuntimeResult))))
-(= (chainer-many $steps $goals)
-   (execute-backward $steps $goals false))
+   (-[nondet]-> Number (List (| Goal (Statement KBContext Proof TV))) (List (List RuntimeResult))))
+(= (chainer-many $steps $goals) (execute-backward $steps $goals false))
 
-(: chainer
-   (-[nondet]-> Number (| Goal (Statement KBContext Proof TV))
-       (List RuntimeResult)))
-(= (chainer $steps $goal)
-   (chainer-first-or () (execute-backward $steps ($goal) false)))
+(: chainer (-[nondet]-> Number (| Goal (Statement KBContext Proof TV)) (List RuntimeResult)))
+(= (chainer $steps $goal) (chainer-first-or () (execute-backward $steps ($goal) false)))
 
 (: chainer-materialize
-   (-[nondet]-> Number (| Goal (Statement KBContext Proof TV))
-       (List RuntimeResult)))
-(= (chainer-materialize $steps $goal)
-   (chainer-first-or () (execute-backward $steps ($goal) true)))
+   (-[nondet]-> Number (| Goal (Statement KBContext Proof TV)) (List RuntimeResult)))
+(= (chainer-materialize $steps $goal) (chainer-first-or () (execute-backward $steps ($goal) true)))
 
 (: chainer-many-materialize
-   (-[nondet]-> Number
-       (List (| Goal (Statement KBContext Proof TV)))
-       (List (List RuntimeResult))))
-(= (chainer-many-materialize $steps $goals)
-   (execute-backward $steps $goals true))
+   (-[nondet]-> Number (List (| Goal (Statement KBContext Proof TV))) (List (List RuntimeResult))))
+(= (chainer-many-materialize $steps $goals) (execute-backward $steps $goals true))

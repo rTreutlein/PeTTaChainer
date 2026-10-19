@@ -35,10 +35,7 @@
 (= (normalize-expected-stv $tv)
    (if (is-var $tv) (STV 1.0 1.0)
       (case $tv
-         (((STV $s $c)
-             (STV
-                (if (is-var $s) 1.0 $s)
-                (if (is-var $c) 1.0 $c)))
+         (((STV $s $c) (STV (if (is-var $s) 1.0 $s) (if (is-var $c) 1.0 $c)))
           ($other (the STVType $other))))))
 
 ;; Re-establish a TV read from untyped storage without first attaching one
@@ -55,16 +52,11 @@
           (no-evidence no-evidence)
           ($other (the TV $other))))))
 
-(: normalize-expected-ctv
-   (-[semidet]-> $truth-value CTVType))
-(= (normalize-expected-ctv
-      (CTV $pos $neg))
-   (CTV
-      (normalize-expected-stv $pos)
-      (normalize-expected-stv $neg)))
+(: normalize-expected-ctv (-[semidet]-> $truth-value CTVType))
+(= (normalize-expected-ctv (CTV $pos $neg))
+   (CTV (normalize-expected-stv $pos) (normalize-expected-stv $neg)))
 
-(: normalize-expected-evidence-tv
-   (-[semidet]-> $truth-value (| STVType CTVType)))
+(: normalize-expected-evidence-tv (-[semidet]-> $truth-value (| STVType CTVType)))
 (= (normalize-expected-evidence-tv $tv)
    (if (is-var $tv)
       (STV 1.0 1.0)
@@ -81,10 +73,7 @@
    (if (is-var $tv) (STV 1.0 1.0)
       (case $tv
          (((STV $_s $_c) (normalize-expected-stv $tv))
-          ((CTV $pos $neg)
-             (CTV
-                (normalize-expected-stv $pos)
-                (normalize-expected-stv $neg)))
+          ((CTV $pos $neg) (CTV (normalize-expected-stv $pos) (normalize-expected-stv $neg)))
           ((likelihood-read $_raw $read $_support) (expected-tv $read))
           (no-evidence no-evidence)
           ($other (the TV $other))))))
@@ -99,31 +88,23 @@
          ((likelihood-read $raw $read $support)
             (likelihood-read (normalize-expected-ctv $raw) (normalize-expected-ctv $read) $support))))))
 
-(: cpu-expected-tv
-   (-[nondet]-> $formula $arguments Atom))
+(: cpu-expected-tv (-[nondet]-> $formula $arguments Atom))
 (= (cpu-expected-tv $fun ($a))
    (if (== $fun likelihood-read-tv)
       (likelihood-read-tv (normalize-expected-likelihoods $a))
    (if (== $fun NotFormula)
-      (if (is-var $a)
-         (STV 1.0 1.0)
-         (NotFormula (normalize-expected-stv $a)))
+      (if (is-var $a) (STV 1.0 1.0) (NotFormula (normalize-expected-stv $a)))
       ())))
 
 (= (cpu-expected-tv $fun ($a $b))
    (case $fun
       ((CTVModusPonensFormula
-         (CTVModusPonensFormula
-            (normalize-expected-evidence-tv $a)
-            (normalize-expected-ctv $b)))
+         (CTVModusPonensFormula (normalize-expected-evidence-tv $a) (normalize-expected-ctv $b)))
        (ImplicationModusPonensFormula
          (ImplicationModusPonensFormula
             (normalize-expected-evidence-tv $a)
             (normalize-expected-ctv $b)))
-       (CTVFormula
-         (CTVFormula
-            (normalize-expected-evidence-tv $a)
-            (normalize-expected-ctv $b)))
+       (CTVFormula (CTVFormula (normalize-expected-evidence-tv $a) (normalize-expected-ctv $b)))
        ;; An open prior read as certain would leave P(A|not B) undefined, so
        ;; the inversion is expected at its rule's confidence, discounted as
        ;; CTVInversionFormula's is.
@@ -133,22 +114,11 @@
                (CTV (STV 1.0 $confidence) (STV 1.0 $confidence)))
             (CTVBayesFormula (normalize-expected-evidence-tv $a)
                (normalize-expected-likelihoods $b))))
-       (AndFormula
-         (AndFormula
-            (normalize-expected-stv $a)
-            (normalize-expected-stv $b)))
-       (OrFormula
-         (OrFormula
-            (normalize-expected-stv $a)
-            (normalize-expected-stv $b)))
+       (AndFormula (AndFormula (normalize-expected-stv $a) (normalize-expected-stv $b)))
+       (OrFormula (OrFormula (normalize-expected-stv $a) (normalize-expected-stv $b)))
        (LikelierThanFormula
-         (LikelierThanFormula
-            (normalize-expected-stv $a)
-            (normalize-expected-stv $b)))
-       (()
-         (cons ()
-            (cons (expected-tv $a)
-               (cons (expected-tv $b) ()))))
+         (LikelierThanFormula (normalize-expected-stv $a) (normalize-expected-stv $b)))
+       (() (cons () (cons (expected-tv $a) (cons (expected-tv $b) ()))))
        ($_other ()))))
 
 (= (cpu-expected-tv $fun ($a $b $ctv))
@@ -182,8 +152,7 @@
 ;; Only a closed observation can be used to select an empirical centre.
 (= (cpu-expected-tv $fun ($kb $rule $antecedent $consequent $candidate $context))
    (if (== $fun rule-likelihood-read)
-      (if (if (is-var $kb) true (if (is-var $rule) true
-                   (not (== (extract-vars $context) ()))))
+      (if (if (is-var $kb) true (if (is-var $rule) true (not (== (extract-vars $context) ()))))
          (normalize-expected-likelihoods $candidate)
          ;; This module loads before the operator's definition. The inner
          ;; reduction builds its call (cons/quote); the outer executes it.
@@ -194,13 +163,10 @@
                   (quote ($kb $rule $antecedent $consequent $record $context))))))))
       ()))
 
-(: first-cpu-expected-tv
-   (-[det]-> $formula $arguments Atom))
+(: first-cpu-expected-tv (-[det]-> $formula $arguments Atom))
 (= (first-cpu-expected-tv $fun $args)
-   (let $hits (collapse (cpu-expected-tv $fun $args))
-      (if (== $hits ()) () (car-atom $hits))))
+   (let $hits (collapse (cpu-expected-tv $fun $args)) (if (== $hits ()) () (car-atom $hits))))
 
 (: cpu-expected-confidence (-[det]-> $formula $arguments Number))
 (= (cpu-expected-confidence $fun $args)
-   (let $res (first-cpu-expected-tv $fun $args)
-      (if (== $res ()) 1.0 (tv-confidence $res))))
+   (let $res (first-cpu-expected-tv $fun $args) (if (== $res ()) 1.0 (tv-confidence $res))))

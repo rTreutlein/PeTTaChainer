@@ -81,8 +81,7 @@
 ;; How far a value moved: the KL divergence of its new Beta from its old one.
 (: sk-change (-[det]-> SkeletonValue SkeletonValue Number))
 (= (sk-change $new $old)
-   (let* ((($a1 $b1) (sk-value-beta $new))
-          (($a2 $b2) (sk-value-beta $old)))
+   (let* ((($a1 $b1) (sk-value-beta $new)) (($a2 $b2) (sk-value-beta $old)))
       (beta_kl $a1 $b1 $a2 $b2)))
 
 ;; A key whose value rests on less than the minimum evidence is not built on.
@@ -175,11 +174,9 @@
 ;; A reader whose value differs from the one a run last built on goes on the
 ;; agenda by how far it moved from it. Work a budget cut off is therefore found
 ;; again by the next run that reaches the reader.
-(: sk-changed-step
-   (-[semidet]-> (Heap SkeletonForwardItem) SkeletonKey (Heap SkeletonForwardItem)))
+(: sk-changed-step (-[semidet]-> (Heap SkeletonForwardItem) SkeletonKey (Heap SkeletonForwardItem)))
 (= (sk-changed-step $agenda $key)
-   (let* (($now (sk-key-value $key))
-          ($taken (sk-taken-value $key)))
+   (let* (($now (sk-key-value $key)) ($taken (sk-taken-value $key)))
       (if (sk-same-view? $now $taken) $agenda
          (add_to_heap $agenda (- 0 (sk-change $now $taken)) (sk-fwd-key $key)))))
 
@@ -236,8 +233,7 @@
                (if (sk-existential-fold? $fold)
                   (let $_removed (remove-atom &sk_forward_folds ($hash $fold)) $fold) (empty))))
          (if (== $folds ()) $searched
-            (let $_walked (sk-walk! $folds)
-               (sk-forward-folds! (append-flat $searched $folds)))))))
+            (let $_walked (sk-walk! $folds) (sk-forward-folds! (append-flat $searched $folds)))))))
 
 (: sk-forward-wave!
    (-[semidet]-> (Heap SkeletonForwardItem) (List SkeletonForwardEntry) (Heap SkeletonForwardItem)))

@@ -15,17 +15,13 @@
 (: SkeletonRuleDef Type)
 (: sk-rule-def (-[det]-> SkFact (List SkPattern) SkeletonRuleDef))
 
-(: fold-semidet
-   (-[semidet]-> (-[semidet]-> $acc $item $acc) $acc (List $item) $acc))
+(: fold-semidet (-[semidet]-> (-[semidet]-> $acc $item $acc) $acc (List $item) $acc))
 (= (fold-semidet $_fun $acc ()) $acc)
-(= (fold-semidet $fun $acc (cons $item $rest))
-   (fold-semidet $fun ($fun $acc $item) $rest))
+(= (fold-semidet $fun $acc (cons $item $rest)) (fold-semidet $fun ($fun $acc $item) $rest))
 
-(: map-semidet
-   (-[semidet]-> (-[semidet]-> $input $output) (List $input) (List $output)))
+(: map-semidet (-[semidet]-> (-[semidet]-> $input $output) (List $input) (List $output)))
 (= (map-semidet $_fun ()) ())
-(= (map-semidet $fun (cons $item $rest))
-   (cons ($fun $item) (map-semidet $fun $rest)))
+(= (map-semidet $fun (cons $item $rest)) (cons ($fun $item) (map-semidet $fun $rest)))
 
 (: sk-cons-step (-[semidet]-> (List $item) $item (List $item)))
 (= (sk-cons-step $items $item) (cons $item $items))
@@ -83,8 +79,7 @@
 
 (: sk-mark-expanded! (-[det]-> Number SkPattern Atom))
 (= (sk-mark-expanded! $hash $pattern)
-   (let* (($_row (add-atom &sk_expanded ($hash $pattern)))
-          ($_taken (sk-work! $hash $pattern -1)))
+   (let* (($_row (add-atom &sk_expanded ($hash $pattern))) ($_taken (sk-work! $hash $pattern -1)))
       (case (copy_term $pattern) (
          ((CPU $_fun $_args $_res) ())
          (($type $kbctx $_proof $_tv)
@@ -316,8 +311,7 @@
 (: sk-leaf-facts (-[det]-> Statement KBContext SkeletonFilter (List SkFact)))
 (= (sk-leaf-facts $type $kbctx $filter)
    (let* (($plain (== (collapse (once (match &materialized_facts (materialized-row $_hash $_type $_kb $_fact $_ev) true))) ()))
-          ($local (foldr-flat (sk-leaf-fact-step $plain $filter) ()
-                     (kb-facts $type $kbctx))))
+          ($local (foldr-flat (sk-leaf-fact-step $plain $filter) () (kb-facts $type $kbctx))))
       (case $kbctx (
             (($kbid $ctx $vars)
                (if (judgment-world-premise? $type $kbctx)
@@ -330,8 +324,7 @@
 ;; live input of a durable judgment. Deduplicate by the private reader key.
 (: sk-watch-world! (-[det]-> Statement KBContext KB Atom))
 (= (sk-watch-world! $type $kbctx $kbid)
-   (let* (($key (sk-key $type $kbctx))
-          ($hash (index-hash $key)))
+   (let* (($key (sk-key $type $kbctx)) ($hash (index-hash $key)))
       (if (== (collapse (once (match &sk_world_reader ($hash $stored)
                   (if (=alpha $stored $key) true (empty))))) ())
          (let* (($_reader (add-atom &sk_world_reader ($hash $key)))
@@ -401,8 +394,7 @@
 (: sk-known-leaf-step (-[det]-> Bool SkFact Bool))
 (= (sk-known-leaf-step $known ($_type ($_kb $ctx $_vars) $proof $tv))
    (if $known true
-      (if (if (== $ctx MAIN) true (assumption-proof? $proof))
-         (certain-tvs? (cons $tv ())) false)))
+      (if (if (== $ctx MAIN) true (assumption-proof? $proof)) (certain-tvs? (cons $tv ())) false)))
 
 (: sk-leaf-answer-step (-[semidet]-> SkPattern Atom SkFact Atom))
 (= (sk-leaf-answer-step $node $_acc $fact) (sk-add-answer! $node (sk-fact-key $fact)))
@@ -586,9 +578,7 @@
 (: sk-add-use! (-[det]-> SkeletonKey SkeletonKey Atom))
 (= (sk-add-use! $key $parent)
    (if (let $link (sk-use-link $key $parent) (sk-link-new! (link-digest $link)))
-      (let* (($hash (index-hash $key))
-             ($_row (add-atom &sk_use ($hash $key $parent))))
-         ())
+      (let* (($hash (index-hash $key)) ($_row (add-atom &sk_use ($hash $key $parent)))) ())
       ()))
 
 ;; Before anything was evaluated (no latest version of any key) there is no
@@ -620,9 +610,7 @@
 
 (: sk-instance-fold-key? (-[det]-> SkeletonKey Bool))
 (= (sk-instance-fold-key? $key)
-   (case $key (
-      ((sk-fold $args) (sk-instance-fold? $args))
-      ($_other false))))
+   (case $key (((sk-fold $args) (sk-instance-fold? $args)) ($_other false))))
 
 (: sk-rate-fold? (-[det]-> SkeletonKey Bool))
 (= (sk-rate-fold? $key)
@@ -684,9 +672,7 @@
 (: sk-member-group (-[det]-> $spec $spec $spec SkeletonKey (List $spec)))
 (= (sk-member-group ($kbctx $pattern $group $_e $_i $_f $_fi $_m)
                     ($_c $_p $unbound-group $_e2 $_i2 $_f2 $_fi2 $_m2) $unbound $key)
-   (if (= (sk-key $pattern $kbctx) $key)
-      (if (= $unbound-group $group) (cons $unbound ()) ())
-      ()))
+   (if (= (sk-key $pattern $kbctx) $key) (if (= $unbound-group $group) (cons $unbound ()) ()) ()))
 
 ;; An antecedent completion, `((antecedent-completion rule index with cpu
 ;; prior) premises)`.
@@ -790,8 +776,7 @@
                            (sk-partial $owner $rule $concl $done $remaining $keys)))
                      (if (if (contextual-cpu? $fun) false (== (extract-vars $args) ()))
                         (fold-semidet
-                           (sk-cpu-step
-                              (sk-partial $owner $rule $concl $done $remaining $keys))
+                           (sk-cpu-step (sk-partial $owner $rule $concl $done $remaining $keys))
                            ()
                            (collapse (cpu-call 0 $fun $args)))
                         ;; Truth-value formulas run during evaluation.
@@ -958,9 +943,7 @@
 (: sk-row-present? (-[det]-> Number SkeletonKey Number SkeletonIdent Bool))
 (= (sk-row-present? $khash $key $rhash $ident)
    (not (== (collapse (once (match &sk_row ($khash $stored $rhash (sk-row $stored-ident $_c $_p $_seq))
-               (if (=alpha $stored $key)
-                  (if (=alpha $stored-ident $ident) true (empty))
-                  (empty)))))
+               (if (=alpha $stored $key) (if (=alpha $stored-ident $ident) true (empty)) (empty)))))
             ())))
 
 ;; A computation whose arguments were ground when its join was built was
@@ -1014,9 +997,7 @@
 (: sk-aggregate-reader-step (-[det]-> Bool SkPattern Bool))
 (= (sk-aggregate-reader-step $found $premise)
    (if $found true
-      (case $premise (
-         ((CPU $fun $_args $_res) (aggregate-fold-function? $fun))
-         ($_fact false)))))
+      (case $premise (((CPU $fun $_args $_res) (aggregate-fold-function? $fun)) ($_fact false)))))
 
 (= (sk-complete-row! $owner $rule $concl $premises $keys)
    (if (rule-live? $rule)
@@ -1098,8 +1079,7 @@
 
 (: sk-add-reader! (-[det]-> Number Number Atom SkeletonKey Atom))
 (= (sk-add-reader! $khash $rhash $_acc $key)
-   (let* (($hash (index-hash $key))
-          ($_row (context-add! &sk_reader ($hash $key $khash $rhash))))
+   (let* (($hash (index-hash $key)) ($_row (context-add! &sk_reader ($hash $key $khash $rhash))))
       ()))
 
 (: sk-drop-stale-reader! (-[det]-> Number Number Atom SkeletonKey Atom))
@@ -1142,8 +1122,7 @@
 (: sk-take! (-[det]-> CounterKey Number Bool))
 (= (sk-take! $counter $cost)
    (let $left (search-id-value $counter)
-      (if (<= $left 0) false
-         (progn (change-state! $counter (- $left $cost)) true))))
+      (if (<= $left 0) false (progn (change-state! $counter (- $left $cost)) true))))
 
 ;; Work left over by an earlier query waits with its node and resumes when a
 ;; later walk reaches that node, so it never spends an unrelated query's
@@ -1204,8 +1183,7 @@
 ;; --- Expansion --------------------------------------------------------------
 
 (: rule-lookup-needs-occurs-check (-[det]-> Atom Bool))
-(: ccls-index-occurs-matches
-   (-[det]-> Atom (List (SkFact Number (List SkPattern)))))
+(: ccls-index-occurs-matches (-[det]-> Atom (List (SkFact Number (List SkPattern)))))
 
 (: sk-context-search? (-[det]-> SkFact Bool))
 (= (sk-context-search? ($_type ($kbid $ctx $_vars) $_proof $_tv))
@@ -1306,8 +1284,7 @@
    (if (== $ctx MAIN) false
       (if (judgment-consequent? true $type (make-kb-context (brand KB $kbid) $ctx $vars)) false
       (if (== $vars Nil) true
-         (if (== (extract-vars $vars) $vars)
-            (not (context-vars-in-type? $type $vars)) false)))))
+         (if (== (extract-vars $vars) $vars) (not (context-vars-in-type? $type $vars)) false)))))
 
 ;; Compare the whole key without binding its hypothetical individual to an
 ;; unrelated fixed world individual. Use the fact prefix index; type and
@@ -1390,8 +1367,7 @@
          ($_other-kb $premise)))))
 
 (: contextualize-rule-args (-[semidet]-> SkFact (List SkPattern) (List SkPattern)))
-(= (contextualize-rule-args $goal $args)
-   (map-semidet (contextualize-rule-premise $goal) $args))
+(= (contextualize-rule-args $goal $args) (map-semidet (contextualize-rule-premise $goal) $args))
 
 (: prefilter-head-concludable? (-[det]-> Statement Atom Bool))
 (= (prefilter-head-concludable? $type $kbid)
@@ -1562,8 +1538,7 @@
          (if (head-is? $type Inheritance)
             (let (Inheritance $subj $concept) $type
                (if (concrete-inheritance-link? $subj $concept)
-                  (let* (($link (quote ($kbid $subj $concept)))
-                         ($hash (index-hash $link)))
+                  (let* (($link (quote ($kbid $subj $concept))) ($hash (index-hash $link)))
                      (if (== (collapse (once (match &sk_member_rules ($hash $stored)
                                 (if (=alpha $stored $link) true (empty))))) ())
                         (let* (($_row (add-atom &sk_member_rules ($hash $link)))
@@ -1631,8 +1606,7 @@
 
 (: sk-shape-members (-[semidet]-> Atom Atom (List SkPattern)))
 (= (sk-shape-members $kbid $shape)
-   (let* (($source (quote ($kbid $shape)))
-          ($hash (index-hash $source)))
+   (let* (($source (quote ($kbid $shape))) ($hash (index-hash $source)))
       (case (collapse (once (match &sk_fold_members ($hash $stored $member)
                (if (=alpha $stored $source) $member (empty))))) (
          ((cons $found $_rest) (cons $found ()))
@@ -1772,8 +1746,7 @@
           false)
       (case (sk-prior-folds $type $matches) (
          ((cons (sk-prior-fold $rule $args) $_more)
-            (let* (($pattern (copy_term (car-atom (cdr-atom $args))))
-                   ($kbid (car-atom $args)))
+            (let* (($pattern (copy_term (car-atom (cdr-atom $args)))) ($kbid (car-atom $args)))
                (sk-advance!
                   (sk-partial $owner $rule
                      (assemble-stored-runtime-fact $type $kbctx (brand Proof (population-prior $pattern)) $tv)
@@ -1822,8 +1795,7 @@
 ;; argument. Its relational modes can branch, but every result preserves the
 ;; element type of the input list.
 !(import_prolog_function nth0)
-(: nth0
-   (-[nondet]-> $index (List $item) $item (List $item)))
+(: nth0 (-[nondet]-> $index (List $item) $item (List $item)))
 
 ;; The rules with a premise a ground key matches, that premise bound to it.
 (: sk-premise-rules-step (-[det]-> Statement KBContext Number (List SkeletonMatch) (List SkeletonMatch)))
@@ -1838,8 +1810,7 @@
 
 (: sk-absorb-step (-[semidet]-> Atom SkeletonMatch Atom))
 (= (sk-absorb-step $_acc (sk-match $id $prems $ccls))
-   (let* ((($type $kbctx $_proof $_tv) $ccls)
-          ($key (sk-key $type $kbctx)))
+   (let* ((($type $kbctx $_proof $_tv) $ccls) ($key (sk-key $type $kbctx)))
       (if (== (extract-vars $key) ())
          (let $hash (index-hash $key)
             (fold-semidet (sk-activate-rule-on $id $ccls $prems) ()

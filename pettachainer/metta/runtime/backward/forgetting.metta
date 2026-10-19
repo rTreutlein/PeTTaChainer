@@ -133,8 +133,7 @@
 ;; epoch.
 (: advance-epoch (-[semidet]-> Number))
 (= (advance-epoch)
-   (let* (($epoch (+ (next-search-id sk_epoch) 1))
-          ($horizon (search-id-value forgetting_horizon)))
+   (let* (($epoch (+ (next-search-id sk_epoch) 1)) ($horizon (search-id-value forgetting_horizon)))
       (if (<= $horizon 0) $epoch
          (let* (($cutoff (- $epoch $horizon))
                 ($idle (collapse (match &sk_key_epoch ($hash $key $last)
@@ -219,8 +218,7 @@
             (let* (($_summaries
                      (collapse (match &sk_summary ($hash $stored $fact $ev $deps)
                         (if (=alpha $stored $key)
-                           (let* (($_kb (remove-atom &kb $fact))
-                                  ($_index (kb-unindex-fact! $fact)))
+                           (let* (($_kb (remove-atom &kb $fact)) ($_index (kb-unindex-fact! $fact)))
                               (remove-atom &sk_summary ($hash $stored $fact $ev $deps)))
                            (empty)))))
                    ($key-digest (link-digest $key))

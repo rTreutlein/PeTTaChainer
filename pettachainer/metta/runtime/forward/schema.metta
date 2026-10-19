@@ -5,31 +5,25 @@
 (: no-forward-output-candidate NoForwardOutputCandidate)
 
 (: ForwardOutputKey Type)
-(: forward-output-key
-   (-[det]-> KBContext Statement ForwardOutputKey))
+(: forward-output-key (-[det]-> KBContext Statement ForwardOutputKey))
 
 (: forward-base-rate-identity
    (-[det]-> KB Statement
        (| ExtractTV ExtractInheritanceTV)
        (| BaseRateEvidenceState BaseRateEvidenceWithPriorState)
        (-[semidet]-> $accumulator $value $accumulator)
-       (| BaseRateFinish
-          WeightedBaseRateInUniverseFinish
-          WeightedBaseRateWithPriorInUniverseFinish)
+       (| BaseRateFinish WeightedBaseRateInUniverseFinish WeightedBaseRateWithPriorInUniverseFinish)
        AggregateTVMode
        ForwardAggregateIdentityKey))
 
-(: forward-member-inheritance-identity
-   (-[det]-> KB Term Term ForwardAggregateIdentityKey))
+(: forward-member-inheritance-identity (-[det]-> KB Term Term ForwardAggregateIdentityKey))
 
 (: forward-base-rate-descriptor
    (-[det]-> KB Statement
        (| ExtractTV ExtractInheritanceTV)
        (| BaseRateEvidenceState BaseRateEvidenceWithPriorState)
        (-[semidet]-> $accumulator $value $accumulator)
-       (| BaseRateFinish
-          WeightedBaseRateInUniverseFinish
-          WeightedBaseRateWithPriorInUniverseFinish)
+       (| BaseRateFinish WeightedBaseRateInUniverseFinish WeightedBaseRateWithPriorInUniverseFinish)
        ForwardAggregateDescriptor))
 
 (: forward-member-inheritance-descriptor
@@ -37,32 +31,23 @@
 
 (: ForwardAggregateIdentityRow Type)
 (: forward-aggregate-identity-row
-   (-[det]-> ForwardAggregateIdentityKey Number
-       ForwardAggregateIdentityRow))
+   (-[det]-> ForwardAggregateIdentityKey Number ForwardAggregateIdentityRow))
 
 (: ForwardAggregateInterest Type)
 (: forward-aggregate-interest
-   (-[det]-> ForwardTriggerKey Number ForwardAggregateDescriptor
-       ForwardAggregateInterest))
+   (-[det]-> ForwardTriggerKey Number ForwardAggregateDescriptor ForwardAggregateInterest))
 
 ;; Both indexes expose the selective numeric hash as their first generated
 ;; Prolog argument.  Complete keys remain in the payload to reject collisions.
-(: &forward_aggregate_identity
-   (SpaceOf (Number ForwardAggregateIdentityRow)))
-(: &ctx_forward_aggregate_identity
-   (SpaceOf (Number ForwardAggregateIdentityRow)))
-(: &forward_aggregate_interest_by_trigger
-   (SpaceOf (Number ForwardAggregateInterest)))
-(: &ctx_forward_aggregate_interest_by_trigger
-   (SpaceOf (Number ForwardAggregateInterest)))
-(: &forward_aggregate_triggers
-   (SpaceOf (Number ForwardTriggerKey)))
-(: &ctx_forward_aggregate_triggers
-   (SpaceOf (Number ForwardTriggerKey)))
+(: &forward_aggregate_identity (SpaceOf (Number ForwardAggregateIdentityRow)))
+(: &ctx_forward_aggregate_identity (SpaceOf (Number ForwardAggregateIdentityRow)))
+(: &forward_aggregate_interest_by_trigger (SpaceOf (Number ForwardAggregateInterest)))
+(: &ctx_forward_aggregate_interest_by_trigger (SpaceOf (Number ForwardAggregateInterest)))
+(: &forward_aggregate_triggers (SpaceOf (Number ForwardTriggerKey)))
+(: &ctx_forward_aggregate_triggers (SpaceOf (Number ForwardTriggerKey)))
 
 (: ForwardAggregateState Type)
-(: forward-aggregate-state
-   (-[det]-> Number Number Number Number ForwardAggregateState))
+(: forward-aggregate-state (-[det]-> Number Number Number Number ForwardAggregateState))
 
 ;; Numeric state is keyed by the aggregate id; the external constructor
 ;; also carries the exact number of live contributions for drained reads.
@@ -70,14 +55,11 @@
 (: &ctx_forward_aggregate_state (SpaceOf (Number Number Number Number)))
 
 (: ForwardAggregateObservationValue Type)
-(: no-forward-aggregate-observation-value
-   ForwardAggregateObservationValue)
+(: no-forward-aggregate-observation-value ForwardAggregateObservationValue)
 (: forward-base-rate-observation-value
-   (-[det]-> (Statement KBContext Proof TV)
-       ForwardAggregateObservationValue))
+   (-[det]-> (Statement KBContext Proof TV) ForwardAggregateObservationValue))
 (: forward-member-inheritance-observation-value
-   (-[det]-> ForwardDerived ForwardDerived
-       ForwardAggregateObservationValue))
+   (-[det]-> ForwardDerived ForwardDerived ForwardAggregateObservationValue))
 
 (: ForwardAggregateObservation Type)
 (: forward-aggregate-observation
@@ -95,8 +77,7 @@
 ;; A fact premise is indexed under its type-head trigger and its kb-wide
 ;; wildcard trigger; a CPU premise only under the global wildcard.
 (: forward-premise-keys
-   (-[det]-> (| Goal (Statement KBContext Proof TV))
-       (ForwardTriggerKey ForwardTriggerKey)))
+   (-[det]-> (| Goal (Statement KBContext Proof TV)) (ForwardTriggerKey ForwardTriggerKey)))
 (= (forward-premise-keys $prem)
    (case $prem (
       (($type ($kbid $_ctx $_vars) $_prf $_tv)
@@ -105,15 +86,11 @@
             (fwd_trigger (brand KB $kbid) any)))
       ($_cpu (data fwd_trigger_any fwd_trigger_any)))))
 
-(: forward-fact-key
-   (-[det]-> (Statement KBContext Proof TV) ForwardOutputKey))
+(: forward-fact-key (-[det]-> (Statement KBContext Proof TV) ForwardOutputKey))
 (= (forward-fact-key ($type ($kbid $ctx $vars) $_prf $_tv))
-   (forward-output-key
-      (brand KBContext (quote ($kbid $ctx $vars)))
-      $type))
+   (forward-output-key (brand KBContext (quote ($kbid $ctx $vars))) $type))
 (: forward-output-index-hash (-[det]-> ForwardOutputKey Number))
-(= (forward-output-index-hash (forward-output-key $kb $type))
-   (term_hash (quote ($kb $type))))
+(= (forward-output-index-hash (forward-output-key $kb $type)) (term_hash (quote ($kb $type))))
 
 
 ;; Per-observation support and its reverse lookup. Query exclusions touch
@@ -142,8 +119,7 @@
 ;; the backward chainer re-derives them.
 (: MaterializedRow Type)
 (: materialized-row
-   (-[det]-> Number Statement KBContext (Statement KBContext Proof TV)
-       EvidenceSet MaterializedRow))
+   (-[det]-> Number Statement KBContext (Statement KBContext Proof TV) EvidenceSet MaterializedRow))
 (: materialized-forward-fact? (-[det]-> (Statement KBContext Proof TV) Bool))
 (= (materialized-forward-fact? ($type $kb $proof $tv))
    (let $hash (forward-output-index-hash (forward-output-key $kb $type))

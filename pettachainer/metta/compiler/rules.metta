@@ -9,8 +9,7 @@
 ;; reversible subset. Pure And and Or antecedents can be inverted as complete
 ;; compounds; a child of either is recovered only by completion. A premise
 ;; with an unsupported or nested source computation has no compute goals.
-(: source-compute-goals
-   (-[semidet]-> (List Atom) (List Goal)))
+(: source-compute-goals (-[semidet]-> (List Atom) (List Goal)))
 (= (source-compute-goals ()) ())
 (= (source-compute-goals (cons $premise $rest))
    (if (head-is? $premise Compute)
@@ -19,43 +18,32 @@
             (cons (CPU $function $args $result) (source-compute-goals $rest)))
          ((Compute $function $args $result)
             (source-compute-goals (cons (Compute $function $args -> $result) $rest)))))
-      (if (contains-head? source-computation-head? $premise)
-         (empty)
-         (source-compute-goals $rest))))
+      (if (contains-head? source-computation-head? $premise) (empty) (source-compute-goals $rest))))
 
-(: direct-variable-index-or-negative
-   (-[det]-> (List Atom) Variable Number Number))
+(: direct-variable-index-or-negative (-[det]-> (List Atom) Variable Number Number))
 (= (direct-variable-index-or-negative () $_variable $_index) -1)
-(= (direct-variable-index-or-negative
-      (cons $arg $rest) $variable $index)
+(= (direct-variable-index-or-negative (cons $arg $rest) $variable $index)
    (if (if (is-var $arg) (== $arg $variable) false)
       $index
-      (direct-variable-index-or-negative
-         $rest $variable (+ $index 1))))
+      (direct-variable-index-or-negative $rest $variable (+ $index 1))))
 
-(: compute-args-known-except?
-   (-[det]-> (List Atom) Number (List Variable) Bool))
+(: compute-args-known-except? (-[det]-> (List Atom) Number (List Variable) Bool))
 (= (compute-args-known-except? () $_skip-index $_known) true)
-(= (compute-args-known-except?
-      (cons $arg $rest) $skip-index $known)
+(= (compute-args-known-except? (cons $arg $rest) $skip-index $known)
    (if (== $skip-index 0)
       (compute-args-known-except? $rest -1 $known)
       (if (vars-covered? $arg $known)
-         (compute-args-known-except?
-            $rest (- $skip-index 1) $known)
+         (compute-args-known-except? $rest (- $skip-index 1) $known)
          false)))
 
 ;; Inverts compute goals from the conclusion backwards: each goal's one
 ;; unknown direct input is computed by the inverse operation, then the
 ;; original goal validates it.
 (: ComputeInversePlan Type)
-(: inverse-compute-plan
-   (-[det]-> (List Goal) (List Variable) ComputeInversePlan))
+(: inverse-compute-plan (-[det]-> (List Goal) (List Variable) ComputeInversePlan))
 
-(: inverse-compute-goals
-   (-[semidet]-> (List Goal) (List Variable) ComputeInversePlan))
-(= (inverse-compute-goals () $known)
-   (inverse-compute-plan () $known))
+(: inverse-compute-goals (-[semidet]-> (List Goal) (List Variable) ComputeInversePlan))
+(= (inverse-compute-goals () $known) (inverse-compute-plan () $known))
 (= (inverse-compute-goals (cons (CPU $function $args $result) $rest) $known)
    (if (vars-covered? $result $known)
       (let* (((cons $unknown ()) (\== (list_to_set (extract-vars $args)) $known))
@@ -73,8 +61,7 @@
                   $final-known))))
       (empty)))
 
-(: compile-reversible-compute-plan
-   (-[semidet]-> Statement Statement ComputeInversePlan))
+(: compile-reversible-compute-plan (-[semidet]-> Statement Statement ComputeInversePlan))
 (= (compile-reversible-compute-plan $antecedent $consequent)
    (let* (($compute-goals (source-compute-goals (implication-side-conjuncts $antecedent)))
           ($known (list_to_set (extract-vars $consequent))))
@@ -94,8 +81,7 @@
 (: rate-plan (-[det]-> (List Goal) Atom RatePlan))
 (: base-rate-read-plan (-[det]-> KB Statement RatePlan))
 (= (base-rate-read-plan $kb $pattern)
-   (let $goals (base-rate-premises $kb $pattern $result)
-      (rate-plan $goals $result)))
+   (let $goals (base-rate-premises $kb $pattern $result) (rate-plan $goals $result)))
 
 ;; Rules stored with an STV need a CTV derived from antecedent/consequent base
 ;; rates before modus ponens can use them. An explicit CTV already carries both
@@ -140,8 +126,7 @@
 ;; with a negated proof and transformed TV. Keeping the runtime type positive
 ;; lets it share the ordinary fact indexes.
 (: compile-implication-output
-   (-[det]-> Proof Proof Statement STVType
-       ((List Goal) Proof Statement STVType)))
+   (-[det]-> Proof Proof Statement STVType ((List Goal) Proof Statement STVType)))
 (= (compile-implication-output $prf $proof-token $b $btv)
    (if (head-is? $b Not)
       (case $b (
@@ -173,14 +158,12 @@
 (= (consequent-projection-tv $tv)
    (case $tv (
       ((STV $s $c) (AndMarginalProjection (STV $s $c)))
-      ((CTV $pos $neg)
-         (CTV (AndMarginalProjection $pos) (AndMarginalProjection $neg))))))
+      ((CTV $pos $neg) (CTV (AndMarginalProjection $pos) (AndMarginalProjection $neg))))))
 
 (: compile-consequent-implications
    (-[nondet]-> KB KBContext Proof TV (List Goal) Atom (List Variable)
        Statement Statement CompiledAddition))
-(= (compile-consequent-implications $kb $shape-kb $prf $tv
-      $truth-premises $value $params $a $b)
+(= (compile-consequent-implications $kb $shape-kb $prf $tv $truth-premises $value $params $a $b)
    (if (head-is? $b And)
       (let* (($children (statement-children (cdr-atom $b)))
              ($child (superpose $children))
@@ -235,8 +218,7 @@
               (($ctv-execs $rule-ctv $rule-likelihoods)
                  (compile-implication-ctv-execs $kb $params $rate-a $last $tv $value false))
               (($out-execs $out-prf $out-type $out-tv)
-                 (compile-implication-output
-                    $prf $proof-token $out-b (the STVType $btv)))
+                 (compile-implication-output $prf $proof-token $out-b (the STVType $btv)))
               ($allargs
                  (append-goals
                     $truth-premises
@@ -244,35 +226,20 @@
                        $execs
                        (append-goals
                           $ctv-execs
-                          (append-goals
-                             ((CPU $mp ($atv $rule-ctv) $btv))
-                             $out-execs))))))
-            (brand CompiledAddition
-               ($allargs |-
-                  (: $shape-kb $out-prf $out-type $out-tv))))))
-      (if (is-var $out-b)
-         (empty)
-         (compile-outputs
-            (: $shape-kb (by $prf $prfb) $out-b $btv2)))
-      (if (is-var $a) (empty)
-         (compile-adapter-chain plain
-            (: $shape-kb $prfa $a $adapter-atv)))))))
+                          (append-goals ((CPU $mp ($atv $rule-ctv) $btv)) $out-execs))))))
+            (brand CompiledAddition ($allargs |- (: $shape-kb $out-prf $out-type $out-tv))))))
+      (if (is-var $out-b) (empty) (compile-outputs (: $shape-kb (by $prf $prfb) $out-b $btv2)))
+      (if (is-var $a) (empty) (compile-adapter-chain plain (: $shape-kb $prfa $a $adapter-atv)))))))
 
 (: rule-evidence-base-name (-[det]-> Proof Proof))
 (= (rule-evidence-base-name $prf)
    (if (= $prf (bi-forward $fwd)) (brand Proof $fwd)
       (if (= $prf (bi-backward $bwd)) (brand Proof $bwd)
-         (if (= $prf (no_inverse $inner)) (brand Proof $inner)
-            $prf))))
+         (if (= $prf (no_inverse $inner)) (brand Proof $inner) $prf))))
 
 (: rule-evidence-registered? (-[det]-> KB Proof Bool))
 (= (rule-evidence-registered? $kbid $name)
-   (not
-      (==
-         (collapse
-            (once
-               (match &rule_evidence_names ($name $kbid) true)))
-         ())))
+   (not (== (collapse (once (match &rule_evidence_names ($name $kbid) true))) ())))
 
 ;; A rule's applications carry its evidence when its truth is an estimate, so
 ;; a proof of the rule (its axiom) and a proof through it are not independent;
@@ -281,8 +248,7 @@
 ;; refined (`refined-rule?`): its truth is given, and carries no evidence. A
 ;; given rule whose every branch has strength 0 or 1 is deterministic: applied
 ;; to certain premises it determines its conclusion (sk-determined-row?).
-(: register-rule-evidence!
-   (-[det]-> KB Proof TV (List $no-result)))
+(: register-rule-evidence! (-[det]-> KB Proof TV (List $no-result)))
 (= (register-rule-evidence! $kb $prf $tv)
    (let $name (rule-evidence-base-name $prf)
       (if (is-expr $name) ()
@@ -329,8 +295,7 @@
 ;; is seeded with that prior and sparse observations revise the prior instead
 ;; of silently behaving like an uninformative generic predicate. Ordinary
 ;; patterns use the generic evidence accumulator.
-(: base-rate-fold
-   (-[det]-> KB Statement $truth-value Goal))
+(: base-rate-fold (-[det]-> KB Statement $truth-value Goal))
 (= (base-rate-fold $kb $pattern $brtv)
    (let ($extractor $initial $accumulator $finish)
       (if (if (head-is? $pattern Inheritance)
@@ -383,10 +348,7 @@
 (: base-rate-part (-[det]-> KB Atom BaseRateParts BaseRateParts))
 (= (base-rate-part $kb $part (base-rate-parts $goals $tvs))
    (base-rate-parts
-      (cons (base-rate-fold $kb
-               (brand Statement (seq2expr (the (List Atom) $part)))
-               $tv)
-         $goals)
+      (cons (base-rate-fold $kb (brand Statement (seq2expr (the (List Atom) $part))) $tv) $goals)
       (cons $tv $tvs)))
 (: base-rate-premises (-[det]-> KB Statement $truth-value (List Goal)))
 (= (base-rate-premises $kb $pattern $brtv)
@@ -518,10 +480,8 @@
 ;; A sample rule's premises and its proof's arguments, built conjunct by
 ;; conjunct, and the antecedent truth values.
 (: InstanceSampleParts Type)
-(: instance-sample-parts
-   (-[det]-> (List Goal) (List Atom) (List Atom) InstanceSampleParts))
-(: implication-instance-premise
-   (-[det]-> KB Atom InstanceSampleParts InstanceSampleParts))
+(: instance-sample-parts (-[det]-> (List Goal) (List Atom) (List Atom) InstanceSampleParts))
+(: implication-instance-premise (-[det]-> KB Atom InstanceSampleParts InstanceSampleParts))
 (= (implication-instance-premise $kb $conjunct (instance-sample-parts $premises $proofs $tvs))
    (instance-sample-parts
       (cons (: (kbctx $kb) $prf $conjunct $tv) $premises)
@@ -557,8 +517,7 @@
                                (and-tv-goals AndFormula $first $more $and-tv (cons (: (kbctx $kb) $bprf $consequent $btv) ())))))))
                    ($atv (if $single (car-atom $tvs) $and-tv))
                    ($finish (if $ctv? implication-instance-ctv implication-instance))
-                   ($sample-pattern
-                      (ImplicationInstanceSample $antecedent $consequent $atv $btv))
+                   ($sample-pattern (ImplicationInstanceSample $antecedent $consequent $atv $btv))
                    ($fold
                       (CPU FoldAllCompiled
                          (quote
@@ -627,14 +586,10 @@
         ($premises
            (append-goals
               (append-goals $truth-premises
-                 (cons
-                    (: (make-kb-context $kb $ctx $vars)
-                       $prfb_wit $b $btv_wit)
-                    ()))
+                 (cons (: (make-kb-context $kb $ctx $vars) $prfb_wit $b $btv_wit) ()))
               (append-goals
                  $inverse-execs
-                 (append-goals $a-base-rates
-                    (append-goals $b-base-rates $formula-goals))))))
+                 (append-goals $a-base-rates (append-goals $b-base-rates $formula-goals))))))
       ($premises |-
          (: (make-kb-context $kb $ctx $vars)
               ((inverted $prf with cpu (prior $atv)) $prfb_wit)
@@ -754,9 +709,7 @@
                          (lower-implication-antecedent
                             $kb $ctx $vars (connective-statement $connective $others))))
                    (($consequent-execs $consequent-proofs $consequent-tv)
-                      (once
-                         (lower-implication-antecedent
-                            $kb $ctx $vars $consequent)))
+                      (once (lower-implication-antecedent $kb $ctx $vars $consequent)))
                    ($antecedent-rate-pattern (rule-base-rate-pattern $params $full))
                    ($consequence-rate-pattern (rule-base-rate-pattern $params $consequent))
                    (($rule-execs $rule-ctv $rule-likelihoods)
@@ -803,8 +756,7 @@
          $full $consequent $children (+ $idx 1) $rest))))
 
 (: concrete-inheritance-link? (-[det]-> Atom Atom Bool))
-(= (concrete-inheritance-link? $subj $concept)
-   (not (or (is-var $subj) (is-var $concept))))
+(= (concrete-inheritance-link? $subj $concept) (not (or (is-var $subj) (is-var $concept))))
 
 ;; A total-implication context represents a hypothetical instance of the
 ;; queried subject. Top-level Inheritance premises about a rule's conclusion
@@ -816,13 +768,11 @@
 ;;                        `Operation $x opLighter` is auxiliary.
 (: inheritance-context-premise? (-[det]-> $premise $subject Bool))
 (= (inheritance-context-premise? $premise $subj)
-   (if (if (head-is? $premise Inheritance)
-           (= $premise (Inheritance $premise-subj $_concept)) false)
+   (if (if (head-is? $premise Inheritance) (= $premise (Inheritance $premise-subj $_concept)) false)
       (== $premise-subj $subj)
       false))
 
-(: inheritance-lift-auxiliary-premises
-   (-[det]-> (List Atom) $subject (List Atom)))
+(: inheritance-lift-auxiliary-premises (-[det]-> (List Atom) $subject (List Atom)))
 (= (inheritance-lift-auxiliary-premises () $_subj) ())
 (= (inheritance-lift-auxiliary-premises (cons $premise $rest) $subj)
    (if (inheritance-context-premise? $premise $subj)
@@ -834,10 +784,8 @@
 ;; subject with the query's hypothetical instance; auxiliary premises remain
 ;; grounded MAIN facts.
 (: inheritance-lift-parts
-   (-[semidet]-> (List Atom) (List Atom) $subject $instance
-       ((List Atom) (List Atom))))
-(= (inheritance-lift-parts () () $_source-subj $_instance)
-   (data () ()))
+   (-[semidet]-> (List Atom) (List Atom) $subject $instance ((List Atom) (List Atom))))
+(= (inheritance-lift-parts () () $_source-subj $_instance) (data () ()))
 (= (inheritance-lift-parts
       (cons $ground-premise $ground-rest)
       (cons $source-premise $source-rest)
@@ -846,9 +794,7 @@
       (inheritance-lift-parts $ground-rest $source-rest $source-subj $instance)
       (if (inheritance-context-premise? $source-premise $source-subj)
          (let (Inheritance $_ground-subj $ground-concept) $ground-premise
-            (data
-               (cons (Inheritance $instance $ground-concept) $contextual)
-               $auxiliary))
+            (data (cons (Inheritance $instance $ground-concept) $contextual) $auxiliary))
          (data $contextual (cons $ground-premise $auxiliary)))))
 
 ;; Compile a specialized relational rule into one fixed query context. The
@@ -857,20 +803,14 @@
 ;; rates. Explicit CTV rules retain both branches.
 (: inheritance-lift-ctv (-[semidet]-> TV CTVType))
 (= (inheritance-lift-ctv (CTV $pos $neg)) (CTV $pos $neg))
-(= (inheritance-lift-ctv (STV $s $c))
-   (CTV (STV $s $c) (STV 0.0 1.0)))
+(= (inheritance-lift-ctv (STV $s $c)) (CTV (STV $s $c) (STV 0.0 1.0)))
 
 (: compile-inheritance-lift-instance
-   (-[semidet]-> KB KBContext AnnotatedStatement AnnotatedStatement
-       CompiledAddition))
+   (-[semidet]-> KB KBContext AnnotatedStatement AnnotatedStatement CompiledAddition))
 (= (compile-inheritance-lift-instance $kb $lift-kb
-      (: $prf
-         (Implication $ground-antecedent
-            (Inheritance $ground-subj $ground-concept))
-         $tv)
+      (: $prf (Implication $ground-antecedent (Inheritance $ground-subj $ground-concept)) $tv)
       (: $_source-prf
-         (Implication $source-antecedent
-            (Inheritance $source-subj $_source-concept))
+         (Implication $source-antecedent (Inheritance $source-subj $_source-concept))
          $_source-tv))
    (let*
       ((($kbid $ctx $vars) $lift-kb)
@@ -881,29 +821,21 @@
              $source-subj $instance))
        ($lift-premises
           (if (== $contextual-premises ())
-             (the (List Atom)
-                ((Inheritance $instance $ground-subj)))
+             (the (List Atom) ((Inheritance $instance $ground-subj)))
              $contextual-premises))
        (($main-execs $main-proofs $main-atv)
           (once (lower-implication-antecedent $kbid MAIN Nil
-             (brand Statement
-                (seq2expr
-                   (the (List Atom) $auxiliary-premises))))))
+             (brand Statement (seq2expr (the (List Atom) $auxiliary-premises))))))
        (($context-execs $context-proofs $context-atv)
           (once (lower-implication-antecedent $kbid $ctx $vars
-             (brand Statement
-                (seq2expr (the (List Atom) $lift-premises))))))
+             (brand Statement (seq2expr (the (List Atom) $lift-premises))))))
        ($source-proof (implication-proof-token $main-proofs))
        ($context-proof (implication-proof-token $context-proofs))
-       ($all-evidence
-          (CPU AndFormula (quote ($main-atv $context-atv)) $all-atv))
+       ($all-evidence (CPU AndFormula (quote ($main-atv $context-atv)) $all-atv))
        ($rule-ctv (inheritance-lift-ctv $tv))
-       ($modus-ponens
-          (CPU CTVModusPonensFormula
-             (quote ($all-atv $rule-ctv)) $out-tv)))
+       ($modus-ponens (CPU CTVModusPonensFormula (quote ($all-atv $rule-ctv)) $out-tv)))
       ((append-goals $main-execs
-          (append-goals $context-execs
-             (quote ($all-evidence $modus-ponens))))
+          (append-goals $context-execs (quote ($all-evidence $modus-ponens))))
         |- (: $lift-kb
               ((inheritance-rule-lift $prf) $source-proof $context-proof)
               (Inheritance $instance $ground-concept) $out-tv))))
@@ -920,22 +852,17 @@
 ;; schemas rather than local multiple-return wrappers.
 (: InheritanceLiftInstanceRow Type)
 (: inheritance-lift-instance-row
-   (-[det]-> KB AnnotatedStatement AnnotatedStatement
-       InheritanceLiftInstanceRow))
+   (-[det]-> KB AnnotatedStatement AnnotatedStatement InheritanceLiftInstanceRow))
 
 (: SpecializationTemplateRow Type)
 (: specialization-template-row
-   (-[det]-> KB Atom (List Atom) SpecializationJob
-       SpecializationTemplateRow))
+   (-[det]-> KB Atom (List Atom) SpecializationJob SpecializationTemplateRow))
 
 (: SpecializationDoneRow Type)
-(: specialization-done-row
-   (-[det]-> KB AnnotatedStatement SpecializationDoneRow))
+(: specialization-done-row (-[det]-> KB AnnotatedStatement SpecializationDoneRow))
 
-(: emit-specialization
-   (-[nondet]-> KB SpecializationJob  CompiledAddition))
-(= (emit-specialization $kb
-      (inheritance-lift-specialization $stmt $source-stmt))
+(: emit-specialization (-[nondet]-> KB SpecializationJob CompiledAddition))
+(= (emit-specialization $kb (inheritance-lift-specialization $stmt $source-stmt))
    (let*
       (($stmt-copy (copy_term $stmt))
        ($hash (term_hash $stmt-copy))
@@ -943,28 +870,21 @@
           (collapse
              (once
                 (match &inheritance_lift_instance
-                   ($hash
-                      (inheritance-lift-instance-row
-                         $kb $candidate $_source))
+                   ($hash (inheritance-lift-instance-row $kb $candidate $_source))
                    (if (=alpha $candidate $stmt-copy) true (empty))))))
        ($_instance
           (if (== $stored ())
              (let $source-copy (copy_term $source-stmt)
                 (add-atom &inheritance_lift_instance
-                   ($hash
-                      (inheritance-lift-instance-row
-                         $kb $stmt-copy $source-copy))))
+                   ($hash (inheritance-lift-instance-row $kb $stmt-copy $source-copy))))
              ())))
       (empty)))
 
-(: collect-inheritance-lifts-for-context
-   (-[det]-> KB KBContext (List CompiledAddition)))
+(: collect-inheritance-lifts-for-context (-[det]-> KB KBContext (List CompiledAddition)))
 (= (collect-inheritance-lifts-for-context $kb $lift-kb)
    (collapse
       (match &inheritance_lift_instance
-         ($_hash
-            (inheritance-lift-instance-row
-               $kb $ground-stmt $source-stmt))
+         ($_hash (inheritance-lift-instance-row $kb $ground-stmt $source-stmt))
          (compile-inheritance-lift-instance
             $kb $lift-kb
             (the AnnotatedStatement (copy_term $ground-stmt))
@@ -973,28 +893,22 @@
 ;; On rule addition, emit every instance already supported by stored facts and
 ;; retain the template for facts added later. No open lifted rule enters the KB.
 (: compile-inheritance-rule-lifts
-   (-[nondet]-> KB AnnotatedStatement Statement Statement
-       CompiledAddition))
+   (-[nondet]-> KB AnnotatedStatement Statement Statement CompiledAddition))
 (= (compile-inheritance-rule-lifts $kb $stmt $antecedent $consequent)
-   (if (if (head-is? $consequent Inheritance)
-           (= $consequent (Inheritance $subj $_concept)) false)
+   (if (if (head-is? $consequent Inheritance) (= $consequent (Inheritance $subj $_concept)) false)
       (let*
          (($ground-copy (copy_term $stmt))
           ($source-copy (copy_term $stmt))
           ((: $_prf
-              (Implication $ground-antecedent
-                 (Inheritance $ground-subj $_ground-concept))
+              (Implication $ground-antecedent (Inheritance $ground-subj $_ground-concept))
               $_tv)
              $ground-copy)
           ($ground-auxiliary
              (inheritance-lift-auxiliary-premises
                 (implication-side-conjuncts (brand Statement $ground-antecedent))
                 $ground-subj))
-          ($job
-             (inheritance-lift-specialization
-                $ground-copy $source-copy)))
-         (if (== $ground-auxiliary ()) (empty)
-            (specialize-rule-add $kb $ground-auxiliary $job)))
+          ($job (inheritance-lift-specialization $ground-copy $source-copy)))
+         (if (== $ground-auxiliary ()) (empty) (specialize-rule-add $kb $ground-auxiliary $job)))
       (empty)))
 
 ;; --- Rule specialization against structural facts -------------------------
@@ -1013,9 +927,7 @@
    (if (is-expr $premise)
       (let $head (car-atom $premise)
          (if (is-var $head) false
-            (if (specializing-predicate? $head)
-               (not (== (extract-vars $premise) ()))
-               false)))
+            (if (specializing-predicate? $head) (not (== (extract-vars $premise) ())) false)))
       false))
 
 (: fact-head (-[det]-> Statement Atom))
@@ -1026,8 +938,7 @@
 ;; Keeping the triggers with the job lets a newly added fact use this one path
 ;; regardless of which compiler feature requested specialization.
 (: register-specialization-templates!
-   (-[det]-> KB (List Atom) (List Atom) SpecializationJob
-       (| Bool (List $no-result))))
+   (-[det]-> KB (List Atom) (List Atom) SpecializationJob (| Bool (List $no-result))))
 (= (register-specialization-templates! $_kb () $_triggers $_job) ())
 (= (register-specialization-templates! $kb (cons $trigger $rest) $triggers $job)
    (let*
@@ -1037,9 +948,7 @@
           (collapse
              (once
                 (match &spec_template
-                   ($hash
-                      (specialization-template-row
-                         $kb $head $_triggers $stored-job))
+                   ($hash (specialization-template-row $kb $head $_triggers $stored-job))
                    (if (=alpha $stored-job $job) true (empty))))))
        ($_register
           (if (== $registered ())
@@ -1047,17 +956,13 @@
                 (copy_term (quote ($triggers $job)))
                 (once
                    (add-atom &spec_template
-                      ($hash
-                         (specialization-template-row
-                            $kb $head $triggers-copy $job-copy)))))
+                      ($hash (specialization-template-row $kb $head $triggers-copy $job-copy)))))
              ())))
       (register-specialization-templates! $kb $rest $triggers $job)))
 
 ;; Bind the trigger variables by matching each remaining trigger against the
 ;; stored facts; $body shares those variables, so it comes out ground.
-(: ground-triggers
-   (-[nondet]-> KB (List Atom) SpecializationJob
-       SpecializationJob))
+(: ground-triggers (-[nondet]-> KB (List Atom) SpecializationJob SpecializationJob))
 (= (ground-triggers $_kb () $body) $body)
 (= (ground-triggers $kb (cons $trigger $rest) $body)
    (let* (($candidate (match &kb ($trigger ($kb $_ctx $_vars) $_prf $_tv) $trigger))
@@ -1068,8 +973,7 @@
 ;; proof ids or TVs are independent evidence even when their types coincide.
 ;; The rule-add and fact-add paths may discover the same statement, so retain
 ;; the full statement as the stable deduplication key.
-(= (emit-specialization $kb
-      (compile-specialization (: $gprf $gtype $gtv)))
+(= (emit-specialization $kb (compile-specialization (: $gprf $gtype $gtv)))
    (let*
       (($gstmt (: $gprf $gtype $gtv))
        ($copy (copy_term $gstmt))
@@ -1082,17 +986,13 @@
                    (if (=alpha $stored $copy) true (empty)))))))
       (if (== $done ())
          (let $_
-            (once
-               (add-atom &spec_done
-                  ($hash (specialization-done-row $kb $copy))))
+            (once (add-atom &spec_done ($hash (specialization-done-row $kb $copy))))
             (compile_ $kb $gstmt))
          (empty))))
 
 ;; Rule-add: retain the job for later facts and also ground it against facts
 ;; already in the KB.
-(: specialize-rule-add
-   (-[nondet]-> KB (List Atom) SpecializationJob
-       CompiledAddition))
+(: specialize-rule-add (-[nondet]-> KB (List Atom) SpecializationJob CompiledAddition))
 (= (specialize-rule-add $kb $triggers $job)
    (let $_register
       (register-specialization-templates! $kb $triggers $triggers $job)
@@ -1102,30 +1002,21 @@
 ;; directly in each compatible position, then resolve the remaining triggers
 ;; against the store.
 (: ground-specialization-with-fact
-   (-[nondet]-> KB Statement (List Atom) (List Atom) SpecializationJob
-       SpecializationJob))
-(= (ground-specialization-with-fact $kb $fact
-      (cons $trigger $rest) $before $job)
+   (-[nondet]-> KB Statement (List Atom) (List Atom) SpecializationJob SpecializationJob))
+(= (ground-specialization-with-fact $kb $fact (cons $trigger $rest) $before $job)
    (superpose
-      ((let $_ (let $trigger $fact ok)
-          (ground-triggers $kb (append $before $rest) $job))
-       (ground-specialization-with-fact $kb $fact $rest
-          (append $before ($trigger)) $job))))
+      ((let $_ (let $trigger $fact ok) (ground-triggers $kb (append $before $rest) $job))
+       (ground-specialization-with-fact $kb $fact $rest (append $before ($trigger)) $job))))
 
-(: compile-specialization-fact-triggers
-   (-[nondet]-> KB Statement  CompiledAddition))
+(: compile-specialization-fact-triggers (-[nondet]-> KB Statement CompiledAddition))
 (= (compile-specialization-fact-triggers $kb $type)
    (let*
-      (($head (fact-head $type))
-       ($hash (term_hash (quote ($kb $head)))))
+      (($head (fact-head $type)) ($hash (term_hash (quote ($kb $head)))))
       (match &spec_template
-         ($hash
-            (specialization-template-row
-               $kb $head $stored-triggers $stored-job))
+         ($hash (specialization-template-row $kb $head $stored-triggers $stored-job))
          (let
             ($triggers $job)
-            (copy_term
-               (quote ($stored-triggers $stored-job)))
+            (copy_term (quote ($stored-triggers $stored-job)))
             (emit-specialization $kb
                (ground-specialization-with-fact
                   $kb $type
@@ -1157,9 +1048,7 @@
        ($_done
           (collapse
              (remove-atom &spec_done
-                ($_done-hash
-                   (specialization-done-row
-                      $_done-kb (: $name $_done-type $_done-tv))))))
+                ($_done-hash (specialization-done-row $_done-kb (: $name $_done-type $_done-tv))))))
        ($_lifts
           (collapse
              (remove-atom &inheritance_lift_instance
@@ -1172,16 +1061,12 @@
 ;; Store a non-rule fact and emit its ordinary derived views. Keeping this
 ;; separate lets the main compiler normalize supported source syntax before
 ;; entering the single canonical fact path.
-(: compile-ordinary-fact
-   (-[nondet]-> KB Proof Statement TV CompiledAddition))
+(: compile-ordinary-fact (-[nondet]-> KB Proof Statement TV CompiledAddition))
 (= (compile-ordinary-fact $kb $prf $Type $tv)
    (let $fact-kb
-      (if (context-polymorphic-facts? $kb)
-         (make-kb-context $kb $ctx $vars)
-         (kbctx $kb))
+      (if (context-polymorphic-facts? $kb) (make-kb-context $kb $ctx $vars) (kbctx $kb))
       (superpose (
-         (brand CompiledAddition
-            (() |- (: $fact-kb $prf $Type $tv)))
+         (brand CompiledAddition (() |- (: $fact-kb $prf $Type $tv)))
          ;; Concrete Inheritance assertions also act as implication-like
          ;; rules over members. Materializing these views once at compile
          ;; time lets ordinary rule indexing and inference handle inheritance
@@ -1191,16 +1076,12 @@
                (superpose
                   ((compile_ $kb
                       (: (inheritance-implication $prf)
-                         (Implication
-                            (Inheritance $x $subj)
-                            (Inheritance $x $concept))
+                         (Implication (Inheritance $x $subj) (Inheritance $x $concept))
                          $tv))
                    (let $ctv (inheritance-lift-ctv $tv)
                       (compile_ $kb
                          (: (no_inverse (member-inheritance-implication $prf))
-                            (Implication
-                               (Member $x $subj)
-                               (Member $x $concept))
+                            (Implication (Member $x $subj) (Member $x $concept))
                             $ctv)))))
                (empty))
             (empty))
@@ -1241,13 +1122,11 @@
          (if (is-expr $name) false
             (if (logic-rule? $name) false
                (if (is-var $c) false
-                  (if (>= $c 1.0) false
-                     (implication-instance-supported? $a $b))))))))
+                  (if (>= $c 1.0) false (implication-instance-supported? $a $b))))))))
 
 ;; collapse copies what it collects: unifying a copy's antecedent, context and
 ;; variables with the rule's own relinks the copied lowering to the rule.
-(: relinked-lowering
-   (-[det]-> Atom Atom Atom (Atom Atom Atom CompiledPremises) CompiledPremises))
+(: relinked-lowering (-[det]-> Atom Atom Atom (Atom Atom Atom CompiledPremises) CompiledPremises))
 (= (relinked-lowering $antecedent $ctx $vars ($antecedent $ctx $vars $lowered)) $lowered)
 
 ;; Every lowering of a rule's antecedent, the complete one first, linked to
@@ -1268,8 +1147,7 @@
 (: compile-implication-statement-rules (-[nondet]-> KB Statement CompiledAddition))
 (= (compile-implication-statement-rules $kb $statement)
    (if (implication-type? $statement)
-      (let* (($shape (quote ($kb $statement)))
-             ($hash (index-hash $shape)))
+      (let* (($shape (quote ($kb $statement))) ($hash (index-hash $shape)))
          (if (== (collapse (once (match &implication_statement_rules ($hash $stored)
                    (if (=alpha $stored $shape) true (empty))))) ())
             (let* (($_row (add-atom &implication_statement_rules ($hash $shape)))
@@ -1293,8 +1171,7 @@
 ;; taken per value (see `rule-base-rate-pattern`). `$prior` is the proposition
 ;; a surrounding `(WithPrior $prior ...)` names as the instance prior of `a`,
 ;; or `no-prior` (see `prior-inverse-implication`).
-(: compile-rule
-   (-[nondet]-> KB (List Variable) Atom Proof Statement Statement TV CompiledAddition))
+(: compile-rule (-[nondet]-> KB (List Variable) Atom Proof Statement Statement TV CompiledAddition))
 (= (compile-rule $kb $params $prior $prf $antecedent $consequent $tv)
    (let* (($Type (brand Statement (Implication $antecedent $consequent)))
           ($_exists-valid (validate-explicit-exists-rule $antecedent $consequent))
@@ -1304,22 +1181,18 @@
                    (implication-side-conjuncts (brand Statement $antecedent))
                    $premise (specialization-trigger? (brand Statement $premise))))))
       (if (not (== $triggers ()))
-         (specialize-rule-add $kb $triggers
-            (compile-specialization (: $prf $Type $tv)))
+         (specialize-rule-add $kb $triggers (compile-specialization (: $prf $Type $tv)))
          (let*
             (($_evidence-reg (register-rule-evidence! $kb $prf $tv))
              ($antecedents (antecedent-lowerings $kb $ctx $vars (brand Statement $antecedent)))
              ((cons ($execs $_proofs $_atv) $_settled) $antecedents)
              ($shape-kb (make-kb-context $kb $ctx $vars))
-             ($a
-                (brand Statement
-                   (implication-source-term $antecedent)))
+             ($a (brand Statement (implication-source-term $antecedent)))
              ($b
                 (if (explicit-exists-term? $consequent)
                    (canonical-existential-side (brand Statement $consequent))
                    (brand Statement (implication-source-term $consequent))))
-             ($antecedent-vars
-                (implication-antecedent-free-vars $antecedent))
+             ($antecedent-vars (implication-antecedent-free-vars $antecedent))
              ($pure-connective? (if (head-is-member? $a (And Or))
                 (not (fold-flat computing-child? false (implication-side-conjuncts $a))) false))
              ($ctv? (if (= $tv (CTV $_pos $_neg)) true false))
@@ -1376,8 +1249,7 @@
                               (superpose (
                                  (brand CompiledAddition
                                     (() |- (: $source-kb $prf $source-type $tv)))
-                                 (brand CompiledAddition
-                                    (() |- (: $query-kb $prf $query-type $tv)))
+                                 (brand CompiledAddition (() |- (: $query-kb $prf $query-type $tv)))
                                  (brand CompiledAddition
                                     ((cons (: $source-kb $prf $source-type $tv) $ctv-execs)
                                        |- (: (kbctx $kb) $prf $source-type $source-ctv)))))))))
@@ -1431,12 +1303,9 @@
                            (if $pure-connective?
                               (empty)
                               (compile-outputs
-                                 (: $shape-kb
-                                    ((inverted $prf $w $pa1 $pa2) $pb2)
-                                    $na $natv))))
+                                 (: $shape-kb ((inverted $prf $w $pa1 $pa2) $pb2) $na $natv))))
                         (if (is-var $b) (empty)
-                           (compile-adapter-chain plain
-                              (: $shape-kb $pb2 $b $btv2)))))))
+                           (compile-adapter-chain plain (: $shape-kb $pb2 $b $btv2)))))))
                ;; No inverse rule of any kind for a rule named no_inverse:
                ;; completion recovers an antecedent conjunct from the
                ;; conclusion as inversion recovers the whole antecedent. Both
@@ -1490,8 +1359,6 @@
             (if (head-is? $Type Not)
                (let (Not $inner) $Type
                   (case $tv (
-                     ((STV $s $c)
-                        (compile_ $kb (: $prf $inner (STV (- 1.0 $s) $c))))
-                     ($_unsupported-tv
-                        (compile-ordinary-fact $kb $prf $Type $tv)))))
+                     ((STV $s $c) (compile_ $kb (: $prf $inner (STV (- 1.0 $s) $c))))
+                     ($_unsupported-tv (compile-ordinary-fact $kb $prf $Type $tv)))))
                (compile-ordinary-fact $kb $prf $Type $tv)))))))
