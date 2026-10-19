@@ -102,7 +102,7 @@ context_store('&sk_sample_source',6,main).
 context_store('&sk_branch_support',3,main).
 context_store('&sk_truth_fold',3,main).
 context_store('&sk_rate_dirty',4,main).
-context_store('&sk_rate_folds',2,main).
+context_store('&sk_rate_readers',2,main).
 context_store('&sk_truth_factor',2,main).
 context_store('&base_rate_cache',2,main).
 context_store('&forward_aggregate_identity',2,main).

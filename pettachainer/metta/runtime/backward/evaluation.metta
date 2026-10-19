@@ -150,6 +150,9 @@
                             (((fact-ev $_source-scope $source-proof $_source-type))
                                (assemble-runtime-fact $type $scope
                                   (fact-source $ev $source-proof) $tv))
+                            (((not-fact-ev $_negative-scope $negative-source $_negative-type))
+                               (assemble-runtime-fact $type $scope
+                                  (fact-source $ev (negated $negative-source)) $tv))
                             ($_other $fact)))))
                       (sk-val $scoped $ev (sk-leaf-deps $hash $fact)))))))))))
 
@@ -255,6 +258,8 @@
          (sk-prior-update $prior (brand Proof (prior $prior-tv)) (cons $proof ())))
       (((antecedent-completion $_completed $_idx with $completion-prior (prior $completion-prior-tv)) $_known)
          (sk-prior-update $completion-prior (brand Proof (prior $completion-prior-tv)) (cons $proof ())))
+      (((reported with $prior (prior $prior-tv)) $_report)
+         (sk-prior-update $prior (brand Proof (prior $prior-tv)) (cons $proof ())))
       ((factored-revision $prior $prior-tv $parts) (sk-prior-update $prior $prior-tv $parts))
       ($_other
          (let $read (population-prior-tv $tv)
@@ -509,35 +514,106 @@
 ;; not another estimate to revise with the prior. A certain view stays as it
 ;; is. Anything else is left to the
 ;; rules below, and so are two certain views that contradict each other.
+;; Stored reports describe the instance's evidence, while an independent
+;; forward view predicts it. Revise reports first, then use their likelihood
+;; ratio once over a population read that excludes all their sources.
+(: sk-report-proof? (-[det]-> Proof Bool))
+(= (sk-report-proof? $proof)
+   (case $proof (
+      ((fact-source $_ev $_source) true)
+      ($_other (case (sk-step-proof $proof) (
+         ((merge/revision $left $right)
+            (if (sk-report-proof? (brand Proof $left)) (sk-report-proof? (brand Proof $right)) false))
+         ($_derived false)))))))
+
+(: sk-report-prior? (-[det]-> Proof Bool))
+(= (sk-report-prior? $proof)
+   (if (== (sk-forward-parts $proof) ())
+      (case (sk-step-proof $proof) (
+         ((factored-revision $prior $_tv $_parts) (sk-report-prior? (brand Proof $prior)))
+         ((merge/revision $left $right)
+            (if (sk-report-prior? (brand Proof $left)) true (sk-report-prior? (brand Proof $right))))
+         ($step (head-is? $step forgotten))))
+      true))
+
+(: sk-report-merge (-[det]-> SkFact EvidenceSet Number SkFact EvidenceSet Number SkeletonValue))
+(= (sk-report-merge $fact $ev $deps $prior $pev $pdeps)
+   (case (collapse (once
+         (let* ((($type ($kb $ctx $vars) $report (STV $s $c)) $fact)
+                (($_type $_scope $prediction (STV $sp $cp)) $prior)
+                ($endpoint (if (<= $s 0.0) true (>= $s 1.0)))
+                ($pattern (brand Statement (pattern-shape $type)))
+                (($calibration $calibration-deps)
+                   ;; At an endpoint every finite calibration centre gives the
+                   ;; same unbounded likelihood ratio. An unused rate subscription would feed the
+                   ;; report's own population changes back into its readers.
+                   (if (if $endpoint (not (user-base-rate? (brand KB $kb) $pattern)) false)
+                      (data (STV 0.5 0.0) 0)
+                      (let* (($key (sk-key $type ($kb $ctx $vars)))
+                             ($rate-hash (base-rate-cache-hash (brand KB $kb) $pattern))
+                             ($_watched (if (space-row-present? &ctx_sk_rate_readers ($rate-hash $key)) ()
+                                           (let $_reader (context-add! &sk_rate_readers ($rate-hash $key)) ())))
+                             ($goals (base-rate-premises (brand KB $kb) $pattern $raw))
+                             ($excluded (hash-set (observation-keys (observation-sources $ev))))
+                             ((sk-acc $_proofs $_ev $rate-deps $_parts)
+                                (fold-semidet (sk-premise-step () () $excluded false false sk-greedy-read)
+                                   (sk-acc () (ev-set 0) () ()) $goals))
+                             ($plan (base-rate-read-plan (brand KB $kb) $pattern))
+                             ($rate (sk-rate-read (brand KB $kb) $pattern (the TV $raw) $plan () $excluded)))
+                         (data (population-prior-tv $rate) (deps-join $rate-deps)))))
+                ((STV $b $bc) $calibration)
+                ;; Endpoint reports do not depend numerically on the prior.
+                ;; Retain its support below: conditioning still needs it.
+                ($tv (if $endpoint (STV $s $c)
+                        ;; The rate calibrates the report; its variance is not
+                        ;; already contained in the report's own evidence.
+                        (let (STV $posterior $confidence) (sk-factored-tv odds $sp $cp $b 1 $sp $cp $s $c)
+                           (STV (if (<= $sp 0.0) 0.0 (if (>= $sp 1.0) 1.0 $posterior)) $confidence))))
+                ($update (brand Proof ((reported with cpu (prior (STV $b $bc))) $report))))
+            (sk-val ($type ($kb $ctx $vars)
+                        (brand Proof (factored-revision $prediction (prior (STV $sp $cp)) ($update)))
+                        $tv)
+               (evidence-union $ev $pev) (deps-union (the Number $calibration-deps) (deps-union $deps $pdeps)))))) (
+      ((cons $merged ()) $merged)
+      (() sk-none))))
+
 (: sk-factored-merge
    (-[det]-> SkFact EvidenceSet Number SkFact EvidenceSet Number Bool SkeletonValue))
 (= (sk-factored-merge ($type $kbctx $proof-a $tv-a) $ev-a $deps-a ($btype $bkbctx $proof-b $tv-b) $ev-b $deps-b $independent)
-   (case (data (sk-prior-update-of $proof-a $tv-a) (sk-prior-update-of $proof-b $tv-b) $tv-a $tv-b) (
-      (((sk-prior-update $base-a (prior (STV $spa $cpa)) $parts-a)
-        (sk-prior-update $base-b (prior (STV $spb $cpb)) $parts-b)
-        (STV $sa $ca) (STV $sb $cb))
-         (let* (($population-a (== (sk-step-proof $base-a) cpu))
-                ($population-b (== (sk-step-proof $base-b) cpu)))
-            (if (if $population-a (if $population-b false true) false)
-               (sk-factored-merge (data $btype $bkbctx $proof-b $tv-b) $ev-b $deps-b (data $type $kbctx $proof-a $tv-a) $ev-a $deps-a $independent)
-               (if (if (if (if (>= $ca 1) (>= $cb 1) false)
-                              (sk-contradict? (the Number $sa) (the Number $sb)) false) false
-                      (if (same-proof? $base-a $base-b)
-                         (if (< (abs-math (- (the Number $spa) (the Number $spb))) 0.000000000001) (if (< (abs-math (- (the Number $cpa) (the Number $cpb))) 0.000000000001) (if (== $parts-a ()) false (if (== $parts-b ()) false (if (if $population-a (if $independent false true) false) false (not (sk-sources-meet? $parts-a $parts-b))))) false) false)
-                         (if $population-b (if (< $ca 1.0) $independent false) false)))
-                  (let* (((STV $combined-s $combined-c)
-                              (sk-factored-tv odds (the Number $spa) (the Number $cpa)
-                                 (the Number $spb) (the Number $cpb)
-                                 (if (== $parts-a ()) (the Number $spa) (the Number $sa)) (the Number $ca)
-                                 (if (== $parts-b ()) (the Number $spb) (the Number $sb)) (the Number $cb)))
-                         ($zero (if (proof-zero-likelihood? $proof-a) true (proof-zero-likelihood? $proof-b)))
-                         ($merged (brand Proof (factored-revision $base-a (prior (STV $spa $cpa))
-                                                   (append-flat $parts-a $parts-b))))
-                         ($result-proof (if $zero (brand Proof (zero-likelihood $merged)) $merged)))
-                     (sk-val ($type $kbctx $result-proof (STV (if $zero 0.0 $combined-s) $combined-c))
-                        (evidence-union $ev-a $ev-b) (deps-union $deps-a $deps-b)))
-                  sk-none))))
-      ($_other sk-none))))
+   (if (if $independent (if (sk-report-proof? $proof-a) (sk-report-prior? $proof-b) false) false)
+      (sk-report-merge (data $type $kbctx $proof-a $tv-a) $ev-a $deps-a
+         (data $btype $bkbctx $proof-b $tv-b) $ev-b $deps-b)
+      (if (if $independent (if (sk-report-proof? $proof-b) (sk-report-prior? $proof-a) false) false)
+         (sk-report-merge (data $btype $bkbctx $proof-b $tv-b) $ev-b $deps-b
+            (data $type $kbctx $proof-a $tv-a) $ev-a $deps-a)
+         (case (data (sk-prior-update-of $proof-a $tv-a) (sk-prior-update-of $proof-b $tv-b) $tv-a $tv-b) (
+            (((sk-prior-update $base-a (prior (STV $spa $cpa)) $parts-a)
+              (sk-prior-update $base-b (prior (STV $spb $cpb)) $parts-b)
+              (STV $sa $ca) (STV $sb $cb))
+               (let* (($population-a (== (sk-step-proof $base-a) cpu))
+                      ($population-b (== (sk-step-proof $base-b) cpu)))
+                  (if (if $population-a (if $population-b false true) false)
+                     (sk-factored-merge (data $btype $bkbctx $proof-b $tv-b) $ev-b $deps-b (data $type $kbctx $proof-a $tv-a) $ev-a $deps-a $independent)
+                     (if (if (if (if (>= $ca 1) (>= $cb 1) false)
+                                    (sk-contradict? (the Number $sa) (the Number $sb)) false) false
+                            (if (same-proof? $base-a $base-b)
+                               (if (< (abs-math (- (the Number $spa) (the Number $spb))) 0.000000000001) (if (< (abs-math (- (the Number $cpa) (the Number $cpb))) 0.000000000001) (if (== $parts-a ()) false (if (== $parts-b ()) false (if (if $population-a (if $independent false true) false) false (not (sk-sources-meet? $parts-a $parts-b))))) false) false)
+                               (if $population-b
+                                  (if (< $ca 1.0) $independent false)
+                                  false)))
+                        (let* (((STV $combined-s $combined-c)
+                                    (sk-factored-tv odds (the Number $spa) (the Number $cpa)
+                                       (the Number $spb) (the Number $cpb)
+                                       (if (== $parts-a ()) (the Number $spa) (the Number $sa)) (the Number $ca)
+                                       (if (== $parts-b ()) (the Number $spb) (the Number $sb)) (the Number $cb)))
+                               ($zero (if (proof-zero-likelihood? $proof-a) true (proof-zero-likelihood? $proof-b)))
+                               ($merged (brand Proof (factored-revision $base-a (prior (STV $spa $cpa))
+                                                         (append-flat $parts-a $parts-b))))
+                               ($result-proof (if $zero (brand Proof (zero-likelihood $merged)) $merged)))
+                           (sk-val ($type $kbctx $result-proof (STV (if $zero 0.0 $combined-s) $combined-c))
+                              (evidence-union $ev-a $ev-b) (deps-union $deps-a $deps-b)))
+                        sk-none))))
+            ($_other sk-none))))))
 
 ;; --- Learned combination modes (docs/metta/combination_modes.md) -------------
 
@@ -1316,6 +1392,33 @@
             (if (== (list-len $groups) (list-len $views)) $views
                (collapse (let (sk-sample-view $_digests $view) (superpose $groups) $view))))))))
 
+;; A report's evidence is pooled before its likelihood ratio updates a
+;; prediction. Applying several reports separately would multiply their odds
+;; instead of performing ordinary evidence-weighted corroboration (#92).
+(: sk-report-step (-[semidet]-> (SkeletonValue (List SkeletonValue)) SkeletonValue (SkeletonValue (List SkeletonValue))))
+(= (sk-report-step ($report $others) $value)
+   (case $value (
+      ((sk-val ($_type $_ctx $proof (STV $_s $_c)) $_ev $_deps)
+         (if (sk-report-proof? $proof)
+            (data (sk-merge-step false () $report $value) $others)
+            (data $report (cons $value $others))))
+      ($_other (data $report (cons $value $others))))))
+
+(: sk-report-prior-step (-[det]-> Bool SkeletonValue Bool))
+(= (sk-report-prior-step $found $value)
+   (if $found true
+      (case $value (
+         ((sk-val ($_type $_ctx $proof $_tv) $_ev $_deps) (sk-report-prior? $proof))
+         ($_other false)))))
+
+(: sk-report-values (-[semidet]-> (List SkeletonValue) (List SkeletonValue)))
+(= (sk-report-values $values)
+   (if (fold-semidet sk-report-prior-step false $values)
+      (let* ((($report $others) (fold-semidet sk-report-step (data sk-none ()) $values))
+             ($predictions (fold-semidet sk-cons-step () $others)))
+         (if (== $report sk-none) $predictions (append-flat $predictions (cons $report ()))))
+      $values))
+
 (: sk-reference-values (-[semidet]-> (List Number) (List SkeletonValue) ((List SkeletonValue) Bool (List SkeletonReference))))
 (= (sk-reference-values $ignore $values)
    (case $values (
@@ -1605,13 +1708,13 @@
 
 (: SkeletonComponentOrder Type)
 (: sk-component-order (-[det]-> Number SkeletonValue SkeletonComponentOrder))
-(: sk-component-order-of (-[semidet]-> (List SkeletonReference) SkeletonComponent SkeletonComponentOrder))
-(= (sk-component-order-of $references (sk-component $best $_deps $_ev $members))
+(: sk-component-order-of (-[semidet]-> Bool (List SkeletonReference) SkeletonComponent SkeletonComponentOrder))
+(= (sk-component-order-of $predicted $references (sk-component $best $_deps $_ev $members))
    (let $view (sk-sibling-family $references $best $members)
       (case $view (
          ((sk-val ($_type $_ctx $proof $tv) $_ev2 $_deps2)
             (case (sk-prior-update-of $proof $tv) (
-               ((sk-prior-update $_prior $_own ()) (sk-component-order 0 $view))
+               ((sk-prior-update $_prior $_own ()) (sk-component-order (if $predicted (if (sk-report-proof? $proof) 2 0) 0) $view))
                ($_update (sk-component-order 1 $view)))))
          ($_goal (empty))))))
 
@@ -1623,9 +1726,10 @@
    ;; Combine independent values before applying the updates they are priors
    ;; for. Canonical ordering also fixes confidence ties and floating-point
    ;; fold order, regardless of the order the original views were visited.
-   (fold-semidet (sk-component-merge-step $ignore) sk-none
-      (sort-atom (map-semidet (sk-component-order-of $references)
-         (fold-semidet (sk-key-merge-step $ignore) () (sort-atom (map-semidet sk-reference-of $views)))))))
+   (let $predicted (fold-semidet sk-report-prior-step false $views)
+      (fold-semidet (sk-component-merge-step $ignore) sk-none
+         (sort-atom (map-semidet (sk-component-order-of $predicted $references)
+            (fold-semidet (sk-key-merge-step $ignore) () (sort-atom (map-semidet sk-reference-of (sk-report-values $views)))))))))
 
 ;; --- Lifting merge ------------------------------------------------------------
 ;; Proofs of one statement that share fact premises but are otherwise
@@ -2360,9 +2464,9 @@
                    (if (=alpha $dirty-key $key) true (empty))))) ())))
                 ($cache-hash (base-rate-cache-hash $kbid $pattern))
                 ($_watched
-                   (if (== (collapse (once (match &ctx_sk_rate_folds ($cache-hash $stored)
+                   (if (== (collapse (once (match &ctx_sk_rate_readers ($cache-hash $stored)
                               (if (=alpha $stored $key) true (empty))))) ())
-                      (context-add! &sk_rate_folds ($cache-hash $key))
+                      (context-add! &sk_rate_readers ($cache-hash $key))
                       true))
                 ($entries (sk-rate-entries $args))
                 ($_taken (sk-rate-take! $hash $args))
@@ -2830,7 +2934,7 @@
           (($values $siblings $references) (sk-reference-values $ignore $standing)))
       (let $state (case (sk-lift $siblings $values) (
               ((cons $lifted $_rest) (sk-merging $lifted () 0))
-              (() (fold-semidet (sk-pair-merge-step true $ignore) (sk-merging sk-none () 0) $values))))
+              (() (fold-semidet (sk-pair-merge-step true $ignore) (sk-merging sk-none () 0) (sk-report-values $values)))))
          (case $state (
             ((sk-merging $merged () $deps)
                (let $_settled
@@ -2896,8 +3000,9 @@
              (if (=alpha $stored $key) (if (== $root $cached-root) () (sk-drop-merged! $key)) (empty))))))
           ($views (sk-admitted $hash $key $filter ()))
           ($leaves (sk-leaf-views $hash $key $filter ()))
-          ($deps (fold-semidet sk-view-deps-step 0 (append-flat $leaves $views)))
+          ($source-deps (fold-semidet sk-view-deps-step 0 (append-flat $leaves $views)))
           ($value (sk-merge-key $hash $key $filter () () $views))
+          ($deps (sk-view-deps-step $source-deps $value))
           ($_inner (sk-uncache! $hash $key))
           ($_cached (context-add! &sk_merged ($hash $key $deps $value $root)))
           ($_factor (sk-note-truth-factor! $hash $key $value)))
@@ -3360,7 +3465,7 @@
                          $leaves))))))
           (($selected $siblings $references) (sk-reference-values $ignore $compatible)))
       (let $value (if $siblings (sk-key-fallback $ignore $references $selected)
-                     (fold-semidet (sk-merge-step true $ignore) sk-none $selected))
+                     (fold-semidet (sk-merge-step true $ignore) sk-none (sk-report-values $selected)))
          (sk-calibrated-value $given $key $filter $outside $value))))
 
 (: proof-representative? (-[det]-> Proof Bool))

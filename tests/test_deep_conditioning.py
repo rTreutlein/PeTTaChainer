@@ -134,7 +134,9 @@ class DeepConditioningTests(unittest.TestCase):
         )
         # The old selection returned B=.38 through the report alone. Pinning W
         # removes the current prediction's Z dependency, making it admissible.
-        self.assertAlmostEqual(result['Strength'], .7398560565537888)
+        # Pinning W gives prior X=.9. The .3 report supplies odds 3/7
+        # against neutral calibration: posterior X=27/34, hence B=23/34.
+        self.assertAlmostEqual(result['Strength'], 23 / 34)
         self.assertEqual(result['ReadsExcluded'], 'false')
 
     def check_plant(self, periods, budget):
@@ -226,13 +228,15 @@ class DeepConditioningTests(unittest.TestCase):
         storm = self.check_stored_cut_keeps_disjoint_storm_views([
             '(: s (Storm t1) (STV 0.6 0.5))', '(: f (Forecast x) (STV 0.9 0.9))',
             '(: rf (Implication (Forecast x) (Storm t1)) (CTV (STV 0.9 1) (STV 0.1 1)))'])
-        self.assertAlmostEqual(storm, .810847779210004, delta=1e-9)
+        # Forecast prior .82, updated by report odds 3/2 against centre .5.
+        self.assertAlmostEqual(storm, 41 / 47, delta=1e-9)
 
     def test_stored_cut_weight_keeps_a_near_certain_derivation(self):
         storm = self.check_stored_cut_keeps_disjoint_storm_views([
             '(: s (Storm t1) (STV 0.6 0.9))', '(: h (Hurricane x) (STV 1 1))',
             '(: rh (Implication (Hurricane x) (Storm t1)) (CTV (STV 1 1) (STV 0 1)))'])
-        self.assertAlmostEqual(storm, .9992812935817147, delta=1e-9)
+        # A finite fractional report cannot move an endpoint prediction prior.
+        self.assertEqual(storm, 1)
 
     def test_claim_debt_metric_counts_needed_readable_requests(self):
         handler = PeTTaChainer()

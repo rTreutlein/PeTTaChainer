@@ -534,6 +534,28 @@ uncertainty enters each proof's confidence.
 
 A key's value merges its stored facts and one view per row:
 
+- independent forward predictions supply the instance prior for a stored
+  report, rather than another sample to revise with it (#103). Stored reports
+  first corroborate by ordinary evidence-weighted revision. Their combined
+  strength s updates prediction p by O(posterior) = O(p) O(s) / O(b), where b
+  is the population calibration rate with their sources left out. A lone
+  report therefore reads against the neutral rate, not its own strength.
+  Existing user rates remain authoritative. The report's confidence supplies
+  its log-odds variance; it is not a mixing weight between s and p, and the
+  calibration rate's variance is not subtracted from that evidence. Binary
+  reports keep exact endpoints and the revised reports' confidence; their
+  posterior is independent of the prior's value, so its log-odds variance is
+  not added. The prior's evidence and dependencies remain necessary for
+  conditioning. Their infinite/zero likelihood ratio needs no
+  finite empirical calibration read or subscription, avoiding self-invalidation;
+  explicit user rates still use their configured read. Confidence-1 fractional
+  stored facts stay Jeffrey (B2 decision), not the c -> 1 limit of this odds
+  rule. Evidence overlap still decides whether an
+  update is independent; derived copies retain their dependencies and frozen
+  summaries remain admissible priors. Rate readers invalidate warm report
+  merges and their consumers when calibration changes
+  (`tests/test_soft_reports.py`);
+
 - zero-confidence STVs are unknown placeholders. When an informative view
   exists, they take no part in containment, prior selection, or combination;
   when none exists, internal judgment scaffolds can still read them. An STV

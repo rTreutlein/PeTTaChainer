@@ -13,7 +13,7 @@
 
 !(test
    (query 100 foldMergedKb (: $prf (Score a 1) $tv))
-   (: (merge/revision (by qToScore qFact) directScore) (Score a 1) (STV 0.44000002400830773 0.9090908594869702)))
+   (: (factored-revision (by qToScore qFact) (prior (STV 0.4 0.8999999399792307)) (((reported with cpu (prior (STV 0.5 0.0))) directScore))) (Score a 1) (STV 0.7272727272727273 0.42880333122931913)))
 
 !(test
    (let (: $proof (FoldAll $pattern $extractor $init $_fold-function -> $total) $tv)
@@ -24,5 +24,5 @@
                   (FoldAll (Score $x $n) $n 0 (|-> ($acc $elem) (+ $acc $elem)) -> $result)
                   $query-tv))))
       ($proof $pattern $extractor $init $total $tv))
-   ((foldall-proof (merge/revision (by qToScore qFact) directScore))
+   ((foldall-proof (factored-revision (by qToScore qFact) (prior (STV 0.4 0.8999999399792307)) (((reported with cpu (prior (STV 0.5 0.0))) directScore))))
       (Score $_x $_n) $_n 0 1 (STV 1.0 1.0)))

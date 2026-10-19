@@ -220,10 +220,10 @@
 (: &sk_instance_checked (SpaceOf (Number)))
 (: &ctx_sk_instance_checked (SpaceOf (Number)))
 !(bind! &sk_instance_checked (new-space))
-;; base-rate cache pattern hash -> a fold key reading that pattern's entries
-(: &sk_rate_folds (SpaceOf (Number SkeletonKey)))
-(: &ctx_sk_rate_folds (SpaceOf (Number SkeletonKey)))
-!(bind! &sk_rate_folds (new-space))
+;; base-rate cache pattern hash -> a key reading that pattern's entries
+(: &sk_rate_readers (SpaceOf (Number SkeletonKey)))
+(: &ctx_sk_rate_readers (SpaceOf (Number SkeletonKey)))
+!(bind! &sk_rate_readers (new-space))
 ;; key -> a row reading it directly, by row key hash and row hash
 (: &sk_reader (SpaceOf (Number SkeletonKey Number Number)))
 (: &ctx_sk_reader (SpaceOf (Number SkeletonKey Number Number)))

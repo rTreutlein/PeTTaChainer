@@ -196,16 +196,20 @@
       (CTV (STV 1.0 0.7) (STV 0.0 1.0))))
 
 !(test (query 2 incumbentPriorityKb (: $prf (IncumbentGoal) $tv))
-   (: (by bToGoal (merge/revision (by aToB directA) directB))
-      (IncumbentGoal)
-      (STV 1.0 0.9898043659034145)))
+   (: (by bToGoal (factored-revision (by aToB directA) (prior (STV 1.0 0.9998000399670116)) (((reported with cpu (prior (STV 0.5 0.0))) directB)))) (IncumbentGoal) (STV 1.0 0.8918896597655677)))
 
 !(test (query 7 incumbentPriorityKb (: $prf (IncumbentGoal) $tv))
-   (: (merge/revision
-         (by bToGoal (merge/revision (by aToB directA) directB))
+   (:
+      (merge/revision
+         (by
+            bToGoal
+            (factored-revision
+               (by aToB directA)
+               (prior (STV 1.0 0.9998000399670116))
+               (((reported with cpu (prior (STV 0.5 0.0))) directB))))
          (by dToGoal (by cToD directC)))
       (IncumbentGoal)
-      (STV 1.0 0.9899241391237336)))
+      (STV 1.0 0.9039912235037112)))
 
 !(test
    (query 7 incumbentPriorityKb
@@ -244,11 +248,17 @@
 
 !(test
    (query 3 refinementValueKb (: $prf (RefinementValueGoal) $tv))
-   (: (merge/revision
+   (:
+      (factored-revision
          (merge/revision
-            (by expensiveRootRefinement
-               (conjunction expensiveRefinementSeed1 expensiveRefinementSeed2 expensiveRefinementSeed3))
+            (by
+               expensiveRootRefinement
+               (conjunction
+                  expensiveRefinementSeed1
+                  expensiveRefinementSeed2
+                  expensiveRefinementSeed3))
             (by cheapRootRefinement cheapRefinementSeed))
-         incumbentValueRoot)
+         (prior (STV 1.0 0.9996031687808146))
+         (((reported with cpu (prior (STV 0.5 0.0))) incumbentValueRoot)))
       (RefinementValueGoal)
-      (STV 1.0 0.9996045810122057)))
+      (STV 1.0 0.9)))

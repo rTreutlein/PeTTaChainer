@@ -55,16 +55,20 @@
 ;; rule without an expansion, so even a tight budget finds it.
 !(test
    (query 2 incidentPolicyKb (: $proof (ServiceAtRisk incident42) $tv))
-   (: (merge/revision
+   (:
+      (factored-revision
          (by telemetryAssessment correlatedTelemetry)
-         existingAssessment)
+         (prior (STV 1.0 0.9499097466997943))
+         (((reported with cpu (prior (STV 0.5 0.0))) existingAssessment)))
       (ServiceAtRisk incident42)
-      (STV 1.0 0.9551515146764331)))
+      (STV 1.0 0.7)))
 
 !(test
    (query 20 incidentPolicyKb (: $proof (ServiceAtRisk incident42) $tv))
-   (: (merge/revision
+   (:
+      (factored-revision
          (by telemetryAssessment correlatedTelemetry)
-         existingAssessment)
+         (prior (STV 1.0 0.9499097466997943))
+         (((reported with cpu (prior (STV 0.5 0.0))) existingAssessment)))
       (ServiceAtRisk incident42)
-      (STV 1.0 0.9551515146764331)))
+      (STV 1.0 0.7)))

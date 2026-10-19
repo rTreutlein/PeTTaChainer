@@ -22,7 +22,15 @@
 
 !(test
    (query 40 mergedSubgoalKb (: $prf (Cancerous Edward) $tv))
-   (: (by smokingCancerRule (merge/revision smokesEdward (by friendSmokingRule (conjunction friendAnnaEdward smokesAnna)))) (Cancerous Edward) (STV 0.4200001200414666 0.9338110214376288)))
+   (:
+      (by
+         smokingCancerRule
+         (factored-revision
+            (by friendSmokingRule (conjunction friendAnnaEdward smokesAnna))
+            (prior (STV 0.4 0.8999998799584694))
+            (((reported with cpu (prior (STV 0.5 0.0))) smokesEdward))))
+      (Cancerous Edward)
+      (STV 0.6 0.8999998649689053)))
 
 !(test
    (collapse

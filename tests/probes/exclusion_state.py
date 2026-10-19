@@ -255,8 +255,10 @@ class ExclusionStateTests(unittest.TestCase):
             '(: (no_inverse bx) (Implication (B a) (X a)) (CTV (STV 1 1) (STV 0 1)))',
         ])
         self.h.set_query_metrics(True)
-        expected = ['(: (merge/revision xf (by (no_inverse bx) (by (no_inverse mb) mf))) '
-                    '(X a) (STV 1.0 0.888849375588311))']
+        expected = ['(: (factored-revision (by (no_inverse bx) (by (no_inverse mb) mf)) '
+                    '(prior (STV 1 0.7998719404737348)) '
+                    '(((reported with cpu (prior (STV 0.5 0.0))) xf))) '
+                    '(X a) (STV 1 0.8))']
         self.assertEqual(self.h.query('(: $p (X a) $tv)', steps=200, timeout_sec=0), expected)
         metrics = self.h.last_query_metrics()
         self.assertGreater(metrics['branch_cache_misses'], 0)

@@ -23,8 +23,10 @@ class HistoryIndependenceTests(unittest.TestCase):
                 self.assertEqual(h.last_query_metrics()[counter], 0, (counter, h.last_query_metrics()))
 
     def test_c1_cold_and_warm_have_both_independent_leaves(self):
-        expected = ('(: (merge/revision xf (by (no_inverse bx) (by (no_inverse mb) mf))) '
-                    '(X a) (STV 1.0 0.888849375588311))')
+        expected = ('(: (factored-revision (by (no_inverse bx) (by (no_inverse mb) mf)) '
+                    '(prior (STV 1 0.7998719404737348)) '
+                    '(((reported with cpu (prior (STV 0.5 0.0))) xf))) '
+                    '(X a) (STV 1 0.8))')
         for warm in (False, True):
             with self.subTest(warm=warm):
                 h = PeTTaChainer()
@@ -63,7 +65,7 @@ class HistoryIndependenceTests(unittest.TestCase):
                     self.assertTrue(before)
                 assumed = h.query_many_refs(['(: $p (Assuming (M a) (X a)) $tv)'], steps=200)[0]
                 self.assertEqual(len(assumed), 1)
-                self.assertAlmostEqual(assumed[0].tv[2], 0.9997004492512355)
+                self.assertAlmostEqual(assumed[0].tv[2], 0.8)
                 self.assertEqual(janus.query_once(cache_query, {"Kb": h.kb})["Rows"], before)
                 self.assertEqual(janus.query_once('overlay_probe_main_leaks(Kb,Rows)', {'Kb': h.kb})['Rows'], [])
                 self.assertEqual(h.query('(: $p (X a) $tv)', steps=200, timeout_sec=0), [expected])

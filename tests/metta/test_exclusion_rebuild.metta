@@ -89,7 +89,7 @@
 
 !(compileadd historyKb (: (no_inverse bx) (Implication (B $x) (X $x)) (CTV (STV 1 1) (STV 0 1))))
 !(test (query 200 historyKb (: $p (X a) $tv))
-   (: (merge/revision xf (by (no_inverse bx) (by (no_inverse mb) mf))) (X a) (STV 1.0 0.888849375588311)))
+   (: (factored-revision (by (no_inverse bx) (by (no_inverse mb) mf)) (prior (STV 1 0.7998719404737348)) (((reported with cpu (prior (STV 0.5 0.0))) xf))) (X a) (STV 1 0.8)))
 
 ;; An unpaid branch belongs to bx's read of B, not to mb's valid ordinary
 ;; view. Hold bx during evaluation; stale it only after answers are read.
@@ -112,7 +112,7 @@
             ($held $before $owner (space-row-present? &sk_stale ($xh $xr))))))
    (true false false true))
 !(test (query 200 historyKb (: $p (X a) $tv))
-   (: (merge/revision xf (by (no_inverse bx) (by (no_inverse mb) mf))) (X a) (STV 1.0 0.888849375588311)))
+   (: (factored-revision (by (no_inverse bx) (by (no_inverse mb) mf)) (prior (STV 1 0.7998719404737348)) (((reported with cpu (prior (STV 0.5 0.0))) xf))) (X a) (STV 1 0.8)))
 
 ;; Branch proofs and cuts are roots of both collectors.
 !(stored-refs-gc!)

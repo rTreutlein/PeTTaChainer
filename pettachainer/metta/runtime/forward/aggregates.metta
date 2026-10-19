@@ -303,7 +303,8 @@
    (-[det]-> KBContext (List (Statement KBContext Proof TV)) Statement (List (Statement KBContext Proof TV))))
 (= (fa-seed-statement $kbctx $acc $statement)
    (case (stored-statement-candidate $statement $kbctx false) (
-      ((forward-derived $fact $_ev) (cons $fact $acc))
+      ((forward-derived ($type $ctx $proof $tv) $ev)
+         (cons (assemble-runtime-fact $type $ctx (fact-source $ev $proof) $tv) $acc))
       (no-forward-output-candidate $acc))))
 
 ;; A base rate a reader finds without an estimate is seeded: its aggregate
