@@ -248,7 +248,6 @@
 (: sk-work! (-[det]-> Number SkPattern Number Atom))
 (: sk-pending? (-[det]-> Number SkPattern Bool))
 (: sk-pending-children (-[det]-> Number SkPattern (List SkeletonNodeAt)))
-(: sk-drop-pending! (-[det]-> Number SkPattern Atom))
 ;; Parked deliveries, deferred joins or deferred rows at a node's hash.
 (: sk-holds-work? (-[det]-> Number Bool))
 

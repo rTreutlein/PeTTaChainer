@@ -1,14 +1,6 @@
 ;; Rule lowering and structural specialization form one recursive component:
 ;; derived views and specialization jobs compile new statements through
 ;; compile_, while compile_ dispatches back into both mechanisms.
-(: disable-inversion-proof-id? (-[det]-> Proof Bool))
-;; BiImplication lowering already emits both directions; inverting either one
-;; again creates a redundant Bayesian version of its explicitly emitted peer.
-(= (disable-inversion-proof-id? $prf)
-   (if (= $prf (no_inverse $_)) true
-      (if (= $prf (bi-forward $_)) true
-         (= $prf (bi-backward $_)))))
-
 ;; Classify source computations rather than treating every CPU introduced by
 ;; lowering as a reason to suppress implication inversion. A pure top-level Or
 ;; lowers through a TV-formula CPU, but an inverse rule can still derive the
@@ -125,11 +117,9 @@
 (: implication-ctv-goals
    (-[det]-> KB (List Variable) Statement Statement Atom Bool ((List Goal) CTVType LikelihoodRead)))
 (= (implication-ctv-goals $kb $params $a $b $value $defer)
-   (let*
-      (($a1 (rule-base-rate-pattern $params $a))
-        ($b1 (rule-base-rate-pattern $params $b)))
-      (let $rates (append-goals (antecedent-rate-premises $kb $a1 $rule-atv)
-                       (base-rate-premises $kb $b1 $rule-btv))
+   (let* (($a1 (rule-base-rate-pattern $params $a))
+          ($b1 (rule-base-rate-pattern $params $b))
+          ($rates (append-goals (antecedent-rate-premises $kb $a1 $rule-atv) (base-rate-premises $kb $b1 $rule-btv))))
          (if $defer
             (let* (($ctv (CTV (the STVType $value) (STV 0.5 0)))
                    ($a-plan (base-rate-read-plan $kb $a1))
@@ -144,7 +134,7 @@
                   (cons (CPU ImplicationLikelihoodsFormula
                            (quote ($rule-atv $rule-btv $value)) $likelihoods)
                      ((CPU likelihood-read-tv (quote ($likelihoods)) $rule-ctv))))
-               (the CTVType $rule-ctv) (the LikelihoodRead $likelihoods))))))
+               (the CTVType $rule-ctv) (the LikelihoodRead $likelihoods)))))
 
 ;; A negated conclusion is stored as positive evidence for its inner expression
 ;; with a negated proof and transformed TV. Keeping the runtime type positive
@@ -735,11 +725,6 @@
    (if $seen true
       (let $statement (if (head-is? $child Not) (car-atom (cdr-atom $child)) $child)
          (contains-head? source-computation-head? $statement))))
-(: pure-connective-antecedent? (-[det]-> Statement Bool))
-(= (pure-connective-antecedent? $a)
-   (if (head-is-member? $a (And Or))
-      (if (fold-flat computing-child? false (implication-side-conjuncts $a)) false true)
-      false))
 ;; The connective over a compound's children, or its one child.
 (: connective-statement (-[det]-> Atom (List Statement) Statement))
 (= (connective-statement $connective (cons $head $tail))
@@ -1238,12 +1223,11 @@
       $enabled))
 
 ;; A refined rule reads its truth `$truth-tv` from the goal first, over a copy
-;; of the implication so all its applications share the one general goal.
+;; of the implication so all its applications share the one general goal. The
+;; typed result keeps the premise list a (List Goal) for strict mode.
 (: rule-truth-premises (-[det]-> Bool KB Atom Atom (List Goal)))
 (= (rule-truth-premises $refine? $kb $truth-type $truth-tv)
-   (if $refine?
-      (cons (: (kbctx $kb) $truth-prf (copy_term $truth-type) $truth-tv) ())
-      ()))
+   (if $refine? (cons (: (kbctx $kb) $truth-prf (copy_term $truth-type) $truth-tv) ()) ()))
 
 ;; Only a rule certain in every branch is given. An uncertain CTV branch
 ;; still learns from its instances when the other branch is certain.
@@ -1336,18 +1320,18 @@
                    (brand Statement (implication-source-term $consequent))))
              ($antecedent-vars
                 (implication-antecedent-free-vars $antecedent))
-             ($pure-connective? (pure-connective-antecedent? $a))
+             ($pure-connective? (if (head-is-member? $a (And Or))
+                (not (fold-flat computing-child? false (implication-side-conjuncts $a))) false))
              ($ctv? (if (= $tv (CTV $_pos $_neg)) true false))
              ($refine? (refined-rule? $kb $prf $a $b $tv))
              ($truth-type (RuleTruth (Implication $a $b)))
+             ($a-opposite (if (head-is? $a Not) (car-atom (cdr-atom $a)) (Not $a)))
              ($truth-premises (rule-truth-premises $refine? $kb $truth-type $truth-tv))
              ($_truth-shape
                 (if $refine?
                    (let* (($_positive (add-atom &rule_truth_shapes ($kb $truth-type)))
-                          ($_negative (if $ctv?
-                             (let $shape-opposite (if (head-is? $a Not) (car-atom (cdr-atom $a)) (Not $a))
-                                (add-atom &rule_truth_shapes ($kb (RuleTruth (Implication $shape-opposite $b)))))
-                             ()))) ())
+                          ($_negative (if $ctv? (add-atom &rule_truth_shapes ($kb (RuleTruth (Implication $a-opposite $b)))) ())))
+                      ())
                    ()))
              ($value (if $refine? $truth-tv $tv)))
             (superpose (
@@ -1414,17 +1398,18 @@
                      (superpose (
                         (superpose $refinement)
                         (if $ctv?
-                           (let $refinement-opposite (if (head-is? $a Not) (car-atom (cdr-atom $a)) (Not $a))
-                              (brand CompiledAddition
-                                 (((: (kbctx $kb) $refined-proof $truth-type (CTV $refined-pos $refined-neg)))
-                                    |- (: (kbctx $kb) (rule-opposite $refined-proof)
-                                       (RuleTruth (Implication $refinement-opposite $b))
-                                       (CTV $refined-neg $refined-pos)))))
+                           (brand CompiledAddition
+                              (((: (kbctx $kb) $refined-proof $truth-type (CTV $refined-pos $refined-neg)))
+                                 |- (: (kbctx $kb) (rule-opposite $refined-proof)
+                                    (RuleTruth (Implication $a-opposite $b))
+                                    (CTV $refined-neg $refined-pos))))
                            (empty)))))
                   (empty))
                ;; An antecedent whose computations cannot be inverted has no
-               ;; inverse rule.
-               (if (if (disable-inversion-proof-id? $prf) true (implication-type? $b))
+               ;; inverse rule. BiImplication lowering already emits both
+               ;; directions; inverting either again would add a redundant
+               ;; Bayesian version of its explicitly emitted peer.
+               (if (if (head-is-member? $prf (no_inverse bi-forward bi-backward)) true (implication-type? $b))
                   (empty)
                   (let* (((inverse-compute-plan $inverse-execs $inverse-known)
                             (if (contains-cpu? (execs-goal-type $execs))

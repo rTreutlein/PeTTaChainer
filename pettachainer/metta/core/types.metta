@@ -87,9 +87,7 @@
 (: hypothesis-truths (-[det]-> Atom Atom Atom))
 (: hypothesis-read! (-[det]-> KB Atom Number))
 (: hypothesis-layers (-[det]-> KB Atom Atom))
-(: node-context (-[det]-> Atom Atom))
 (: key-context (-[det]-> Atom Atom))
-(: scope-context (-[det]-> Atom Atom))
 ;; A value's evidence, an interned set of entries kept in the order they were
 ;; first added; (ev-set 0) is the empty set (runtime_helpers.pl,
 ;; docs/metta/evidence_sets.md). Equal sets have equal ids.

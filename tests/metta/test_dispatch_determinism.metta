@@ -24,8 +24,8 @@
    (collapse (BaseRateWithPriorFormula (STV 0.2 0.4) (STV 0.8 0.6)))
    ((mergetvs (STV 0.2 0.4) (STV 0.8 0.6))))
 
-!(test (collapse (proof-score (marginal-proj 0 proof) (STV 1.0 0.5))) (0.495))
-!(test (collapse (proof-score proof (STV 1.0 0.5))) (0.5))
+!(test (collapse (term-confidence (Goal (kb MAIN Nil) (marginal-proj 0 proof) (STV 1.0 0.5)))) (0.495))
+!(test (collapse (term-confidence (Goal (kb MAIN Nil) proof (STV 1.0 0.5)))) (0.5))
 !(test (collapse (base-rate-finish? weighted-base-rate)) (true))
 !(test (collapse (base-rate-finish? other-finish)) (false))
 

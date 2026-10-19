@@ -152,6 +152,7 @@
             (proof-children $rest)))
       ($_other ()))))
 
+;; A det boundary: the strict checker rejects is-member inline below.
 (: proof-term-leaf-head? (-[det]-> $head Bool))
 (= (proof-term-leaf-head? $head) (is-member $head (() fact-ev fact-source CPU STV CTV)))
 
@@ -191,6 +192,7 @@
       (let $head (car-atom $prf) (if (== $head ctx) true (== $head given)))
       false))
 
+;; A typing boundary: a direct brand conflicts with the Evidence uses below.
 (: proof-from-atom (-[det]-> Expression Proof))
 (= (proof-from-atom $proof) (brand Proof $proof))
 

@@ -225,17 +225,11 @@ argument_shape(Arg, Shape) :-
     (   ground(Arg) -> true
     ;   Shape = Arg ).
 
-% The hypothetical context a node or key lies in, 'MAIN' for the main context
-% (or one left open); a fold scoped to a context lies in it. Only an Assuming
-% query's contexts are query-local: an implication's contexts hold the
-% derivation of a main-context belief and stay. Fields are read without
-% binding anything, so a node is not copied.
-'node-context'(Node, Ctx) :-
-    (   nonvar(Node), Node = [Head, _, Args|_], Head == 'CPU'
-    ->  ( nonvar(Args), Args = [Scope|_] -> 'scope-context'(Scope, Ctx) ; Ctx = 'MAIN' )
-    ;   nonvar(Node), Node = [_, KbCtx|_], nonvar(KbCtx), KbCtx = [_, C|_], nonvar(C) -> Ctx = C
-    ;   Ctx = 'MAIN' ).
-
+% The hypothetical context a key lies in, 'MAIN' for the main context (or one
+% left open); a fold scoped to a context lies in it. Only an Assuming query's
+% contexts are query-local: an implication's contexts hold the derivation of a
+% main-context belief and stay. Fields are read without binding anything, so
+% a key is not copied.
 'key-context'(Key, Ctx) :-
     (   nonvar(Key), Key = [Head, _, KbCtx|_], Head == 'sk-key', nonvar(KbCtx), KbCtx = [_, C|_], nonvar(C) -> Ctx = C
     ;   nonvar(Key), Key = [Head, Args|_], Head == 'sk-fold', nonvar(Args), Args = [Scope|_] -> 'scope-context'(Scope, Ctx)

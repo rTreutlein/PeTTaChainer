@@ -55,7 +55,6 @@
             no-base-rate-aggregate-key))
       ($_other no-base-rate-aggregate-key))))
 
-
 ;; Cache rows lead with a hash of the knowledge base and pattern, so a lookup
 ;; reads only that pattern's entries; the alpha comparison rejects collisions.
 (: base-rate-cache-hash (-[det]-> KB Statement Number))
@@ -129,7 +128,6 @@
    (if (base-rate-entry-user? $entry) true
       (base-rate-cache-user-present? $rest)))
 
-
 (: cached-base-rate
    (-[nondet]-> KB Statement (List TV)))
 (= (cached-base-rate $kbid $pattern)
@@ -179,9 +177,6 @@
       (context-remove! &base_rate_cache
          (quote ($_h1 (base-rate $kbid $_s1 $_tv1 computed $_m1))))
       ()))
-
-
-
 
 ;; Inheritance subjects and concept nodes are recorded once per KB, and their
 ;; number per KB is kept as they arrive: priors divide by it on every fold step.

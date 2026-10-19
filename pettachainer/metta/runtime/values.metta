@@ -49,12 +49,8 @@
    (if (is-var $tv)
       (the TV $tv)
       (case $tv
-         (((STV $s $c)
-             (STV $s $c))
-          ((CTV $pos $neg)
-             (CTV
-                $pos
-                $neg))
+         (((STV $s $c) (STV $s $c))
+          ((CTV $pos $neg) (CTV $pos $neg))
           ((likelihood-read $_raw $read $_support) (expected-tv $read))
           (no-evidence no-evidence)
           ($other (the TV $other))))))
@@ -93,11 +89,8 @@
           (no-evidence no-evidence)
           ($other (the TV $other))))))
 
-;; Expected TVs dispatch directly on the known formula set instead of going
-;; through reduce: reduce's runtime dispatch (fun/1 + current_predicate +
-;; current_op per call) dominated backward-search profiles. Failure modes are
-;; preserved -- a formula clause that does not match (or yields empty) makes
-;; this function fail exactly like the reduce-based call did.
+;; Expected TVs dispatch directly on the known formula set, which is faster
+;; than reduce; a formula clause that does not match makes this fail.
 (: normalize-expected-likelihoods (-[semidet]-> $candidate LikelihoodRead))
 (= (normalize-expected-likelihoods $candidate)
    (if (is-var $candidate)

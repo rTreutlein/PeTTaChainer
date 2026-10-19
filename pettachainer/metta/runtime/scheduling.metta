@@ -42,34 +42,20 @@
 (= (term-confidence $proof-term)
    (case $proof-term
       (((CPU $fun $args $res)
-          (let $base
-             (if (is-var $res)
-                (cpu-expected-confidence $fun $args)
-                (case $res (
-                   ((STV $_strength $_confidence) (tv-confidence $res))
-                   ((CTV $_positive $_negative) (tv-confidence $res))
-                   ($_other 1.0))))
+          (let $base (if (is-var $res) (cpu-expected-confidence $fun $args) (tv-confidence $res))
              ;; A settled step adds nothing beyond the complete step it gives
              ;; way to, so it drives no search of its own: it reads the
              ;; nodes other joins expand and the facts read at once.
              (if (== $fun SettlesFormula) 0.0
                 (if (== $fun AndMarginalProjection) (* 0.99 $base) $base))))
        (($_type ($_kbid $_ctx $_vars) $prf $tv)
-          ;; Historically the marginal-projection arm of proof-score matched
-          ;; an unbound proof token first, applying this optimism discount but
-          ;; also binding the caller's variable. Preserve the search heuristic
-          ;; explicitly without mutating an open goal.
-          (if (is-var $prf)
-             (* 0.99 (tv-confidence $tv))
-             (proof-score
-                $prf $tv)))
+          ;; A marginal projection, or an open proof that may become one, is
+          ;; discounted; an open proof is tested without being bound.
+          (if (is-var $prf) (* 0.99 (tv-confidence $tv))
+             (case $prf (
+                ((marginal-proj $_idx $_inner) (* 0.99 (tv-confidence $tv)))
+                ($_other (tv-confidence $tv))))))
        ($_other 0.0))))
-
-(: proof-score (-[det]-> Proof TV Number))
-(= (proof-score $prf $tv)
-   (case $prf (
-      ((marginal-proj $_idx $_inner) (* 0.99 (tv-confidence $tv)))
-      ($_other (tv-confidence $tv)))))
 
 ;; Forward beam width is independent of the invocation's remaining budget.
 (: bounded-agenda-target-size (-[det]-> Number))
@@ -78,14 +64,6 @@
 !(change-state! bounded_agenda_pruning true)
 (: set-bounded-agenda-pruning (-[det]-> Bool Bool))
 (= (set-bounded-agenda-pruning $enabled) (change-state! bounded_agenda_pruning $enabled))
-(: bounded-agenda-pruning? (-[det]-> Bool))
-(= (bounded-agenda-pruning?) (the Bool (car-atom (collapse (get-state bounded_agenda_pruning)))))
-
-(: heap-prune-to-size (-[semidet]-> Number (Heap $item) (Heap $item)))
-(= (heap-prune-to-size $target $agenda)
-   (let (heap-split $kept $_discarded)
-      (heap-split-best $target $agenda (empty_heap))
-      $kept))
 
 (: HeapSplit Type)
 (: heap-split (-[det]-> (Heap $item) (Heap $item) HeapSplit))
@@ -109,7 +87,7 @@
 
 (: bounded-agenda-prune-needed? (-[det]-> (Heap $item) Bool))
 (= (bounded-agenda-prune-needed? $agenda)
-   (if (bounded-agenda-pruning?)
+   (if (the Bool (car-atom (collapse (get-state bounded_agenda_pruning))))
       (let* (($target (bounded-agenda-target-size))
              ($size-values (collapse (heap_size $agenda)))
              ($size
@@ -122,7 +100,7 @@
 (: bounded-agenda-prune (-[semidet]-> (Heap $item) (Heap $item)))
 (= (bounded-agenda-prune $agenda)
    (if (bounded-agenda-prune-needed? $agenda)
-      (heap-prune-to-size (bounded-agenda-target-size) $agenda)
+      (let (heap-split $kept $_discarded) (heap-split-best (bounded-agenda-target-size) $agenda (empty_heap)) $kept)
       $agenda))
 
 (: RevisionMergeProof

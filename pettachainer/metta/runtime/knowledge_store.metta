@@ -111,10 +111,6 @@
                      (data $fold-type ($fold-kb $fold-ctx $fold-vars) $fold-prf $fold-tv) $id $idx)))))))
       (+ $idx 1)))
 
-(: observed-inheritance-subject? (-[det]-> KB Statement Bool))
-(= (observed-inheritance-subject? $kbid $subj)
-   (space-row-present? &inheritance_subject ($kbid $subj)))
-
 ;; Keep an empty fold live so later sample proofs can refine it, but do not let
 ;; its provisional no-evidence value become a public Inheritance proof.
 (: MemberInheritanceEvidenceFormula (-[nondet]-> TV  TV))
@@ -123,7 +119,7 @@
 
 (: inheritance-subject-prior-tv (-[det]-> KB Statement TV))
 (= (inheritance-subject-prior-tv $kbid $subj)
-   (if (observed-inheritance-subject? $kbid $subj)
+   (if (space-row-present? &inheritance_subject ($kbid $subj))
       (let $scale (fa-mass-scale $kbid)
          (if (== $scale 0.0) no-evidence (STV $scale 1.0)))
       no-evidence))
@@ -131,7 +127,7 @@
 ;; A rule's expected premise confidence is a pure function of its premise
 ;; structure and stored TVs, so it is computed once here instead of on every
 ;; rule-goal expansion. No entry (the computation can fail on exotic premise
-;; shapes) means the expansion falls back to computing it on the fly.
+;; shapes) scores the rule 1.0 (sk-rule-score).
 (: store-rule-expected-score!
    (-[det]-> KbBackend Number
        (List (| Goal (Statement KBContext Proof TV)))
@@ -146,14 +142,6 @@
             (kb-add-atom $backend rule_expected
                (make-space-pair $id (car-atom $hits)))))))
 
-;; A refined rule reads its truth goal first (rule-truth-premises); the rule's
-;; search score follows that goal's value.
-(: register-rule-truth! (-[det]-> Number (List (| Goal (Statement KBContext Proof TV))) Atom))
-(= (register-rule-truth! $id $args)
-   (case $args (
-      ((cons $first $_rest) (register-truth-premise! $id $first))
-      (() ()))))
-
 (: register-truth-premise! (-[det]-> Number (| Goal (Statement KBContext Proof TV)) Atom))
 (= (register-truth-premise! $id $premise)
    (case $premise (
@@ -165,9 +153,6 @@
                ())
             ())))))
 
-;; Temp (per-query) rule ids are offset so they can never collide with live
-;; rule ids: both counters start at 0 and rules/rule_expected/prem_index rows
-;; from both backends share the same spaces.
 ;; Index rules by the statement name embedded in their conclusion proof so
 ;; remove-compiled-statement can find them without scanning the rules space.
 ;; Rules whose proof carries no extractable name (open query adapters,
@@ -263,6 +248,9 @@
       (let*
          (($typed-ccls (typed-runtime-fact $ccls))
           ($rule-args (context-rule-premises $typed-ccls (typed-runtime-premises $args)))
+          ;; Temp (per-query) rule ids are offset so they can never collide
+          ;; with live ones: both counters start at 0 and both backends'
+          ;; rules/rule_expected/prem_index rows share the same spaces.
           ($id
              (if (== $backend temp)
                 (+ 1000000000 (next-search-id bwd_tmp_ruleid))
@@ -280,7 +268,11 @@
                     (runtime-rule-row
                        $id $typed-ccls $rule-args))))
            ($_expected (store-rule-expected-score! $backend $id $rule-args))
-           ($_truth (register-rule-truth! $id (copy_term $rule-args)))
+           ;; A refined rule reads its truth goal first (rule-truth-premises); the
+           ;; rule's search score follows that goal's value.
+           ($_truth (case (copy_term $rule-args) (
+              ((cons $truth-first $_truth-rest) (register-truth-premise! $id $truth-first))
+              (() ()))))
            ($_name-idx
               (register-rule-name! $backend $id $typed-ccls))
            ($_journal (sk-note-rule! $id $typed-ccls))

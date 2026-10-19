@@ -147,12 +147,9 @@
 
 ;; --- Recent facts by constant ----------------------------------------------
 
-(: hm-value-hash (-[det]-> KB Atom Number))
-(= (hm-value-hash $kb $value) (index-hash (quote ($kb $value))))
-
 (: hm-record! (-[det]-> KB Atom Number Atom Atom Atom Atom))
 (= (hm-record! $kb $type $seq $time $layer $value)
-   (let* (($hash (hm-value-hash $kb $value))
+   (let* (($hash (hm-pattern-hash $kb $value))
           ($count (case (collapse (once (match &hm_value_count ($hash $kb $value $n) $n))) (
                      ((cons $n $_rest) $n)
                      (() 0))))
@@ -295,11 +292,11 @@
           ($_counted (collapse (let $pattern (superpose $patterns) (hm-count-outcome! $kb $pattern))))
           ($constants (hypothesis-constants $type))
           ($rows (collapse (let* (($value (superpose $constants))
-                                  ($hash (hm-value-hash $kb $value)))
+                                  ($hash (hm-pattern-hash $kb $value)))
                               (match &hm_recent ($hash $kb $value $_count $seq $stmt $t $l) ($seq $stmt $t $l)))))
           ($links (collapse (match &hm_links ($time $kb $link) $link)))
           ($features (hypothesis-features $type $time $rows $links (hm-window)))
-          ($period-hash (hm-value-hash $kb $time))
+          ($period-hash (hm-pattern-hash $kb $time))
           ($seq (next-search-id hm_seq))
           ($_horizon
              (if (space-row-present? &hm_period ($period-hash $kb $time $_seq $_fact $_truth $_layer)) ()
@@ -341,7 +338,7 @@
                            (let* (($_e (add-atom &hm_links ($earlier $kb $type)))
                                   ($_l (add-atom &hm_links ($later $kb $type)))
                                   ($ends (collapse (let* (($end (superpose ($earlier $later)))
-                                                          ($end-hash (hm-value-hash $kb $end)))
+                                                          ($end-hash (hm-pattern-hash $kb $end)))
                                              (match &hm_period ($end-hash $kb $end $seq $fact $truth $fact-layer) (data $seq $end $fact $truth $fact-layer)))))
                                   ($observations (hypothesis-link-observations $type $ends (hm-window)))
                                   (($_count $picked) (fold-flat (hm-propose-observation! $kb $setting) (0 ()) (the (List HmObservation) $observations))))
