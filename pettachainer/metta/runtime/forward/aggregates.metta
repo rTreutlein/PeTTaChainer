@@ -147,10 +147,12 @@
 (: fa-read-step (-[det]-> Number (List ForwardAggregateObservationKey) Number (List ForwardAggregateObservationKey)))
 (= (fa-read-step $id $keys $read) (append-flat (aggregate-readers $id $read) $keys))
 
+;; In the standard order of their keys, never the exclusion's hash order: the
+;; hashes include the process's KB id, and subtraction order shows in the sum.
 (: fa-left-out (-[det]-> Number (List Number) (List ForwardAggregateObservation)))
 (= (fa-left-out $id $exclude)
    (fold-flat append-flat () (map-flat fa-obs
-      (list_to_set (fold-flat (fa-read-step $id) () $exclude)))))
+      (sort-atom (list_to_set (fold-flat (fa-read-step $id) () $exclude))))))
 
 (: fa-result (-[semidet]-> ForwardAggregateDescriptor ForwardAggregateState TV))
 (= (fa-result (forward-base-rate-descriptor $kb $_pattern $extractor $init $step $finish)

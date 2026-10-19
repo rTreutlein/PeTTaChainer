@@ -19,6 +19,7 @@
 
 ;; Sets of key hashes, kept as SWI ordered sets (runtime_helpers.pl).
 (: hash-set (-[det]-> (List Number) (List Number)))
+(: sort-atom (-[det]-> (List $item) (List $item)))
 (: hash-union (-[det]-> (List Number) (List Number) (List Number)))
 (: hash-subset? (-[det]-> (List Number) (List Number) Bool))
 (: hash-intersection (-[det]-> (List Number) (List Number) (List Number)))

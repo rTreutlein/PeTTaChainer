@@ -49,8 +49,6 @@
 (: TokenReplacement Type)
 (: token-state (-[det]-> Atom (List Proof) TokenReplacement))
 
-(: sort-atom (-[det]-> (List $item) (List $item)))
-
 ;; The merge of two views, or, for views that share an uncertain statement
 ;; and neither of which contains the other's evidence, the statements to
 ;; condition on, the union of their dependencies, and the more confident
@@ -1982,12 +1980,13 @@
       $found))
 
 ;; The samples an instance fold read without the excluded keys leaves out; a
-;; member that is no sample leaves nothing out.
+;; member that is no sample leaves nothing out. Sorted, as member hashes carry
+;; the process's KB id and subtraction order shows in the tally.
 (: sk-left-out (-[det]-> Number (List Number) (List InstanceSample)))
 (= (sk-left-out $hash $exclude)
    (if (== $exclude ()) ()
-      (fold-flat (sk-member-sample-step $hash) ()
-         (list_to_set (fold-flat (sk-read-members-step $hash) () $exclude)))))
+      (sort-atom (fold-flat (sk-member-sample-step $hash) ()
+         (list_to_set (fold-flat (sk-read-members-step $hash) () $exclude))))))
 
 ;; A population tally is shared; exclusions subtract indexed contributions
 ;; for this read only, without mutating its authoritative aggregate or cache.

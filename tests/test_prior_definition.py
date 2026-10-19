@@ -205,6 +205,29 @@ class PriorDefinitionTests(unittest.TestCase):
         self.assertEqual(float(centre[1]), 0)
         self.assertAlmostEqual(float(centre[2]), 6/806)
 
+    def test_left_out_contributions_do_not_depend_on_the_kb_name(self):
+        # Fractional contributions subtracted in hash order changed the last
+        # bits of the centre with the KB's name (supplynet soft reports).
+        strengths = [0.13, 0.37, 0.71, 0.29, 0.83, 0.07, 0.61, 0.47, 0.93, 0.19, 0.53, 0.41]
+
+        def centre(name):
+            self.h = PeTTaChainer()
+            self.h.kb = name
+            self.h.add_atoms_no_check(
+                ['(: diagnostic (Implication (A $x) (B $x)) (CTV (STV 0.9 0.9) (STV 0.2 0.9)))']
+                + [f'(: b{i} (B x{i}) (STV {s} 0.9))' for i, s in enumerate(strengths)]
+                + [f'(: c{i} (B y{i}) (STV {s} 0.7))' for i, s in enumerate(strengths)])
+            self.h._call('set-base-rate', [f'{name} (A $x) (STV 0.5 0.5)'])
+            self.answer('(A now)')  # subscribe and maintain the incremental B fold
+            facts = ' '.join(f'(fact-ev ({name} MAIN Nil) b{i} (B x{i}))' for i in range(len(strengths)))
+            sources = self.h._call('observation-sources', [f'(evidence-set ({facts}))'])[0]
+            tv = self.formula('sk-computed-centre', f'{name} (B $x) {sources} ()')
+            return [float(value).hex() for value in tv[1:]]
+
+        # These names gave three different centres before the order was fixed.
+        self.assertEqual(centre('kbleftouta'), centre('kbleftoutb'))
+        self.assertEqual(centre('kbleftouta'), centre('kbleftoutf'))
+
     def test_excluding_one_membership_removes_the_whole_centre_member(self):
         # A two-membership sample has two sources but only one contribution.
         # With no remaining member, a synthetic concept prior cannot certify

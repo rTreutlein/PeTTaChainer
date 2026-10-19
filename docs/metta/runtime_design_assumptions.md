@@ -1524,6 +1524,10 @@ correctly and lazily.
 MeTTa definitions can produce multiple reductions. Indexed matches, agenda
 priority, proof dominance, and merge order must not acquire accidental
 nondeterminism from overlapping clauses or unstable iteration order.
+Index hashes include the process's random KB id, so left-out and exclusion
+sets are combined in standard term order, never hash order: float sums
+depend on their order, and hash order would change the last bits of a truth
+value between cold runs of the same knowledge base.
 
 Syntactic dispatch must inspect an expression's actual head before matching its
 arguments. A variable predicate in a query, rule premise/conclusion, open key,
