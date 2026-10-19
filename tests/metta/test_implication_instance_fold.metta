@@ -5,7 +5,8 @@
 ;; consequent, folded with the weighted accumulator. Open world: c has no
 ;; provable consequent and is not a sample. Strength is the mass-weighted
 ;; consequent strength, confidence is count-based. Public implication queries
-;; return that positive branch as an STV; the negative branch remains internal.
+;; return that positive branch as an STV; `(Implication (Not A) B)` asks for
+;; the negative one.
 
 !(compileadd instanceFactsKb (: a1 (A a) (STV 1.0 0.9)))
 !(compileadd instanceFactsKb (: a2 (A b) (STV 1.0 0.9)))
@@ -153,9 +154,46 @@
 !(compileadd negKb (: m4 (B s) (STV 0 1)))
 !(compileadd negKb (: m5 (B t) (STV 0 1)))
 !(compileadd negKb (: m6 (B u) (STV 0 1)))
+;; The negated antecedent's instances are A's antecedent-false samples, read
+;; from A's own fold (#108): 1 of 4 at their count, alike cold and after the
+;; positive query.
+!(test
+   (let (: $prf $type $tv) (query 100 negKb (: $prf (Implication (Not (A $v)) (B $v)) $tv)) $tv)
+   (STV 0.24990002999100272 0.004974629489078395))
 !(test
    (let (: $prf $type $tv) (query 100 negKb (: $prf (Implication (A $v) (B $v)) $tv)) $tv)
    (STV 1.0 0.0024937655860349127))
+!(test
+   (let (: $prf $type $tv) (query 100 negKb (: $prf (Implication (Not (A $v)) (B $v)) $tv)) $tv)
+   (STV 0.24990002999100272 0.004974629489078395))
+;; Without an antecedent-false instance the negated antecedent has no sample,
+;; and the instances give it no answer (every A of instanceFactsKb is true).
+!(test (query 100 instanceFactsKb (: $prf (Implication (Not (A $v)) (B $v)) $tv)) ())
+
+;; Uncertain samples weigh each branch by the antecedent's mass on its side,
+;; the claim's confidence times the consequent's (0.81), times the claim's
+;; strength for the positive branch and its complement for the negative one:
+;; P(Up | Claims) = (0.81 + 0.2025 * 0.6) / (0.81 + 0.2025) and
+;; P(Up | not Claims) = (0.81 + 0.6075 * 0.6) / (0.81 * 2 + 0.6075), at the
+;; count of their masses. One regime keeps the plain counts.
+!(set-rule-change-hazard softKb 0)
+!(compileadd softKb (: c1 (Claims a) (STV 1 0.9)))
+!(compileadd softKb (: c2 (Claims b) (STV 0 0.9)))
+!(compileadd softKb (: c3 (Claims c) (STV 0 0.9)))
+!(compileadd softKb (: c4 (Claims d) (STV 0.25 0.9)))
+!(compileadd softKb (: u1 (Up a) (STV 1 0.9)))
+!(compileadd softKb (: u2 (Up b) (STV 1 0.9)))
+!(compileadd softKb (: u3 (Up c) (STV 0 0.9)))
+!(compileadd softKb (: u4 (Up d) (STV 0.6 0.9)))
+!(test
+   (collapse (let (query-result $i (: $prf $type (STV $s $c)))
+         (query-many 100 softKb
+            ((: $p (Implication (Claims $n) (Up $n)) $tv)
+             (: $q (Implication (Not (Claims $m)) (Up $m)) $tv2)))
+      (let ($ws $ms) (if (== $i 0) (0.9315 1.0125) (1.1745 2.2275))
+         (and (< (abs-math (- $s (/ $ws $ms))) 1e-12)
+            (< (abs-math (- $c (count-confidence $ms))) 1e-12)))))
+   (true true))
 
 ;; --- Three conjuncts --------------------------------------------------------
 ;; The conjunction of the antecedent's truth values is multiplied pairwise, as

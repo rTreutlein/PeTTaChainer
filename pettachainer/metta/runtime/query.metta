@@ -172,7 +172,7 @@
              (|-> ($row) (query-result (fst $row) (snd $row)))
              (run-query-execution-plan
                 $steps
-                (query-execution-plan $roots (list_to_set $adds))
+                (query-execution-plan $roots (alpha_unique_keys $adds))
                 $materialize? $expand?))))
       (superpose $rows)))
 

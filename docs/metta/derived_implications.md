@@ -259,6 +259,12 @@ To ask for the negative statement, query it explicitly:
 ;; => (: <proof> (Implication (Not G) Y) (STV <strength> <confidence>))
 ```
 
+Its empirical instance evidence comes from G's instance fold, the same
+samples and fold as the positive query's: the negative branch, from the
+instances where G is false. Before such an instance is seen the instances
+give the negated judgment no answer: the base-rate estimate that the
+fold's internal CTV carries until then is no instance evidence (#108).
+
 The judgment assumes the stated antecedent in its private context. Under
 `(Not G)`, every reader of G reads `(STV 0 1)`; under G, every reader of G
 reads `(STV 1 1)`. This includes negated premises lowered to a read of G

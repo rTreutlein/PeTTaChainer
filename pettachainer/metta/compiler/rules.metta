@@ -493,62 +493,72 @@
 ;; concludes a CTV: P(B | A) from the instances where the antecedent holds and
 ;; P(B | not A) from those where it fails, or, while no antecedent-false
 ;; instance was seen, from both sides' base rates, as a stored STV rule does;
-;; otherwise it concludes the positive branch as an STV.
+;; otherwise it concludes the positive branch as an STV. A negated antecedent
+;; (Not A) has A's samples and fold, the same rows as A's: its instances are
+;; A's antecedent-false ones, so it concludes A's fold with the branches
+;; swapped, once such an instance was seen.
 (: compile-implication-instance-adds
    (-[det]-> Bool KB Statement Statement Statement (List CompiledAddition)))
-(= (compile-implication-instance-adds $ctv? $kb $Type $antecedent $consequent)
-   (if (implication-instance-supported? $antecedent $consequent)
-      (let*
-         (($conjuncts (implication-side-conjuncts $antecedent))
-          ($single (== (cdr-atom $conjuncts) ()))
-          ;; The antecedent premises come first, then the conjunction of
-          ;; their truth values (`$tvs`, bound by the fold below), then the
-          ;; consequent; the sample proof lists their proofs in that order.
-          ($parts
-             (foldr-flat (implication-instance-premise $kb)
-                (instance-sample-parts $consequent-goals (cons $bprf ()) ())
-                $conjuncts)))
-         (case $parts (
-            ((instance-sample-parts $premises $proofs $tvs)
-               (let*
-                  (($consequent-goals
-                      (case $tvs (
-                         ((cons $first $more)
-                            (if $single (cons (: (kbctx $kb) $bprf $consequent $btv) ())
-                               (and-tv-goals AndFormula $first $more $and-tv (cons (: (kbctx $kb) $bprf $consequent $btv) ())))))))
-                   ($atv (if $single (car-atom $tvs) $and-tv))
-                   ($finish (if $ctv? implication-instance-ctv implication-instance))
-                   ($sample-pattern (ImplicationInstanceSample $antecedent $consequent $atv $btv))
-                   ($fold
-                      (CPU FoldAllCompiled
-                         (quote
-                            ($kb $sample-pattern
-                               (extract-value $sample-pattern (WeightedTv $atv $btv))
-                               (InstanceEvidence (BaseRateEvidence 0.0 0.0) (BaseRateEvidence 0.0 0.0))
-                               ImplicationInstanceAcc $finish result-tv))
-                         $fold-tv))
-                   ($positive (CPU MemberInheritanceEvidenceFormula ($fold-tv) $instance-tv))
-                   (($ctv-goals $instance-ctv $_instance-likelihoods)
-                      (implication-ctv-goals $kb () $antecedent $consequent $instance-tv false))
-                   ($fold-premises (cons $fold (cons $positive (if $ctv? $ctv-goals ()))))
-                   ($fold-result (if $ctv? $instance-ctv $instance-tv)))
-                  ;; Built with cons: the determinism checker reads a tuple
-                  ;; headed by a variable, ($premises |- ...), as a call.
-                  (cons
-                     (brand CompiledAddition
-                        (cons $premises
-                           (cons |-
-                              (cons (: (kbctx $kb) (cons implication-instance-sample $proofs)
-                                       $sample-pattern (STV 1.0 1.0))
-                                 ()))))
+(= (compile-implication-instance-adds $ctv? $kb $Type $stated $consequent)
+   (let* (($negated (head-is? $stated Not))
+          ($antecedent (if $negated (brand Statement (car-atom (cdr-atom $stated))) $stated)))
+      (if (implication-instance-supported? $antecedent $consequent)
+         (let*
+            (($conjuncts (implication-side-conjuncts $antecedent))
+             ($single (== (cdr-atom $conjuncts) ()))
+             ;; The antecedent premises come first, then the conjunction of
+             ;; their truth values (`$tvs`, bound by the fold below), then the
+             ;; consequent; the sample proof lists their proofs in that order.
+             ($parts
+                (foldr-flat (implication-instance-premise $kb)
+                   (instance-sample-parts $consequent-goals (cons $bprf ()) ())
+                   $conjuncts)))
+            (case $parts (
+               ((instance-sample-parts $premises $proofs $tvs)
+                  (let*
+                     (($consequent-goals
+                         (case $tvs (
+                            ((cons $first $more)
+                               (if $single (cons (: (kbctx $kb) $bprf $consequent $btv) ())
+                                  (and-tv-goals AndFormula $first $more $and-tv (cons (: (kbctx $kb) $bprf $consequent $btv) ())))))))
+                      ($atv (if $single (car-atom $tvs) $and-tv))
+                      ($finish (if (if $negated true $ctv?) implication-instance-ctv implication-instance))
+                      ($sample-pattern (ImplicationInstanceSample $antecedent $consequent $atv $btv))
+                      ($fold
+                         (CPU FoldAllCompiled
+                            (quote
+                               ($kb $sample-pattern
+                                  (extract-value $sample-pattern (WeightedTv $atv $btv))
+                                  (InstanceEvidence (BaseRateEvidence 0.0 0.0) (BaseRateEvidence 0.0 0.0))
+                                  ImplicationInstanceAcc $finish result-tv))
+                            $fold-tv))
+                      ($positive (CPU MemberInheritanceEvidenceFormula ($fold-tv) $instance-tv))
+                      (($ctv-goals $instance-ctv $_instance-likelihoods)
+                         (implication-ctv-goals $kb () $antecedent $consequent $instance-tv false))
+                      ($fold-premises
+                         (cons $fold
+                            (if $negated (cons (CPU opposite-instance-tv ($fold-tv) $opposite-tv) ())
+                               (cons $positive (if $ctv? $ctv-goals ())))))
+                      ($fold-result (if $negated $opposite-tv (if $ctv? $instance-ctv $instance-tv))))
+                     ;; Built with cons: the determinism checker reads a tuple
+                     ;; headed by a variable, ($premises |- ...), as a call.
                      (cons
                         (brand CompiledAddition
-                           (cons $fold-premises
+                           (cons $premises
                               (cons |-
-                                 (cons (: (kbctx $kb) (implication-instance-fold cpu) $Type $fold-result)
+                                 (cons (: (kbctx $kb) (cons implication-instance-sample $proofs)
+                                          $sample-pattern (STV 1.0 1.0))
                                     ()))))
-                        ())))))))
-      ()))
+                        (cons
+                           (brand CompiledAddition
+                              (cons $fold-premises
+                                 (cons |-
+                                    (cons (: (kbctx $kb) (implication-instance-fold cpu) $Type $fold-result)
+                                       ()))))
+                           ())))))))
+         ())))
+(: opposite-instance-tv (-[semidet]-> TV CTVType))
+(= (opposite-instance-tv $tv) (case $tv (((CTV $pos $neg) (CTV $neg $pos)))))
 
 ;; Compile the backward use of an implication stated with an STV: derive its
 ;; negative branch from the base rates of both sides, invert by the ratio

@@ -39,8 +39,11 @@
    ((STV 0.8 0.9)))
 !(compileadd negCtxK4 (: (no_inverse bridge)
    (Implication (B $x) (C $x)) (CTV (STV 1 1) (STV 0 1))))
+;; Item is an instance of (Not (A Item)) -> (C Item) as well, its antecedent
+;; false at 0.9 in MAIN and (C Item) derived through r4: that instance fold
+;; revises the judgment, as the positive judgment's fold revises it (#108).
 !(test (let (: $p $type (STV $s $c))
-   (query 100 negCtxK4 (: $q (Implication (Not (A Item)) (C Item)) $tv)) (<= (abs-math (- $s 0.8)) 1e-12)) true)
+   (query 100 negCtxK4 (: $q (Implication (Not (A Item)) (C Item)) $tv)) (<= (abs-math (- $s 0.7999997312528624)) 1e-12)) true)
 !(compileadd negCtxK3 (: r3 (Implication (A $x) (B $x))
    (CTV (STV 0.3 0.9) (STV 0.8 0.9))))
 !(test (collapse (let (: $p $type $value)
