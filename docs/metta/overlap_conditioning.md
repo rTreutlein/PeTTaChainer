@@ -244,6 +244,13 @@ row evaluations per unit. All branches, deeper passes and nested claims draw
 from the same remaining evaluation allowance, so exponential branching cannot
 exceed that allowance. Reads of independent stored views cost nothing.
 
+A conditioned value mixes its target's views under the two branches. It has
+the branches' reference class and forward parts when they agree, as a revision
+does, so a conditioned row combines with sibling rule views by odds, as the
+unconditioned row would (test_overlap_conditioning, condSiblingKb). A claim an
+exception left open is closed when the next query or forward run starts, so
+its state never carries into later evaluations.
+
 The dependency estimate (twice one plus the dependency count) orders waiting
 targets after depth; it does not gate admission. A cut can replace a large
 history by a known statement and recompute only a short suffix. Prepaying the

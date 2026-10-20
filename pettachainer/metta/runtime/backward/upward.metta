@@ -375,6 +375,8 @@
        (List (Statement KBContext Proof TV))))
 (= (forward-chain $units $kb $facts)
    (once (let* (($started (inference-clock))
+          ;; a claim or branch frame an exception left open is closed
+          ($_claim (sk-close-claim!))
           ($_branch-frame (change-state! sk_branch_at 0))
           ($_branch-cuts (remove-data-rows! &sk_branch_cuts (quote ($_frame $_exclude $_cuts))))
           ($_branch-reader (remove-data-rows! &sk_reading (quote ($_hash $_key $_row))))

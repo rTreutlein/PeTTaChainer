@@ -1273,6 +1273,13 @@ that same allowance. An exhausted closed-read claim marks its rebuild frame
 unfinished, so an unpaid approximation cannot settle a branch cache. No claim
 can borrow from another query or exceed the remaining allowance.
 
+A conditioned value mixes its target's views under the two branches. It has
+the branches' reference class and forward parts when they agree, as a revision
+does, so a conditioned row combines with sibling rule views by odds, as the
+unconditioned row would (test_overlap_conditioning, condSiblingKb). A claim an
+exception left open is closed when the next query or forward run starts, so
+its state never carries into later evaluations.
+
 **Capped root refinement.** Only a queried key at need depth zero, outside
 any condition and outside forward evaluation, may also claim deep overlaps.
 Nested keys retain the one-step rule. Root claims share one eighth of the

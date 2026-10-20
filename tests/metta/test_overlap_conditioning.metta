@@ -87,3 +87,19 @@
 ;; population strength and halve confidence for the minimum R=1 allowance.
 !(test (query 100 premiseKb (: $p (X b) $tv))
    (: (combination odds (prior (STV 0.5 0.0)) ((by ra (conjunction link sa)) (by rb (conjunction link sb)))) (X b) (STV 0.5518672199170126 6.79858828673945e-06)))
+;; A row conditioned on the statement its premises share keeps its rule's
+;; class: it combines with a sibling rule's view by odds, as the unconditioned
+;; row would, not by revision.
+!(compileadd condSiblingKb (: link (Link a b) (STV 1 1)))
+!(compileadd condSiblingKb (: s (S a) (STV 0.6 0.9)))
+!(compileadd condSiblingKb (: sb (B b) (STV 0.3 0.9)))
+!(compileadd condSiblingKb (: sx (Implication (S $x) (X $x)) (CTV (STV 0.9 1) (STV 0.2 1))))
+!(compileadd condSiblingKb (: sy (Implication (S $x) (Y $x)) (CTV (STV 0.8 1) (STV 0.1 1))))
+!(compileadd condSiblingKb (: ra (Implication (And (Link $x $y) (X $x) (Y $x)) (W $y)) (CTV (STV 0.9 1) (STV 0.2 1))))
+!(compileadd condSiblingKb (: rb (Implication (And (Link $x $y) (B $y)) (W $y)) (CTV (STV 0.7 1) (STV 0.1 1))))
+!(test (query 2000 condSiblingKb (: $p (W b) $tv))
+   (: (combination odds (prior (STV 0.5 0.0))
+         ((by rb (conjunction link sb))
+          (conditioned s (by ra (conjunction link (by sx (given true)) (by sy (given true))))
+                         (by ra (conjunction link (by sx (given false)) (by sy (given false)))))))
+      (W b) (STV 0.28649693844666446 0.0001393321587118146)))

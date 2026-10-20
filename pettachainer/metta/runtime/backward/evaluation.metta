@@ -391,18 +391,23 @@
 ;; The forward conclusions a view combines: a rule application is one, a
 ;; combination of forward views (docs/metta/combination_modes.md) its parts.
 (: sk-forward-parts (-[det]-> Proof (List Proof)))
+(: sk-pair-parts (-[det]-> Proof Atom Atom (List Proof)))
 (= (sk-forward-parts $proof)
    (let $step (sk-step-proof $proof)
       (if (rule-application-proof? $step) (cons $proof ())
          (case $step (
             ((combination $mode $_combination-prior $parts)
                (if (== $mode revision) (cons $proof ()) (proof-children $parts)))
-            ((merge/revision $left $right)
-               (let* (($left-parts (sk-forward-parts (brand Proof $left)))
-                      ($right-parts (sk-forward-parts (brand Proof $right))))
-                  (if (if (== $left-parts ()) true (== $right-parts ())) () (cons $proof ()))))
+            ((merge/revision $left $right) (sk-pair-parts $proof $left $right))
+            ((conditioned $_weight $yes $no) (sk-pair-parts $proof $yes $no))
             ((specializes $_specific $_general $_raw $_prior-tv) (cons $proof ()))
             ($_other ()))))))
+
+;; A revision or a conditioning of two views combines forward views when both do.
+(= (sk-pair-parts $proof $left $right)
+   (let* (($left-parts (sk-forward-parts (brand Proof $left)))
+          ($right-parts (sk-forward-parts (brand Proof $right))))
+      (if (if (== $left-parts ()) true (== $right-parts ())) () (cons $proof ()))))
 
 ;; The observations of the updates a view merges, by hash: an inversion's
 ;; observation or a completion's consequence, its last witness.
@@ -1179,6 +1184,7 @@
             ($_goal (sk-reference no-class $view)))))))))
 
 (: sk-reference-of (-[semidet]-> SkeletonValue SkeletonReference))
+(: sk-pair-reference (-[semidet]-> SkeletonValue Atom Atom SkeletonReference))
 (= (sk-reference-of $view)
    (case $view (
       ((sk-val ($_type $_ctx $proof $_tv) $ev $_deps)
@@ -1193,17 +1199,21 @@
                (let (sk-reference $class $_original)
                      (sk-reference-of (sk-val (assemble-runtime-fact $_type $_ctx (brand Proof $specific) $_tv) $ev $_deps))
                   (sk-reference $class $view)))
-            ((merge/revision $left $right)
-               (let* (((sk-reference $class-left $_left)
-                          (sk-reference-of (sk-val (assemble-runtime-fact $_type $_ctx (brand Proof $left) $_tv) $ev $_deps)))
-                      ((sk-reference $class-right $_right)
-                          (sk-reference-of (sk-val (assemble-runtime-fact $_type $_ctx (brand Proof $right) $_tv) $ev $_deps))))
-                  (sk-reference (if (=alpha $class-left $class-right) $class-left no-class) $view)))
+            ((merge/revision $left $right) (sk-pair-reference $view $left $right))
+            ((conditioned $_weight $yes $no) (sk-pair-reference $view $yes $no))
             ((combination $_mode $_combination-prior $parts)
                (sk-reference (sk-combined-class
                   (list_to_set (fold-semidet (sk-combined-condition-step $view) () (proof-children $parts)))) $view))
             ($_other (sk-reference no-class $view)))))
       ($_goal (sk-reference no-class $view)))))
+
+;; A revision or a conditioning of two views has their class when they agree.
+(= (sk-pair-reference (sk-val ($type $ctx $proof $tv) $ev $deps) $left $right)
+   (let* (((sk-reference $class-left $_left)
+             (sk-reference-of (sk-val (assemble-runtime-fact $type $ctx (brand Proof $left) $tv) $ev $deps)))
+          ((sk-reference $class-right $_right)
+             (sk-reference-of (sk-val (assemble-runtime-fact $type $ctx (brand Proof $right) $tv) $ev $deps))))
+      (sk-reference (if (=alpha $class-left $class-right) $class-left no-class) (sk-val ($type $ctx $proof $tv) $ev $deps))))
 
 (: sk-contained? (-[det]-> SkeletonReference SkeletonReference Bool))
 (= (sk-contained? $specific $general)
@@ -5836,6 +5846,8 @@
    (let* (($_references (context-remove! &sk_summary_reference ($_hash $_key $_row $_given $_exclude $_filter $_value)))
           ($_representatives (context-remove! &sk_representative ($_hash $_key $_row $_given $_exclude $_value)))
           ($_representative-budget (change-state! sk_representative_budget 256))
+          ;; a claim or branch frame an exception left open is closed
+          ($_claim (sk-close-claim!))
           ($_branch-frame (change-state! sk_branch_at 0))
           ($_branch-cuts (remove-data-rows! &sk_branch_cuts (quote ($_frame $_exclude $_cuts))))
           ($_branch-reader (remove-data-rows! &sk_reading (quote ($_hash $_key $_row))))

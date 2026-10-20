@@ -270,6 +270,28 @@ class DeepConditioningTests(unittest.TestCase):
             "retractall('&sk_branch_wanted'(_,_,['sk-key',_,[Kb,'MAIN','Nil']],_,_)), "
             "retractall('&sk_branch_hold'(_,_,['sk-key',_,[Kb,'MAIN','Nil']],_,_))", {'Kb': handler.kb})
 
+    def test_interrupted_claim_does_not_carry_into_later_queries(self):
+        # An exception thrown inside a root claim skips its close. The next
+        # query starts with no claim open, so it and a fresh handler answer
+        # alike and pay alike (a stuck claim state once made a fresh handler
+        # pay 866 conditioned rows instead of 308).
+        query = ['(: $p (Degraded plant t4) $tv)']
+        interrupted = PeTTaChainer()
+        plant(interrupted, 4)
+        janus.consult("interrupt_claim", "interrupt_claim :- ( nb_current(sk_claim_state, S), S >= 0 "
+                      "-> throw(claim_interrupted) ; alarm(0.001, interrupt_claim, _, [remove(true)]) ).\n")
+        janus.query_once("alarm(0.001, interrupt_claim, _, [remove(true)])")
+        with self.assertRaises(Exception):
+            interrupted.query_many_refs(query, steps=3000)
+        def answer(handler):
+            handler.set_query_metrics(True)
+            tv = handler.query_many_refs(query, steps=3000)[0][0].tv
+            return tv, handler.last_query_metrics()['conditioned_evaluations']
+        again = answer(interrupted)
+        fresh = PeTTaChainer()
+        plant(fresh, 4)
+        self.assertEqual(again, answer(fresh))
+
     def test_two_period_reports(self):
         self.assertEqual(self.check_plant(2, 20000)['conditions_unpaid'], 0)
 
