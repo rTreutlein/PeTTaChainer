@@ -434,72 +434,6 @@
 (= (sk-sources-meet? $parts-a $parts-b)
    (not (== (/==\ (sk-part-witnesses $parts-a) (sk-part-witnesses $parts-b)) ())))
 
-;; Context evidence is cached by immutable proof reference, including the given
-;; siblings of nested completions. Certainty is checked against the live KB
-;; below, rather than cached with the proof's structural context.
-(: proof-given-evidence (-[det]-> Proof EvidenceSet))
-
-;; The evidence a view holds about its statement apart from what it reads as
-;; given: its evidence less the certain facts its completions read as
-;; siblings, and, for a complete statement, less the certain complete facts
-;; its rule application reads as premises that the other view observes.
-;; Given a sibling K, a completion is the likelihood ratio of its consequence
-;; alone, P(C | M, K) over P(C | not M, K); it holds no evidence of M through
-;; K. So a view that reads K as an observation, an inversion of K's rule
-;; P(K | M), or as a premise, a forward view P(M | K), is independent of it
-;; given K, and Bayes' rule over both is exact: P(M) P(K | M) P(C | M, K). An
-;; uncertain sibling's value is read as independent of M a priori, so it stays
-;; evidence. A premise another view observes as M's effect is both M's cause
-;; and its effect, which only a loop through M allows. In a loop of complete
-;; predicates the cause read as given adds nothing the observation does not:
-;; a false disjunct adds nothing to the rule's other causes, and a true one is
-;; explained only through M (fuzzer seed 14000138). Elsewhere the two read K
-;; twice (a symmetric relation's rule and its completion,
-;; test_specializing_rule.metta), so the premise stays shared.
-(: sk-update-evidence (-[det]-> SkFact EvidenceSet SkFact EvidenceSet))
-(= (sk-update-evidence ($type $kbctx $proof $tv) $ev ($_otype $_okbctx $other $otv))
-   (case (data (sk-prior-update-of $proof $tv) (sk-prior-update-of $other $otv)) (
-      (((sk-prior-update $_prior $_own $_parts) (sk-prior-update $_oprior $_oown $oparts))
-         (let $without-siblings
-               (evidence-subtraction $ev
-                  (evidence-set (fold-flat (evidence-certainty-step true) () (evidence-entries (proof-given-evidence $proof)))))
-            (sk-without-given $without-siblings
-               (sk-application-premises $type $kbctx $proof)
-               (sk-part-witnesses $oparts)))))))
-
-;; The premises a rule application of a complete statement reads directly, by
-;; hash.
-(: sk-application-premises (-[det]-> Atom Atom Proof (List Number)))
-(= (sk-application-premises $type $kbctx $proof)
-   (if (complete-statement? $type $kbctx)
-      (case (sk-step-proof $proof) (
-         ((by $_rule $premise)
-            (map-flat sk-witness-hash (the (List Atom) (case $premise (
-               ((cons conjunction $names) $names)
-               ((settled $part) (cons $part ()))
-               ($_one (cons $premise ())))))))
-         ($_update ())))
-      ()))
-
-;; Evidence less the certain complete premises the other view observes.
-(: sk-without-given (-[det]-> EvidenceSet (List Number) (List Number) EvidenceSet))
-(= (sk-without-given $ev $premises $observed)
-   (if (if (== $premises ()) true (== $observed ())) $ev
-      (evidence-subtraction $ev
-         (evidence-set (fold-flat (sk-given-entry-step $premises $observed) () (evidence-entries $ev))))))
-
-(: sk-given-entry-step (-[det]-> (List Number) (List Number) (List Evidence) Evidence (List Evidence)))
-(= (sk-given-entry-step $premises $observed $kept $entry)
-   (case $entry (
-      ((fact-ev $kbctx $proof $type)
-         (let $hash (index-hash $proof)
-            (if (if (stored-list-member? $hash $observed)
-                   (if (stored-list-member? $hash $premises) (complete-statement? $type $kbctx) false)
-                   false)
-               (if (certain-fact-evidence? $entry) (cons $entry $kept) $kept)
-               $kept)))
-      ($_other $kept))))
-
 ;; Exclusion/subtraction may change only floating-point rounding of the
 ;; same prior. Compare its TV at arithmetic precision so independent updates
 ;; do not fall through into ordinary revision.
@@ -866,37 +800,23 @@
                ($keys (sk-entangled $keys (+ 1 (deps-size (deps-join $deps))) $state))))))
       ($_other $state))))
 
-;; After sk-update-evidence removes hard facts read as given, a remaining
-;; concludable fact may be the same consequence observation in both updates.
-;; Retain that protection even for hard reports: a likelihood counts once.
-;; A fact no rule concludes is a premise either reads as given.
-(: sk-concludable-fact? (-[det]-> Statement Atom Bool))
-(= (sk-concludable-fact? $type $kbctx) (let $kbid (car-atom $kbctx) (prefilter-head-concludable? $type $kbid)))
-
-(: sk-observation-step (-[det]-> Bool Evidence Bool))
-(= (sk-observation-step $found $entry)
-   (if $found true
-      (if (certain-fact-evidence? $entry)
-         (case $entry (
-            ((fact-ev $kbctx $_proof $type) (sk-concludable-fact? (the Statement $type) $kbctx))
-            ((not-fact-ev $nkbctx $_nproof $ntype) (sk-concludable-fact? (the Statement $ntype) $nkbctx))
-            ($_name true)))
-         false)))
-
 ;; Views merge as proofs do: an identical proof pools its evidence, a
 ;; projection gives way to its full proof and a settled step to its complete
-;; one. Views whose evidence is disjoint, or overlaps only in rules and in
-;; facts read as given premises while each holds evidence of its own, are
-;; independent (given its truth, a rule's applications are): they
-;; combine by the prior they update, by the mode their predicate's outcomes
-;; prefer, or by revision. Of dependent views, one whose evidence strictly
-;; contains the other's is kept only if it also used every given the other
-;; used; two that share an uncertain statement are an
-;; overlap, which the key's merge conditions on the shared statements; any
-;; other pair keeps the more confident view, also the overlap's fallback. A
-;; view's evidence is compared without the certain facts it reads as given
-;; (sk-update-evidence). A dominated view contributes neither
-;; evidence nor dependencies. The ignored
+;; one. Two views are compared by one relation over their evidence without the
+;; certain facts (a certain fact is given, whoever reads it and in which role:
+;; views sharing it are independent given it) and over the uncertain statements
+;; both depend on:
+;; - contained: one's evidence, and every given it used, lies within the other's;
+;;   the container stands for both;
+;; - conditionable: they share uncertain statements, which the key's merge
+;;   conditions on, or reads as fixed marginals when they lie deeper;
+;; - overlapping: they share uncertain evidence with nothing left to condition
+;;   on; they revise counting the shared evidence once;
+;; - independent: none of these. They combine by the prior they update, by the
+;;   mode their predicate's outcomes prefer, or by revision.
+;; Rules are parameters: sharing one makes no dependence, but a rule's axiom is
+;; contained in a proof through it. No view is ever selected by confidence. A
+;; dominated view contributes neither evidence nor dependencies. The ignored
 ;; hashes are the merged key's, those of the keys unifying with it, those the
 ;; reader excludes and the statements given.
 (: sk-merge-facts
@@ -920,28 +840,44 @@
             (if (specialization-includes? $proof-b $proof-a) (sk-paired $vb)
             (if (if (more-specific-application? $proof-a $proof-b) (if $combine (if (sk-siblings? true $va $vb) false true) true) false) (sk-paired (sk-specialized $a $ev-a $deps-a $b $ev-b $deps-b))
             (if (if (more-specific-application? $proof-b $proof-a) (if $combine (if (sk-siblings? true $va $vb) false true) true) false) (sk-paired (sk-specialized $b $ev-b $deps-b $a $ev-a $deps-a))
-               (let* (($touch (evidence-overlap? $ev-a $ev-b))
-                      ($cmp-a (if $touch (sk-update-evidence $a $ev-a $b) $ev-a))
-                      ($cmp-b (if $touch (sk-update-evidence $b $ev-b $a) $ev-b))
-                      ($overlap (if $touch (evidence-overlap? $cmp-a $cmp-b) false))
-                      ($a-in-b (if $overlap (if (evidence-subset? $cmp-a $cmp-b) (hash-subset? (deps-excluded $ignore $deps-a) (deps-excluded $ignore $deps-b)) false) false))
-                      ($b-in-a (if $overlap (if (evidence-subset? $cmp-b $cmp-a) (hash-subset? (deps-excluded $ignore $deps-b) (deps-excluded $ignore $deps-a)) false) false))
-                      ($apart (if $overlap (if $a-in-b false (if $b-in-a false true)) false))
-                      ($shared (if $apart (sk-shared-statements $ignore (deps-shared $deps-a $deps-b)) ()))
-                      ($independent
-                         (if $overlap
-                            (if $apart (if (== $shared ()) (if (fold-flat sk-observation-step false (evidence-shared-facts $cmp-a $cmp-b)) false true) false) false)
-                            true))
+               (let* (;; Views sharing uncertain evidence, or a certain fact both
+                      ;; observed, are dependent; views sharing only certain facts
+                      ;; one of them read as a condition are independent given
+                      ;; them. Of dependent views, one whose evidence, certain
+                      ;; facts included, lies within the other's, with every given
+                      ;; it used, stands for both. Views apart that share uncertain
+                      ;; evidence through uncertain statements both read are
+                      ;; partial computations of one posterior: they condition on
+                      ;; those statements. Views apart that share no statement
+                      ;; are taken as independent until conditioning on entries
+                      ;; (design step 4) covers them.
+                      ($overlap (evidence-uncertain-overlap? $ev-a $ev-b))
+                      ($roles (if $overlap roles-pending (evidence-observed-roles $ev-a $ev-b)))
+                      ($touch (if $overlap true (== $roles observed)))
+                      ($a-in-b (if $touch (if (evidence-subset? $ev-a $ev-b) (hash-subset? (deps-excluded $ignore $deps-a) (deps-excluded $ignore $deps-b)) false) false))
+                      ($b-in-a (if $touch (if (evidence-subset? $ev-b $ev-a) (hash-subset? (deps-excluded $ignore $deps-b) (deps-excluded $ignore $deps-a)) false) false))
+                      ($contained (if $a-in-b true $b-in-a))
+                      ($shared (if $contained () (if $overlap (sk-shared-statements $ignore (deps-shared $deps-a $deps-b)) ())))
+                      ($independent (if $contained false
+                         (== $shared ())))
+                      ($observed (if $independent
+                         (case (if (== $roles roles-pending) (evidence-observed-roles $ev-a $ev-b) $roles) (
+                            (no-shared false)
+                            (observed true)
+                            (a-condition (not (== (sk-forward-parts $proof-a) ())))
+                            (b-condition (not (== (sk-forward-parts $proof-b) ()))))) false))
                       ($twins
                          (if $independent
                             (if (sk-derivation-proof? $proof-a) (if (sk-derivation-proof? $proof-b) (sk-sample-twins? $va $vb) false) false)
                             false))
-                      ($factored (if $twins sk-none
-                                    (sk-factored-merge $a $ev-a $deps-a $b $ev-b $deps-b $independent)))
+                      ($factored (if $twins sk-none (if $observed sk-none
+                                    (sk-factored-merge $a $ev-a $deps-a $b $ev-b $deps-b $independent))))
                       ($siblings (if (== $factored sk-none)
                                     (if $combine (if (== $shared ())
                                        (sk-siblings? true $va $vb) false) false)
                                     false)))
+                  ;; Twins are one estimate from the same samples: as for equal
+                  ;; evidence, the larger count holds it.
                   (if $twins (sk-paired (sk-dependent-merge false $va $vb))
                   (if (not (== $factored sk-none)) (sk-paired $factored)
                      (if $siblings (sk-paired (sk-sibling-merge true $va $vb))
@@ -950,16 +886,29 @@
                      (if $independent
                         (let* (($pooled (evidence-union $ev-a $ev-b))
                                ($deps (deps-union $deps-a $deps-b))
-                               ($combined (if $combine (sk-combined-merge $a $b $pooled $deps) sk-none)))
+                               ($combined (if $combine (if $observed sk-none (sk-combined-merge $a $b $pooled $deps)) sk-none)))
                            (sk-paired
                               (if (not (== $combined sk-none)) $combined
-                                 (if (>= (term-confidence $a) (term-confidence $b))
-                                    (sk-val (RevisionMergeProof $a $b) $pooled $deps)
-                                    (sk-val (RevisionMergeProof $b $a) $pooled $deps)))))
+                                 (sk-val (RevisionMergeProof disjoint $a $b) $pooled $deps))))
                         (if (if $a-in-b (if $b-in-a false true) false) (sk-paired $vb)
                            (if (if $b-in-a (if $a-in-b false true) false) (sk-paired $va)
-                              (sk-overlap $shared (deps-union $deps-a $deps-b)
-                                 (sk-dependent-merge false $va $vb))))))))))))))))))))
+                              ;; Equal recorded evidence: the estimate with the larger
+                              ;; count holds all of it and stands for both.
+                              (if (if $a-in-b $b-in-a false)
+                                 (sk-paired (if (>= (term-confidence $a) (term-confidence $b)) $va $vb))
+                              (if (== $shared ()) (sk-paired (sk-dependent-merge false $va $vb))
+                                 (sk-overlap $shared (deps-union $deps-a $deps-b)
+                                    (sk-dependent-merge false $va $vb))))))))))))))))))))))
+
+;; A certain fact both views observed, or a forward view's condition the other
+;; observed (a cause that is also an effect, which only a loop allows, as a
+;; symmetric relation's rule and its completion): given it they are
+;; independent and revise, but a product would apply what it tells twice. In a
+;; loop of complete predicates a cause read as given adds nothing the
+;; observation does not (fuzzer seed 14000138), so there they stay independent.
+;; A completion's sibling is a condition of its likelihood, not a cause, and
+;; two views that both read the fact as a condition are independent
+;; (evidence-observed-roles).
 
 ;; Two derivations through different refined rules whose truths were folded
 ;; from the same samples, observing the same outcomes, are one estimate from
@@ -1126,7 +1075,7 @@
          (let ($parts $s $_complete) (sk-antecedent (brand Proof $part) $ev) (data $parts $s false)))
       ((given $truth) (data () (if (== $truth true) 1.0 0.0) false))
       ($_leaf
-         (let $entries (evidence-entries $ev)
+         (let $entries (evidence-entries (evidence-inherited $ev))
             (once (let (fact-ev $ctx $proof $type) (superpose $entries)
                (match &kb ($type $ctx $proof (STV $s $_c)) (data (implication-side-conjuncts (brand Statement $type)) $s true)))))))))
 
@@ -1492,6 +1441,11 @@
                        (min $c (min $ca $cb))))
          (evidence-union $ev-a $ev-b) (deps-union $deps-a $deps-b))))
 
+;; Dependent views that cannot be conditioned keep the more confident one, a
+;; copy of the shared evidence, until conditioning on entries (step 4) takes
+;; them over. Revising them would carry both views' evidence onward, and every
+;; later view would then seem to contain views it never read (pln-reliable,
+;; design.md §8).
 (= (sk-dependent-merge $product $a $b)
    (if (sk-siblings? false $a $b) (sk-sibling-merge $product $a $b)
       (case (data $a $b) (
@@ -1515,6 +1469,16 @@
 (= (sk-discounted (sk-val ($type $kbctx $proof (STV $s $_c)) $ev $deps) (sk-val ($_rt $_rk $_rp (STV $r $_rc)) $_rev $_rdeps) $cmin)
    (let $range (max 1.0 (abs-math (- (sk-link odds $s) (sk-link odds $r))))
       (sk-val ($type $kbctx $proof (STV $s (/ $cmin (+ 1.0 (* $range $range))))) $ev $deps)))
+
+;; Premises read as independent although they share an uncertain statement:
+;; the dependence is unresolved, with no second estimate to bound it, so the
+;; minimum log-odds range R = 1 discounts its confidence, c/(1+R^2).
+(: sk-unresolved (-[det]-> SkeletonValue SkeletonValue))
+(= (sk-unresolved $value)
+   (case $value (
+      ((sk-val ($type $kbctx $proof (STV $s $c)) $ev $deps)
+         (sk-val (assemble-runtime-fact $type $kbctx $proof (STV $s (/ $c 2.0))) $ev $deps))
+      ($_other $value))))
 
 ;; Pairwise merging also records the first conditioning cut and its cost.
 ;; Its accumulated value is provisional: on overlap the key builds its
@@ -1556,7 +1520,7 @@
 (: sk-component-step (-[semidet]-> (List Number) Number EvidenceSet SkeletonConnecting SkeletonComponent SkeletonConnecting))
 (= (sk-component-step $ignore $view-deps $view-ev (sk-connecting (sk-component $best $deps $ev $members) $apart) (sk-component $other $other-deps $other-ev $other-members))
    (let* (($uncertain (fold-semidet (sk-shared-statement-step $ignore) false (deps-shared $view-deps $other-deps)))
-          ($shared (if $uncertain true (fold-flat sk-observation-step false (evidence-shared-facts $view-ev $other-ev))))
+          ($shared (if $uncertain true (== (evidence-observed-roles $view-ev $other-ev) observed)))
           ($siblings (sk-siblings? true $best $other))
           ;; The accumulated component's dependency union can put a key nearer
           ;; than it was in an original view, shortening this pair's horizon.
@@ -1753,8 +1717,8 @@
 (= (sk-lift-facts $proof $ev) (fold-flat (sk-lift-fact-step $proof) () $ev))
 
 (: sk-lift-fact-tv (-[semidet]-> Evidence STVType))
-(= (sk-lift-fact-tv (fact-ev $kbctx $proof $type))
-   (case (collapse (once (match &kb ($type $kbctx $proof $tv) $tv))) (
+(= (sk-lift-fact-tv $entry)
+   (case (collapse (once (let (fact-ev $kbctx $proof $type) (as-fact-entry $entry) (match &kb ($type $kbctx $proof $tv) $tv)))) (
       ((cons (STV $s $c) $_rest) (STV $s $c)))))
 
 (: sk-lift-and-step (-[semidet]-> STVType STVType STVType))
@@ -1815,7 +1779,7 @@
 (= (sk-lift-residual $shared $conj $value)
    (case $value (
       ((sk-val ($_type ($kb $_ctx $_vars) $proof (STV $stored $_confidence)) $ev $_deps)
-         (let* (($entries (evidence-entries $ev))
+         (let* (($entries (evidence-entries (evidence-inherited $ev)))
                 ($residual
                    (CTV (sk-lift-eval $kb $entries $shared (STV 1.0 1.0) $proof)
                         (sk-lift-eval $kb $entries $shared (STV 0.0 1.0) $proof)))
@@ -2577,9 +2541,11 @@
       ((sk-key (ImplicationInstanceSample $a $_b $_atv $_btv) $kbctx)
          (let* (($sample-evidence
                   (case $value (
+                     ;; A sample's signature is what it observes, whatever role a
+                     ;; derived premise read a fact in.
                      ((sk-val $_fact $ev $_deps)
                         (let $kept
-                              (evidence-subtraction $ev
+                              (evidence-subtraction (evidence-inherited $ev)
                                  (evidence-set (foldr-flat (sk-antecedent-fact-entries $kbctx) () (implication-side-conjuncts (the Statement $a)))))
                            (evidence-set (evidence-shared-facts $kept $kept))))
                      ($_none (ev-set 0)))))
@@ -3896,7 +3862,7 @@
                             ;; While its conditioning waits, a row keeps the views
                             ;; it had; one that has none takes its approximate value.
                             ((sk-entangled $keys $base $independent)
-                               (let $approx (sk-row-result $retry $independent)
+                               (let $approx (sk-unresolved (sk-row-result $retry $independent))
                                   (sk-conditioned $given $target $khash $rhash $exclusions $keys $base $approx
                                      (if (== (sk-latest-view $khash $key $rhash) sk-none) $approx sk-none))))
                             ($_other (sk-row-result $retry $again)))))
@@ -4422,8 +4388,51 @@
             (if (if (head-is? $applied population-prior)
                     (case $value-tv (((STV $_s $c) (<= $c 0)) ($_other false))) false)
                sk-none
-               (sk-val $fact (if $unsupported (ev-set 0) (rule-result-evidence $fact $ev)) (deps-join $deps)))))
+               (sk-val $fact (if $unsupported (ev-set 0)
+                     (sk-condition-evidence $type $proof $premises (rule-result-evidence $fact $ev)))
+                  (deps-join $deps)))))
       ($_failed sk-none))))
+
+;; The role a row reads its stored premises in. An inversion reads its statement
+;; premise as its observation and an implication instance sample observes all
+;; of them; every other statement premise is a condition, and a certain fact
+;; read as a condition is given (given-ev), not an observation. Given its
+;; siblings a completion is the likelihood ratio of its consequence alone: it
+;; holds no evidence of its statement through the certain facts its siblings,
+;; or a nested completion's, read (proof-given-evidence).
+(: sk-condition-evidence (-[det]-> Atom Atom (List SkPattern) EvidenceSet EvidenceSet))
+(= (sk-condition-evidence $type $proof $premises $ev)
+   (if (sk-completion-proof? $proof)
+      (evidence-subtraction-certain $ev (proof-given-evidence (brand Proof $proof)))
+      (if (if (sk-inverted-proof? $proof) true (head-is? $type ImplicationInstanceSample)) $ev
+         (evidence-condition $ev (fold-flat sk-leaf-premise-step () $premises)))))
+
+(: proof-given-evidence (-[det]-> Proof EvidenceSet))
+
+;; The stored leaves a row's statement premises were read as, last first, named
+;; by the hash of their stored proof; a conjunction witness contributes its
+;; parts in order, a derived premise 0.
+(: sk-leaf-premise-step (-[det]-> (List Number) SkPattern (List Number)))
+(= (sk-leaf-premise-step $leaves $premise)
+   (case $premise (
+      ((CPU $_fun $_args $_res) $leaves)
+      (($_type $_kbctx $leaf $_tv) (sk-leaf-proof-step $leaves $leaf)))))
+
+(: sk-leaf-proof-step (-[det]-> (List Number) Atom (List Number)))
+(= (sk-leaf-proof-step $leaves $leaf)
+   (if (is-var $leaf) (cons 0 $leaves)
+      (case $leaf (
+         ((fact-source $_source-ev $name) (cons (index-hash $name) $leaves))
+         ((cons conjunction $parts) (fold-flat sk-leaf-proof-step $leaves (the (List Atom) $parts)))
+         ((negated $inner) (sk-leaf-proof-step $leaves $inner))
+         ($other (if (is-expr $other) (cons 0 $leaves) (cons (index-hash $other) $leaves)))))))
+
+(: sk-inverted-proof? (-[det]-> Atom Bool))
+(= (sk-inverted-proof? $proof)
+   (if (is-expr $proof)
+      (let $head (car-atom $proof)
+         (if (is-var $head) false (case (copy_term $head) (((inverted $_rule with $_prior $_token) true) ($_other false)))))
+      false))
 
 ;; --- Evaluation -------------------------------------------------------------
 

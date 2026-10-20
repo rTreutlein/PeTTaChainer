@@ -47,8 +47,10 @@
 
 ;; Equal grounded rule types with distinct proof ids/TVs remain independent
 ;; specialization results. Deduplicating only by type used to discard alt_rel.
-;; Both use the same facts, so the answer is the more confident one, and
-;; alt_rel's own result stays available.
+;; Two estimates of one condition revise; no view is selected by confidence.
+;; By count (k = 800) main_rel holds 7200 observations and alt_rel 3200: the
+;; revision is (0.9 * 7200 + 0.6 * 3200) / 10400 = 0.8077 at 10400, confidence
+;; 0.9286. alt_rel's completion through r1 (confidence 1e-6) adds nothing.
 !(compileadd kb3 (: tag3 (Symmetric Related) (STV 1.0 1.0)))
 !(compileadd kb3 (: r1 (Related bob alice) (STV 1.0 1.0)))
 !(compileadd kb3
@@ -66,7 +68,7 @@
 
 !(test
    (query 100 kb3 (: $prf (Related alice bob) $tv))
-   (: (by main_rel (conjunction tag3 r1)) (Related alice bob) (STV 0.9 0.8999999992617733)))
+   (: (merge/revision (merge/revision (by main_rel (conjunction tag3 r1)) (by alt_rel (conjunction tag3 r1))) ((antecedent-completion alt_rel 1 with cpu (prior (STV 0.5 0.0))) (conjunction tag3 r1))) (Related alice bob) (STV 0.8076922870512053 0.9285714332791246)))
 
 !(test
    (query 100 kb3 (: (by alt_rel $prf) (Related alice bob) $tv))
@@ -91,6 +93,8 @@
          (And (Symmetric $r) ($r $x $y))
          ($r $y $x))
       (STV 0.9 0.9)))
+;; The rule and its own completion read k1 as cause and as observation, a loop:
+;; they revise rather than multiply, and no view is selected.
 !(test (query 100 kb4 (: $prf (Knows alice bob) $tv))
-   (: (by removable_rel (conjunction tag4 k1))
-      (Knows alice bob) (STV 0.9 0.8999999992617733)))
+   (: (merge/revision (by removable_rel (conjunction tag4 k1)) ((antecedent-completion removable_rel 1 with cpu (prior (STV 0.5 0.0))) (conjunction tag4 k1)))
+      (Knows alice bob) (STV 0.8999999714282308 0.9000000092617825)))

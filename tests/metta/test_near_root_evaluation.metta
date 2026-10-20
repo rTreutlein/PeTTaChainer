@@ -35,7 +35,10 @@
 !(compileadd relKb (: f4 (Opposite A1 C2) (STV 1.0 0.9)))
 
 !(begin-backward-query-metrics!)
-!(test (let (: $p $t $tv) (query 25 relKb (: $p (Same C1 B1) $tv)) $tv) (STV 1.0 0.7999722183266144))
+;; Its two views, through the symmetric and transitive rules in either order,
+;; record the same evidence (f1, f2, r1, r2): one estimate, which the larger
+;; count holds, rather than a revision counting f1 and f2 twice.
+!(test (let (: $p $t $tv) (query 25 relKb (: $p (Same C1 B1) $tv)) $tv) (STV 1.0 0.808964616272188))
 !(test (<= (query_metric_value row-computes) (+ (* 2 25) (* 8 (near-root-items)))) true)
 
 ;; A query without budget has no allowance and still brings what its root

@@ -60,11 +60,12 @@
 
 ;; When the storm is also read off the late shipment, the forward view of r2
 ;; already holds that observation: it is not an independent prior for the
-;; shipment's inversion, and the overlapping views keep one as before.
+;; shipment's inversion. Both views observed l2, so they revise rather than
+;; multiply its likelihood twice; no view is selected.
 !(compileadd sharedKb (: block2 (Implication (Storm $reg) (Blocked r2 $reg)) (CTV (STV 0.8 0.99) (STV 0.03 0.99))))
 !(compileadd sharedKb (: late2 (Implication (Blocked r2 $reg) (Late s2 $reg)) (CTV (STV 0.9 0.99) (STV 0.05 0.99))))
 !(compileadd sharedKb (: lateS (Implication (Storm $reg) (Late s2 $reg)) (CTV (STV 0.73 0.99) (STV 0.0755 0.99))))
 !(set-base-rate sharedKb (Storm $reg) (STV 0.3 0.9))
 !(set-base-rate sharedKb (Blocked r2 $reg) (STV 0.261 0.9))
 !(compileadd sharedKb (: l2 (Late s2 north) (STV 1.0 1.0)))
-!(test (query 100 sharedKb (: $p (Blocked r2 north) $tv)) (: (by block2 ((inverted lateS with cpu (prior (STV 0.30000555540123885 0.9))) l2)) (Blocked r2 north) (STV 0.6503066974660777 0.9554361943980058)))
+!(test (query 100 sharedKb (: $p (Blocked r2 north) $tv)) (: (merge/revision (by block2 ((inverted lateS with cpu (prior (STV 0.30000555540123885 0.9))) l2)) ((inverted late2 with cpu (prior (STV 0.26100663870448043 0.9))) l2)) (Blocked r2 north) (STV 0.7231034858822245 0.9701587228190831)))

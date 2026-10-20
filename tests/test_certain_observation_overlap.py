@@ -1,5 +1,6 @@
 """Hard observed facts do not correlate views; uncertain reports still do."""
 import unittest
+import warnings
 
 import janus_swi as janus
 from pettachainer import PeTTaChainer
@@ -36,6 +37,20 @@ class CertainObservationOverlapTests(unittest.TestCase):
                 self.assertIn('blocked19', proof)
                 self.assertIn(f'prod{min(period, 19)}', proof)
 
+    def test_certainty_follows_a_removed_and_readded_statement(self):
+        # A fact's certainty is read from the live KB, never cached: the same
+        # name added again with an uncertain truth value is uncertain evidence.
+        h = PeTTaChainer()
+        h.add_atom('(: storm (Storm a) (STV 1 1))')
+        query = ("Scope=[Kb,'MAIN','Nil'], 'evidence-set'([['fact-ev',Scope,storm,['Storm',a]]],Ev), "
+                 "'evidence-uncertain-overlap?'(Ev,Ev,Overlap)")
+        self.assertEqual(janus.query_once(query, {'Kb': h.kb})['Overlap'], 'false')
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', DeprecationWarning)
+            h.remove_statement('storm')
+        h.add_atom('(: storm (Storm a) (STV 0.6 0.9))')
+        self.assertEqual(janus.query_once(query, {'Kb': h.kb})['Overlap'], 'true')
+
     def test_clash_ignores_only_binary_certain_stored_observations(self):
         for strength, confidence, certain in ((0, 1, True), (1, 1, True), (0, .9, False), (.4, 1, False)):
             for negative in (False, True):
@@ -61,7 +76,9 @@ class CertainObservationOverlapTests(unittest.TestCase):
 
     def test_nested_given_context_survives_reference_collection(self):
         # The given sibling is below a forward prior and a negative proof,
-        # rather than among the outer view's own completion witnesses.
+        # rather than among the outer view's own completion witnesses. The
+        # completion's own evidence keeps, of the certain facts, only its
+        # consequence.
         h = PeTTaChainer()
         h.add_atoms_no_check([
             '(: a (A) (STV 0 1))',
@@ -79,9 +96,7 @@ class CertainObservationOverlapTests(unittest.TestCase):
             "'sk-store-proof!'(0,[by,f,[negated,Inner]],['ev-set',0],Root), "
             "'proof-given-evidence'(Root,Given), 'evidence-entries'(Given,Before), "
             "'evidence-union'(EA,EB,AB), 'evidence-union'(AB,ER,All), "
-            "'evidence-negated'(All,Signed), "
-            "'sk-update-evidence'([['Goal'],Scope,Root,['STV',0.5,0.9]],Signed, "
-            " [['Goal'],Scope,other,['STV',0.6,0.8]],Compared), "
+            "'sk-condition-evidence'(['Report'],Part,[],All,Compared), "
             "'evidence-entries'(Compared,Remaining), "
             # Root the proof, but not its cached context union. The collector
             # must follow the memo for both Root and its child reference.
@@ -102,6 +117,6 @@ class CertainObservationOverlapTests(unittest.TestCase):
             ['not-fact-ev', scope, 'b', ['B']],
         ])
         self.assertEqual(result['After'], result['Before'])
-        self.assertEqual(result['Remaining'], [['not-fact-ev', scope, 'report', ['Report']]])
+        self.assertEqual(result['Remaining'], [['fact-ev', scope, 'report', ['Report']]])
         self.assertEqual((result['RootMemo'], result['ChildMemo']), ('false', 'false'))
         self.assertEqual(result['Unbound'], 'true')

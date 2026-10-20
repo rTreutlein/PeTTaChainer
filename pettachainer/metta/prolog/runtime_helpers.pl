@@ -685,6 +685,8 @@ refs_gc_erase(proofs, user:'&proof'(Pid, _, _, _), Ref) :- !,
     retractall(proof_unsettled_memo(Pid, _)),
     retractall(proof_representative_memo(Pid, _)),
     forget_summary_user(Pid).
+refs_gc_erase(sets, ev_set(Set, _, _, _, _), Ref) :- !,
+    erase(Ref), retractall(ev_given_memo(Set, _)), retractall(ev_inherited_memo(Set, _)).
 refs_gc_erase(_, _, Ref) :- erase(Ref).
 
 refs_gc_finish :-
@@ -847,11 +849,20 @@ deps_in(Keys, Hash) :- add_nb_set(Hash, Keys, false).
 % its operands.
 :- dynamic ev_entry/3, ev_set/5, ev_union_memo/2.
 
+% A fact's entries are also indexed by the hash of its stored proof, the name
+% a row's leaf premise reads it by (evidence-condition), and a condition's by
+% the fact it is given.
 ev_entry_id(Entry, Id) :-
     'index-hash'(Entry, Hash),
     (   ev_entry(Id, Hash, Stored), Stored =@= Entry -> true
     ;   flag(ev_next_entry, Last, Last + 1), Id is Last + 1,
-        assertz(ev_entry(Id, Hash, Entry)) ).
+        assertz(ev_entry(Id, Hash, Entry)), ev_index_entry(Entry, Id) ).
+ev_index_entry([Tag, _, Proof, _], Id) :- memberchk(Tag, ['fact-ev', 'not-fact-ev']), !,
+    'index-hash'(Proof, ProofHash), assertz(ev_proof_entry(ProofHash, Id)).
+ev_index_entry(['given-ev', K, P, T], Id) :- !, ev_entry_id(['fact-ev', K, P, T], Fact), assertz(ev_given_fact(Id, Fact)).
+ev_index_entry(['not-ev', ['given-ev', K, P, T]], Id) :- !, ev_entry_id(['not-fact-ev', K, P, T], Fact), assertz(ev_given_fact(Id, Fact)).
+ev_index_entry(_, _).
+:- dynamic ev_proof_entry/2, ev_given_fact/2.
 
 ev_order(0, []) :- !.
 ev_order(Set, Ids) :- ev_set(Set, _, Order, _, _), string_codes(Order, Ids).
@@ -1066,7 +1077,7 @@ likelihood_observation_source(['rule-excluded'|_], _) :- !, fail.
 likelihood_observation_source(['not-ev',Entry], Source) :- !,
     likelihood_observation_source(Entry,Source).
 likelihood_observation_source([Tag,Scope,_Proof,Type], Source) :-
-    memberchk(Tag,['fact-ev','not-fact-ev']), !,
+    memberchk(Tag,['fact-ev','not-fact-ev','given-ev']), !,
     ( ground(Scope-Type) -> support_identity_id(['sk-key',Type,Scope],Source)
     ; Source='unverified-observation' ).
 likelihood_observation_source(_, 'unverified-observation').
@@ -2860,3 +2871,89 @@ pw_drop_rep(R) :-
     -> throw(error(domain_error(disconnected_base_rate, Pattern),
                    context('set-base-rate'/3, 'set a rate for each connected part')))
     ; true ).
+
+% A view's evidence as its readers inherit it: the role in which the view read
+% a certain fact (given-ev, a condition) is that view's own; a reader holds the
+% fact itself. A set with no given entry is itself. Sets never change, so each
+% is computed once; the memo goes with its set, and a collected result is
+% computed again.
+:- dynamic ev_inherited_memo/2.
+'evidence-inherited'(['ev-set', A], ['ev-set', C]) :-
+    (   ev_inherited_memo(A, C0), ( C0 == A ; ev_set(C0, _, _, _, _) ) -> refs_gc_touch_set(C0), C = C0
+    ;   retractall(ev_inherited_memo(A, _)), ev_order(A, Ids),
+        (   member(Id, Ids), ev_given_fact(Id, _)
+        ->  maplist(ev_inherited_id, Ids, Out), list_to_set(Out, Set), ev_of_ids(Set, C)
+        ;   C = A ),
+        assertz(ev_inherited_memo(A, C)) ).
+ev_inherited_id(Id, Out) :- ( ev_given_fact(Id, Fact) -> Out = Fact ; Out = Id ).
+
+% Stored binary-certain facts and conditions are certain entries. A fact's
+% certainty is read from the live KB: a statement can be removed and added again
+% with another truth value.
+ev_entry_certain(Id) :- ev_entry(Id, _, E), ev_entry_is_certain(E).
+ev_entry_is_certain(['given-ev'|_]) :- !.
+ev_entry_is_certain(['not-ev', Inner]) :- !, ev_entry_is_certain(Inner).
+ev_entry_is_certain(['not-fact-ev', Ctx, P, Type]) :- !, ev_entry_is_certain(['fact-ev', Ctx, P, Type]).
+ev_entry_is_certain(['fact-ev', Ctx, P, Type]) :- !,
+    once(catch('&kb'(Type, Ctx, P, ['STV', S, C]), error(existence_error(procedure, _), _), fail)),
+    ev_binary_certain(S, C).
+ev_binary_certain(S, C) :- number(S), number(C), C >= 1.0, ( S >= 1.0 ; S =< 0.0 ).
+
+% Whether two views share an uncertain entry. Only the shared entries are
+% classified.
+'evidence-uncertain-overlap?'(['ev-set', A], ['ev-set', B], Result) :-
+    ev_sorted(A, SortedA), ev_sorted(B, SortedB),
+    ( ev_shared_where(ev_uncertain_id, SortedA, SortedB) -> Result = true ; Result = false ).
+ev_uncertain_id(Id) :- \+ ev_entry_certain(Id).
+% Whether two sorted id lists share an id meeting Goal; stops at the first.
+ev_shared_where(Goal, [X|Xs], [Y|Ys]) :-
+    compare(Order, X, Y),
+    (   Order == (=) -> ( call(Goal, X) -> true ; ev_shared_where(Goal, Xs, Ys) )
+    ;   Order == (<) -> ev_shared_where(Goal, Xs, [Y|Ys])
+    ;   ev_shared_where(Goal, [X|Xs], Ys) ).
+
+% A's entries without the certain entries of B.
+'evidence-subtraction-certain'(['ev-set', A], ['ev-set', B], ['ev-set', C]) :-
+    ev_sorted(B, SortedB), include(ev_entry_certain, SortedB, Certain),
+    ev_sorted(A, SortedA), ord_subtract(SortedA, Certain, Kept),
+    (   Kept == SortedA -> C = A
+    ;   ev_order(A, IdsA), ev_keep(IdsA, Kept, Ids), ev_of_ids(Ids, C) ).
+
+% A certain fact a row read as a condition (its stored proof among the row's
+% condition leaves, by hash) becomes given-ev in the row's evidence, or
+% (not-ev given-ev) when read under a Not. Only the leaves' entries are looked at.
+'evidence-condition'(['ev-set', A], Names, ['ev-set', C]) :-
+    findall(Id, ( member(Name, Names), ev_proof_entry(Name, Id), ev_entry_certain(Id) ), Leaves0),
+    (   Leaves0 == [] -> C = A
+    ;   sort(Leaves0, Leaves), ev_sorted(A, SortedA), ord_intersection(SortedA, Leaves, Given),
+        (   Given == [] -> C = A
+        ;   ev_order(A, Ids), maplist(ev_condition_id(Given), Ids, Out), list_to_set(Out, Set), ev_of_ids(Set, C) ) ).
+ev_condition_id(Given, Id, Out) :-
+    (   ord_memberchk(Id, Given), ev_entry(Id, _, [Tag, K, P, T])
+    ->  ( Tag == 'fact-ev' -> ev_entry_id(['given-ev', K, P, T], Out) ; ev_entry_id(['not-ev', ['given-ev', K, P, T]], Out) )
+    ;   Out = Id ).
+
+% How two views share a certain fact: `observed` when both observed it,
+% `a-condition` / `b-condition` when one read it as a condition the other
+% observed, outside complete predicates (whether that is a loop depends on the
+% reader being a forward view), `no-shared` otherwise. Roles are given-ev / fact-ev.
+'evidence-observed-roles'(['ev-set', A], ['ev-set', B], Result) :-
+    ev_sorted(A, SortedA), ev_sorted(B, SortedB),
+    (   ev_shared_where(ev_certain_observation, SortedA, SortedB) -> Result = observed
+    ;   ev_given_facts(A, SortedA, GivenA), ord_intersection(GivenA, SortedB, AB), \+ maplist(ev_complete_entry, AB)
+    ->  Result = 'a-condition'
+    ;   ev_given_facts(B, SortedB, GivenB), ord_intersection(GivenB, SortedA, BA), \+ maplist(ev_complete_entry, BA)
+    ->  Result = 'b-condition'
+    ;   Result = 'no-shared' ).
+% The certain facts a set read as conditions, as sorted fact-ev ids. Sets never
+% change, so they are computed once (a collected set's id is never reused).
+:- dynamic ev_given_memo/2.
+ev_given_facts(Set, Sorted, Facts) :-
+    (   ev_given_memo(Set, Facts0) -> Facts = Facts0
+    ;   findall(Fact, ( member(Id, Sorted), ev_given_fact(Id, Fact) ), Facts1), sort(Facts1, Facts),
+        assertz(ev_given_memo(Set, Facts)) ).
+ev_certain_observation(Id) :- ev_entry(Id, _, [Tag|_]), memberchk(Tag, ['fact-ev', 'not-fact-ev']), ev_entry_certain(Id).
+ev_complete_entry(Id) :-
+    ev_entry(Id, _, ['fact-ev', [Kb, 'MAIN', _], _, Type]), ground(Type),
+    ( Type = [Head|_] -> true ; Head = Type ),
+    catch('&complete_predicates'(Kb, Head), error(existence_error(procedure, _), _), fail).

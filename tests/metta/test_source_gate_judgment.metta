@@ -36,7 +36,8 @@
    ((STV 0.8 0.5454545452961622)))
 
 ;; Inspect the live private value: MAIN evidence/dependency identity survives
-;; borrowing, and the assumed A is a dependency but no empirical evidence.
+;; borrowing, the certain gate is read as a condition (given-ev), and the
+;; assumed A is a dependency but no empirical evidence.
 !(let* (((compiled-query $goal $adds)
            (mm2compileQuery wrappedGate45 (: $p (Implication (A $x) (C $x)) $tv)))
         ($_injected (collapse (once (inject-compiled-adds $adds))))
@@ -47,7 +48,7 @@
         ($valid (and
            (== $ev (evidence-set
               ((rule-ev wrappedGate45 rule)
-               (fact-ev (wrappedGate45 MAIN Nil) accepted (AcceptSource S)))))
+               (given-ev (wrappedGate45 MAIN Nil) accepted (AcceptSource S)))))
            (deps-has? $deps (index-hash (sk-key (AcceptSource S) (wrappedGate45 MAIN Nil))))))
         ($_cleared (clear-temp-query-adds))
         ($_contexts (sk-clear-contexts!)))

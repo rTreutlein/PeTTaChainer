@@ -103,6 +103,11 @@
 (: evidence-subtraction (-[det]-> EvidenceSet EvidenceSet EvidenceSet))
 (: evidence-negated (-[det]-> EvidenceSet EvidenceSet))
 (: evidence-shared-facts (-[det]-> EvidenceSet EvidenceSet (List Evidence)))
+(: evidence-inherited (-[det]-> EvidenceSet EvidenceSet))
+(: evidence-uncertain-overlap? (-[det]-> EvidenceSet EvidenceSet Bool))
+(: evidence-subtraction-certain (-[det]-> EvidenceSet EvidenceSet EvidenceSet))
+(: evidence-condition (-[det]-> EvidenceSet (List Number) EvidenceSet))
+(: evidence-observed-roles (-[det]-> EvidenceSet EvidenceSet Atom))
 (: evidence-common-facts (-[det]-> (List EvidenceSet) (List Evidence)))
 (: evidence-excludes? (-[det]-> EvidenceSet EvidenceSet Bool))
 
@@ -305,6 +310,7 @@
 (: &proof_fact (SpaceOf (Number Statement TV)))
 
 (: Evidence (Newtype Atom))
+(: given-ev (-[det]-> KBContext Proof Statement Evidence))
 (: fact-ev (-[det]-> KBContext Proof Statement Evidence))
 (: not-fact-ev (-[det]-> KBContext Proof Statement Evidence))
 (: rule-ev (-[det]-> KB Proof Evidence))

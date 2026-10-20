@@ -33,6 +33,6 @@
 ;; summarized by factored updates, whose #49 discount changes the confidence
 ;; propagated through modus ponens but cannot weaken that zero likelihood.
 !(test (map-flat nested-tv (collapse (query 300 nestedKb (: $p (Degraded plant t5) $tv))))
-   ((STV 0.0 0.9830070597502478)))
+   ((STV 0.0 0.9830070597502485)))
 !(test (fold-flat nested-count 0 (backward-query-metrics)) 0)
 !(set-backward-query-metrics false)

@@ -33,31 +33,54 @@
                   (fact-ev $kb $prf $type)))
             (fact-ev $kb $prf $type))))))
 
-(: revision-merge-tv (-[det]-> TV TV TV))
-(= (revision-merge-tv $tv1 $tv2)
+;; Revision of two estimates of one statement, by what their evidence shares:
+;; `disjoint` evidence adds; evidence that `overlap`s to an unknown extent
+;; counts once, the larger count standing for it, and its confidence is
+;; discounted by the log-odds range of the two, c/(1+R^2) with R at least 1.
+(: revised-stv (-[det]-> Atom Number Number Number Number STVType))
+(= (revised-stv $mode $m1 $c1 $m2 $c2)
+   (if (>= $c1 1.0)
+      (if (>= $c2 1.0) (STV (/ (+ $m1 $m2) 2) 1.0) (STV $m1 $c1))
+      (if (>= $c2 1.0) (STV $m2 $c2)
+         (let* (($n1 (confidence-to-count $c1))
+                ($n2 (confidence-to-count $c2))
+                ($total (+ $n1 $n2)))
+            (if (<= $total 0.0) (STV (/ (+ $m1 $m2) 2) 0.0)
+               (let $m (/ (+ (* $m1 $n1) (* $m2 $n2)) $total)
+                  (if (== $mode overlap)
+                     (let $range (max 1.0 (abs-math (- (logit-clip $m1) (logit-clip $m2))))
+                        (STV $m (/ (count-confidence (max $n1 $n2)) (+ 1.0 (* $range $range)))))
+                     (STV $m (count-confidence $total)))))))))
+
+(: logit-clip (-[det]-> Number Number))
+(= (logit-clip $p) (let $c (max 0.001 (min 0.999 $p)) (log-math 2.718281828459045 (/ $c (- 1.0 $c)))))
+
+(: revision-merge-tv (-[det]-> Atom TV TV TV))
+(= (revision-merge-tv $mode $tv1 $tv2)
    (case $tv1
       (((STV $m1 $c1)
           (case $tv2
-             (((STV $m2 $c2) (merge-stv-fields $m1 $c1 $m2 $c2))
+             (((STV $m2 $c2) (revised-stv $mode $m1 $c1 $m2 $c2))
               ;; A plain proof of a conditional is its positive branch; the
               ;; conditional proof supplies the negative branch.
-              ((CTV (STV $pm2 $pc2) $neg2) (CTV (merge-stv-fields $m1 $c1 $pm2 $pc2) $neg2))
+              ((CTV (STV $pm2 $pc2) $neg2) (CTV (revised-stv $mode $m1 $c1 $pm2 $pc2) $neg2))
               ($_other-tv $tv1))))
        ;; Two conditional proofs revise branch by branch.
        ((CTV (STV $pm1 $pc1) (STV $nm1 $nc1))
           (case $tv2
              (((CTV (STV $pm2 $pc2) (STV $nm2 $nc2))
-                 (CTV (merge-stv-fields $pm1 $pc1 $pm2 $pc2)
-                    (merge-stv-fields $nm1 $nc1 $nm2 $nc2)))
-              ((STV $m2 $c2) (CTV (merge-stv-fields $pm1 $pc1 $m2 $c2) (STV $nm1 $nc1)))
+                 (CTV (revised-stv $mode $pm1 $pc1 $pm2 $pc2)
+                    (revised-stv $mode $nm1 $nc1 $nm2 $nc2)))
+              ((STV $m2 $c2) (CTV (revised-stv $mode $pm1 $pc1 $m2 $c2) (STV $nm1 $nc1)))
               ($_other-tv $tv1))))
        ($_other $tv1))))
 
-(= (RevisionMergeProof ($type1 $kb $prf1 $tv1) ($_type2 $_kb2 $prf2 $tv2))
-   (assemble-runtime-fact
-      $type1 $kb
-      (brand Proof (merge/revision $prf1 $prf2))
-      (revision-merge-tv $tv1 $tv2)))
+;; The more confident proof is printed first; the value does not depend on it.
+(= (RevisionMergeProof $mode ($type $kb $prf-a $tv-a) ($type-b $kb-b $prf-b $tv-b))
+   (let* (($a (assemble-runtime-fact $type $kb $prf-a $tv-a)) ($b (assemble-runtime-fact $type-b $kb-b $prf-b $tv-b)))
+      (if (>= (term-confidence $a) (term-confidence $b))
+         (assemble-runtime-fact $type $kb (brand Proof (merge/revision $prf-a $prf-b)) (revision-merge-tv $mode $tv-a $tv-b))
+         (assemble-runtime-fact $type $kb (brand Proof (merge/revision $prf-b $prf-a)) (revision-merge-tv $mode $tv-b $tv-a)))))
 
 (: proof-atom-proof (-[det]-> (Statement KBContext Proof TV) Proof))
 (= (proof-atom-proof ($_type $_kb $prf $_tv)) $prf)
@@ -209,9 +232,16 @@
       ($_other false))))
 (: stored-proof-tvs (-[det]-> Atom (List TV)))
 (= (stored-proof-tvs $name) (collapse (once (match &kb ($type $kbctx $name $tv) $tv))))
+;; A certain stored fact a row read as a condition (a forward premise, a
+;; completion's sibling) rather than as an observation: given, never shared
+;; evidence, but still the same fact to every reader of its class.
+(: as-fact-entry (-[det]-> Evidence Evidence))
+(= (as-fact-entry $entry) (case $entry (((given-ev $kbctx $proof $type) (fact-ev $kbctx $proof $type)) ($_other $entry))))
+
 (: certain-fact-evidence? (-[det]-> Evidence Bool))
 (= (certain-fact-evidence? $entry)
    (case $entry (
+      ((given-ev $_gkbctx $_gproof $_gtype) true)
       ((not-ev $inner) (certain-fact-evidence? $inner))
       ((fact-ev $kbctx $proof $type) (certain-tvs? (collapse (once (match &kb ($type $kbctx $proof $tv) $tv)))))
       ((not-fact-ev $nkbctx $nproof $ntype) (certain-tvs? (collapse (once (match &kb ($ntype $nkbctx $nproof $ntv) $ntv)))))
@@ -378,6 +408,7 @@
    (case $entry (
       ((fact-ev $_scope $proof $_statement) $proof)
       ((not-fact-ev $_scope $proof $_statement) (not-ev $proof))
+      ((given-ev $_gscope $gproof $_gstatement) $gproof)
       ($_raw $entry))))
 
 ;; Two rules applied to the same statement, the first reading stored facts
@@ -473,10 +504,5 @@
                      (data $proof-b $ev-b)
                      (if (evidence-subset? $ev-b $ev-a)
                         (data $proof-a $ev-a)
-                        (if (>= (term-confidence $proof-a) (term-confidence $proof-b))
-                           (data $proof-a $ev-a)
-                           (data $proof-b $ev-b))))
-                  (let $all-ev (evidence-union $ev-a $ev-b)
-                     (if (>= (term-confidence $proof-a) (term-confidence $proof-b))
-                        (data (RevisionMergeProof $proof-a $proof-b) $all-ev)
-                        (data (RevisionMergeProof $proof-b $proof-a) $all-ev)))))))))
+                        (data (RevisionMergeProof overlap $proof-a $proof-b) (evidence-union $ev-a $ev-b))))
+                  (data (RevisionMergeProof disjoint $proof-a $proof-b) (evidence-union $ev-a $ev-b))))))))

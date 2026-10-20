@@ -221,18 +221,17 @@
 
 ;; A rule reading rain off the wet ground directly inverts the same
 ;; observation the completion reads: the two share wet-d and are not
-;; independent, so they are not factored. The completion's evidence (outdoor-d
-;; and wet-d) contains the inversion's, so it is kept:
-;; 0.9 * 0.3 / (0.9 * 0.3 + 0.2 * 0.7) = 0.6585, where factoring would have
-;; counted wet-d twice (0.897).
+;; independent, so they are not factored: both hold the same evidence and
+;; give 0.9 * 0.3 / (0.9 * 0.3 + 0.2 * 0.7) = 0.6585, where factoring would
+;; have counted wet-d twice (0.897).
 !(compileadd sharedKb (: wet (Implication (And (Outdoor $x) (Rain $x)) (Wet $x)) (CTV (STV 0.9 1) (STV 0.2 1))))
 !(compileadd sharedKb (: wet-direct (Implication (Rain $x) (Wet $x)) (CTV (STV 0.9 1) (STV 0.2 1))))
 !(set-base-rate sharedKb (Rain $x) (STV 0.3 0.9))
 !(compileadd sharedKb (: outdoor-d (Outdoor d) (STV 1 1)))
 !(compileadd sharedKb (: wet-d (Wet d) (STV 1 1)))
-;; Equal-confidence views of the same observation share one component.
-;; Canonical tie order selects plain inversion; the TV is unchanged.
-!(test (query 2000 sharedKb (: $proof (Rain d) $tv)) (: ((inverted wet-direct with cpu (prior (STV 0.30000555540123885 0.9))) wet-d) (Rain d) (STV 0.6585425339841672 0.8936005994767838)))
+;; The completion holds no evidence through its given sibling outdoor-d, so it
+;; and the inversion both hold wet-d alone: one estimate.
+!(test (query 2000 sharedKb (: $proof (Rain d) $tv)) (: ((antecedent-completion wet 1 with cpu (prior (STV 0.30000555540123885 0.9))) (conjunction outdoor-d wet-d)) (Rain d) (STV 0.6585425339841672 0.8936005994767838)))
 
 ;; A sibling the completion conditions on is no observation of it. B is
 ;; derived from A (0.8, 0.2) and C from A and B (0.9, 0.1); b shows B and C.
