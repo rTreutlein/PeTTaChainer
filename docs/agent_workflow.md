@@ -285,7 +285,9 @@ passed:
    `supply-network` in a detached worktree (`ChainerGame-land-<branch>`;
    no rebase, fast-forward or merge commit), stopping the same way on a
    conflict.
-4. It runs `scripts/verify.sh` through `capped --slots 8`.
+4. It runs `scripts/verify.sh` through `capped --slots 8`, unless the newest
+   recorded result for exactly this code and environment is a PASS (see
+   "Reuse" below).
 5. With `--chainergame`, it runs the ChainerGame tests
    (`PYTHONPATH=src <ChainerGame-problog>/.venv-problog/bin/python -m pytest
    -q tests`) and the live SupplyNet tests
@@ -334,6 +336,33 @@ scripts/land.sh <branch> --accept-flags approved-flags.tsv  # check first
 # Only after authorization to land/push:
 scripts/land.sh <branch> --accept-flags approved-flags.tsv --clean --push
 ```
+
+**Reuse.** A landing of code that was already verified takes minutes:
+
+- `scripts/verify.sh` records every run's PASS or FAIL in
+  `.claude/verify-cache/records.jsonl` of the main checkout (append-only,
+  shared by all worktrees), under a key of the checkout's tree (tracked,
+  modified and untracked files as `.gitignore` leaves them, `.claude/`
+  excluded), the PeTTa runtime in its `.venv`, the installed distributions,
+  the interpreter and SWI-Prolog (`scripts/verify_cache.py`). A tree edited
+  while the gates ran is not recorded. When the newest record of the rebased
+  tree's key is a PASS, `land.sh` skips `verify.sh` and prints that record
+  (when, where, which commit). So an agent's own `verify.sh` run counts for
+  its landing if the rebase leaves the tree unchanged and the worktree has no
+  stray untracked files; a later failure of the same key withdraws a pass.
+- `compare.sh` reuses the verdict of an identical comparison (both trees,
+  runtime, harnesses, cases, master's runs against the anchor and
+  `compare.py` itself) whose newest verdict is a `PASS` with every run
+  succeeded and every timing pair taken on the timing host or at comparable
+  load, wherever it ran (bench README "Verdicts"). So an agent's
+  `BENCH_TIMING_FULL=1 compare.sh master <worktree> --full` serves the
+  landing's comparison with master, as long as neither side's tree changed.
+  A flagged or untrusted verdict is never reused; the comparison then runs,
+  with store reuse as always. A reused report goes through the same
+  acceptance check, so `--accept-flags` works as before.
+- Before landing, `land.sh` prints `reused: ...` (verify with its record,
+  each reused comparison with its verdict key, date and report) and `ran:
+  ...` for everything it ran.
 
 Accepted flags, their measured before/after values and reasons are printed
 and saved in `accepted-flags.log` beside the verify and compare logs under

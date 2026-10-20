@@ -201,13 +201,26 @@ if [[ -n $cg_branch ]]; then
   cg_merged=$(git -C "$cg_land" rev-parse HEAD)
 fi
 
-step "Gates: scripts/verify.sh (log $logs/verify.log)"
-if ! ( cd "$land_wt" && unset DISPLAY && ulimit -v 16000000 &&
-       "$capped" --slots 8 env PETTA_JOBS=8 scripts/verify.sh ) >"$logs/verify.log" 2>&1; then
-  tail -n 20 "$logs/verify.log" >&2
-  die "scripts/verify.sh failed"
+# What this landing reused from earlier runs of the same code and what it
+# ran, for the summary at the end.
+reused=()
+ran=()
+
+# A PASS of verify.sh on exactly this tree and environment (recorded by any
+# run, an agent's in its worktree included) stands; see scripts/verify_cache.py.
+if verified=$(python3 "$script_dir/verify_cache.py" lookup "$land_wt"); then
+  step "Gates: scripts/verify.sh reused: $verified"
+  reused+=("verify ($verified)")
+else
+  step "Gates: scripts/verify.sh (log $logs/verify.log)"
+  if ! ( cd "$land_wt" && unset DISPLAY && ulimit -v 16000000 &&
+         "$capped" --slots 8 env PETTA_JOBS=8 scripts/verify.sh ) >"$logs/verify.log" 2>&1; then
+    tail -n 20 "$logs/verify.log" >&2
+    die "scripts/verify.sh failed"
+  fi
+  tail -n 10 "$logs/verify.log"
+  ran+=("verify (log $logs/verify.log)")
 fi
-tail -n 9 "$logs/verify.log"
 
 if [[ -n $cg_branch ]]; then
   step "ChainerGame tests (log $logs/chainergame.log)"
@@ -243,6 +256,14 @@ bench() {
   }
   report=$(sed -n 's/^report: \(.*\) ([0-9]* s wall)$/\1/p' "$logs/$name.log")
   [[ -f $report ]] || die "compare.sh $* printed no report"
+  # compare.sh reuses the verdict of an identical comparison that passed with
+  # trusted timing (bench README "Verdicts"); it is checked below like any.
+  verdict=$(sed -n 's/^reused: //p' "$logs/$name.log")
+  if [[ -n $verdict ]]; then
+    reused+=("$name ($verdict, report $report)")
+  else
+    ran+=("$name (report $report)")
+  fi
   sed -n '/^Thresholds:/q;p' "$report"
   if ! python3 - "${report%/*}/compare.json" "$accept_flags" >>"$logs/accepted-flags.log" <<'PY_FLAGS'
 import json
@@ -319,6 +340,12 @@ bench compare master "$rebased" --full
 # Against the anchor and master the runs above are reused.
 bench anchor-full anchor "$rebased" --full --master "$master_sha"
 cat "$logs/accepted-flags.log"
+
+step "Reused and ran"
+printf -v line '%s; ' "${reused[@]:-nothing}"
+printf 'reused: %s\n' "${line%; }"
+printf -v line '%s; ' "${ran[@]:-nothing}"
+printf 'ran: %s\n' "${line%; }"
 
 step "Land"
 act git -C "$main" merge --ff-only "$rebased"

@@ -35,6 +35,7 @@ elif [[ -n ${LAND_TEST_REPORT:-} ]]; then
 else
   printf '{"verdict": "%s", "regressions": [], "records": []}\n' "${LAND_TEST_VERDICT:-PASS}" >"$dir/compare.json"
 fi
+[[ ${LAND_TEST_REUSED:-} != *"$1 $3"* ]] || printf 'reused: verdict 0123456789ab of 2026-10-20T10:00:00 (%s)\n' "$dir"
 printf 'report: %s (1 s wall)\n' "$dir/report.md"
 EOF
 printf '#!/bin/sh\nexit 0\n' >"$tmp/stubs/cg-python"
@@ -60,8 +61,17 @@ fixture() {
   git clone -q "$root/origin.git" "$pc" 2>/dev/null
   mkdir -p "$pc/scripts"
   cp "$land" "$pc/scripts/land.sh"
-  cp "${land%/*}/list_waiters.py" "$pc/scripts/list_waiters.py"
-  printf '#!/usr/bin/env bash\nexit "${LAND_TEST_VERIFY_STATUS:-0}"\n' >"$pc/scripts/verify.sh"
+  cp "${land%/*}/list_waiters.py" "${land%/*}/verify_cache.py" "$pc/scripts/"
+  # Records its result like verify.sh, and the checkout it ran in.
+  cat >"$pc/scripts/verify.sh" <<'EOF'
+#!/usr/bin/env bash
+cd "$(dirname "$0")/.."
+key=$(python3 scripts/verify_cache.py key .)
+echo "$PWD" >>"$LAND_TEST_DIR/verify-calls"
+status=${LAND_TEST_VERIFY_STATUS:-0}
+python3 scripts/verify_cache.py record . "$key" "$( ((status)) && echo FAIL || echo PASS)" 1
+exit "$status"
+EOF
   chmod +x "$pc/scripts/verify.sh"
   printf '.venv\nscratch/\n__pycache__/\n' >"$pc/.gitignore"
   echo base >"$pc/x"
@@ -423,6 +433,52 @@ LAND_TEST_REPORT=$report_json run_land feat --accept-flags "$approval" --clean
 expect_status 0
 expect_untouched "$wt" "$before" "$pc" feat
 expect_master "$master"
+
+# Reuse: a PASS of verify.sh on the rebased tree (in the agent's worktree or
+# by an earlier landing) skips the gates; a changed candidate, a moved master
+# or a newer FAIL of the same tree reruns them. compare.sh's reused verdicts
+# are listed, and a reused report still goes through the acceptance check.
+agent_verify() {
+  [[ -e $wt/.venv ]] || cp -a "$pc/.venv" "$wt/.venv"
+  (cd "$wt" && LAND_TEST_VERIFY_STATUS=${1:-0} scripts/verify.sh >/dev/null) || true
+}
+expect_verify() {
+  if [[ $1 == reused ]]; then
+    [[ ! -s $tmp/verify-calls && $out == *'Gates: scripts/verify.sh reused: PASS of '* && $out == *'reused: verify (PASS of '* ]] ||
+      fail "verify was not reused: $(cat "$tmp/verify-calls") $out"
+  else
+    [[ $(cat "$tmp/verify-calls") == */land-feat && $out == *'ran: verify (log '* ]] || fail "verify did not run in the landing: $out"
+  fi
+}
+for scenario in identical changed-candidate master-moved newer-failure landed-twice; do
+  fixture "reuse-$scenario"
+  case $scenario in
+    identical) agent_verify ;;
+    changed-candidate) agent_verify; echo more >>"$wt/y"; git -C "$wt" commit -qam more ;;
+    master-moved) agent_verify
+                  echo master >"$pc/z"; git -C "$pc" add z; git -C "$pc" commit -qm advance ;;
+    newer-failure) agent_verify; agent_verify 1 ;;
+    landed-twice) : >"$tmp/verify-calls"; run_land feat; expect_verify ran ;;
+  esac
+  : >"$tmp/verify-calls"
+  run_land feat
+  expect_status 0
+  case $scenario in
+    identical|landed-twice) expect_verify reused ;;
+    *) expect_verify ran ;;
+  esac
+done
+
+fixture reuse-compare
+agent_verify
+LAND_TEST_REUSED='anchor --canary master --full' run_land feat
+expect_status 0
+[[ $out == *'reused: verify (PASS of '*'; anchor-canary (verdict 0123456789ab of 2026-10-20T10:00:00 ('*'), report '*'; compare (verdict 0123456789ab'* ]] ||
+  fail "reused comparisons not listed: $out"
+[[ $out == *'ran: anchor-full (report '* ]] || fail "the comparison that ran is not listed: $out"
+fixture reuse-flagged
+LAND_TEST_REUSED='master --full' LAND_TEST_VERDICT=FAIL run_land feat
+expect_status 1
 
 # Deterministic ps snapshot: stale shells match themselves, live targets and
 # live guarded log waiters stay out. Listing must not invoke kill.

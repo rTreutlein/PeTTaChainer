@@ -123,6 +123,9 @@ PY
   fi
 }
 
+# The key of the code under test, taken before the gates run; the result is
+# recorded under it for scripts/land.sh (scripts/verify_cache.py).
+cache_key=$(python3 "$script_dir/verify_cache.py" key "$repo_root")
 started=$SECONDS
 
 run_gate lint "$repo_root/scripts/lint_metta.sh"
@@ -153,5 +156,6 @@ for gate_id in "${gate_ids[@]}"; do
   fi
 done
 printf 'Total wall time: %ss\n' "$elapsed"
+python3 "$script_dir/verify_cache.py" record "$repo_root" "$cache_key" "$( ((failed)) && echo FAIL || echo PASS)" "$elapsed"
 
 exit "$failed"
