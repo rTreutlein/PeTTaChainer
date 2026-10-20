@@ -33,54 +33,32 @@
                   (fact-ev $kb $prf $type)))
             (fact-ev $kb $prf $type))))))
 
-;; Revision of two estimates of one statement, by what their evidence shares:
-;; `disjoint` evidence adds; evidence that `overlap`s to an unknown extent
-;; counts once, the larger count standing for it, and its confidence is
-;; discounted by the log-odds range of the two, c/(1+R^2) with R at least 1.
-(: revised-stv (-[det]-> Atom Number Number Number Number STVType))
-(= (revised-stv $mode $m1 $c1 $m2 $c2)
-   (if (>= $c1 1.0)
-      (if (>= $c2 1.0) (STV (/ (+ $m1 $m2) 2) 1.0) (STV $m1 $c1))
-      (if (>= $c2 1.0) (STV $m2 $c2)
-         (let* (($n1 (confidence-to-count $c1))
-                ($n2 (confidence-to-count $c2))
-                ($total (+ $n1 $n2)))
-            (if (<= $total 0.0) (STV (/ (+ $m1 $m2) 2) 0.0)
-               (let $m (/ (+ (* $m1 $n1) (* $m2 $n2)) $total)
-                  (if (== $mode overlap)
-                     (let $range (max 1.0 (abs-math (- (logit-clip $m1) (logit-clip $m2))))
-                        (STV $m (/ (count-confidence (max $n1 $n2)) (+ 1.0 (* $range $range)))))
-                     (STV $m (count-confidence $total)))))))))
-
-(: logit-clip (-[det]-> Number Number))
-(= (logit-clip $p) (let $c (max 0.001 (min 0.999 $p)) (log-math 2.718281828459045 (/ $c (- 1.0 $c)))))
-
-(: revision-merge-tv (-[det]-> Atom TV TV TV))
-(= (revision-merge-tv $mode $tv1 $tv2)
+(: revision-merge-tv (-[det]-> TV TV TV))
+(= (revision-merge-tv $tv1 $tv2)
    (case $tv1
       (((STV $m1 $c1)
           (case $tv2
-             (((STV $m2 $c2) (revised-stv $mode $m1 $c1 $m2 $c2))
+             (((STV $m2 $c2) (merge-stv-fields $m1 $c1 $m2 $c2))
               ;; A plain proof of a conditional is its positive branch; the
               ;; conditional proof supplies the negative branch.
-              ((CTV (STV $pm2 $pc2) $neg2) (CTV (revised-stv $mode $m1 $c1 $pm2 $pc2) $neg2))
+              ((CTV (STV $pm2 $pc2) $neg2) (CTV (merge-stv-fields $m1 $c1 $pm2 $pc2) $neg2))
               ($_other-tv $tv1))))
        ;; Two conditional proofs revise branch by branch.
        ((CTV (STV $pm1 $pc1) (STV $nm1 $nc1))
           (case $tv2
              (((CTV (STV $pm2 $pc2) (STV $nm2 $nc2))
-                 (CTV (revised-stv $mode $pm1 $pc1 $pm2 $pc2)
-                    (revised-stv $mode $nm1 $nc1 $nm2 $nc2)))
-              ((STV $m2 $c2) (CTV (revised-stv $mode $pm1 $pc1 $m2 $c2) (STV $nm1 $nc1)))
+                 (CTV (merge-stv-fields $pm1 $pc1 $pm2 $pc2)
+                    (merge-stv-fields $nm1 $nc1 $nm2 $nc2)))
+              ((STV $m2 $c2) (CTV (merge-stv-fields $pm1 $pc1 $m2 $c2) (STV $nm1 $nc1)))
               ($_other-tv $tv1))))
        ($_other $tv1))))
 
 ;; The more confident proof is printed first; the value does not depend on it.
-(= (RevisionMergeProof $mode ($type $kb $prf-a $tv-a) ($type-b $kb-b $prf-b $tv-b))
+(= (RevisionMergeProof ($type $kb $prf-a $tv-a) ($type-b $kb-b $prf-b $tv-b))
    (let* (($a (assemble-runtime-fact $type $kb $prf-a $tv-a)) ($b (assemble-runtime-fact $type-b $kb-b $prf-b $tv-b)))
       (if (>= (term-confidence $a) (term-confidence $b))
-         (assemble-runtime-fact $type $kb (brand Proof (merge/revision $prf-a $prf-b)) (revision-merge-tv $mode $tv-a $tv-b))
-         (assemble-runtime-fact $type $kb (brand Proof (merge/revision $prf-b $prf-a)) (revision-merge-tv $mode $tv-b $tv-a)))))
+         (assemble-runtime-fact $type $kb (brand Proof (merge/revision $prf-a $prf-b)) (revision-merge-tv $tv-a $tv-b))
+         (assemble-runtime-fact $type $kb (brand Proof (merge/revision $prf-b $prf-a)) (revision-merge-tv $tv-b $tv-a)))))
 
 (: proof-atom-proof (-[det]-> (Statement KBContext Proof TV) Proof))
 (= (proof-atom-proof ($_type $_kb $prf $_tv)) $prf)
@@ -485,24 +463,3 @@
       (((cons $a $as) (cons $b $bs))
          (if (if (== $a $b) true (settled-within? $a $b)) (settled-args-within? $as $bs) false))
       ($_other false))))
-
-(: merge-proof-candidates
-   (-[det]-> ((Statement KBContext Proof TV) EvidenceSet)
-       ((Statement KBContext Proof TV) EvidenceSet)
-       ((Statement KBContext Proof TV) EvidenceSet)))
-(= (merge-proof-candidates ($proof-a $ev-a) ($proof-b $ev-b))
-   (if (== $proof-a $proof-b)
-      (data $proof-a (evidence-union $ev-a $ev-b))
-      (let*
-         (($proof-token-a (proof-atom-proof $proof-a)) ($proof-token-b (proof-atom-proof $proof-b)))
-         (if (proof-dominates? $proof-token-a $proof-token-b)
-            (data $proof-a $ev-a)
-            (if (proof-dominates? $proof-token-b $proof-token-a)
-               (data $proof-b $ev-b)
-               (if (evidence-overlap? $ev-a $ev-b)
-                  (if (evidence-subset? $ev-a $ev-b)
-                     (data $proof-b $ev-b)
-                     (if (evidence-subset? $ev-b $ev-a)
-                        (data $proof-a $ev-a)
-                        (data (RevisionMergeProof overlap $proof-a $proof-b) (evidence-union $ev-a $ev-b))))
-                  (data (RevisionMergeProof disjoint $proof-a $proof-b) (evidence-union $ev-a $ev-b))))))))

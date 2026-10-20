@@ -49,14 +49,6 @@
 (: TokenReplacement Type)
 (: token-state (-[det]-> Atom (List Proof) TokenReplacement))
 
-;; The merge of two views, or, for views that share an uncertain statement
-;; and neither of which contains the other's evidence, the statements to
-;; condition on, the union of their dependencies, and the more confident
-;; view, kept when the merge is not conditioned
-;; (docs/metta/overlap_conditioning.md)
-(: SkeletonPairing Type)
-(: sk-paired (-[det]-> SkeletonValue SkeletonPairing))
-(: sk-overlap (-[det]-> (List SkeletonKey) Number SkeletonValue SkeletonPairing))
 ;; a fold over a key's values: the merge so far, and the first overlap's
 ;; statements and dependencies
 (: SkeletonMerging Type)
@@ -819,9 +811,6 @@
 ;; dominated view contributes neither evidence nor dependencies. The ignored
 ;; hashes are the merged key's, those of the keys unifying with it, those the
 ;; reader excludes and the statements given.
-(: sk-merge-facts
-   (-[semidet]-> Bool (List Number) SkFact EvidenceSet Number SkFact EvidenceSet Number
-       SkeletonPairing))
 (= (sk-merge-facts $combine $ignore $a $ev-a $deps-a $b $ev-b $deps-b)
    (let* (($proof-a (sk-fact-step-proof $a))
           ($proof-b (sk-fact-step-proof $b))
@@ -889,7 +878,7 @@
                                ($combined (if $combine (if $observed sk-none (sk-combined-merge $a $b $pooled $deps)) sk-none)))
                            (sk-paired
                               (if (not (== $combined sk-none)) $combined
-                                 (sk-val (RevisionMergeProof disjoint $a $b) $pooled $deps))))
+                                 (sk-val (RevisionMergeProof $a $b) $pooled $deps))))
                         (if (if $a-in-b (if $b-in-a false true) false) (sk-paired $vb)
                            (if (if $b-in-a (if $a-in-b false true) false) (sk-paired $va)
                               ;; Equal recorded evidence: the estimate with the larger

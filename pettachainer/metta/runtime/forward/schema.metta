@@ -141,8 +141,10 @@
       (case $acc (
          (no-forward-output-candidate (forward-derived $fact $ev))
          ((forward-derived $current $current-ev)
-            (let ($merged $merged-ev) (merge-proof-candidates (data $current $current-ev) (data $fact $ev))
-               (forward-derived $merged $merged-ev)))))))
+            (case (collapse (once (sk-merge-facts false () $current $current-ev 0 $fact $ev 0))) (
+               ((cons (sk-paired (sk-val $merged $merged-ev $_deps)) ()) (forward-derived $merged $merged-ev))
+               ((cons (sk-overlap $_shared $_deps (sk-val $merged $merged-ev $_fdeps)) ()) (forward-derived $merged $merged-ev))
+               ($_none (forward-derived $current $current-ev)))))))))
 
 (: stored-statement-candidate
    (-[det]-> Statement KBContext Bool (| ForwardDerived NoForwardOutputCandidate)))

@@ -65,6 +65,20 @@
 ;; token, or nothing.
 (: SkeletonValue Type)
 (: sk-val (-[det]-> SkFact EvidenceSet Number SkeletonValue))
+
+;; The merge of two views, or, for views that share an uncertain statement
+;; and neither of which contains the other's evidence, the statements to
+;; condition on, the union of their dependencies, and the more confident
+;; view, kept when the merge is not conditioned
+;; (docs/metta/overlap_conditioning.md)
+(: SkeletonPairing Type)
+(: sk-paired (-[det]-> SkeletonValue SkeletonPairing))
+(: sk-overlap (-[det]-> (List SkeletonKey) Number SkeletonValue SkeletonPairing))
+;; Two views of one statement merged (backward/evaluation.metta); stored facts
+;; merge by it too (forward/schema.metta).
+(: sk-merge-facts
+   (-[semidet]-> Bool (List Number) SkFact EvidenceSet Number SkFact EvidenceSet Number
+       SkeletonPairing))
 (: sk-goal-val (-[det]-> Goal Proof EvidenceSet Number SkeletonValue))
 (: sk-none SkeletonValue)
 ;; Public output only; never an ordinary view or a materializable proof.

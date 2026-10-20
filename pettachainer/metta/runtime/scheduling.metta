@@ -82,7 +82,7 @@
       $agenda))
 
 (: RevisionMergeProof
-   (-[det]-> Atom (Statement KBContext Proof TV)
+   (-[det]-> (Statement KBContext Proof TV)
        (Statement KBContext Proof TV)
        (Statement KBContext Proof TV)))
 
