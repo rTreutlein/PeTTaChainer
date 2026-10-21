@@ -77,6 +77,7 @@
 (: sk-computed-fold-view (-[semidet]-> Number ScalarFoldSpec SkeletonValue))
 (: sk-member-pending? (-[det]-> SkeletonKey Bool))
 (: sk-dependent-merge (-[semidet]-> Bool SkeletonValue SkeletonValue SkeletonValue))
+(: sk-larger-count (-[semidet]-> SkeletonValue SkeletonValue SkeletonValue))
 (: sk-given-value (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) SkeletonValue))
 (: sk-given-depth-step (-[det]-> Number SkeletonGiven Number))
 (: sk-conditioned
@@ -811,7 +812,11 @@
 ;; - independent: none of these. They combine by the prior they update, by the
 ;;   mode their predicate's outcomes prefer, or by revision.
 ;; Rules are parameters: sharing one makes no dependence, but a rule's axiom is
-;; contained in a proof through it. No view is ever selected by confidence. A
+;; contained in a proof through it, and a ground given rule is named (its
+;; applications carry its entry), so a view that never applied it does not
+;; contain one that did. Confidence selects only between estimates of one
+;; quantity (twins, equal evidence), near-shared pairs waiting for their claim,
+;; and the provisional overlap value. A
 ;; dominated view contributes neither evidence nor dependencies. The ignored
 ;; hashes are the merged key's, those of the keys unifying with it, those the
 ;; reader excludes and the statements given.
@@ -871,7 +876,7 @@
                                     false)))
                   ;; Twins are one estimate from the same samples: as for equal
                   ;; evidence, the larger count holds it.
-                  (if $twins (sk-paired (sk-dependent-merge false $va $vb))
+                  (if $twins (sk-paired (sk-larger-count $va $vb))
                   (if (not (== $factored sk-none)) (sk-paired $factored)
                      (if $siblings (sk-paired (sk-sibling-merge true $va $vb))
                      (if (if $independent false (sk-zero-update? $a $b)) (sk-paired $va)
@@ -888,10 +893,14 @@
                               ;; Equal recorded evidence: the estimate with the larger
                               ;; count holds all of it and stands for both.
                               (if (if $a-in-b $b-in-a false)
-                                 (sk-paired (if (>= (term-confidence $a) (term-confidence $b)) $va $vb))
+                                 (sk-paired (sk-larger-count $va $vb))
                               (if (== $shared ()) (sk-paired (sk-dependent-merge false $va $vb))
+                                 ;; Provisional: the key's merge replaces it by its
+                                 ;; component fallback. Merges outside a key's own
+                                 ;; (premise reads) keep the larger count: combining
+                                 ;; here moved pln-reliable .0511 -> .0698.
                                  (sk-overlap $shared (deps-union $deps-a $deps-b)
-                                    (sk-dependent-merge false $va $vb))))))))))))))))))))))
+                                    (sk-larger-count $va $vb))))))))))))))))))))))
 
 ;; A certain fact both views observed, or a forward view's condition the other
 ;; observed (a cause that is also an effect, which only a loop allows, as a
@@ -1442,34 +1451,33 @@
                        (min $c (min $ca $cb))))
          (evidence-union $ev-a $ev-b) (deps-union $deps-a $deps-b))))
 
-;; Dependent views that cannot be conditioned keep the more confident one, a
-;; copy of the shared evidence, until conditioning on entries (step 4) takes
-;; them over. Revising them would carry both views' evidence onward, and every
-;; later view would then seem to contain views it never read (pln-reliable,
-;; design.md §8).
-(= (sk-dependent-merge $product $a $b)
-   (if (sk-siblings? false $a $b) (sk-sibling-merge $product $a $b)
-      (case (data $a $b) (
-         (((sk-val $fact-a $_ea $_da) (sk-val $fact-b $_eb $_db))
-            (if (>= (term-confidence $fact-a) (term-confidence $fact-b)) $a $b))
-         ($_other $a)))))
+;; Two estimates of one quantity, twins from the same samples or views with
+;; equal recorded evidence: the larger count holds all of it. Also the
+;; reference a discounted combination measures its range from.
+(= (sk-larger-count $a $b)
+   (case (data $a $b) (
+      (((sk-val $fact-a $_ea $_da) (sk-val $fact-b $_eb $_db))
+         (if (>= (term-confidence $fact-a) (term-confidence $fact-b)) $a $b))
+      ($_other $a))))
 
-;; Deep shared history enters a prior update as fixed marginal inputs, with confidence discounted by the log-odds range between that
-;; merge and the conservative representative (#49: c/(1+R^2), R >= 1). Views
-;; with no factored form combine as independent given those marginals, by the
-;; mode their predicate prefers, with the same discount: none is selected.
-(: sk-unpaid-pair (-[semidet]-> SkeletonValue SkeletonValue SkeletonValue))
-(= (sk-unpaid-pair $va $vb)
-   (case (data $va $vb) (
-      (((sk-val $a $ev-a $deps-a) (sk-val $b $ev-b $deps-b))
-         (let* (($rep (sk-dependent-merge false $va $vb))
-                ($factored (sk-factored-merge $a $ev-a $deps-a $b $ev-b $deps-b true))
-                ($pooled (evidence-union $ev-a $ev-b))
-                ($deps (deps-union $deps-a $deps-b))
-                ($combined (if (== $factored sk-none) (sk-combined-merge $a $b $pooled $deps) $factored)))
-            (sk-discounted (if (== $combined sk-none) (sk-val (RevisionMergeProof $a $b) $pooled $deps) $combined)
-               $rep (min (term-confidence $a) (term-confidence $b)))))
-      ($_other (sk-dependent-merge false $va $vb)))))
+;; Dependent views that cannot be conditioned (unpaid, or with nothing to
+;; condition on) read what they share as fixed marginal inputs: a prior and
+;; its update combine by factored odds, other views as independent by the mode
+;; their predicate prefers, else revision, and the confidence is discounted by
+;; the log-odds range to the larger count (#49: c_min/(1+R^2), R >= 1), so the
+;; shared evidence buys no confidence. Sibling forward views keep their own
+;; conservative combination. No view is selected.
+(= (sk-dependent-merge $product $va $vb)
+   (if (sk-siblings? false $va $vb) (sk-sibling-merge $product $va $vb)
+      (case (data $va $vb) (
+         (((sk-val $a $ev-a $deps-a) (sk-val $b $ev-b $deps-b))
+            (let* (($factored (sk-factored-merge $a $ev-a $deps-a $b $ev-b $deps-b true))
+                   ($pooled (evidence-union $ev-a $ev-b))
+                   ($deps (deps-union $deps-a $deps-b))
+                   ($combined (if (== $factored sk-none) (sk-combined-merge $a $b $pooled $deps) $factored)))
+               (sk-discounted (if (== $combined sk-none) (sk-val (RevisionMergeProof $a $b) $pooled $deps) $combined)
+                  (sk-larger-count $va $vb) (min (term-confidence $a) (term-confidence $b)))))
+         ($_other $va)))))
 
 (: sk-discounted (-[semidet]-> SkeletonValue SkeletonValue Number SkeletonValue))
 (= (sk-discounted (sk-val ($type $kbctx $proof (STV $s $_c)) $ev $deps) (sk-val ($_rt $_rk $_rp (STV $r $_rc)) $_rev $_rdeps) $cmin)
@@ -1508,12 +1516,14 @@
 
 ;; An unpaid overlap must not discard evidence independent of it. Keep the
 ;; full dependencies and evidence of each connected component, including its
-;; discarded views, and choose one most confident representative inside it.
+;; dominated views, and merge its pairs by sk-dependent-merge.
 ;; Shared rule truths, population priors and given premises do not connect
 ;; components, just as they do not make the pairwise merge dependent.
 ;; Direct views and prior updates (inversions, completions) form components
 ;; apart: an update applies to the merge of the direct views it shares
-;; statements with, by the same pair rule, so it never replaces them.
+;; statements with, by the same pair rule: over deeper shared statements it
+;; updates them; a near-shared update competes with them by count while its
+;; claim waits.
 (: SkeletonComponent Type)
 (: sk-component (-[det]-> SkeletonValue Number EvidenceSet (List SkeletonValue) SkeletonComponent))
 (: SkeletonConnecting Type)
@@ -1536,35 +1546,41 @@
    (let* (($uncertain (fold-semidet (sk-shared-statement-step $ignore) false (deps-shared $view-deps $other-deps)))
           ($shared (if $uncertain true (== (evidence-observed-roles $view-ev $other-ev) observed)))
           ($siblings (sk-siblings? true $best $other))
+          ;; A near-shared pair keeps the larger count while its claim waits:
+          ;; combining it would count the shared statement twice in strength
+          ;; (the forward cycle of test_forward_chainer went .6923 -> .7714).
           ;; The accumulated component's dependency union can put a key nearer
-          ;; than it was in an original view, shortening this pair's horizon.
-          ;; The actual key cut still requires two original near views.
-          ($filtered (if $uncertain
+          ;; than in an original view; the actual key cut still requires two
+          ;; original near views.
+          ($near (if $uncertain
              (if $siblings false
-                (== (sk-shared-statements $ignore (deps-near-shared (cons $view-deps (cons $other-deps ())))) ()))
+                (not (== (sk-shared-statements $ignore (deps-near-shared (cons $view-deps (cons $other-deps ())))) ())))
              false)))
       (if (if $shared true $siblings)
-         (if $filtered (sk-unpaid-pair $best $other)
+         (if (if $near (if (sk-siblings? false $best $other) false true) false) (sk-larger-count $best $other)
             (sk-dependent-merge (if $uncertain false
                (if $siblings (if (sk-sample-twins? $best $other) false true) false)) $best $other))
          sk-none)))
 
-(: sk-component-step (-[semidet]-> (List Number) Number EvidenceSet SkeletonConnecting SkeletonComponent SkeletonConnecting))
-(= (sk-component-step $ignore $view-deps $view-ev (sk-connecting (sk-component $best $deps $ev $members) $apart) (sk-component $other $other-deps $other-ev $other-members))
-   (case (if (== (sk-updates? $best) (sk-updates? $other))
+;; A component's kind is its original members' (all of one kind), not its
+;; merged value's, so the order its members merged in does not change it.
+(: sk-component-step (-[semidet]-> (List Number) Bool Number EvidenceSet SkeletonConnecting SkeletonComponent SkeletonConnecting))
+(= (sk-component-step $ignore $kind $view-deps $view-ev (sk-connecting (sk-component $best $deps $ev $members) $apart) (sk-component $other $other-deps $other-ev (cons $first $rest)))
+   (case (if (== $kind (sk-updates? $first))
             (sk-fallback-pair $ignore $view-deps $view-ev $best $other-deps $other-ev $other) sk-none) (
-      (sk-none (sk-connecting (sk-component $best $deps $ev $members) (cons (sk-component $other $other-deps $other-ev $other-members) $apart)))
+      (sk-none (sk-connecting (sk-component $best $deps $ev $members) (cons (sk-component $other $other-deps $other-ev (cons $first $rest)) $apart)))
       ($merged (sk-connecting
-                  (sk-component $merged (deps-union $deps $other-deps) (evidence-union $ev $other-ev) (append-flat $members $other-members))
+                  (sk-component $merged (deps-union $deps $other-deps) (evidence-union $ev $other-ev) (append-flat $members (cons $first $rest)))
                   $apart)))))
 
 (: sk-key-merge-step (-[semidet]-> (List Number) (List SkeletonComponent) SkeletonReference (List SkeletonComponent)))
 (= (sk-key-merge-step $ignore $components (sk-reference $_class $view))
    (case $view (
       ((sk-val $_fact $ev $deps)
-         (let (sk-connecting $connected $apart)
-               (fold-semidet (sk-component-step $ignore $deps $ev)
-                  (sk-connecting (sk-component $view $deps $ev (cons $view ())) ()) $components)
+         (let* (($kind (sk-updates? $view))
+                ((sk-connecting $connected $apart)
+                   (fold-semidet (sk-component-step $ignore $kind $deps $ev)
+                      (sk-connecting (sk-component $view $deps $ev (cons $view ())) ()) $components)))
             (cons $connected $apart)))
       ($_goal $components))))
 

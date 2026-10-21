@@ -99,12 +99,14 @@ and settled steps are handled before, as they were):
    observations. Sibling forward-rule views also connect through shared
    condition terms, including known premises. With known shared premises,
    combine sibling conditions by prior-factored odds using the consequent's
-   existing outcome tally. Near-shared pairs keep their representative until paid. Pairs sharing only
-   deeper statements combine a prior and likelihood by factored odds, never
-   revision, with confidence min(c_a,c_b)/(1+R²), where
-   R=max(1,abs(logit(s_factored)-logit(s_representative))). Without a factored
-   form they combine as independent given those marginals, by the predicate's
-   mode, with the same discount: confidence selects nothing. Evidence and dependencies are retained.
+   existing outcome tally. Near-shared pairs keep the larger count while their
+   claim waits: combining them would count the shared statement twice in
+   strength. Other connected pairs read what they share as fixed marginal
+   inputs: a prior and likelihood combine by
+   factored odds, never revision, and other views as independent by the
+   predicate's mode, else revision, with confidence min(c_a,c_b)/(1+R²), where
+   R=max(1,abs(logit(s_combined)-logit(s_larger))) and s_larger is the more
+   confident view's (`sk-dependent-merge`). Evidence and dependencies are retained.
    Same-condition estimates and ordinary non-rule proofs retain their existing
    representative behavior. Independent components then merge as before.
 
@@ -115,9 +117,10 @@ and settled steps are handled before, as they were):
    fixes the fold order; bridge dependencies remain part of the component.
    Direct views and prior updates (inversions, completions) form components
    apart. Independent values combine first; each update component then applies
-   to that merge by the pair rule above (factored odds over deeper shared
-   statements, the representative while a near claim waits), so an update
-   cannot interrupt the direct source claims' combination or replace them.
+   to that merge by the pair rule above, so an update cannot interrupt the
+   direct source claims' combination. Over deeper shared statements it
+   updates them; a near-shared update competes with their merge by count
+   while its claim waits.
    Grouping them together let one completion that read a source's statement
    join every direct claim of that source to its component, which then kept a
    single view (pln-reliable: 248 of 510 claims).

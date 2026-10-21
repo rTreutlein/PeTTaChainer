@@ -611,13 +611,16 @@ A key's value merges its stored facts and one view per row:
   to be contained. A key conditions only on uncertain shared statements
   within two dependency levels of at least two original views
   (`deps-near-shared`, unlike row `deps-entangled`, which permits a statement
-  near only one premise). Near-shared pairs retain their representative while
-  their claim waits. Deeper shared history is read as fixed marginal inputs:
-  a prior and likelihood update combine by factored odds, never revision,
-  with confidence min(c_a,c_b)/(1+R²), where
-  R=max(1,abs(logit(s_factored)-logit(s_representative))) (#49).
-  Without a factored form the pair combines as independent given those
-  marginals, by its predicate's mode, with the same discount. Sibling forward-rule
+  near only one premise). Near-shared pairs keep the larger count while their
+  claim waits (combining them would count the shared statement twice). Deeper
+  shared history is read as fixed marginal inputs: a prior and
+  likelihood update combine by factored odds, never revision, other views as
+  independent by their predicate's mode, else revision, with confidence
+  min(c_a,c_b)/(1+R²), where R=max(1,abs(logit(s_combined)-logit(s_larger)))
+  and s_larger is the more confident view's (#49). Confidence keeps the larger
+  count only for estimates of one quantity (twins, equal evidence), for
+  near-shared pairs while their claim waits, and in the provisional overlap
+  value merges outside a key's own merge use. Sibling forward-rule
   views retain their existing conservative combination. Direct views and prior
   updates form components apart; an update applies to the direct views' merge
   by the same pair rule. Components retain all
