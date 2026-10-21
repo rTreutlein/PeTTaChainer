@@ -44,9 +44,16 @@ class RepeatedQueryTests(unittest.TestCase):
         self.assertEqual([cost for _, *cost in rounds[-1]], [[0, 0]] * 3)
 
     def test_repeated_assuming_goes_quiet(self):
-        # Settles by the fourth query: 1355, 912, 652, then 0 rows on master.
+        # Quiet within five queries, with one answer throughout. The bound moved
+        # from four to five with the component split (R1, user-approved Oct 21):
+        # merged values keep the direct claims and the update, so their larger
+        # dependency sets meet more exclusions, and the deferred tier drains
+        # rebuilds at 1/8 of each query's allowance. After an earlier test in
+        # the process it costs 1876, 914, 875, 247, then 0 rows. Work-queue
+        # steps 1/2 should tighten it.
         h = handler(6)
-        answers = [ask(h, '(Assuming (Storm t4) (Degraded plant t6))', 3000) for _ in range(4)]
+        answers = [ask(h, '(Assuming (Storm t4) (Degraded plant t6))', 3000) for _ in range(5)]
+        self.assertEqual([tv for tv, _, _ in answers], [answers[0][0]] * 5)
         self.assertEqual(answers[-1][1:], (0, 0))
 
 
