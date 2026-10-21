@@ -251,6 +251,11 @@
 (: given-rule? (-[det]-> KB Proof Bool))
 (= (given-rule? $kbid $name) (not (== (collapse (once (match &given_rules ($name $kbid) true))) ())))
 
+;; Whether a rule's applications carry an entry naming it: an estimated rule's
+;; or a ground given rule's.
+(: named-rule? (-[det]-> KB Proof Bool))
+(= (named-rule? $kbid $name) (if (rule-evidence-registered? $kbid $name) true (given-rule? $kbid $name)))
+
 ;; A rule's applications carry its evidence when its truth is an estimate, so
 ;; a proof of the rule (its axiom) and a proof through it are not independent;
 ;; two applications to different premises are, given the rule's truth (see
@@ -265,22 +270,30 @@
          (if (logic-rule? $name) ()
             (if (rule-evidence-registered? $kb $name) ()
                (case $tv (
-                  ((STV $s $c) (register-given-branches! $kb $name $ground (cons (STV $s $c) ())))
-                  ((CTV $pos $neg) (register-given-branches! $kb $name $ground (cons $pos (cons $neg ()))))
+                  ((STV $s $c)
+                     (let $_named (register-given-name! $kb $name $ground (cons (STV $s $c) ()))
+                        (register-given-branches! $kb $name (cons (STV $s $c) ()))))
+                  ((CTV $pos $neg)
+                     (let $_named (register-given-name! $kb $name $ground (cons $pos (cons $neg ())))
+                        (register-given-branches! $kb $name (cons $pos (cons $neg ())))))
                   ($_other (register-rule-evidence-name! $kb $name)))))))))
 
-(: register-given-branches! (-[det]-> KB Proof Bool (List TV) (List $no-result)))
-(= (register-given-branches! $kb $name $ground $branches)
+(: register-given-branches! (-[det]-> KB Proof (List TV) (List $no-result)))
+(= (register-given-branches! $kb $name $branches)
    (if (fold-flat given-branch-step true $branches)
       (if (fold-flat deterministic-branch-step true $branches)
          (if (deterministic-rule? $kb $name) ()
-            (let $_added (add-atom &deterministic_rules ($name $kb)) (if $ground (register-given-rule! $kb $name) ())))
-         (if $ground (register-given-rule! $kb $name) ()))
+            (let $_added (add-atom &deterministic_rules ($name $kb)) ()))
+         ())
       (register-rule-evidence-name! $kb $name)))
 
-(: register-given-rule! (-[det]-> KB Proof (List $no-result)))
-(= (register-given-rule! $kb $name)
-   (if (given-rule? $kb $name) () (let $_added (add-atom &given_rules ($name $kb)) ())))
+;; Named apart from the deterministic check, so a rule seen before, or first
+;; stated generally, is still named once a ground statement of it is given.
+(: register-given-name! (-[det]-> KB Proof Bool (List TV) (List $no-result)))
+(= (register-given-name! $kb $name $ground $branches)
+   (if (if $ground (fold-flat given-branch-step true $branches) false)
+      (if (given-rule? $kb $name) () (let $_added (add-atom &given_rules ($name $kb)) ()))
+      ()))
 
 (: given-branch-step (-[det]-> Bool TV Bool))
 (= (given-branch-step $given $branch)

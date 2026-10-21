@@ -519,7 +519,14 @@ A rule stated with confidence 1 in every branch is given, not estimated: its
 applications carry no evidence of it, unless it is ground: a ground implication
 is knowledge about its particular instances, as a fact is, so its applications
 carry a certain entry naming it, and a view that never applied it does not
-contain one that did. A rule stated with less, or refined from
+contain one that did. The property holds for a general rule's applications
+too; naming only ground rules is a cost line, not a semantic one. Naming
+every given rule in evidence sets cost +11–14% self ticks on scale l/m, and
+a per-view rule-name mask in the dependency sets +1.8% scale l, +3.4% scale m
+and pln-reliable .0541 → .0601 (`bench/results/fresh-design/reliable.md`). So the
+same claim written with a variable keeps containment's wrong answer
+(.583 against .711). Specialized instances share their template's name, and
+derived implications are not named. A rule stated with less, or refined from
 its instances, is evidence of every proof through it, so a proof of the rule
 itself (its axiom) and a proof through it are one piece of evidence. Proofs
 that both apply a rule to different premises are not: given the rule's truth

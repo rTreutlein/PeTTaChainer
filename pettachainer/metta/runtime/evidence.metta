@@ -28,7 +28,7 @@
          (if (if (implication-type? $type) true (head-is? $type QuantifiedRule))
             (let* (($source-kb (statement-query-kb (brand KB (car-atom $kb))))
                    ($name (rule-evidence-base-name $prf)))
-               (if (if (rule-evidence-registered? $source-kb $name) true (given-rule? $source-kb $name))
+               (if (named-rule? $source-kb $name)
                   (rule-ev $source-kb $name)
                   (fact-ev $kb $prf $type)))
             (fact-ev $kb $prf $type))))))
@@ -327,7 +327,7 @@
                   $base)))
          ($_other
             (if (is-expr $name) $base
-               (if (if (rule-evidence-registered? $typed-kbid $name) true (given-rule? $typed-kbid $name))
+               (if (named-rule? $typed-kbid $name)
                   (evidence-union $base (evidence-set (cons (rule-ev $typed-kbid $name) ())))
                   $base)))))))
 
