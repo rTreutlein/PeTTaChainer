@@ -100,8 +100,10 @@ an existing statement adds evidence (revision) and never replaces the old
 value, and a changed world is a new fact at a new time. Hypothesis review's
 rule withdrawal (above), forgetting's summaries and Assuming worlds are the
 only ways knowledge stops contributing, and none of them deletes a fact.
-Corrections, supersession, and configuration changes are scoped events, not
-retractions. Explicit proof forgetting needs its own temporal or scope policy. Query-local rows and replaceable cache/index rows are not
+Corrections and supersession are new facts, not retractions. Configuration is
+still replace-style: `clear-base-rate`, `clear-logic-config` and the `set-*`
+operations replace the earlier setting. Explicit proof forgetting needs its own
+temporal or scope policy. Query-local rows and replaceable cache/index rows are not
 logical retractions as long as deleting those optimization tables would leave
 the unbounded logical answers unchanged.
 
@@ -166,9 +168,8 @@ summarizes valid evidence; it may simply know less than a later fold. A
 backward query may use it immediately and schedule a live fold that adds the
 members its search finds.
 
-Base-rate invalidation is reserved for non-monotonic or interpretive changes:
+Base-rate invalidation is reserved for interpretive changes:
 
-- removing facts, rules, or supporting proofs;
 - changing or clearing runtime prior parameters;
 - explicitly clearing or replacing a base rate.
 

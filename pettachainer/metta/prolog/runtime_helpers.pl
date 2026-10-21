@@ -2888,8 +2888,7 @@ pw_drop_rep(R) :-
 ev_inherited_id(Id, Out) :- ( ev_given_fact(Id, Fact) -> Out = Fact ; Out = Id ).
 
 % Stored binary-certain facts and conditions are certain entries. A fact's
-% certainty is read from the live KB: a statement can be removed and added again
-% with another truth value.
+% certainty is read from the live KB, not cached with its entry.
 ev_entry_certain(Id) :- ev_entry(Id, _, E), ev_entry_is_certain(E).
 ev_entry_is_certain(['given-ev'|_]) :- !.
 ev_entry_is_certain(['not-ev', Inner]) :- !, ev_entry_is_certain(Inner).

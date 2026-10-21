@@ -100,8 +100,9 @@
 
 ;; With frontierP1 alone, the inversion from Q a (supported through S a)
 ;; updates frontierP1 in the population prior's place (#42), rather than
-;; revising with it: odds(.2)*odds(inversion)/odds(2/7) = 1.45836,
-;; P=.593224. The update adds variance; it does not add prior evidence.
+;; revising with it: the inversion, .7 over its neutral prior .5, gives odds
+;; .25 * (.7/.3) = .5836, P = .3685. The update adds variance; it does not add
+;; prior evidence.
 !(compileadd forwardOneFrontierKb (: frontierP1 (P a) (STV 0.2 0.5)))
 !(compileadd forwardOneFrontierKb (: frontierS1 (S a) (STV 0.7 0.6)))
 !(compileadd forwardOneFrontierKb

@@ -74,7 +74,7 @@
    (query 100 kb3 (: (by alt_rel $prf) (Related alice bob) $tv))
    (: (by alt_rel (conjunction tag3 r1)) (Related alice bob) (STV 0.6 0.7999999998612068)))
 
-;; A specializing rule added after the structural facts it reads specializes on them.
+;; A specializing rule over certain structural facts.
 !(compileadd kb4 (: tag4 (Symmetric Knows) (STV 1.0 1.0)))
 !(compileadd kb4 (: k1 (Knows bob alice) (STV 1.0 1.0)))
 !(compileadd kb4

@@ -228,6 +228,14 @@
 
 ;; The provisional value answers immediately, while an ordinary complete fold
 ;; refines it and upgrades the cache source without changing public provenance.
+;; With a's two Member facts merged, (Member a Human) is .75, so the complete
+;; fold is (.8 * .75 + .4 * .5) / (.75 + .5) = .64.
+!(test
+   (query 80 forwardMemberFoldKb
+      (: $proof (Inheritance Human Mortal) $tv))
+   (: (member-inheritance-fold cpu)
+      (Inheritance Human Mortal)
+      (STV 0.64 0.0015600624024961)))
 !(test
    (let (: $proof $_type $tv)
       (query 80 forwardMemberFoldKb
