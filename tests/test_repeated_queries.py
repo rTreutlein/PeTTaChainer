@@ -29,14 +29,14 @@ STORM_DEGRADES = '(: storm-deg (Implication (Storm $t) (Degraded plant $t)) (CTV
 
 
 class RepeatedQueryTests(unittest.TestCase):
-    @unittest.expectedFailure  # work-queue step 1: unpaid rows are staled and recomputed by every query
+    @unittest.expectedFailure  # work-queue steps 2 and 4: held readers of unpaid branch builds are staled after every query, then refreshed near the root by the next
     def test_budget_limited_root_goes_quiet(self):
         h = handler(4, extra=[STORM_DEGRADES])
         answers = [ask(h, '(Degraded plant t4)', 300) for _ in range(6)]
         self.assertEqual({tv for tv, _, _ in answers}, {answers[0][0]})
         self.assertEqual(answers[-1][1:], (0, 0))
 
-    @unittest.expectedFailure  # work-queue steps 1 and 4: rows and the t4 root claim repeat in every round
+    @unittest.expectedFailure  # work-queue steps 2 and 4: each root stales readers another needs, and the t4 root claim repeats
     def test_round_robin_roots_go_quiet(self):
         h = handler(6)
         rounds = [[ask(h, f'(Degraded plant t{t})', 3000) for t in (6, 5, 4)] for _ in range(3)]
