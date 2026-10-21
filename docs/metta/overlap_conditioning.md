@@ -112,8 +112,14 @@ and settled steps are handled before, as they were):
    hide its condition before the other arrived. A combined view carries the
    union of its conditions for connectivity. Canonical original-view order
    fixes the fold order; bridge dependencies remain part of the component.
-   Independent values combine before inverse/completion updates, so an update
-   cannot interrupt the direct source claims' combination.
+   Direct views and prior updates (inversions, completions) form components
+   apart. Independent values combine first; each update component then applies
+   to that merge by the pair rule above (factored odds over deeper shared
+   statements, the representative while a near claim waits), so an update
+   cannot interrupt the direct source claims' combination or replace them.
+   Grouping them together let one completion that read a source's statement
+   join every direct claim of that source to its component, which then kept a
+   single view (pln-reliable: 248 of 510 claims).
 
    Same-condition rules pool before sibling grouping, so repeated estimates of
    one class do not become separate odds updates. Condition order is canonical

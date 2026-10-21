@@ -1506,6 +1506,9 @@
 ;; discarded views, and choose one most confident representative inside it.
 ;; Shared rule truths, population priors and given premises do not connect
 ;; components, just as they do not make the pairwise merge dependent.
+;; Direct views and prior updates (inversions, completions) form components
+;; apart: an update applies to the merge of the direct views it shares
+;; statements with, by the same pair rule, so it never replaces them.
 (: SkeletonComponent Type)
 (: sk-component (-[det]-> SkeletonValue Number EvidenceSet (List SkeletonValue) SkeletonComponent))
 (: SkeletonConnecting Type)
@@ -1517,8 +1520,14 @@
 (= (sk-shared-statement-step $ignore $found $hash)
    (if $found true (not (== (sk-shared-hash-step $ignore () $hash) ()))))
 
-(: sk-component-step (-[semidet]-> (List Number) Number EvidenceSet SkeletonConnecting SkeletonComponent SkeletonConnecting))
-(= (sk-component-step $ignore $view-deps $view-ev (sk-connecting (sk-component $best $deps $ev $members) $apart) (sk-component $other $other-deps $other-ev $other-members))
+(: sk-updates? (-[semidet]-> SkeletonValue Bool))
+(= (sk-updates? (sk-val ($_type $_ctx $proof $tv) $_ev $_deps))
+   (case (sk-prior-update-of $proof $tv) (((sk-prior-update $_prior $_own ()) false) ($_update true))))
+
+;; The merge of two connected views, or sk-none for views apart. The second's
+;; dependencies and evidence are those of its whole component.
+(: sk-fallback-pair (-[semidet]-> (List Number) Number EvidenceSet SkeletonValue Number EvidenceSet SkeletonValue SkeletonValue))
+(= (sk-fallback-pair $ignore $view-deps $view-ev $best $other-deps $other-ev $other)
    (let* (($uncertain (fold-semidet (sk-shared-statement-step $ignore) false (deps-shared $view-deps $other-deps)))
           ($shared (if $uncertain true (== (evidence-observed-roles $view-ev $other-ev) observed)))
           ($siblings (sk-siblings? true $best $other))
@@ -1530,13 +1539,19 @@
                 (== (sk-shared-statements $ignore (deps-near-shared (cons $view-deps (cons $other-deps ())))) ()))
              false)))
       (if (if $shared true $siblings)
-         (sk-connecting
-            (sk-component (if $filtered (sk-unpaid-pair $best $other)
-                  (sk-dependent-merge (if $uncertain false
-                  (if $siblings (if (sk-sample-twins? $best $other) false true) false)) $best $other))
-               (deps-union $deps $other-deps) (evidence-union $ev $other-ev) (append-flat $members $other-members))
-            $apart)
-         (sk-connecting (sk-component $best $deps $ev $members) (cons (sk-component $other $other-deps $other-ev $other-members) $apart)))))
+         (if $filtered (sk-unpaid-pair $best $other)
+            (sk-dependent-merge (if $uncertain false
+               (if $siblings (if (sk-sample-twins? $best $other) false true) false)) $best $other))
+         sk-none)))
+
+(: sk-component-step (-[semidet]-> (List Number) Number EvidenceSet SkeletonConnecting SkeletonComponent SkeletonConnecting))
+(= (sk-component-step $ignore $view-deps $view-ev (sk-connecting (sk-component $best $deps $ev $members) $apart) (sk-component $other $other-deps $other-ev $other-members))
+   (case (if (== (sk-updates? $best) (sk-updates? $other))
+            (sk-fallback-pair $ignore $view-deps $view-ev $best $other-deps $other-ev $other) sk-none) (
+      (sk-none (sk-connecting (sk-component $best $deps $ev $members) (cons (sk-component $other $other-deps $other-ev $other-members) $apart)))
+      ($merged (sk-connecting
+                  (sk-component $merged (deps-union $deps $other-deps) (evidence-union $ev $other-ev) (append-flat $members $other-members))
+                  $apart)))))
 
 (: sk-key-merge-step (-[semidet]-> (List Number) (List SkeletonComponent) SkeletonReference (List SkeletonComponent)))
 (= (sk-key-merge-step $ignore $components (sk-reference $_class $view))
@@ -1676,14 +1691,20 @@
 (= (sk-component-order-of $predicted $references (sk-component $best $_deps $_ev $members))
    (let $view (sk-sibling-family $references $best $members)
       (case $view (
-         ((sk-val ($_type $_ctx $proof $tv) $_ev2 $_deps2)
-            (case (sk-prior-update-of $proof $tv) (
-               ((sk-prior-update $_prior $_own ()) (sk-component-order (if $predicted (if (sk-report-proof? $proof) 2 0) 0) $view))
-               ($_update (sk-component-order 1 $view)))))
+         ((sk-val ($_type $_ctx $proof $_tv) $_ev2 $_deps2)
+            (sk-component-order (if (sk-updates? $view) 1 (if $predicted (if (sk-report-proof? $proof) 2 0) 0)) $view))
          ($_goal (empty))))))
 
 (: sk-component-merge-step (-[semidet]-> (List Number) SkeletonValue SkeletonComponentOrder SkeletonValue))
-(= (sk-component-merge-step $ignore $acc (sk-component-order $_order $view)) (sk-merge-step true $ignore $acc $view))
+(= (sk-component-merge-step $ignore $acc (sk-component-order $order $view))
+   (case (if (== $order 1)
+            (case (data $acc $view) (
+               (((sk-val $_a $acc-ev $acc-deps) (sk-val $_v $view-ev $view-deps))
+                  (sk-fallback-pair $ignore $acc-deps $acc-ev $acc $view-deps $view-ev $view))
+               ($_none sk-none)))
+            sk-none) (
+      (sk-none (sk-merge-step true $ignore $acc $view))
+      ($merged $merged))))
 
 (: sk-key-fallback (-[semidet]-> (List Number) (List SkeletonReference) (List SkeletonValue) SkeletonValue))
 (= (sk-key-fallback $ignore $references $views)

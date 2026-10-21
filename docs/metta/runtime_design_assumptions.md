@@ -607,7 +607,9 @@ A key's value merges its stored facts and one view per row:
   with confidence min(c_a,c_b)/(1+R²), where
   R=max(1,abs(logit(s_factored)-logit(s_representative))) (#49).
   Without a factored form the representative remains. Sibling forward-rule
-  views retain their existing conservative combination. Components retain all
+  views retain their existing conservative combination. Direct views and prior
+  updates form components apart; an update applies to the direct views' merge
+  by the same pair rule. Components retain all
   evidence and dependencies, including discarded views; independent components
   merge normally. Summaries contain only views the consumer admits: transitive
   self-support exclusion keeps period-t evidence out of its t−1 summary and,
