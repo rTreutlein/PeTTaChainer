@@ -609,7 +609,8 @@ A key's value merges its stored facts and one view per row:
   a prior and likelihood update combine by factored odds, never revision,
   with confidence min(c_a,c_b)/(1+R²), where
   R=max(1,abs(logit(s_factored)-logit(s_representative))) (#49).
-  Without a factored form the representative remains. Sibling forward-rule
+  Without a factored form the pair combines as independent given those
+  marginals, by its predicate's mode, with the same discount. Sibling forward-rule
   views retain their existing conservative combination. Direct views and prior
   updates form components apart; an update applies to the direct views' merge
   by the same pair rule. Components retain all

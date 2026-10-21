@@ -1455,15 +1455,20 @@
          ($_other $a)))))
 
 ;; Deep shared history enters a prior update as fixed marginal inputs, with confidence discounted by the log-odds range between that
-;; merge and the conservative representative (#49: c/(1+R^2), R >= 1).
+;; merge and the conservative representative (#49: c/(1+R^2), R >= 1). Views
+;; with no factored form combine as independent given those marginals, by the
+;; mode their predicate prefers, with the same discount: none is selected.
 (: sk-unpaid-pair (-[semidet]-> SkeletonValue SkeletonValue SkeletonValue))
 (= (sk-unpaid-pair $va $vb)
    (case (data $va $vb) (
       (((sk-val $a $ev-a $deps-a) (sk-val $b $ev-b $deps-b))
          (let* (($rep (sk-dependent-merge false $va $vb))
-                ($factored (sk-factored-merge $a $ev-a $deps-a $b $ev-b $deps-b true)))
-            (if (== $factored sk-none) $rep
-               (sk-discounted $factored $rep (min (term-confidence $a) (term-confidence $b))))))
+                ($factored (sk-factored-merge $a $ev-a $deps-a $b $ev-b $deps-b true))
+                ($pooled (evidence-union $ev-a $ev-b))
+                ($deps (deps-union $deps-a $deps-b))
+                ($combined (if (== $factored sk-none) (sk-combined-merge $a $b $pooled $deps) $factored)))
+            (sk-discounted (if (== $combined sk-none) (sk-val (RevisionMergeProof $a $b) $pooled $deps) $combined)
+               $rep (min (term-confidence $a) (term-confidence $b)))))
       ($_other (sk-dependent-merge false $va $vb)))))
 
 (: sk-discounted (-[semidet]-> SkeletonValue SkeletonValue Number SkeletonValue))

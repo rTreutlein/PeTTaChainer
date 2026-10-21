@@ -103,7 +103,8 @@ and settled steps are handled before, as they were):
    deeper statements combine a prior and likelihood by factored odds, never
    revision, with confidence min(c_a,c_b)/(1+R²), where
    R=max(1,abs(logit(s_factored)-logit(s_representative))). Without a factored
-   form they keep the representative. Evidence and dependencies are retained.
+   form they combine as independent given those marginals, by the predicate's
+   mode, with the same discount: confidence selects nothing. Evidence and dependencies are retained.
    Same-condition estimates and ordinary non-rule proofs retain their existing
    representative behavior. Independent components then merge as before.
 
