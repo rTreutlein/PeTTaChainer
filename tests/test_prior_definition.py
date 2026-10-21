@@ -60,41 +60,14 @@ class PriorDefinitionTests(unittest.TestCase):
             for _ in range(2):
                 self.assertEqual(self.answer('(Cause now)').tv, ['STV', strength, 1])
 
-    def test_forward_withdrawal_matches_a_fresh_excluded_population(self):
-        def build():
-            h = PeTTaChainer()
-            h.add_atoms_no_check([
-                '(: first (P a) (STV 0.2 0.5))',
-                '(: other (S a) (STV 0.7 0.6))',
-                '(: p (Implication (P $x) (Q $x)) (CTV (STV 1 0.9) (STV 0 1)))',
-                '(: s (Implication (S $x) (Q $x)) (CTV (STV 1 0.9) (STV 0 1)))',
-            ])
-            h.forward_chain(h.all_facts(), steps=20)
-            return h
-
-        self.h = build()
-        self.h.add_atom('(: removed (P a) (STV 0.8 0.5))')
-        self.h.forward_chain(self.h.all_facts(), steps=20)
-        self.answer('(Q a)')
-        self.h.remove_statement('removed')
-        after = self.answer('(P a)')
-        self.assertNotIn('removed', self.h.expand_proof(after.proof))
-        self.assertEqual(self.answer('(P a)').tv, after.tv)
-        self.h = build()
-        fresh = self.answer('(P a)')
-        for actual, expected in zip(after.tv[1:], fresh.tv[1:]):
-            self.assertAlmostEqual(float(actual), float(expected), places=12)
-
-    def test_late_prior_and_withdrawal_equal_fresh(self):
+    def test_late_prior_equals_fresh(self):
         self.diagnostic(0.001)
         fresh = self.answer('(Cause now)').tv
         self.diagnostic()
-        before = self.answer('(Cause now)').tv
+        self.answer('(Cause now)')
         self.h.add_atom('(: prior (Cause now) (STV 0.001 0.5))')
         for _ in range(2):
             self.assertEqual(self.answer('(Cause now)').tv, fresh)
-        self.h.remove_statement('prior')
-        self.assertEqual(self.answer('(Cause now)').tv, before)
 
     def test_incomparable_containing_generals_are_a_mixture(self):
         # k=1 makes a confidence inflation observable in the strength.

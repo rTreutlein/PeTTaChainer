@@ -23,7 +23,6 @@ it does not add statements to the handler's knowledge base.
 |---|---|
 | `(compileadd $kb $stmt)` | Compile a statement (fact or rule) and add it to KB `$kb`. The primary entry point. |
 | `(add-to-kb $expr)` | Add an already-compiled, internal-form atom to the live KB. Lower-level. |
-| `(remove-compiled-statement $name)` | **Deprecated compatibility operation.** Retracts the current kb facts, rules, index rows, and cached scores for one named statement, but does not reset stored backward proof history or eagerly scan skeleton rows. Derived KB copies are retired and later reads exclude derivations using the removed rules. Removing a binary-certain fact leaves its search owner expanded with its retired joins gone, so that search does not restart. This is outside the monotonic query contract; rules whose compiled proof carries no extractable name are not covered. Python: deprecated `PeTTaChainer.remove_statement(name)`, which emits `DeprecationWarning`. |
 
 `compileadd` checks the complete evaluated source annotation before compiling
 or publishing it. An ordinary fact must have **no free statement variables**.

@@ -1,6 +1,5 @@
 """Hard observed facts do not correlate views; uncertain reports still do."""
 import unittest
-import warnings
 
 import janus_swi as janus
 from pettachainer import PeTTaChainer
@@ -37,19 +36,15 @@ class CertainObservationOverlapTests(unittest.TestCase):
                 self.assertIn('blocked19', proof)
                 self.assertIn(f'prod{min(period, 19)}', proof)
 
-    def test_certainty_follows_a_removed_and_readded_statement(self):
-        # A fact's certainty is read from the live KB, never cached: the same
-        # name added again with an uncertain truth value is uncertain evidence.
-        h = PeTTaChainer()
-        h.add_atom('(: storm (Storm a) (STV 1 1))')
+    def test_certainty_is_read_from_the_kb_not_the_name(self):
+        # A fact's certainty is read from its KB, never cached by name: the
+        # same name with an uncertain truth value in another KB is uncertain.
         query = ("Scope=[Kb,'MAIN','Nil'], 'evidence-set'([['fact-ev',Scope,storm,['Storm',a]]],Ev), "
                  "'evidence-uncertain-overlap?'(Ev,Ev,Overlap)")
-        self.assertEqual(janus.query_once(query, {'Kb': h.kb})['Overlap'], 'false')
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore', DeprecationWarning)
-            h.remove_statement('storm')
-        h.add_atom('(: storm (Storm a) (STV 0.6 0.9))')
-        self.assertEqual(janus.query_once(query, {'Kb': h.kb})['Overlap'], 'true')
+        for tv, overlap in (('(STV 1 1)', 'false'), ('(STV 0.6 0.9)', 'true')):
+            h = PeTTaChainer()
+            h.add_atom(f'(: storm (Storm a) {tv})')
+            self.assertEqual(janus.query_once(query, {'Kb': h.kb})['Overlap'], overlap)
 
     def test_clash_ignores_only_binary_certain_stored_observations(self):
         for strength, confidence, certain in ((0, 1, True), (1, 1, True), (0, .9, False), (.4, 1, False)):

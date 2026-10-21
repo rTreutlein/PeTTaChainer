@@ -98,14 +98,24 @@
             (() ())))))
    true)
 
-!(remove-compiled-statement frontierP2)
-
-;; frontierP2 is gone; the inversion from Q a (supported through S a)
+;; With frontierP1 alone, the inversion from Q a (supported through S a)
 ;; updates frontierP1 in the population prior's place (#42), rather than
 ;; revising with it: odds(.2)*odds(inversion)/odds(2/7) = 1.45836,
 ;; P=.593224. The update adds variance; it does not add prior evidence.
+!(compileadd forwardOneFrontierKb (: frontierP1 (P a) (STV 0.2 0.5)))
+!(compileadd forwardOneFrontierKb (: frontierS1 (S a) (STV 0.7 0.6)))
+!(compileadd forwardOneFrontierKb
+   (: pToQ
+      (Implication (P $x) (Q $x))
+      (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+!(compileadd forwardOneFrontierKb
+   (: sToQ
+      (Implication (S $x) (Q $x))
+      (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+!(forward-chain 20 forwardOneFrontierKb
+   (test-main-facts forwardOneFrontierKb))
 !(test
-   (query 200 forwardFrontierKb (: $prf (P a) $tv))
+   (query 200 forwardOneFrontierKb (: $prf (P a) $tv))
    (: (factored-revision frontierP1 (prior (STV 0.2000749812546863 0.5)) (((inverted pToQ with cpu (prior (STV 0.5 0.0))) (by sToQ frontierS1)))) (P a) (STV 0.36853470599882066 0.4073489899280713)))
 
 ;; Adding evidence can raise an antecedent's confidence while moving its

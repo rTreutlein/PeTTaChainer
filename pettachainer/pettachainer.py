@@ -518,29 +518,6 @@ class PeTTaChainer:
         self._added_atoms.append(atom)
         return result
 
-    def remove_statement(self, atom_name: str) -> str:
-        """Deprecated: remove compiled KB/index rows for a named statement.
-
-        Retracts the kb facts and rules that compileadd produced for
-        ``(: <atom_name> ...)``, including their index rows and cached
-        expected scores. Durable backward proofs are not forgotten, so this
-        operation is outside the monotonic query contract. Statements whose
-        compiled rules carry no extractable name (e.g. negated outputs) are
-        not covered.
-        """
-        warnings.warn(
-            "remove_statement() is deprecated and does not forget durable proofs",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        result = self.handler.process_metta_string(f"!(remove-compiled-statement {atom_name})")
-        prefix = f"(: {atom_name} "
-        self._added_atoms = [
-            atom for atom in self._added_atoms
-            if not atom.strip().startswith(prefix)
-        ]
-        return result
-
     @_timed
     def add_atoms_no_check(self, atoms: List[str]) -> List[str]:
         # Journal only successfully ingested inputs: a later rejection must

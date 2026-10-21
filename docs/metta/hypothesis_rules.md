@@ -726,8 +726,7 @@ query). Each hypothesis is then judged:
   blocked) 0.85 over 7 samples were dropped.
 
 A dropped hypothesis leaves the live set, freeing its slot, and its rules
-leave the rule indexes (`withdraw-named-rules!`, what the deprecated
-statement removal uses). Withdrawal marks each compiled rule identity retired;
+leave the rule indexes (`withdraw-named-rules!`). Withdrawal marks each compiled rule identity retired;
 its durable joins cannot extend and its views, cached merges, materializations
 and summaries cannot contribute to later reads. Stored proofs keep the distinct
 permanent rule identities they used, separately from statistical evidence, so

@@ -255,18 +255,6 @@ class TestPeTTaChainer(unittest.TestCase):
                 "42",
             )
 
-    def test_remove_statement_is_deprecated(self):
-        handler = PeTTaChainer()
-        handler.add_atom("(: deprecated_remove (DeprecatedRemove) (STV 1.0 1.0))")
-
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            handler.remove_statement("deprecated_remove")
-
-        self.assertEqual(len(caught), 1)
-        self.assertIs(caught[0].category, DeprecationWarning)
-        self.assertIn("does not forget durable proofs", str(caught[0].message))
-
     def test_query_metrics_env_skips_timed_queries_with_warning(self):
         with TemporaryDirectory() as directory:
             metrics_path = Path(directory) / "query-metrics.jsonl"

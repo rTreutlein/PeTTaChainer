@@ -41,8 +41,7 @@ Consequences:
   checks before aggregation.
 
 Explicit rule withdrawal is separate from monotonic addition. Hypothesis
-review and the deprecated statement-removal path both retire compiled rule
-identities. Later reads exclude every derivation using them, including cached
+review retires compiled rule identities. Later reads exclude every derivation using them, including cached
 views. Each immutable proof records its permanent owner identity in its existing
 metadata word, alongside its negation bit. Transitive rule provenance is resolved
 through the shared proof DAG only when retirement checks or exposed KB copies
@@ -94,24 +93,15 @@ Direct references to frozen summaries register when a proof is published. Their
 historical source metadata survives physical summary retirement and collection
 until the referencing proof has captured its rule set, or is itself collected.
 
-### Strict append-only follow-up
+### Append-only knowledge base
 
-The public `remove-compiled-statement`, cache `clear-*`, and replace-style
-configuration operations predate the decision that ordinary system history
-should be append-only. Statement removal remains callable only for compatibility
-and is deprecated; normal reasoning and knowledge ingestion must not depend on
-it. Removal does not erase durable proofs or reset the monotonic proof ID counter.
-It now retires the removed rules and their derived KB copies as described
-above; retired skeleton rows contribute no later value and leave optimization
-stores when encountered.
-Removing a binary-certain fact after its joins have been retired leaves its
-owner expanded with those joins gone: the search does not restart. This
-deprecated interaction is outside the monotonic contract.
-
-A future API pass should represent corrections, supersession, and configuration
-changes as scoped events instead of retracting prior knowledge. Explicit proof
-forgetting needs its own temporal or scope policy and must not be smuggled into
-statement removal. Query-local rows and replaceable cache/index rows are not
+Facts and rules are only added; there is no removal API. A new observation of
+an existing statement adds evidence (revision) and never replaces the old
+value, and a changed world is a new fact at a new time. Hypothesis review's
+rule withdrawal (above), forgetting's summaries and Assuming worlds are the
+only ways knowledge stops contributing, and none of them deletes a fact.
+Corrections, supersession, and configuration changes are scoped events, not
+retractions. Explicit proof forgetting needs its own temporal or scope policy. Query-local rows and replaceable cache/index rows are not
 logical retractions as long as deleting those optimization tables would leave
 the unbounded logical answers unchanged.
 
@@ -928,7 +918,7 @@ query needs is checked again at each evaluation
 A base-rate fold is incremental, since its population grows with everything
 ingested. It keeps its accumulated evidence and each member's contribution. A
 stored fact counts in the base rates observing it when it is added, its
-statement with its stored facts merged, as a removal recounts it: one lookup
+statement with its stored facts merged: one lookup
 of the aggregates interested in its head. Whether a forward run or a search
 reaches the fact does not change what the rate counts. A derived
 member that joined or whose value changed is taken again, replacing its old
@@ -1296,7 +1286,7 @@ sleeps. Spending is accumulated across every exclusion read of that key in
 one evaluation. A root that only received a partial slice shared with other
 roots remains pending. A larger query slice can wake a sleeping root.
 
-A new or removed fact, permanent rule or user base rate changes the input
+A new fact, permanent rule or user base rate changes the input
 generation of its KB (scoped through the active overlay). Sleeping root claims
 record that generation and the allowance already attempted. A new generation or
 larger slice re-enables them; ordinary refinements of the same input world do not,

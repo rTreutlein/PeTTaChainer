@@ -103,8 +103,8 @@
       (Implication (Not (AcceptSource S)) (Implication (A $x) (C $x))) $tv))
    (data $s (< $c 0.5))) (0.2 true))
 
-;; Removing the actual source retires projected support even after warm reads.
-!(remove-compiled-statement rule)
+;; Withdrawing the actual source retires projected support even after warm reads.
+!(withdraw-named-rules! rule)
 !(test (collapse (query 300 projectedKb (: $p
    (Implication (AcceptSource S) (Implication (A $x) (C $x))) $tv))) ())
 
@@ -118,7 +118,7 @@
    (STV 0.8 0.6)))
 !(test (let (: $proof $type (STV $s $c))
    (query-materialize 300 withdrawnProjectionKb (: $p (C a) $tv)) $s) 0.8)
-!(remove-compiled-statement main-projection)
+!(withdraw-named-rules! main-projection)
 !(test (collapse (query 300 withdrawnProjectionKb (: $p (C a) $tv))) ())
 !(test (kb-facts (brand Statement (C a)) (kbctx withdrawnProjectionKb)) ())
 
@@ -132,6 +132,6 @@
    (STV 0.8 0.6)))
 !(test (let (: $proof $type (STV $s $c))
    (query-materialize 300 withdrawnDeepKb (: $p (C a) $tv)) $s) 0.8)
-!(remove-compiled-statement deep-projection)
+!(withdraw-named-rules! deep-projection)
 !(test (collapse (query 300 withdrawnDeepKb (: $p (C a) $tv))) ())
 !(test (kb-facts (brand Statement (C a)) (kbctx withdrawnDeepKb)) ())

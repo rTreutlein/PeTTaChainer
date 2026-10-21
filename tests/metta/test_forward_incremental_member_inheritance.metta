@@ -226,54 +226,14 @@
             true)))
    2)
 
-;; Removing one fact recomputes from the surviving one. Removing
-;; the final support deletes a's joined contribution immediately.
-!(remove-compiled-statement aHumanSecond)
-
-!(test
-   (member-fold-cache forwardMemberFoldKb Human Mortal)
-   ((STV 0.6666666666666666 0.0018714909544603868)))
-
-!(remove-compiled-statement aHuman)
-
-!(test
-   (let $id
-      (fa-id (forward-member-inheritance-identity
-         forwardMemberFoldKb Human Mortal))
-      (collapse
-         (match &forward_aggregate_state
-            ($id $weight $mass $_members)
-            ($weight $mass))))
-   ((0.19999999999999996 0.5)))
-
-!(test
-   (member-test-fact forwardMemberFoldKb a Human)
-   ())
-
-!(test
-   (member-fold-cache forwardMemberFoldKb Human Mortal)
-   ((STV 0.3999999999999999 0.0006246096189881324)))
-
-!(test
-   (list-count
-      (collapse
-         (match &forward_aggregate_observation
-            ($_obs-hash
-               ($_id $_obj)
-               (forward-member-inheritance-observation-value
-                  $_subject $_concept)
-               $_weight $_mass $_sources)
-            true)))
-   1)
-
 ;; The provisional value answers immediately, while an ordinary complete fold
 ;; refines it and upgrades the cache source without changing public provenance.
 !(test
-   (query 80 forwardMemberFoldKb
-      (: $proof (Inheritance Human Mortal) $tv))
-   (: (member-inheritance-fold cpu)
-      (Inheritance Human Mortal)
-      (STV 0.3999999999999999 0.0006246096189881324)))
+   (let (: $proof $_type $tv)
+      (query 80 forwardMemberFoldKb
+         (: $proof (Inheritance Human Mortal) $tv))
+      (data $proof (== (cons $tv ()) (member-fold-cache forwardMemberFoldKb Human Mortal))))
+   ((member-inheritance-fold cpu) true))
 
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)

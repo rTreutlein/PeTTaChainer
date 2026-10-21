@@ -18,12 +18,10 @@
 !(test (candidate-tv mergeKb (P a)) (STV 0.6 0.6666666666666666))
 !(test (query 50 mergeKb (: $p (P a) $tv)) (: (merge/revision a2 a1) (P a) (STV 0.6 0.6666666666666666)))
 
-!(compileadd mergeKb (: a3 (P a) (STV 0.2 0.5)))
-!(test (candidate-tv mergeKb (P a)) (STV 0.46666666666666656 0.75))
-
-;; A removed fact leaves what the others say (remove-named-fact!).
-!(remove-compiled-statement a3)
-!(test (candidate-tv mergeKb (P a)) (STV 0.6 0.6666666666666666))
+!(compileadd mergeThreeKb (: a1 (P a) (STV 0.8 0.5)))
+!(compileadd mergeThreeKb (: a2 (P a) (STV 0.4 0.5)))
+!(compileadd mergeThreeKb (: a3 (P a) (STV 0.2 0.5)))
+!(test (candidate-tv mergeThreeKb (P a)) (STV 0.46666666666666656 0.75))
 
 ;; Membership reads the stored facts merged (fa-member), as aggregate
 ;; seeding counts a statement once with its facts merged (fa-seed-statement).

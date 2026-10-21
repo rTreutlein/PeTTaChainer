@@ -141,10 +141,10 @@
                ())
             ())))))
 
-;; Index rules by the statement name embedded in their conclusion proof so
-;; remove-compiled-statement can find them without scanning the rules space.
-;; Rules whose proof carries no extractable name (open query adapters,
-;; negated outputs) are simply not indexed -- they cannot be removed by name.
+;; Index rules by the statement name embedded in their conclusion proof, so a
+;; rule's rows are found by its name without scanning the rules space (rule
+;; withdrawal, a refined rule's truth). Rules whose proof carries no
+;; extractable name (open query adapters, negated outputs) are not indexed.
 (: register-rule-name!
    (-[det]-> KbBackend Number (Statement KBContext Proof TV) (| Bool (List $none))))
 (= (register-rule-name! $backend $id $ccls)
@@ -247,8 +247,8 @@
                    ($_nodes (record-fact-inheritance-nodes! $fact true))
                    ($_outcome (note-combination-outcome! $fact)))
                   ;; The aggregates observing the statement count it at once,
-                  ;; with its stored facts merged, as a removal recounts it:
-                  ;; whether a forward run takes it is not theirs to decide.
+                  ;; with its stored facts merged: whether a forward run takes it
+                  ;; is not theirs to decide.
                   (case (stored-statement-candidate $type $kb false) (
                      ((forward-derived $merged $_ev) (forward-maintain-aggregates! aggregate-update $merged))
                      (no-forward-output-candidate ())))))
@@ -348,15 +348,7 @@
 (: inject-compiled-adds (-[nondet]-> (List RuntimeAddition) (List $none)))
 (= (inject-compiled-adds $adds) (foreach-flat (kb-add-expr temp) $adds))
 
-;; --- Removal of compiled statements by name ---------------------------------
-;; Inverse of compileadd for one named statement: retracts the &kb facts whose
-;; proof is the name and every rule row registered under it in
-;; rule_name_index, including the rows kb-add-expr created alongside
-;; (prem_index, ccls_index, rule_expected). Computed base
-;; rates of the affected kb are invalidated because removal is non-monotonic.
-;; In contrast, kb-add-expr preserves computed snapshots: added proofs cannot
-;; invalidate previous evidence and later chaining refines the cached estimate.
-
+;; --- Rule withdrawal by name -----------------------------------------------
 ;; A rule row and its index rows; returns the KB it belonged to.
 (: remove-rule-row! (-[det]-> Number (List KB)))
 (= (remove-rule-row! $id)
@@ -390,28 +382,3 @@
           ($_gated (remove-data-rows! &prior_gated_rules (quote ($_h $_k $_p $name $_b $_a $_c))))
           ($_live (remove-data-rows! &prior_gated_live (quote ($_lh $_lk $_lp $name $_lid)))))
       $kbs))
-
-;; A removed fact's statement is observed by the aggregates as what its
-;; remaining facts say, or not at all.
-(: remove-named-fact! (-[det]-> Proof (Statement KBContext TV) (List $none)))
-(= (remove-named-fact! $name ($type $kb $tv))
-   (let* (($_remove (remove-atom &kb ($type $kb $name $tv)))
-          ($_unindex (kb-unindex-fact! ($type $kb $name $tv)))
-          ($_journal (sk-note-fact! $type $kb))
-          ($_base-rates (invalidate-computed-base-rates! (brand KB (car-atom $kb)))))
-      (case (stored-statement-candidate $type $kb false) (
-         ((forward-derived $rest $_ev) (forward-maintain-aggregates! aggregate-update $rest))
-         (no-forward-output-candidate
-            (forward-maintain-aggregates! aggregate-remove (assemble-runtime-fact $type $kb $name $tv)))))))
-
-(: remove-compiled-statement (-[det]-> Proof (List $none)))
-;; Deprecated compatibility boundary. It removes current KB/compiler rows but
-;; deliberately does not forget durable backward proof history.
-(= (remove-compiled-statement $name)
-   (let*
-      (($_specialization (remove-specialization-state! $name))
-       ($_facts
-          (foreach-flat (remove-named-fact! $name)
-             (collapse (match &kb ($type $kb $name $tv) (data $type $kb $tv)))))
-       ($_rules (foreach-flat invalidate-computed-base-rates! (withdraw-named-rules! $name))))
-      ()))

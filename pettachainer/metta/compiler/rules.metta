@@ -1034,41 +1034,6 @@
                   (the (List Atom) $triggers) ()
                   (the SpecializationJob $job)))))))
 
-;; Retraction support for the unified specialization store. Templates and
-;; grounded completion markers must disappear with their source statement;
-;; otherwise a later fact can resurrect a removed rule, and a clean re-add can
-;; be suppressed by stale idempotency state.
-(: remove-specialization-state! (-[det]-> Proof (List $none)))
-(= (remove-specialization-state! $name)
-   (let*
-      (($_rule-templates
-          (collapse
-             (remove-atom &spec_template
-                ($_rule-hash
-                   (specialization-template-row
-                      $_rule-kb $_rule-head $_rule-triggers
-                      (compile-specialization (: $name $_rule-type $_rule-tv)))))))
-       ($_lift-templates
-          (collapse
-             (remove-atom &spec_template
-                ($_lift-hash
-                   (specialization-template-row
-                      $_lift-kb $_lift-head $_lift-triggers
-                      (inheritance-lift-specialization
-                         $_lift-ground (: $name $_lift-type $_lift-tv)))))))
-       ($_done
-          (collapse
-             (remove-atom &spec_done
-                ($_done-hash (specialization-done-row $_done-kb (: $name $_done-type $_done-tv))))))
-       ($_lifts
-          (collapse
-             (remove-atom &inheritance_lift_instance
-                ($_instance-hash
-                   (inheritance-lift-instance-row
-                      $_instance-kb $_instance-stmt
-                      (: $name $_source-type $_source-tv)))))))
-      ()))
-
 ;; Store a non-rule fact and emit its ordinary derived views. Keeping this
 ;; separate lets the main compiler normalize supported source syntax before
 ;; entering the single canonical fact path.

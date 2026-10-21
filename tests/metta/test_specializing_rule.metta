@@ -74,21 +74,11 @@
    (query 100 kb3 (: (by alt_rel $prf) (Related alice bob) $tv))
    (: (by alt_rel (conjunction tag3 r1)) (Related alice bob) (STV 0.6 0.7999999998612068)))
 
-;; Removing a specializing rule also removes its deferred template. A later
-;; structural fact must not resurrect it, and re-adding it must work normally.
-!(compileadd kb4
-   (: removable_rel
-      (Implication
-         (And (Symmetric $r) ($r $x $y))
-         ($r $y $x))
-      (STV 0.9 0.9)))
-!(remove-compiled-statement removable_rel)
+;; A specializing rule added after the structural facts it reads specializes on them.
 !(compileadd kb4 (: tag4 (Symmetric Knows) (STV 1.0 1.0)))
 !(compileadd kb4 (: k1 (Knows bob alice) (STV 1.0 1.0)))
-!(test (query 100 kb4 (: $prf (Knows alice bob) $tv)) ())
-
 !(compileadd kb4
-   (: removable_rel
+   (: late_rel
       (Implication
          (And (Symmetric $r) ($r $x $y))
          ($r $y $x))
@@ -96,5 +86,5 @@
 ;; The rule and its own completion read k1 as cause and as observation, a loop:
 ;; they revise rather than multiply, and no view is selected.
 !(test (query 100 kb4 (: $prf (Knows alice bob) $tv))
-   (: (merge/revision (by removable_rel (conjunction tag4 k1)) ((antecedent-completion removable_rel 1 with cpu (prior (STV 0.5 0.0))) (conjunction tag4 k1)))
+   (: (merge/revision (by late_rel (conjunction tag4 k1)) ((antecedent-completion late_rel 1 with cpu (prior (STV 0.5 0.0))) (conjunction tag4 k1)))
       (Knows alice bob) (STV 0.8999999714282308 0.9000000092617825)))
