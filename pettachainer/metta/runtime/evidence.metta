@@ -28,7 +28,7 @@
          (if (if (implication-type? $type) true (head-is? $type QuantifiedRule))
             (let* (($source-kb (statement-query-kb (brand KB (car-atom $kb))))
                    ($name (rule-evidence-base-name $prf)))
-               (if (rule-evidence-registered? $source-kb $name)
+               (if (if (rule-evidence-registered? $source-kb $name) true (given-rule? $source-kb $name))
                   (rule-ev $source-kb $name)
                   (fact-ev $kb $prf $type)))
             (fact-ev $kb $prf $type))))))
@@ -314,10 +314,22 @@
        ($name (rule-evidence-base-name (rule-evidence-head $prf)))
        ($storage-kbid (brand KB $kbid))
        ($typed-kbid (statement-query-kb $storage-kbid)))
-      (if (is-expr $name) $base
-         (if (rule-evidence-registered? $typed-kbid $name)
-            (evidence-union $base (evidence-set (cons (rule-ev $typed-kbid $name) ())))
-            $base))))
+      ;; An estimated rule and a ground given rule are named, so a view never
+      ;; stands for one through such a rule it did not apply. A given rule's
+      ;; entry is certain, as a given fact's (runtime_helpers.pl). A completion
+      ;; of a ground given rule names it too; an estimated rule's completion
+      ;; carries no rule evidence.
+      (case $prf (
+         (((antecedent-completion $rule $_index with $_mode $_prior) $_witness)
+            (let $given (rule-evidence-base-name (brand Proof $rule))
+               (if (given-rule? $typed-kbid $given)
+                  (evidence-union $base (evidence-set (cons (rule-ev $typed-kbid $given) ())))
+                  $base)))
+         ($_other
+            (if (is-expr $name) $base
+               (if (if (rule-evidence-registered? $typed-kbid $name) true (given-rule? $typed-kbid $name))
+                  (evidence-union $base (evidence-set (cons (rule-ev $typed-kbid $name) ())))
+                  $base)))))))
 
 (: stored-list-member? (-[det]-> $item (List $item) Bool))
 (= (stored-list-member? $_needle ()) false)

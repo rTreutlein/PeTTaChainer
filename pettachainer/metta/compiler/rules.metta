@@ -241,6 +241,16 @@
 (= (rule-evidence-registered? $kbid $name)
    (not (== (collapse (once (match &rule_evidence_names ($name $kbid) true))) ())))
 
+;; Ground given rules, by name and KB. A ground implication is knowledge about
+;; its particular instances, as a fact is: its applications carry a certain
+;; rule-ev entry, so a view that never applied it cannot stand for one that
+;; did. A general given rule stays a parameter and carries no entry.
+(: &given_rules (SpaceOf (Proof KB)))
+!(bind! &given_rules (new-space))
+
+(: given-rule? (-[det]-> KB Proof Bool))
+(= (given-rule? $kbid $name) (not (== (collapse (once (match &given_rules ($name $kbid) true))) ())))
+
 ;; A rule's applications carry its evidence when its truth is an estimate, so
 ;; a proof of the rule (its axiom) and a proof through it are not independent;
 ;; two applications to different premises are, given the rule's truth (see
@@ -248,25 +258,29 @@
 ;; refined (`refined-rule?`): its truth is given, and carries no evidence. A
 ;; given rule whose every branch has strength 0 or 1 is deterministic: applied
 ;; to certain premises it determines its conclusion (sk-determined-row?).
-(: register-rule-evidence! (-[det]-> KB Proof TV (List $no-result)))
-(= (register-rule-evidence! $kb $prf $tv)
+(: register-rule-evidence! (-[det]-> KB Proof TV Bool (List $no-result)))
+(= (register-rule-evidence! $kb $prf $tv $ground)
    (let $name (rule-evidence-base-name $prf)
       (if (is-expr $name) ()
          (if (logic-rule? $name) ()
             (if (rule-evidence-registered? $kb $name) ()
                (case $tv (
-                  ((STV $s $c) (register-given-branches! $kb $name (cons (STV $s $c) ())))
-                  ((CTV $pos $neg) (register-given-branches! $kb $name (cons $pos (cons $neg ()))))
+                  ((STV $s $c) (register-given-branches! $kb $name $ground (cons (STV $s $c) ())))
+                  ((CTV $pos $neg) (register-given-branches! $kb $name $ground (cons $pos (cons $neg ()))))
                   ($_other (register-rule-evidence-name! $kb $name)))))))))
 
-(: register-given-branches! (-[det]-> KB Proof (List TV) (List $no-result)))
-(= (register-given-branches! $kb $name $branches)
+(: register-given-branches! (-[det]-> KB Proof Bool (List TV) (List $no-result)))
+(= (register-given-branches! $kb $name $ground $branches)
    (if (fold-flat given-branch-step true $branches)
       (if (fold-flat deterministic-branch-step true $branches)
          (if (deterministic-rule? $kb $name) ()
-            (let $_added (add-atom &deterministic_rules ($name $kb)) ()))
-         ())
+            (let $_added (add-atom &deterministic_rules ($name $kb)) (if $ground (register-given-rule! $kb $name) ())))
+         (if $ground (register-given-rule! $kb $name) ()))
       (register-rule-evidence-name! $kb $name)))
+
+(: register-given-rule! (-[det]-> KB Proof (List $no-result)))
+(= (register-given-rule! $kb $name)
+   (if (given-rule? $kb $name) () (let $_added (add-atom &given_rules ($name $kb)) ())))
 
 (: given-branch-step (-[det]-> Bool TV Bool))
 (= (given-branch-step $given $branch)
@@ -1159,7 +1173,7 @@
       (if (not (== $triggers ()))
          (specialize-rule-add $kb $triggers (compile-specialization (: $prf $Type $tv)))
          (let*
-            (($_evidence-reg (register-rule-evidence! $kb $prf $tv))
+            (($_evidence-reg (register-rule-evidence! $kb $prf $tv (== (extract-vars $Type) ())))
              ($antecedents (antecedent-lowerings $kb $ctx $vars (brand Statement $antecedent)))
              ((cons ($execs $_proofs $_atv) $_settled) $antecedents)
              ($shape-kb (make-kb-context $kb $ctx $vars))

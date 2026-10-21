@@ -516,7 +516,10 @@ matching subscriptions close after consuming their unique answer, as above.
 Unassigned keys and subscriptions with unbound key arguments stay open.
 
 A rule stated with confidence 1 in every branch is given, not estimated: its
-applications carry no evidence of it. A rule stated with less, or refined from
+applications carry no evidence of it, unless it is ground: a ground implication
+is knowledge about its particular instances, as a fact is, so its applications
+carry a certain entry naming it, and a view that never applied it does not
+contain one that did. A rule stated with less, or refined from
 its instances, is evidence of every proof through it, so a proof of the rule
 itself (its axiom) and a proof through it are one piece of evidence. Proofs
 that both apply a rule to different premises are not: given the rule's truth

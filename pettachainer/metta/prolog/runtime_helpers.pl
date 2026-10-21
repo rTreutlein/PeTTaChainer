@@ -2881,6 +2881,8 @@ ev_inherited_id(Id, Out) :- ( ev_given_fact(Id, Fact) -> Out = Fact ; Out = Id )
 % certainty is read from the live KB, not cached with its entry.
 ev_entry_certain(Id) :- ev_entry(Id, _, E), ev_entry_is_certain(E).
 ev_entry_is_certain(['given-ev'|_]) :- !.
+ev_entry_is_certain(['rule-ev', Kb, Name]) :- !,
+    catch('&given_rules'(Name, Kb), error(existence_error(procedure, _), _), fail).
 ev_entry_is_certain(['not-ev', Inner]) :- !, ev_entry_is_certain(Inner).
 ev_entry_is_certain(['not-fact-ev', Ctx, P, Type]) :- !, ev_entry_is_certain(['fact-ev', Ctx, P, Type]).
 ev_entry_is_certain(['fact-ev', Ctx, P, Type]) :- !,
