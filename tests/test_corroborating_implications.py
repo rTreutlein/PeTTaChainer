@@ -99,18 +99,19 @@ class CorroboratingImplicationTests(unittest.TestCase):
                     f'(: rule-{i} (Implication (Member $e StockSplit) (KeepsOwnership $e)) '
                     '(CTV (STV 1 0.9) (STV 0.5 0)))' for i in range(size)
                 ])
-                # Lifting revises the independent residual rules, then reads
-                # the shared Member observation once.
+                # Conditioned on the shared Member observation, the rules
+                # revise; the observation is read once.
                 residual = (1, .9) if size == 1 else modus_ponens((1, 1), (1, .9))
                 expected = modus_ponens((1, .9), revise([residual] * size))
                 self.answer(h, '(KeepsOwnership Event3)', expected, [f'rule-{i}' for i in range(size)])
 
     def test_ungated_stv_reproducer(self):
-        # These dynamic-CTV rules cannot use literal-CTV lifting. Their
-        # overlapping Member evidence retains the one-rule representative.
-        expected = modus_ponens((1, .9), (1, .9))
+        # STV rules over the shared Member observation are same-condition
+        # estimates: the merge conditions on Member, so they revise.
         for size in (1, 2, 3):
             with self.subTest(size=size):
+                residual = (1, .9) if size == 1 else modus_ponens((1, 1), (1, .9))
+                expected = modus_ponens((1, .9), revise([residual] * size))
                 h = PeTTaChainer()
                 h.add_atom('(: event (Member Event3 StockSplit) (STV 1 0.9))')
                 h.add_atoms_no_check([

@@ -1,11 +1,10 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 
-;; Lifting-merge: when several proofs of one grounded conclusion share a premise
-;; but are otherwise independent, they are pooled by factoring the shared premise
-;; out, revising the residual implications, and re-applying the premise once --
-;; recovering the confidence that dominance would discard. A shared certain fact
-;; read as a condition is given, so such proofs are independent and revise
-;; directly; confidences differ from the residual revision below 1e-9.
+;; Several proofs of one grounded conclusion that share a premise but are
+;; otherwise independent revise, recovering the confidence that dominance would
+;; discard. A shared certain fact read as a condition is given, so such proofs
+;; are independent and revise directly; a shared uncertain statement is
+;; conditioned on. Confidences differ from the residual revision below 1e-9.
 
 ;; --- Two independent implications A->B applied to the same a ---
 !(compileadd twoImplKb (: a (A i) (STV 1.0 1.0)))
@@ -15,7 +14,7 @@
 ;; dominance would give (STV 0.6 0.9); pooling the two implications raises it.
 !(test
    (query 40 twoImplKb (: $prf (B i) $tv))
-   (: (merge/revision (by ab1 a) (by ab2 a)) (B i) (STV 0.6 0.9473684209852813)))
+   (: (merge/revision (by ab1 a) (by ab2 a)) (B i) (STV 0.6 0.9473684209852937)))
 
 ;; --- Same shape but the two implications differ in strength (0.7 vs 0.6).
 ;; Their idealized confidences then differ slightly, so plain overlap-dominance
@@ -28,7 +27,7 @@
 !(compileadd diffImplKb (: ab2 (Implication (A $x) (B $x)) (CTV (STV 0.6 0.9) (STV 0.0 1.0))))
 !(test
    (query 40 diffImplKb (: $prf (B i) $tv))
-   (: (merge/revision (by ab1 a) (by ab2 a)) (B i) (STV 0.6499999999812448 0.947368420966578)))
+   (: (merge/revision (by ab2 a) (by ab1 a)) (B i) (STV 0.6499999999812448 0.9473684209665905)))
 
 ;; --- A,X->B / A,Y->B sharing only A. The bare implication query cannot express
 ;; this shape. These distinct sibling conditions combine by odds over the
@@ -67,7 +66,7 @@
 
 !(test
    (query 80 mlKb (: $prf (C i) $tv))
-   (: (merge/revision (by r1 (conjunction a b)) (by r2 (conjunction a b))) (C i) (STV 0.5499999999774938 0.9473684209403748)))
+   (: (merge/revision (by r2 (conjunction a b)) (by r1 (conjunction a b))) (C i) (STV 0.5499999999774938 0.9473684209403997)))
 
 ;; --- Shared b enters through different paths (directly in path 1, via M in
 ;; path 2), but the conclusion is still linear in the shared {a,b} conjunction,

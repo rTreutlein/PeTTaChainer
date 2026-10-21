@@ -3,9 +3,8 @@
 ;; Every row keeps the versions of its view: its conclusion computed by the
 ;; rule's formulas from its premises' values, with the evidence behind it and
 ;; the hashes of the keys it depends on. A key's value merges its leaf facts
-;; and one version per row; overlapping evidence resolves by dominance,
-;; disjoint evidence revises, and proofs sharing only fact premises pool by
-;; lifting.
+;; and one version per row; overlapping evidence resolves by dominance and
+;; disjoint evidence revises.
 ;;
 ;; A premise reads, per row of its key, the latest version that depends
 ;; neither on the reading row's own conclusion key nor on a key unifying with
@@ -1039,7 +1038,7 @@
             ($_tv-other (sk-val ($type $kbctx $proof $tv) $ev $deps))))))))
 
 ;; Reference classes are compared before any views are combined. Otherwise
-;; lifting or a learned combination can hide a contained condition.
+;; a learned combination can hide a contained condition.
 (: ReferenceClass Type)
 (: no-class ReferenceClass)
 (: sk-class (-[det]-> Bool (List Atom) ReferenceClass))
@@ -1048,6 +1047,7 @@
 (: sk-mixture-class (-[det]-> (List Atom) ReferenceClass))
 (: sk-combined-class (-[det]-> (List Atom) ReferenceClass))
 (: sk-merge-step (-[semidet]-> Bool (List Number) SkeletonValue SkeletonValue SkeletonValue))
+(: sk-pair-merge-step (-[semidet]-> Bool (List Number) SkeletonMerging SkeletonValue SkeletonMerging))
 (: sk-antecedent-step (-[semidet]-> EvidenceSet ((List Atom) Number Bool) Proof ((List Atom) Number Bool)))
 
 ;; Read the antecedent's already computed value and statements. A settled
@@ -1092,7 +1092,7 @@
                           (match &sk_rule_truth ($id $_truth-hash $truth $_truth-ctx)
                              (let (RuleTruth (Implication $condition $type)) (copy_term $truth) $condition)))))) (
                 ((cons $refined $_more) $refined)
-                (() (let $ctv (sk-lift-rule-ctv (brand KB (car-atom $ctx)) $rule)
+                (() (let $ctv (sk-rule-ctv (brand KB (car-atom $ctx)) $rule)
                        (once (match &kb ((Implication $declared $type) $ctx $rule $ctv) $declared))))))))
       (sk-reference (sk-condition-class $s (implication-side-conjuncts (brand Statement $antecedent)))
          (sk-val ($type $ctx $proof $tv) $ev $deps))))
@@ -1298,16 +1298,18 @@
             (cons (sk-class-group $class (cons $view ())) $groups)))
       (() (cons (sk-class-group $class (cons $view ())) ())))))
 
-(: sk-class-group-value (-[semidet]-> (List Number) SkeletonClassGroup SkeletonReference))
-(= (sk-class-group-value $ignore (sk-class-group $class $views))
-   (case $views (
-      ((cons $view ()) (sk-reference $class $view))
-      ($_many
-         (let $values (fold-semidet sk-cons-step () $views)
-            (sk-reference $class
-               (case (sk-lift false $values) (
-                  ((cons $lifted $_more) $lifted)
-                  (() (fold-semidet (sk-merge-step false $ignore) sk-none $values))))))))))
+;; Views of one class revise into one, unless they share an uncertain
+;; statement: then each stays a reference of its own, and the key's merge
+;; conditions on what they share.
+(: sk-class-view-step (-[det]-> ReferenceClass (List SkeletonReference) SkeletonValue (List SkeletonReference)))
+(= (sk-class-view-step $class $kept $view) (append-flat $kept (cons (sk-reference $class $view) ())))
+
+(: sk-class-group-step (-[semidet]-> (List Number) (List SkeletonReference) SkeletonClassGroup (List SkeletonReference)))
+(= (sk-class-group-step $ignore $kept (sk-class-group $class $views))
+   (let $values (fold-semidet sk-cons-step () $views)
+      (case (fold-semidet (sk-pair-merge-step false $ignore) (sk-merging sk-none () 0) $values) (
+         ((sk-merging $merged () $_deps) (sk-class-view-step $class $kept $merged))
+         ($_shared (fold-semidet (sk-class-view-step $class) $kept $values))))))
 
 (: SkeletonSampleView Type)
 (: sk-sample-view (-[det]-> (List SkeletonDigest) SkeletonValue SkeletonSampleView))
@@ -1376,7 +1378,7 @@
                            (if (== $class no-class) (empty) true)))))
             (case $known (
                ((cons $_one (cons $_two $_others))
-                  (let* (($references (map-semidet (sk-class-group-value $ignore)
+                  (let* (($references (fold-semidet (sk-class-group-step $ignore) ()
                               (fold-flat sk-same-class-step () (sort-atom $original))))
                          ($selected (fold-semidet sk-cons-step ()
                               (fold-semidet (sk-reference-step true $ignore $references) () $references))))
@@ -1482,7 +1484,6 @@
 ;; Pairwise merging also records the first conditioning cut and its cost.
 ;; Its accumulated value is provisional: on overlap the key builds its
 ;; fallback from connected components of the original views below.
-(: sk-pair-merge-step (-[semidet]-> Bool (List Number) SkeletonMerging SkeletonValue SkeletonMerging))
 (= (sk-pair-merge-step $combine $ignore (sk-merging $acc $keys $deps) $view)
    (case $acc (
       (sk-none (sk-merging $view $keys $deps))
@@ -1694,39 +1695,10 @@
          (sort-atom (map-semidet (sk-component-order-of $predicted $references)
             (fold-semidet (sk-key-merge-step $ignore) () (sort-atom (map-semidet sk-reference-of (sk-report-values $views)))))))))
 
-;; --- Lifting merge ------------------------------------------------------------
-;; Proofs of one statement that share fact premises but are otherwise
-;; independent pool by factoring the shared facts out: each proof's residual
-;; implication is read off by evaluating it with the shared facts true and
-;; false, the residuals revise, and the conjunction of the shared facts applies
-;; once. Every proof of the key must be modus ponens over conjunctions of facts,
-;; with nonempty, pairwise disjoint residual evidence and a strength linear in
-;; the shared conjunction (a two-point round trip); otherwise the views merge
-;; pairwise.
-
-;; The evidence entry of a fact leaf.
-(: sk-lift-fact-step (-[det]-> Proof (List Evidence) Evidence (List Evidence)))
-(= (sk-lift-fact-step $proof $found $entry)
-   (case $entry (
-      ((fact-ev $_kbctx $fact-proof $_type) (if (== $fact-proof (sk-step-proof $proof)) (cons $entry $found) $found))
-      ($_rule $found))))
-
-;; The determinism checker proves a fold over a parameter list.
-(: sk-lift-facts (-[det]-> Proof (List Evidence) (List Evidence)))
-(= (sk-lift-facts $proof $ev) (fold-flat (sk-lift-fact-step $proof) () $ev))
-
-(: sk-lift-fact-tv (-[semidet]-> Evidence STVType))
-(= (sk-lift-fact-tv $entry)
-   (case (collapse (once (let (fact-ev $kbctx $proof $type) (as-fact-entry $entry) (match &kb ($type $kbctx $proof $tv) $tv)))) (
-      ((cons (STV $s $c) $_rest) (STV $s $c)))))
-
-(: sk-lift-and-step (-[semidet]-> STVType STVType STVType))
-(= (sk-lift-and-step $acc $tv) (AndFormula $acc $tv))
-
 ;; The rule's CTV, when its conclusion is modus ponens over a conjunction (of
 ;; a statement, or of an implication, docs/metta/derived_implications.md).
-(: sk-lift-formula-step (-[semidet]-> (List CTVType) Atom (List CTVType)))
-(= (sk-lift-formula-step $found $premise)
+(: sk-rule-formula-step (-[semidet]-> (List CTVType) Atom (List CTVType)))
+(= (sk-rule-formula-step $found $premise)
    (case $premise (
       ((CPU AndFormula $_and-args $_and-out) $found)
       ((CPU $mp ($_premise-tv $ctv) $_mp-out)
@@ -1735,89 +1707,12 @@
       ((CPU $_formula $_formula-args $_formula-out) (empty))
       ($_goal $found))))
 
-(: sk-lift-rule-ctv (-[semidet]-> KB Atom CTVType))
-(= (sk-lift-rule-ctv $kb $rule)
+(: sk-rule-ctv (-[semidet]-> KB Atom CTVType))
+(= (sk-rule-ctv $kb $rule)
    (case (collapse (once (match rule_name_index ($rule $id)
             (match rules (runtime-rule-row $id ($_type ($kb $_ctx $_vars) (by $rule $_premise) $_tv) $premises)
-               (fold-semidet sk-lift-formula-step () $premises))))) (
+               (fold-semidet sk-rule-formula-step () $premises))))) (
       ((cons (cons $ctv ()) $_rest) $ctv))))
-
-;; The CTV a proof applies: a rule's, or a derived implication's, its proof
-;; evaluated with the shared facts replaced by the probe.
-(: sk-lift-ctv (-[semidet]-> KB (List Evidence) (List Evidence) STVType Atom CTVType))
-(= (sk-lift-ctv $kb $ev $shared $probe $rule)
-   (if (is-expr $rule)
-      (case (sk-step-proof (brand Proof $rule)) (
-         ((by $inner $premise)
-            (ImplicationModusPonensFormula (sk-lift-eval $kb $ev $shared $probe $premise)
-               (sk-lift-ctv $kb $ev $shared $probe $inner)))))
-      (sk-lift-rule-ctv $kb $rule)))
-
-;; A proof's strength with the shared facts replaced by the probe.
-(: sk-lift-eval (-[semidet]-> KB (List Evidence) (List Evidence) STVType Atom STVType))
-(= (sk-lift-eval $kb $ev $shared $probe $proof)
-   (let* (($step (sk-step-proof (brand Proof $proof))) ($facts (sk-lift-facts $step $ev)))
-      (case $facts (
-         ((cons $fact $_rest)
-            (if (stored-list-member? $fact $shared) $probe (sk-lift-fact-tv $fact)))
-         (()
-            (case $step (
-               ((by $rule $premise)
-                  (CTVModusPonensFormula (sk-lift-eval $kb $ev $shared $probe $premise)
-                     (sk-lift-ctv $kb $ev $shared $probe $rule)))
-               ($_other
-                  (if (is-expr $step)
-                     (if (== (car-atom $step) conjunction)
-                        (let (cons $first $rest) (map-semidet (sk-lift-eval $kb $ev $shared $probe) (cdr-atom $step))
-                           (fold-semidet sk-lift-and-step $first $rest))
-                        (empty))
-                     (empty))))))))))
-
-;; A proof's residual implication, kept when it reproduces the proof's strength.
-(: sk-lift-residual (-[semidet]-> (List Evidence) STVType SkeletonValue CTVType))
-(= (sk-lift-residual $shared $conj $value)
-   (case $value (
-      ((sk-val ($_type ($kb $_ctx $_vars) $proof (STV $stored $_confidence)) $ev $_deps)
-         (let* (($entries (evidence-entries (evidence-inherited $ev)))
-                ($residual
-                   (CTV (sk-lift-eval $kb $entries $shared (STV 1.0 1.0) $proof)
-                        (sk-lift-eval $kb $entries $shared (STV 0.0 1.0) $proof)))
-                ((STV $strength $_strength-confidence) (CTVModusPonensFormula $conj $residual)))
-            (if (< (abs-math (- $strength $stored)) 0.000001) $residual (empty)))))))
-
-(: sk-lift-revise-step (-[semidet]-> CTVType CTVType CTVType))
-(= (sk-lift-revise-step (CTV $pos1 $neg1) (CTV $pos2 $neg2))
-   (CTV (mergetvs $pos1 $pos2) (mergetvs $neg1 $neg2)))
-
-(: sk-value-evidence (-[det]-> SkeletonValue EvidenceSet))
-(= (sk-value-evidence $value) (case $value (((sk-val $_fact $ev $_deps) $ev) ($_other (ev-set 0)))))
-
-(: sk-lift-residual-ev-step (-[semidet]-> EvidenceSet EvidenceSet SkeletonValue EvidenceSet))
-(= (sk-lift-residual-ev-step $shared $seen $value)
-   (case $value (
-      ((sk-val $_fact $ev $_deps)
-         (let $residual (evidence-subtraction $ev $shared)
-            (if (== $residual (ev-set 0)) (empty)
-               (if (evidence-overlap? $residual $seen) (empty) (evidence-union $residual $seen))))))))
-
-(: sk-lift-merge-step (-[semidet]-> SkeletonValue SkeletonValue SkeletonValue))
-(= (sk-lift-merge-step (sk-val ($type $kbctx $proof $tv) $ev $deps)
-      (sk-val ($_other-type $_other-kbctx $other $_other-tv) $other-ev $other-deps))
-   (sk-val ($type $kbctx (brand Proof (merge/revision $proof $other)) $tv)
-      (evidence-union $ev $other-ev) (deps-union $deps $other-deps)))
-
-(: sk-lift-with-tv (-[semidet]-> SkeletonValue TV SkeletonValue))
-(= (sk-lift-with-tv (sk-val ($type $kbctx $proof $_old) $ev $deps) $tv)
-   (sk-val ($type $kbctx $proof $tv) $ev $deps))
-
-(: sk-lift-group (-[semidet]-> (List Evidence) (List SkeletonValue) SkeletonValue))
-(= (sk-lift-group $shared (cons $first $rest))
-   (let* (($_disjoint (fold-semidet (sk-lift-residual-ev-step (evidence-set $shared)) (ev-set 0) (cons $first $rest)))
-          ((cons $leaf $leaves) (map-semidet sk-lift-fact-tv $shared))
-          ($conj (fold-semidet sk-lift-and-step $leaf $leaves))
-          ((cons $residual $residuals) (map-semidet (sk-lift-residual $shared $conj) (cons $first $rest)))
-          ($tv (CTVModusPonensFormula $conj (fold-semidet sk-lift-revise-step $residual $residuals))))
-      (fold-semidet sk-lift-merge-step (sk-lift-with-tv $first $tv) $rest)))
 
 (: sk-sibling-pair-step (-[semidet]-> SkeletonReference Bool SkeletonReference Bool))
 (= (sk-sibling-pair-step $first $found $other)
@@ -1828,16 +1723,6 @@
    (if $found true
       (let (sk-reference $class $_original) $reference
          (if (== $class no-class) false (fold-semidet (sk-sibling-pair-step $reference) false $values)))))
-
-;; The lifted value of a key's leaves and views, or nothing.
-(: sk-lift (-[semidet]-> Bool (List SkeletonValue) (List SkeletonValue)))
-(= (sk-lift $siblings $values)
-   (case $values (
-      ((cons (sk-val $_fact $_ev $_deps) (cons $_second $_more))
-         (if $siblings ()
-            (let $shared (evidence-common-facts (map-flat sk-value-evidence $values))
-               (if (== $shared ()) () (collapse (once (sk-lift-group $shared $values)))))))
-      ($_other ()))))
 
 ;; Each row keeps its latest view and the views it replaced, in the order
 ;; they were computed. A consumer takes, per row, the latest view that depends
@@ -2897,9 +2782,7 @@
           ($unifiers (sk-unifier-hashes $hash $key))
           ($ignore (hash-union $unifiers $outside))
           (($values $siblings $references) (sk-reference-values $ignore $standing)))
-      (let $state (case (sk-lift $siblings $values) (
-              ((cons $lifted $_rest) (sk-merging $lifted () 0))
-              (() (fold-semidet (sk-pair-merge-step true $ignore) (sk-merging sk-none () 0) (sk-report-values $values)))))
+      (let $state (fold-semidet (sk-pair-merge-step true $ignore) (sk-merging sk-none () 0) (sk-report-values $values))
          (case $state (
             ((sk-merging $merged () $deps)
                (let $_settled

@@ -108,7 +108,6 @@
 (: evidence-subtraction-certain (-[det]-> EvidenceSet EvidenceSet EvidenceSet))
 (: evidence-condition (-[det]-> EvidenceSet (List Number) EvidenceSet))
 (: evidence-observed-roles (-[det]-> EvidenceSet EvidenceSet Atom))
-(: evidence-common-facts (-[det]-> (List EvidenceSet) (List Evidence)))
 (: evidence-excludes? (-[det]-> EvidenceSet EvidenceSet Bool))
 
 ;; KL divergence of Beta(a1, b1) from Beta(a2, b2) (runtime_helpers.pl).

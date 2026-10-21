@@ -210,12 +210,6 @@
       ($_other false))))
 (: stored-proof-tvs (-[det]-> Atom (List TV)))
 (= (stored-proof-tvs $name) (collapse (once (match &kb ($type $kbctx $name $tv) $tv))))
-;; A certain stored fact a row read as a condition (a forward premise, a
-;; completion's sibling) rather than as an observation: given, never shared
-;; evidence, but still the same fact to every reader of its class.
-(: as-fact-entry (-[det]-> Evidence Evidence))
-(= (as-fact-entry $entry) (case $entry (((given-ev $kbctx $proof $type) (fact-ev $kbctx $proof $type)) ($_other $entry))))
-
 (: certain-fact-evidence? (-[det]-> Evidence Bool))
 (= (certain-fact-evidence? $entry)
    (case $entry (

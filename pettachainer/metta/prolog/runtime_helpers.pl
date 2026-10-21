@@ -1082,16 +1082,6 @@ likelihood_observation_source([Tag,Scope,_Proof,Type], Source) :-
     ; Source='unverified-observation' ).
 likelihood_observation_source(_, 'unverified-observation').
 
-% The entries other than rules that every set holds: the first set's entries,
-% kept by each set in turn, each keeping reversing the order.
-'evidence-common-facts'([['ev-set', First]|Sets], Entries) :-
-    ev_order(First, Ids), ev_sorted(First, Sorted),
-    foldl(ev_common_step, [['ev-set', First]|Sets], Ids-Sorted, Common-_),
-    convlist(ev_fact_entry, Common, Entries).
-ev_common_step(['ev-set', Set], Ids-Sorted, Kept-Shared) :-
-    ev_sorted(Set, SortedSet), ord_intersection(Sorted, SortedSet, Shared),
-    (   Shared == [] -> Kept = [] ; ev_keep(Ids, Shared, InOrder), reverse(InOrder, Kept) ).
-
 % Whether B uses a rule that one of A's excluded-rule entries names.
 'evidence-excludes?'(['ev-set', A], ['ev-set', B], Result) :-
     ev_excluded(A, Excluded),
