@@ -281,7 +281,7 @@ class TestRuleRetirement(unittest.TestCase):
             "'stored-refs-gc!'(_), 'search-id-value'(proof_id, Before), "
             "forall(between(1, 513, _I), (_R is 297000000+_I, 'withdraw-rule!'(_R, _))), "
             "(refs_gc_due -> Due=true ; Due=false), 'stored-refs-gc-step!'(_), "
-            "forall(between(1, 100, _), (refs_gc_active -> 'stored-refs-gc-step!'(_) ; true)), "
+            "forall(between(1, 10000, _), (refs_gc_active -> 'stored-refs-gc-step!'(_) ; true)), "
             "'search-id-value'(proof_id, After), "
             "aggregate_all(count, (retired_epoch(_, _R), _R>297000000, _R=<297000513), Kept), "
             "(refs_gc_active -> Finished=false ; Finished=true)"

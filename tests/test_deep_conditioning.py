@@ -68,8 +68,73 @@ def bk_t8(periods, *, branched=True):
     return result
 
 
-def plant(handler, periods, storm_confidence=1):
-    handler.add_atoms_no_check([
+def t8_slice(t, previous, state):
+    """P(state, report t | previous state) of one T8 slice, fuelled summed out; states are (storm, degraded)."""
+    (previous_storm, previous_degraded), (storm, degraded) = previous, state
+    ps = F(7, 10) if previous_storm else F(3, 10)
+    pd = F(3, 4) if previous_degraded else F(1, 20)
+    pf = F(1, 5) if storm else F(9, 10)
+    p = (ps if storm else 1 - ps) if t > 1 else F(1)
+    p *= pd if degraded else 1 - pd
+    return p * sum(pf if fuelled else 1 - pf for fuelled in (0, 1) if bool(fuelled and not degraded) == bool(t % 2))
+
+
+def cut_t8(periods, boundary=None, pinned=(0, 1)):
+    """T8 conditioned on the state at one slice boundary: the oracle for one cut of the work queue.
+
+    Storm t1 is mixed by Jeffrey; every other boundary is projected onto
+    independent marginals, as bk_t8. At `boundary` each branch keeps the
+    states whose components in `pinned` take the branch's values: (0, 1) pins
+    the separator (Storm, Degraded), (0,) Storm alone, with Degraded
+    re-derived under the pin. Branches keep their unnormalized masses, so the
+    weight read without the branch evidence times Z (Pearl) falls out.
+    """
+    states = list(itertools.product((0, 1), repeat=2))
+
+    def branch(initial, values):
+        mass = {(initial, 0): F(1)}
+        for t in range(1, periods + 1):
+            following = {}
+            for previous, m in mass.items():
+                for state in states:
+                    if t > 1 or state[0] == initial:
+                        following[state] = following.get(state, F(0)) + m * t8_slice(t, previous, state)
+            if t == boundary:
+                mass = {s: m for s, m in following.items() if all(s[i] == v for i, v in zip(pinned, values))}
+            elif t < periods:
+                total = sum(following.values())
+                storm = sum(m for (s, _), m in following.items() if s) / total
+                degraded = sum(m for (_, d), m in following.items() if d) / total
+                mass = {(s, d): total * (storm if s else 1 - storm) * (degraded if d else 1 - degraded) for s, d in states}
+            else:
+                mass = following
+        return sum(m for (_, d), m in mass.items() if d), sum(mass.values())
+
+    result = F(0)
+    for initial, weight in ((1, F(3, 5)), (0, F(2, 5))):
+        branches = [branch(initial, values) for values in itertools.product((0, 1), repeat=len(pinned) if boundary else 0)]
+        result += weight * sum(n for n, _ in branches) / sum(z for _, z in branches)
+    return result
+
+
+def t8_degraded_given_storms(storm_t1, storm_k, k):
+    """Exact P(Degraded t_k | Storm t1, Storm t_k, reports t1..t_k)."""
+    states = list(itertools.product((0, 1), repeat=2))
+    numerator = denominator = F(0)
+    for path in itertools.product(states, repeat=k):
+        if path[0][0] != storm_t1 or path[-1][0] != storm_k:
+            continue
+        p, previous = F(1), (storm_t1, 0)
+        for t, state in enumerate(path, 1):
+            p *= t8_slice(t, previous, state)
+            previous = state
+        denominator += p
+        numerator += p * path[-1][1]
+    return numerator / denominator
+
+
+def plant_atoms(periods, storm_confidence=1):
+    return [
         f'(: storm-t1 (Storm t1) (STV 0.6 {storm_confidence}))',
         '(: persist-storm (Implication (And (NextPeriod $p $t) (Storm $p)) (Storm $t)) (CTV (STV 0.7 1) (STV 0.3 1)))',
         '(: fuel (Implication (Storm $t) (Fuelled plant $t)) (CTV (STV 0.2 1) (STV 0.9 1)))',
@@ -79,7 +144,12 @@ def plant(handler, periods, storm_confidence=1):
     ] + [atom for t in range(1, periods + 1) for atom in (
         f'(: next-t{t} (NextPeriod t{t-1} t{t}) (STV 1 1))',
         f'(: rep-t{t} (Producing plant t{t}) (STV {t % 2} 0.9))',
-    )])
+    )]
+
+
+def plant(handler, periods, storm_confidence=1, omit=()):
+    """The T8 plant KB; `omit` names statements left out, for adding them later."""
+    handler.add_atoms_no_check([atom for atom in plant_atoms(periods, storm_confidence) if atom.split()[1] not in omit])
     handler._call('set-base-rate', [f'{handler.kb} (Degraded plant $t) (STV 0.25 0.9)'])
     handler._call('set-base-rate', [f'{handler.kb} (Storm $t) (STV 0.4 0.9)'])
 
@@ -92,6 +162,54 @@ class DeepConditioningTests(unittest.TestCase):
         self.assertEqual(bk_t8(2), exact_t8(2))
         self.assertAlmostEqual(float(bk_t8(4)), .11925470162726076, delta=1e-12)
         self.assertAlmostEqual(float(bk_t8(2, branched=False)), .09918666931164452, delta=1e-12)
+
+    def test_separator_cut_oracle(self):
+        # Without a cut the oracle is the product filter; the separator two
+        # boundaries back is exact at 4p and nearly so later, one back changes
+        # nothing (bench/results/fresh-design/workqueue-design.md, section 2).
+        for periods in (4, 6, 8):
+            with self.subTest(periods=periods):
+                self.assertEqual(cut_t8(periods), bk_t8(periods))
+                self.assertEqual(cut_t8(periods, periods - 1), bk_t8(periods))
+                # Pinning Storm alone, Degraded re-derived under the pin, is the joint cut.
+                self.assertEqual(cut_t8(periods, periods - 2, (0,)), cut_t8(periods, periods - 2))
+        self.assertEqual(cut_t8(4, 2), exact_t8(4))
+        self.assertAlmostEqual(float(cut_t8(6, 4)), .11952367443636427, delta=1e-15)
+        self.assertAlmostEqual(float(cut_t8(8, 6)), .11962121099795117, delta=1e-15)
+
+    def test_storm_pin_rederives_degraded(self):
+        # A single-statement cut equals the separator cut only if pinning
+        # Storm t_k re-derives Degraded t_k. Read without later periods, as
+        # the rows after the pin read it, the pinned view is the exact
+        # conditional on the reports up to t_k.
+        for periods in (4, 6):
+            handler = PeTTaChainer()
+            handler.set_bayes_prior_count(0)
+            self.addCleanup(handler.set_bayes_prior_count, .2)
+            plant(handler, periods)
+            handler.query_many_refs([f'(: $p (Degraded plant t{periods}) $tv)'], steps=3000)
+            k = periods - 2
+            key = lambda statement: f"['sk-key',{statement},[Kb,'MAIN','Nil']]"
+            later = [key(f"['{p}',{'' if p == 'Storm' else 'plant,'}t{t}]")
+                     for t in range(k + 1, periods + 1) for p in ('Degraded', 'Storm', 'Fuelled', 'Producing')]
+            excluded = ', '.join(f"'index-hash'({statement},X{i})" for i, statement in enumerate(later))
+            exclude = '[' + ','.join(f'X{i}' for i in range(len(later))) + ']'
+            degraded, storm_t1_key, storm_k_key = key(f"['Degraded',plant,t{k}]"), key("['Storm',t1]"), key(f"['Storm',t{k}]")
+            for storm_t1, storm_k in itertools.product((1, 0), repeat=2):
+                with self.subTest(periods=periods, storm_t1=storm_t1, storm_k=storm_k):
+                    result = janus.query_once(
+                        f"_D={degraded}, _S1={storm_t1_key}, _Sk={storm_k_key}, "
+                        f"'index-hash'(_S1,H1), 'index-hash'(_Sk,Hk), {excluded}, "
+                        "'change-state!'(sk_eval_budget,100000,_), "
+                        "setup_call_cleanup('sk-open-claim!'(_), "
+                        f"'sk-given-value'([['sk-given',H1,_S1,{'true' if storm_t1 else 'false'}],"
+                        f"['sk-given',Hk,_Sk,{'true' if storm_k else 'false'}]],_D,'sk-any-filter',{exclude},"
+                        "['sk-val',[_,_,_,['STV',Strength,_]],_,Deps]), 'sk-close-claim!'(_)), "
+                        "'deps-has?'(Deps,Hk,ReadsPin)",
+                        {'Kb': handler.kb},
+                    )
+                    self.assertAlmostEqual(result['Strength'], float(t8_degraded_given_storms(storm_t1, storm_k, k)), delta=1e-12)
+                    self.assertEqual(result['ReadsPin'], 'true')
 
     def test_near_shared_requires_two_near_views(self):
         PeTTaChainer()
