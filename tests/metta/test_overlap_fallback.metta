@@ -81,3 +81,33 @@
           ($values (cons $a (cons $b (cons $c (cons $d ())))))
           ($expected (sk-key-fallback () () (cons $b (cons $d ())))))
       (fold-semidet (fallback-order-step $expected) true (fallback-permutations $values))) true)
+
+;; Direct claims and an update form components apart. a reads q and b reads r;
+;; the completion k reads both. Grouped together, k joined a and b into one
+;; component and one view stood for all three (pln-reliable kept 248 of 510
+;; claims). Now a and b merge first and k applies to their merge: both claims'
+;; evidence remains. (k shares a near statement, so it competes by count while
+;; its claim waits; it is less confident here.)
+!(test
+   (let* (($q (deps-key (index-hash (sk-key (Shared q) (fallbackKb MAIN Nil)))))
+          ($r (deps-key (index-hash (sk-key (Shared r) (fallbackKb MAIN Nil)))))
+          ($a (fallback-view (brand Proof claim-a) 0.3 0.9 $q))
+          ($b (fallback-view (brand Proof claim-b) 0.4 0.9 $r))
+          ($k (fallback-view (brand Proof ((antecedent-completion sys 0 with cpu (prior (STV 0.5 0.9))) observation-w)) 0.8 0.5 (deps-union $q $r)))
+          ((sk-val $_fact $ev $_deps) (sk-key-fallback () () (cons $a (cons $b (cons $k ())))))
+          ((sk-val $_fa $ev-a $_da) $a)
+          ((sk-val $_fb $ev-b $_db) $b))
+      (if (evidence-subset? $ev-a $ev) (evidence-subset? $ev-b $ev) false))
+   true)
+
+;; Dependent views with nothing to condition on and no factored form combine
+;; as independent given what they share, here by revision
+;; ((.3*4 + .6*9)/13 = .5077), at confidence c_min/(1+R^2) with R = 1: .8/2.
+;; No view is selected.
+!(test
+   (let* (($q (deps-key (index-hash (sk-key (Shared q) (fallbackKb MAIN Nil)))))
+          ($a (fallback-view (brand Proof (by rule-a premise-a)) 0.3 0.8 $q))
+          ($b (fallback-view (brand Proof (by rule-b premise-b)) 0.6 0.9 $q))
+          ((sk-val ($_t $_c $_p $tv) $_ev $_deps) (sk-dependent-merge false $a $b)))
+      $tv)
+   (STV 0.5076923076923076 0.4))
