@@ -542,11 +542,14 @@ A key's value merges its stored facts and one view per row:
   prediction p by O(posterior) = O(p) O(s). No population rate enters. The
   report's confidence supplies its log-odds variance; it is not a mixing
   weight between s and p. Binary reports keep exact endpoints and the revised
-  reports' confidence; their posterior is independent of the prior's value.
-  The prior's evidence and dependencies remain necessary for conditioning. A
-  stored fact of confidence 1 at any strength is instead its statement's
-  current belief (B2, Jeffrey): every reader of its key, a conditioning weight
-  included, takes the fact alone (`sk-certain-or`). Evidence overlap still
+  reports' confidence; their posterior is independent of the prior's value
+  (a low-confidence endpoint reads as certain, #115). A report with no
+  independent prediction reads at its own strength (#117). The prior's
+  evidence and dependencies remain necessary for conditioning. A stored fact
+  of confidence 1 at any strength is instead its statement's current belief
+  (B2, Jeffrey): every merge of its key takes the fact alone
+  (`sk-certain-or`), the key's own merge and the compatible reads (facts
+  reads, the compatible fallback and a conditioning weight) alike. Evidence overlap still
   decides whether an update is independent; derived copies retain their
   dependencies and frozen summaries remain admissible priors
   (`tests/test_soft_reports.py`);

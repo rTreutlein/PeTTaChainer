@@ -227,20 +227,17 @@ therefore read the observation's likelihood ratio without counting the
 prediction as another observation. The report's own log-odds variance is added
 to the prediction's for fractional reports. This remains a delta-method
 approximation.
-Binary report strengths remain exact at finite confidence. Their likelihood
-ratio makes the posterior independent of the prior's value, so they retain the
-revised reports' confidence rather than adding a singular log-odds variance.
-A key reading a fractional report still subscribes to its predicate's rate and
-recomputes when it changes; the value does not depend on it, but a cyclic
-forward run reaches two reports' product through that refresh
-(`test_forward_chainer.metta`, #112).
-The prior's proof, evidence and dependencies remain: removing its support
-would hide shared ancestors from conditioning and admit confident wrong values.
-Their likelihood ratio is unchanged by every finite empirical centre, so the
-read uses the neutral representative without starting a population fold or subscribing to
-its changes. Such a subscription would invalidate the report through its own
-contribution and repeatedly spend conditioning allowance (the four-period
-quiescence regression). Explicit user rates still use the configured read.
+Binary report strengths remain exact at finite confidence: their likelihood
+(1, 0) is conditioning, so the posterior is independent of the prior's value,
+and they retain the revised reports' confidence rather than adding a singular
+log-odds variance. A low-confidence endpoint therefore still reads as certain
+(#115); a fallible 0/1 report is modelled with an explicit leak rule. The
+prior's proof, evidence and dependencies remain: removing its support would
+hide shared ancestors from conditioning and admit confident wrong values. A
+report reads no rate and subscribes to none, so its population's changes never
+invalidate it. A report with no independent prediction reads at its own
+strength, Pearl over a neutral prior rather than over the statement's base
+rate (#117).
 Confidence-1 fractional stored values keep Jeffrey conditioning (B2 decision):
 the stated strength is held fixed. This is a separate convention, not the
 c -> 1 limit of the finite-confidence odds rule. Frozen summaries,

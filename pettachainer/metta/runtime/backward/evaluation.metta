@@ -478,19 +478,11 @@
          (let* ((($type ($kb $ctx $vars) $report (STV $s $c)) $fact)
                 (($_type $_scope $prediction (STV $sp $cp)) $prior)
                 ($endpoint (if (<= $s 0.0) true (>= $s 1.0)))
-                ;; The value no longer reads its pattern's rate, but a key
-                ;; reading a soft report recomputes when the rate changes:
-                ;; a cyclic forward run reaches two reports' product through
-                ;; that refresh (test_forward_chainer, #112). Endpoint reports
-                ;; keep no subscription, so their population changes are not
-                ;; fed back into their readers.
-                ($_watched (if $endpoint ()
-                   (let* (($key (sk-key $type ($kb $ctx $vars)))
-                          ($rate-hash (base-rate-cache-hash (brand KB $kb) (brand Statement (pattern-shape $type)))))
-                      (if (space-row-present? &ctx_sk_rate_readers ($rate-hash $key)) ()
-                         (let $_reader (context-add! &sk_rate_readers ($rate-hash $key)) ())))))
-                ;; An endpoint report does not depend numerically on the prior.
-                ;; Retain the prior's support below: conditioning still needs it.
+                ;; An endpoint report is the lambda = (1, 0) case: conditioning,
+                ;; whatever the prior's value (#115). Retain the prior's
+                ;; support below: conditioning still needs it. The update's
+                ;; neutral prior is the base an inversion reads the report
+                ;; under (sk-prior-update-of).
                 ($tv (if $endpoint (STV $s $c)
                         (let (STV $posterior $confidence) (sk-factored-tv odds $sp $cp 0.5 1 $sp $cp $s $c)
                            (STV (if (<= $sp 0.0) 0.0 (if (>= $sp 1.0) 1.0 $posterior)) $confidence))))
@@ -2812,8 +2804,9 @@
       ($_fold $values))))
 
 ;; Leaves first, then one version per row in the order the rows were found;
-;; a certain stored fact stands alone (sk-certain-or). Views read under given statements leave out the leaves that depend on them.
-;; Views that overlap condition the key on what they share.
+;; a certain stored fact stands alone (sk-certain-or). Views read under given
+;; statements leave out the leaves that depend on them. Views that overlap
+;; condition the key on what they share.
 (: sk-merge-key
    (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) (List SkeletonGiven) (List SkeletonValue) SkeletonValue))
 (= (sk-merge-key $hash $key $filter $exclude $given $views)
@@ -3354,7 +3347,8 @@
                             (map-semidet (sk-given-view $given $exclude $hash $key)
                                (sk-admitted-versions $hash $key $filter (sk-admission-exclusions $given $exclude))))
                          $leaves))))))
-          (($selected $siblings $references) (sk-reference-values $ignore (sk-certain-or $leaves $compatible))))
+          (($selected $siblings $references)
+             (sk-reference-values $ignore (sk-certain-or $leaves $compatible))))
       (let $value (if $siblings (sk-key-fallback $ignore $references $selected)
                      (fold-semidet (sk-merge-step true $ignore) sk-none (sk-report-values $selected)))
          (sk-calibrated-value $given $key $filter $outside $value))))

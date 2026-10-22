@@ -114,9 +114,8 @@
       (() ())
       ((cons $entry $_rest) (cons (base-rate-entry-tv $entry) ())))))
 
-;; The keys reading a pattern's cache entries, through a fold in any mode or
-;; as a key holding a fractional report (sk-report-merge), recompute when one
-;; changes.
+;; The keys reading a pattern's cache entries through a fold, in any mode,
+;; recompute when one changes.
 (: base-rate-readers-changed! (-[det]-> KB Statement (List $none)))
 (= (base-rate-readers-changed! $kbid $pattern)
    (let* (($hash (base-rate-cache-hash $kbid $pattern))

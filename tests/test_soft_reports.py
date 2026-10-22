@@ -303,7 +303,7 @@ class SoftReportTests(unittest.TestCase):
                             expected = .3 * downstream(posterior(.9)) + .7 * downstream(posterior(.2))
                         else:
                             # The chain reads the report over B's marginal
-                            # forward prediction, which moves A (a known limit).
+                            # forward prediction, which moves A (#116).
                             expected = downstream(posterior(.3 * .9 + .7 * .2))
                     self.assertAlmostEqual(root.tv[1], expected, delta=1e-12)
 

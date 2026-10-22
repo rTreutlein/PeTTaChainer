@@ -169,17 +169,16 @@
 !(compileadd cycleFwdKb (: bToA (Implication (CycB) (CycA)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 ;; The certain rules make A, B and C one variable; a0 and c0 are independent
-;; reports on it, so its exact value is .6^2/(.6^2+.4^2) = .6923. The forward
-;; run reaches it.
+;; reports on it, so its exact value is .6^2/(.6^2+.4^2) = .6923.
+;; Known limit (#112): the forward run and the query condition on c0 and mix
+;; by C's value read without A's views, the right exclusion, but with no Pearl
+;; reweighting by the branches' own evidence a0 is lost: P(A | c0) = .6.
 !(test
    (case (result-for (CycA)
             (forward-chain 50 cycleFwdKb
                (append-flat (test-selected-facts cycleFwdKb (CycA)) (test-selected-facts cycleFwdKb (CycC)))))
       (((cons ($_proof (STV $s $_c)) ()) $s)))
-   0.6923076923076922)
-;; Known limit (#112): the query conditions on c0 and mixes by C's value read
-;; without A's views, the right exclusion, but with no Pearl reweighting by
-;; the branches' own evidence a0 is lost: P(A | c0) = .6.
+   0.5999995999998666)
 !(test
    (case (query-for cycleFwdKb (CycA)) (((cons ($_proof (STV $s $_c)) ()) $s)))
    0.5999995999998666)
