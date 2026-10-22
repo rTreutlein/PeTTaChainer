@@ -1631,6 +1631,19 @@ particle_merge_args(
 % A counter's value (change-state!), 0 before it is set.
 'search-id-value'(Key, Value) :- ( nb_current(Key, Stored) -> Value = Stored ; Value = 0 ).
 
+% The ordinary readers being computed, innermost first. The stack is a
+% backtrackable global: a reader pushes a copy of its identity, restores the
+% stack it found when it is done, and failure or an exception restores it by
+% backtracking. Neither copies the stack.
+'sk-push-reader!'(Reader, Readers) :-
+    ( nb_current(sk_reading, Stored) -> Readers = Stored ; Readers = [] ),
+    copy_term(Reader, Copy),
+    b_setval(sk_reading, [Copy|Readers]).
+'sk-restore-readers!'(Readers, true) :- b_setval(sk_reading, Readers).
+% Each active reader, outermost first.
+'sk-active-reader'(Reader) :-
+    nb_current(sk_reading, Readers), reverse(Readers, Outermost), member(Reader, Outermost).
+
 % Inference time, process-wide, in seconds: activation, search and evaluation
 % of backward queries, and forward runs. A caller splits the wall time of its
 % calls into inference and overhead with it; it costs two clock reads a call.

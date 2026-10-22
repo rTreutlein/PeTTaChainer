@@ -9,7 +9,7 @@ class ExclusionStateTests(unittest.TestCase):
     def setUp(self):
         self.h = PeTTaChainer()
         janus.query_once(
-            "retractall('&sk_branch_cuts'(_,_,_)), retractall('&sk_reading'(_,_,_)), "
+            "retractall('&sk_branch_cuts'(_,_,_)), "
             "'change-state!'(sk_branch_at,0,_)"
         )
 
@@ -139,9 +139,9 @@ class ExclusionStateTests(unittest.TestCase):
                     "'sk-cache-branch!'(_Slot,_OH,_Owner,987621,[_Input],[987622],Fresh,'sk-none',_), "
                     "(Compatible=true -> _Exclude=[987622] ; _Exclude=[]), "
                     "'change-state!'(sk_holding,1,_), "
-                    "assertz('&sk_reading'(_RH,_Reader,_ReaderRow)), "
+                    "'sk-push-reader!'([_RH,_Reader,_ReaderRow],_Readers), "
                     "'sk-hold-branch-reader!'(_Slot,_Owner,987621,_Exclude,_), "
-                    "retractall('&sk_reading'(_RH,_Reader,_ReaderRow)), "
+                    "'sk-restore-readers!'(_Readers,_), "
                     "(StaleInput=true -> 'sk-stale-reader-step'(_Input,[], "
                     " ['sk-row-item',_ReaderRow,_RH,_Reader,_ReaderRow,_Row],_) ; true), "
                     "(Invalidate=true -> 'sk-invalidate-branches!'(_Input,_) ; true), "
@@ -180,24 +180,25 @@ class ExclusionStateTests(unittest.TestCase):
             "_Key=['sk-key',['Interrupt'],[Kb,'MAIN','Nil']], 'index-hash'(_Key,_Hash), "
             "_Row=['sk-row',['sk-ident',-1,[],_Key],[['Interrupt'],[Kb,'MAIN','Nil'],mf,['STV',1,0.8]],"
             "[],987603], assertz('&sk_row'(_Hash,_Key,987603,_Row)), "
-            "assertz('&sk_reading'(_Hash,_Key,987603)), 'change-state!'(sk_eval_budget,1,_), "
+            "'sk-push-reader!'([_Hash,_Key,987603],_), 'change-state!'(sk_eval_budget,1,_), "
             # Interrupt the real rebuild when it reads its newly opened cut
             # frame. Erase the injected fault; leave the abandoned data intact.
             "asserta(('&sk_branch_cuts'(_,_,_) :- flag(exclusion_probe_interrupt,_,1), "
             " throw(interrupted_rebuild)), _Trap), "
             "catch(('sk-rebuild-view'(true,_Hash,_Key,987603,[-1],_) -> true ; true), "
             " interrupted_rebuild, true), erase(_Trap), flag(exclusion_probe_interrupt,Interrupted,0), "
-            "'search-id-value'(sk_branch_at,Frame), aggregate_all(count,'&sk_reading'(_,_,_),Readers)",
+            "'search-id-value'(sk_branch_at,Frame), aggregate_all(count,'sk-active-reader'(_),Readers)",
             {'Kb': self.h.kb},
         )
         self.assertEqual(interrupted['Interrupted'], 1)
         self.assertNotEqual(interrupted['Frame'], 0)
         self.assertEqual(interrupted['Readers'], 1)
+        # The reader never outlives the Prolog query that pushed it.
         self.h.query('(: $p (Unrelated) $tv)', steps=0, timeout_sec=0)
         cleaned = janus.query_once(
             "'search-id-value'(sk_branch_at,Frame), "
             "aggregate_all(count,'&sk_branch_cuts'(_,_,_),Frames), "
-            "aggregate_all(count,'&sk_reading'(_,_,_),Readers)"
+            "aggregate_all(count,'sk-active-reader'(_),Readers)"
         )
         self.assertEqual((cleaned['Frame'], cleaned['Frames'], cleaned['Readers']), (0, 0, 0))
 
@@ -394,10 +395,10 @@ class ExclusionStateTests(unittest.TestCase):
             "_Fact=[['NotifyOwner'],[Kb,'MAIN','Nil'],cpu,['STV',0.5,0.8]], "
             "_Row=['sk-row',['sk-ident',-1,[],_Owner],_Fact,[],987607], "
             "assertz('&sk_row'(_H,_Owner,987607,_Row)), "
-            "assertz('&sk_reading'(_R1,_Reader,1)), 'change-state!'(sk_holding,1,_), "
+            "'sk-push-reader!'([_R1,_Reader,1],_Readers), 'change-state!'(sk_holding,1,_), "
             "'deps-key'(_R1,_D), 'sk-admit-step'(_H,_Owner,'sk-any-filter',[_R1],[], "
             " ['sk-version',987607,987607,['sk-val',_Fact,['ev-set',0],_D]],[]), "
-            "retractall('&sk_reading'(_,_,_)), 'change-state!'(sk_eval_budget,1,_), "
+            "'sk-restore-readers!'(_Readers,_), 'change-state!'(sk_eval_budget,1,_), "
             "'change-state!'(sk_branch_budget,1,_), 'sk-build-wanted!'(true), "
             "findall(_I, (between(1,2,_I), _K=['sk-key',['NotifyReader',_I],[Kb,'MAIN','Nil']], "
             " 'index-hash'(_K,_KH), '&sk_restale'(_KH,_I)), Ready), "
@@ -412,10 +413,10 @@ class ExclusionStateTests(unittest.TestCase):
             # An input-driven refresh with identical value must not generate
             # another forced proof publication and invalidate itself in a cycle.
             "retractall('&sk_restale'(_,_)), 'index-hash'([_H,987607],_Slot), "
-            "'sk-stale-branch!'([],_Slot,_), assertz('&sk_reading'(_R1,_Reader,1)), "
+            "'sk-stale-branch!'([],_Slot,_), 'sk-push-reader!'([_R1,_Reader,1],_Before), "
             "'sk-admit-step'(_H,_Owner,'sk-any-filter',[_R1],[], "
             " ['sk-version',987607,987607,['sk-val',_Fact,['ev-set',0],_D]],_), "
-            "retractall('&sk_reading'(_,_,_)), 'change-state!'(sk_eval_budget,1,_), "
+            "'sk-restore-readers!'(_Before,_), 'change-state!'(sk_eval_budget,1,_), "
             "'change-state!'(sk_branch_budget,1,_), 'sk-build-wanted!'(true), "
             "findall(_I, (between(1,2,_I), _K=['sk-key',['NotifyReader',_I],[Kb,'MAIN','Nil']], "
             " 'index-hash'(_K,_KH), '&sk_restale'(_KH,_I)), UnchangedReady), "

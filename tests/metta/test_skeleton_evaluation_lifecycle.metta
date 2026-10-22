@@ -60,10 +60,10 @@
              ($_cached (sk-cache-branch! $slot $hash $key $rhash
                 (cons (sk-key (ForceSeed) (forceKb MAIN Nil)) ()) () true $view))
              ($_holding (change-state! sk_holding 1))
-             ($_reading (add-atom &sk_reading ($hash $key $rhash)))
+             ($readers (sk-push-reader! ($hash $key $rhash)))
              ($_first (sk-hold-branch-reader! $slot $key $rhash (111)))
              ($_second (sk-hold-branch-reader! $slot $key $rhash (222)))
-             ($_read (remove-variant-row! &sk_reading (quote ($hash $key $rhash))))
+             ($_read (sk-restore-readers! $readers))
              ($_dirty (sk-stale-branch! () $slot))
              ($requested (collapse (match &ctx_sk_branch_wanted ($slot $hash $key $rhash $exclude) $exclude)))
              ($_released (sk-stale-held!)))

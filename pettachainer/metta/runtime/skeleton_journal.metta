@@ -320,10 +320,12 @@
 !(change-state! sk_branch_budget 0)
 !(change-state! sk_root_claim_budget 0)
 !(change-state! sk_root_claim_cap 0)
-;; The active ordinary reader. Nested evaluations carry exclusions, so they
-;; leave this reader in place. Store only its identity, not its whole row.
-(: &sk_reading (SpaceOf (Number SkeletonKey Number)))
-!(bind! &sk_reading (new-space))
+;; The ordinary readers being computed, innermost first (runtime_helpers.pl).
+;; Nested evaluations carry exclusions, so they leave the stack in place. A
+;; reader is a row's identity, not its whole row.
+(: sk-push-reader! (-[det]-> (Number SkeletonKey Number) Atom))
+(: sk-restore-readers! (-[det]-> Atom Bool))
+(: sk-active-reader (-[nondet]-> (Number SkeletonKey Number)))
 !(change-state! sk_branch_unpaid 0)
 !(change-state! sk_representative_budget 0)
 ;; Only the current rebuild records cuts; a child propagates its completed

@@ -1864,14 +1864,14 @@
 (= (sk-hold-branch-reader! $slot $key $rhash $exclude)
    (let* (($_requested
              (if (== (search-id-value sk_holding) 1)
-                (collapse (once (match &sk_reading ($held-hash $held-key $_held-row)
+                (collapse (once (let ($held-hash $held-key $_held-row) (sk-active-reader)
                    (if (sk-needed? $held-hash $held-key)
                       (if (space-row-present? &ctx_sk_branch_hold ($slot $_hash $key $rhash $exclude)) ()
                          (let $hash (index-hash $key)
                             (context-add! &sk_branch_hold ($slot $hash $key $rhash $exclude))))
                       (empty))))) ()))
           ($_held
-             (collapse (match &sk_reading ($reader-hash $reader-key $reader-row)
+             (collapse (let ($reader-hash $reader-key $reader-row) (sk-active-reader)
                 (match &sk_row ($reader-hash $stored-reader $reader-row (sk-row $ri $rc $rp $rs))
                    (if (=alpha $stored-reader $reader-key)
                       (if (if (== (search-id-value sk_holding) 1) (sk-needed? $reader-hash $reader-key) false)
@@ -2534,9 +2534,9 @@
           ;; request branches, and invalidation must retain their exclusions.
           ;; Row 0 identifies the fold's view, not a rule row. Register it even
           ;; inside another reader: the take has its own fold exclusion context.
-          ($_reading (add-atom &sk_reading ($hash $fold 0)))
+          ($readers (sk-push-reader! ($hash $fold 0)))
           ($value (sk-premise-value false (sk-value $member sk-any-filter (cons $hash ()))))
-          ($_read (remove-variant-row! &sk_reading (quote ($hash $fold 0)))))
+          ($_read (sk-restore-readers! $readers)))
       (case $value (
          ((sk-val $fact $_ev $_deps) (let $_updated (collapse (fa-update! $fact $id (copy_term $descriptor))) ()))
          ($_none
@@ -3767,7 +3767,7 @@
           (if (rule-live? $rule) (context-rule-visible? $rule) false))
       (if (sk-claim-charge! $given)
          (let* (((sk-row (sk-ident $owner $_owner-keys $_owner-key) ($_type $_kbctx $proof $_tv) $_premises $_seq) $row)
-                ($_reader (if (== $exclude ()) (add-atom &sk_reading ($khash $key $rhash)) ()))
+                ($readers (if (== $exclude ()) (sk-push-reader! ($khash $key $rhash)) ()))
                 ($exclusions (hash-union (sk-row-exclusions $khash $key $proof) $exclude))
                 ($target (sk-row-target $exclusions $khash $key $rhash $row))
                 ($greedy (copy_term $row))
@@ -3786,8 +3786,7 @@
                                      (if (== (sk-latest-view $khash $key $rhash) sk-none) $approx sk-none))))
                             ($_other (sk-row-result $retry $again)))))
                       (sk-row-result $greedy $state)))
-                ($_reader-left (if (== $exclude ())
-                                  (remove-variant-row! &sk_reading (quote ($khash $key $rhash))) ())))
+                ($_reader-left (if (== $exclude ()) (sk-restore-readers! $readers) true)))
             ;; Conditioned and closed reads consume this value without
             ;; publishing an ordinary view. Preserve the permanent owner now,
             ;; before a caller wraps it in a judgment, merge or fold.
@@ -5771,7 +5770,6 @@
           ($_claim (sk-close-claim!))
           ($_branch-frame (change-state! sk_branch_at 0))
           ($_branch-cuts (remove-data-rows! &sk_branch_cuts (quote ($_frame $_exclude $_cuts))))
-          ($_branch-reader (remove-data-rows! &sk_reading (quote ($_hash $_key $_row))))
           ($goals (map-flat context-search-goal $requested))
           ($_seen (remove-data-rows! &sk_seen (quote ($hash $node))))
           ($_fresh (remove-data-rows! &sk_fresh (quote ($fhash $node))))
