@@ -175,14 +175,15 @@ class ExclusionStateTests(unittest.TestCase):
             "'sk-left-out-view'(Excluded,['sk-fold',_Args],'sk-any-filter',_Exclusions,0,Rejected)",
         )
 
-    def test_query_clears_interrupted_rebuild_frame_and_reader(self):
+    def test_query_clears_interrupted_frame_and_prolog_query_ends_reader(self):
         interrupted = janus.query_once(
             "_Key=['sk-key',['Interrupt'],[Kb,'MAIN','Nil']], 'index-hash'(_Key,_Hash), "
             "_Row=['sk-row',['sk-ident',-1,[],_Key],[['Interrupt'],[Kb,'MAIN','Nil'],mf,['STV',1,0.8]],"
             "[],987603], assertz('&sk_row'(_Hash,_Key,987603,_Row)), "
             "'sk-push-reader!'([_Hash,_Key,987603],_), 'change-state!'(sk_eval_budget,1,_), "
-            # Interrupt the real rebuild when it reads its newly opened cut
-            # frame. Erase the injected fault; leave the abandoned data intact.
+            # Break the real rebuild when it reads its newly opened cut frame:
+            # the space read turns the fault into a failure and the frame stays
+            # open. Erase the injected fault; leave the abandoned data intact.
             "asserta(('&sk_branch_cuts'(_,_,_) :- flag(exclusion_probe_interrupt,_,1), "
             " throw(interrupted_rebuild)), _Trap), "
             "catch(('sk-rebuild-view'(true,_Hash,_Key,987603,[-1],_) -> true ; true), "
@@ -201,6 +202,20 @@ class ExclusionStateTests(unittest.TestCase):
             "aggregate_all(count,'sk-active-reader'(_),Readers)"
         )
         self.assertEqual((cleaned['Frame'], cleaned['Frames'], cleaned['Readers']), (0, 0, 0))
+
+    def test_interrupt_unwinds_reader_pushed_inside_it(self):
+        # A fault raised through a space read becomes a failure (PeTTa's
+        # space_call), so the interrupt is thrown by the caught goal itself,
+        # after it pushed a reader the way sk-row-view does.
+        result = janus.query_once(
+            "_Key=['sk-key',['InterruptReader'],[Kb,'MAIN','Nil']], 'index-hash'(_Key,_Hash), "
+            "catch(('sk-push-reader!'([_Hash,_Key,987605],_), "
+            " aggregate_all(count,'sk-active-reader'(_),_N), flag(exclusion_probe_inside,_,_N), "
+            " throw(interrupted_read)), interrupted_read, true), "
+            "flag(exclusion_probe_inside,Inside,0), aggregate_all(count,'sk-active-reader'(_),After)",
+            {'Kb': self.h.kb},
+        )
+        self.assertEqual((result['Inside'], result['After']), (1, 0))
 
     def test_deferred_misses_survive_queries_and_obey_the_tier_ceiling(self):
         self.h.set_query_metrics(True)
