@@ -211,6 +211,44 @@ branch; it introduces no new context store or alternate routing system.
 Quantified implications as Assuming facts or goals, nested binders and `Not Exists` are not
 supported. See [explicit_exists.md](explicit_exists.md).
 
+## Weighted assumptions (tracker #120)
+
+A bare fact is assumed certain. A fact written as the annotation `compileadd`
+takes, `(: name statement tv)`, is held in the context with that value
+instead, alone or among the `And` facts, next to bare ones:
+
+    (Assuming (And (Candidate s1)
+                   (: bridge (Implication (PlaysTennis Bob) (PlayingTennisNow Bob)) (STV 0.12 0.2)))
+       (PlayingTennisNow Bob))
+
+The annotation is the source form of a stored input, so it means what the
+same atom added to the knowledge base would mean, inside the query only:
+
+- a closed ordinary fact with an STV is a stored soft fact. Read directly, it
+  answers its own STV. On a key MAIN also holds, it is one more stored report,
+  merged with MAIN's facts as an isolated KB holding both would merge them;
+- `(: name (Not fact) (STV s c))` stores the fact with `(STV 1-s c)`, as
+  `compileadd` does;
+- an implication with an STV or a CTV is a rule with that truth value. It
+  consumes MAIN facts and sibling assumptions, and its result equals the one
+  the same rule added to an isolated KB gives.
+
+The name labels the assumption in the answer's statement; the proof names the
+assumption's context token, as for a bare fact. Anything else in the
+annotation position is rejected with
+`domain_error(weighted_assumption, Annotation)` (message `unsupported weighted
+assumption`) before the query runs, never read as certain or as a
+colon-headed predicate: a missing or open TV or name, an STV outside [0,1], a
+CTV on a fact, a TV that is not an STV or CTV (the KB stores no
+distribution-valued facts; a distribution is an argument of a statement),
+free variables in a fact, and connectives, binders, computations or rule
+wrappers (`And`, `Or`, `Exists`, `Compute`, `ForAll`, `WithPrior`) as the
+weighted statement. Weight each conjunct of a conjunction separately. Implication-query antecedents
+take no annotations: they are conditions, not weighted inputs.
+
+As for bare facts, nothing that depends on a weighted assumption is written
+to MAIN, and a later plain query cannot read it.
+
 ## Source-gated existential witnesses (tracker #66)
 
 A single `Assuming` can enable a concrete witness through source-gated rules,

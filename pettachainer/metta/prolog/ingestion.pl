@@ -77,3 +77,35 @@ ingestion_exists(Type) :-
     ; atom(Head), ( memberchk(Head, ['And','Or','Not','Implication'])
                   ; 'bidirectional-implication-form?'(Head, true) ),
       member(Child, Args), ingestion_exists(Child) ), !.
+
+% A weighted query assumption (: Name Statement TV) is one input compileadd
+% would store, held in its Assuming world with its own value: a closed
+% ordinary fact with an STV, a negated fact with an STV
+% (stored, as compileadd stores it, as its inner fact's complement), or an
+% implication with an STV or a CTV. Anything else is rejected rather than
+% read as a certain fact or a colon-headed predicate.
+'weighted-assumption'(Annotation, [Statement, TV]) :-
+    ( Annotation = [':', Name, Source, Value], ground(Name), nonvar(Source), nonvar(Value),
+      weighted_assumption(Source, Value, Statement, TV)
+    -> true
+    ; throw(error(domain_error(weighted_assumption, Annotation),
+                  context(query/3, 'unsupported weighted assumption'))) ).
+
+weighted_assumption(Source, Value, Statement, TV) :-
+    Source = [Head|Args], atom(Head),
+    ( Head == 'Implication'
+    -> Args = [_,_],
+       ( assumption_stv(Value) ; Value = ['CTV',P,N], assumption_stv(P), assumption_stv(N) ),
+       Statement = Source, TV = Value
+    ; Head == 'Not'
+    -> Args = [Inner], nonvar(Inner), assumption_stv(Value), Value = [_,S,C],
+       Complement is 1.0 - S,
+       weighted_assumption(Inner, ['STV',Complement,C], Statement, TV)
+    ; \+ memberchk(Head, [':','CPU','ForAll','Exists','WithPrior']),
+      'compound-connective?'(Head, false), 'source-computation-head?'(Head, false),
+      'bidirectional-implication-form?'(Head, false), ingestion_closed([], Source),
+      assumption_stv(Value), Statement = Source, TV = Value ).
+
+assumption_stv(Value) :-
+    nonvar(Value), Value = ['STV',S,C], number(S), number(C),
+    S >= 0, S =< 1, C >= 0, C =< 1.
