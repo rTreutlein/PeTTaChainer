@@ -44,7 +44,7 @@ no answer, never a fabricated negative from an empty witness population.
 
 Stage 2 supports complete-side quantifiers through ordinary multi-rule chains.
 It does not implement quantified nested implication export, nested binders,
-quantifier distribution across connectives, quantified implications as Assuming facts or goals,
+quantifier distribution across connectives, quantified implications as Assuming goals,
 `Not Exists`, completion, or overlap-aware witness OR. See
 [explicit_exists.md](explicit_exists.md) for the shared judgment and cost.
 

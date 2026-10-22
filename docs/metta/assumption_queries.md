@@ -4,8 +4,10 @@ Status: built, October 2026.
 
 `Assuming` supports explicit existential facts, including among `And` facts,
 and bare existential goals. It preserves local binder scope and never creates
-a categorical witness from a non-constructive claim. Quantified implications
-as Assuming facts or goals remain unsupported; see [existential queries](explicit_exists.md).
+a categorical witness from a non-constructive claim. An assumed implication
+with variables is a rule of the query's world, as a stored one is (#127);
+quantified implications as Assuming goals remain unsupported; see
+[existential queries](explicit_exists.md).
 
 ## Problem
 
@@ -59,7 +61,9 @@ identities and evidence identities; opening C copies none of them.
 - **New producers.** Assumptions can enable a producer MAIN skipped as dormant.
   The assumption starts indexed joins structurally, without supplying a truth
   value. An assumed implication is an explicitly local input to its shared
-  structural row; MAIN never applies it as a rule axiom.
+  structural row; MAIN never applies it as a rule axiom. As a stored rule is,
+  it is no premise of its applications: its key joins no row's dependencies,
+  so applications to different entities stay independent.
 - **Consistent evidence.** A premise borrowed from MAIN retains its original
   key, evidence and dependency identity. Conditioning and self-support exclusion
   use those same identities when it meets a C-derived premise. A borrowed
@@ -208,7 +212,7 @@ existential population can be affected through either its direct claim or its
 witness-body predicates. Both scalar and grouped existential folds read the
 appropriate context. This is the integration contract for the ctx-overlay
 branch; it introduces no new context store or alternate routing system.
-Quantified implications as Assuming facts or goals, nested binders and `Not Exists` are not
+Quantified implications as Assuming goals, nested binders and `Not Exists` are not
 supported. See [explicit_exists.md](explicit_exists.md).
 
 ## Weighted assumptions (tracker #120)
@@ -229,8 +233,12 @@ adds evidence; it does not set the statement's value:
   merged with MAIN's facts by revision;
 - `(: name (Not statement) (STV s c))` stores the statement with
   `(STV 1-s c)`, as `compileadd` does;
-- a closed implication with an STV or a CTV is a rule with that truth value.
-  It consumes MAIN facts and sibling assumptions.
+- an implication with an STV or a CTV is a rule with that truth value. It
+  consumes MAIN facts and sibling assumptions. Its variables are the rule's
+  own, as a stored rule's are: they are standardized apart from the goal's and
+  from other assumptions', even under the same name, and each application
+  binds them anew. Applications to different entities are independent, as a
+  stored rule's are (#127).
 
 On ground facts and rules this matches the same inputs added to an isolated
 KB, with these known limits:
@@ -251,7 +259,7 @@ rejected with `domain_error(weighted_assumption, Annotation)` (message
 certain or as a colon-headed predicate: a missing or open TV or name, an STV
 outside [0,1], a CTV on a fact, a TV that is not an STV or CTV (the KB stores
 no distribution-valued facts; a distribution is an argument of a statement),
-free variables in a fact or an implication (`Exists`-bound ones are allowed),
+free variables in a fact (an implication's variables are its own),
 and connectives, binders, computations, rule wrappers, `Inheritance` or
 `Assuming` as the weighted statement. Weight each conjunct of a conjunction
 separately. An annotation in any other statement position is rejected the

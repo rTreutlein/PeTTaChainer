@@ -624,20 +624,13 @@
    (if (not (head-is? $type Implication)) ()
       (case $type (
          ((Implication $antecedent $consequent)
-            (let*
-               (($lowered
-                   (collapse
-                      (once
-                         (lower-implication-antecedent
-                            $kbid $ctx $mvars
-                            (brand Statement $antecedent))))))
-               (case $lowered (
-                  (() ())
-                  ((cons $compiled-premises $_rest)
-                     (query-context-compile-assumed-implication
-                        $kbid $ctx $mvars $ctxprf $tv
-                        (brand Statement $consequent)
-                        $compiled-premises))))))
+            (case (antecedent-lowerings $kbid $ctx $mvars (brand Statement $antecedent)) (
+               (() ())
+               ((cons $compiled-premises $_rest)
+                  (query-context-compile-assumed-implication
+                     $kbid $ctx $mvars $ctxprf $tv
+                     (brand Statement $consequent)
+                     $compiled-premises)))))
          ($_other ())))))
 
 (: query-context-premise-adds-step

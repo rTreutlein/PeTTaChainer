@@ -120,7 +120,7 @@ inside ContextQuery therefore reads the overlay during C evaluation. Binder
 freshening and public reconstruction also apply to existential Assuming answers.
 
 Nested quantifiers, binders with unused variables, quantified nested implication
-export, quantified implications supplied as Assuming facts or goals, and existential
+export, quantified implications supplied as Assuming goals, and existential
 terms inside an implication-side connective remain unsupported. Negation,
 completion, and overlap-aware OR remain separate stages.
 

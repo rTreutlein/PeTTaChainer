@@ -3660,10 +3660,10 @@
             ;; is resolved; expected-TV scoring leaves the open read optimistic.
             ((CPU ReadLikelihoodContext () $res)
                (if (= $res (likelihood-context $exclude $ev)) $state sk-fail))
-            ((CPU ContextRule ($assumption $ctx) $_res)
-               (if (context-rule-enabled? $ctx)
-                  (sk-acc $fold-proofs $ev (cons (deps-key (index-hash $assumption)) $deps) $parts)
-                  sk-fail))
+            ;; An assumed rule applies only in its context. Like a stored rule, it
+            ;; is no premise of its applications: two of them share no input.
+            ((CPU ContextRule ($_assumption $ctx) $_res)
+               (if (context-rule-enabled? $ctx) $state sk-fail))
             ;; Only a diagnostic uses a neutral prior: a certified endpoint
             ;; is invariant to it and no diagnostic value becomes evidence.
             ;; Every actual read, including representatives, uses leave-one-out.
