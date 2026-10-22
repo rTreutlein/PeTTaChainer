@@ -2733,6 +2733,18 @@
             (if (stored-list-member? $leaf $sources) (cons $leaf $kept) $kept) $kept))
       ($_other $kept))))
 
+;; A ground statement stored with confidence 1 is its own value, as expansion
+;; applies no rule to it: no other proof could change it, so its rows' views
+;; add neither evidence nor dependencies. At a strength between 0 and 1 the
+;; fact is the statement's current belief (Jeffrey), so every reader of the
+;; key, a conditioning weight included, takes the fact and not its views. A
+;; derived view of confidence 1 is a probability known exactly, not the
+;; statement's truth, and merges as usual.
+(: sk-certain-or (-[semidet]-> (List SkeletonValue) (List SkeletonValue) (List SkeletonValue)))
+(= (sk-certain-or $leaves $values)
+   (let $certain (fold-semidet (sk-certain-leaf-step $values) () $leaves)
+      (if (== $certain ()) $values $certain)))
+
 ;; A value depending on an incomplete fold is provisional: computed from part
 ;; of an aggregate that needs all of it (docs/metta/partial_folds.md). A key
 ;; merges its provisional values only when it has no other.
@@ -2805,12 +2817,8 @@
                   ($_found (fold-semidet sk-cons-step () $dependent)))))))
       ($_fold $values))))
 
-;; Leaves first, then one version per row in the order the rows were found.
-;; A ground statement stored with confidence 1 is its own value, as expansion
-;; applies no rule to it: no other proof could change it, so its rows' views
-;; add neither evidence nor dependencies. A derived view of confidence 1 is a
-;; probability known exactly, not the statement's truth, and merges as usual.
-;; Views read under given statements leave out the leaves that depend on them.
+;; Leaves first, then one version per row in the order the rows were found;
+;; a certain stored fact stands alone (sk-certain-or). Views read under given statements leave out the leaves that depend on them.
 ;; Views that overlap condition the key on what they share.
 (: sk-merge-key
    (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) (List SkeletonGiven) (List SkeletonValue) SkeletonValue))
@@ -2818,8 +2826,7 @@
    (let* (($outside (hash-union $exclude (hash-set (sk-given-hashes $given))))
           ($leaves (sk-leaf-views $hash $key $filter $outside))
           ($sources (sk-judgment-values $key (append-flat $leaves $views)))
-          ($certain (fold-semidet (sk-certain-leaf-step $sources) () $leaves))
-          ($own (sk-own-values (sk-complete-values (if (== $certain ()) $sources $certain))))
+          ($own (sk-own-values (sk-complete-values (sk-certain-or $leaves $sources))))
           ($standing (fold-semidet sk-cons-step () (fold-semidet (sk-standing-step $own) () $own)))
           ($unifiers (sk-unifier-hashes $hash $key))
           ($ignore (hash-union $unifiers $outside))
@@ -3353,7 +3360,7 @@
                             (map-semidet (sk-given-view $given $exclude $hash $key)
                                (sk-admitted-versions $hash $key $filter (sk-admission-exclusions $given $exclude))))
                          $leaves))))))
-          (($selected $siblings $references) (sk-reference-values $ignore $compatible)))
+          (($selected $siblings $references) (sk-reference-values $ignore (sk-certain-or $leaves $compatible))))
       (let $value (if $siblings (sk-key-fallback $ignore $references $selected)
                      (fold-semidet (sk-merge-step true $ignore) sk-none (sk-report-values $selected)))
          (sk-calibrated-value $given $key $filter $outside $value))))
@@ -3931,7 +3938,8 @@
 ;; A statement with stored facts weighs by its facts and those of its views
 ;; whose evidence the branches do not hold, in either polarity, as a premise
 ;; selects compatible views: a soft fact's rules let reports below the views
-;; invert into it, and its merged value would count them again (#94).
+;; invert into it, and its merged value would count them again (#94). A fact
+;; stored with confidence 1 is the weight alone (sk-certain-or).
 (: sk-mix-on (-[semidet]-> (List SkeletonGiven) SkeletonTarget (List Number) (List SkeletonKey) (List SkeletonValue)))
 (= (sk-mix-on $given $target $wexclude $keys)
    (case $keys (
