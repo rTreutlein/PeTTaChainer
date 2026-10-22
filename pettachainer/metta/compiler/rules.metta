@@ -237,6 +237,12 @@
       (if (= $prf (bi-backward $bwd)) (brand Proof $bwd)
          (if (= $prf (no_inverse $inner)) (brand Proof $inner) $prf))))
 
+;; A rule's evidence name is a symbol, or the context token of an implication
+;; assumed in an Assuming query, which names that query-local rule as a
+;; symbol names a stored one. Other proof expressions are not rule names.
+(: rule-name? (-[det]-> Proof Bool))
+(= (rule-name? $name) (if (is-expr $name) (head-is? $name ctx) true))
+
 (: rule-evidence-registered? (-[det]-> KB Proof Bool))
 (= (rule-evidence-registered? $kbid $name)
    (not (== (collapse (once (match &rule_evidence_names ($name $kbid) true))) ())))
@@ -266,7 +272,7 @@
 (: register-rule-evidence! (-[det]-> KB Proof TV Bool (List $no-result)))
 (= (register-rule-evidence! $kb $prf $tv $ground)
    (let $name (rule-evidence-base-name $prf)
-      (if (is-expr $name) ()
+      (if (not (rule-name? $name)) ()
          (if (logic-rule? $name) ()
             (if (rule-evidence-registered? $kb $name) ()
                (case $tv (

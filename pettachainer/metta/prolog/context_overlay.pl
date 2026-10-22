@@ -302,6 +302,10 @@ context_numerical_change(T,Old,New) :-
     ; 'sk-same-view?'(New,Old,false) ).
 
 'context-clear!'(true) :-
+    forall(( member(Store, ['&rule_evidence_names','&given_rules','&deterministic_rules']),
+             Row =.. [Store, Name, Kb],
+             catch(Row, error(existence_error(procedure,_),_), fail), Name = [ctx|_] ),
+           'remove-atom'(Store, [Name, Kb], _)),
     forall(retract(support_identity_owner(Id)),retractall(support_identity(Id,_,_))),
     forall(retract(sk_forced_seen(_,Trie)),trie_destroy(Trie)),
     retractall(context_propagated(_,_,_,_)),

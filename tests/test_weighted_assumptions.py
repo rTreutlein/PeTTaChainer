@@ -116,15 +116,23 @@ class WeightedAssumptionTests(unittest.TestCase):
         self.assertNotAlmostEqual(assumed[1], tv(isolated(*main, '(: w (P a) (STV 0.9 0.9))'), '(Q a)')[1])
         self.assertNoMainLeak()
 
-    @unittest.expectedFailure
-    def test_assumed_rule_also_stated_in_main(self):
-        # #123: MAIN's stated rule on the same implication key wins over the assumed one.
+    def test_assumed_stv_rule_also_stated_in_main(self):
         main = ['(: h (P a) (STV 0.9 0.8))', '(: o (Q a) (STV 0.4 0.7))',
                 '(: r (Implication (P a) (Q a)) (STV 0.7 0.5))']
         self.h.add_atoms_no_check(main)
-        rule = '(: w (Implication (P a) (Q a)) (STV 0.99 0.99))'
-        self.assertEqual(tv(self.h, f'(Assuming {rule} (Q a))'), tv(isolated(*main, rule), '(Q a)'))
+        for rule in ('(: w (Implication (P a) (Q a)) (STV 0.99 0.99))',
+                     '(: w (Implication (P a) (Q a)) (STV 0.01 0.99))'):
+            with self.subTest(rule=rule):
+                self.assertEqual(tv(self.h, f'(Assuming {rule} (Q a))'), tv(isolated(*main, rule), '(Q a)'))
 
+    @unittest.expectedFailure
+    def test_assumed_ctv_rule_also_stated_in_main(self):
+        # #123: with a CTV, the assumed and MAIN rules do not combine as two stored ones.
+        main = ['(: h (P a) (STV 0.9 0.8))', '(: o (Q a) (STV 0.4 0.7))',
+                '(: r (Implication (P a) (Q a)) (STV 0.7 0.5))']
+        self.h.add_atoms_no_check(main)
+        rule = '(: w (Implication (P a) (Q a)) (CTV (STV 0.99 0.99) (STV 0.0 0.99)))'
+        self.assertEqual(tv(self.h, f'(Assuming {rule} (Q a))'), tv(isolated(*main, rule), '(Q a)'))
 
 if __name__ == '__main__':
     unittest.main()

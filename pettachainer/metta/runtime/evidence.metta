@@ -326,7 +326,7 @@
                   (evidence-union $base (evidence-set (cons (rule-ev $typed-kbid $given) ())))
                   $base)))
          ($_other
-            (if (is-expr $name) $base
+            (if (not (rule-name? $name)) $base
                (if (named-rule? $typed-kbid $name)
                   (evidence-union $base (evidence-set (cons (rule-ev $typed-kbid $name) ())))
                   $base)))))))

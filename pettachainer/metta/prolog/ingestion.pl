@@ -98,7 +98,7 @@ annotation_error(Annotation) :-
 weighted_assumption(Source, Value, Statement, TV) :-
     Source = [Head|Args], atom(Head),
     ( Head == 'Implication'
-    -> Args = [_,_],
+    -> assumption_rule(Source),
        ( assumption_stv(Value) ; Value = ['CTV',P,N], assumption_stv(P), assumption_stv(N) ),
        Statement = Source, TV = Value
     ; Head == 'Not'
@@ -109,6 +109,12 @@ weighted_assumption(Source, Value, Statement, TV) :-
       'compound-connective?'(Head, false), 'source-computation-head?'(Head, false),
       'bidirectional-implication-form?'(Head, false), ingestion_closed([], Source),
       assumption_stv(Value), Statement = Source, TV = Value ).
+
+% The assumed-rule compiler takes a plain antecedent and consequent: both
+% sides given, neither a nested rule nor an existential conclusion.
+assumption_rule(['Implication', Antecedent, Consequent]) :-
+    nonvar(Antecedent), nonvar(Consequent),
+    \+ ingestion_rule(Consequent), \+ ingestion_exists(Consequent).
 
 assumption_stv(Value) :-
     nonvar(Value), Value = ['STV',S,C], number(S), number(C),
@@ -134,4 +140,7 @@ query_annotations(Statement) :-
 
 assumed_annotations(Fact) :-
     ( nonvar(Fact), Fact = [':', _, Statement, _] -> query_annotations(Statement)
+    ; nonvar(Fact), Fact = ['Implication'|_], \+ assumption_rule(Fact)
+    -> throw(error(domain_error(assumed_rule, Fact),
+                   context(query/3, 'unsupported assumed implication')))
     ; query_annotations(Fact) ).

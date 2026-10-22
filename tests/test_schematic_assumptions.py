@@ -67,12 +67,37 @@ class SchematicAssumptionTests(unittest.TestCase):
              ' (STV 0.8 0.5))'],
             '(ClubActive Club)')
 
-    def test_free_variable_facts_and_open_values_stay_rejected(self):
+    def test_judging_the_assumed_rule_is_not_self_supported(self):
+        # The judgment reads no stated value of an assumed rule, where an
+        # isolated KB reads the rule's own; its applications share the rule's
+        # evidence identity, so they cannot support it either.
+        ground = '(Implication (AlwaysPlayedTennis Bob) (PlayingTennisNow Bob))'
+        for rule, tv in ((ground, '(STV 0.12 0.2)'), (BRIDGE, '(STV 0.12 0.2)'),
+                         (ground, '(CTV (STV 0.7 0.6) (STV 0.2 0.5))')):
+            with self.subTest(rule=rule, tv=tv):
+                stated = f'(: bridge {rule} {tv})'
+                reference = PeTTaChainer()
+                reference.add_atoms_no_check(MAIN + [stated])
+                self.assertEqual([value[1:] for _, value in answers(reference, ground)],
+                                 [[0.7, 0.6]] if 'CTV' in tv else [[0.12, 0.2]])
+                for goal in (ground, f'(And {ground} (PlayingTennisNow Bob))'):
+                    self.assertEqual(answers(self.h, f'(Assuming {stated} {goal})'), [])
+
+    def test_unsupported_rules_and_values_stay_rejected(self):
         for annotation in ('(: b (AlwaysPlayedTennis $x) (STV 0.5 0.5))', f'(: b {BRIDGE} $tv)',
-                           f'(: b {BRIDGE} (STV 1.5 0.2))', f'(: b {BRIDGE})'):
+                           f'(: b {BRIDGE} (STV 1.5 0.2))', f'(: b {BRIDGE})',
+                           '(: b (Implication $a (PlayingTennisNow Bob)) (STV 0.5 0.5))',
+                           '(: b (Implication (AlwaysPlayedTennis $x) (Implication (Member $x Club) (Star $x)))'
+                           ' (STV 0.7 0.5))',
+                           '(: b (Implication (AlwaysPlayedTennis $x) (Exists ($z) (Coach $z $x))) (STV 0.7 0.5))'):
             with self.subTest(annotation=annotation):
                 with self.assertRaisesRegex(janus.PrologError, 'weighted_assumption'):
                     answers(self.h, f'(Assuming {annotation} (PlayingTennisNow Bob))')
+        for rule in ('(Implication $a (PlayingTennisNow Bob))',
+                     '(Implication (AlwaysPlayedTennis Bob) (Implication (Member Bob Club) (Star Bob)))'):
+            with self.subTest(rule=rule):
+                with self.assertRaisesRegex(janus.PrologError, 'assumed_rule'):
+                    answers(self.h, f'(Assuming {rule} (PlayingTennisNow Bob))')
 
 
 if __name__ == '__main__':

@@ -602,35 +602,24 @@
 
 ;; An implication used as a query assumption must be executable inside its
 ;; fresh context, not merely stored as an inert contextual fact. Compile its
-;; forward rule against the same shaped KB so it can consume sibling assumptions.
-(: query-context-compile-assumed-implication
-   (-[det]-> KB $context $variables Proof TV Statement CompiledPremises (List CompiledAddition)))
-(= (query-context-compile-assumed-implication
-      $kbid $ctx $mvars $ctxprf $tv $consequent
-      ($execs $proofs $atv))
-   (let*
-      (($shape-kb (make-kb-context $kbid $ctx $mvars))
-       ($a (brand Statement (execs-goal-type $execs))))
-      (collapse
-         (compile-implication-forward-rules
-            $kbid $shape-kb
-            $ctxprf $tv () $tv () $a $consequent
-            (list_to_set (extract-vars $a))
-            (cons (data $execs $proofs $atv) ())))))
-
+;; forward rule from every lowering of its antecedent, as `compile-rule` does,
+;; against the same shaped KB so it can consume sibling assumptions. Its stated
+;; value and its applications share one evidence identity, as a stored rule's
+;; do, so neither supports the other.
 (: query-context-assumed-implication-rules
    (-[det]-> KB $context $variables Proof Statement TV (List CompiledAddition)))
 (= (query-context-assumed-implication-rules $kbid $ctx $mvars $ctxprf $type $tv)
    (if (not (head-is? $type Implication)) ()
       (case $type (
          ((Implication $antecedent $consequent)
-            (case (antecedent-lowerings $kbid $ctx $mvars (brand Statement $antecedent)) (
-               (() ())
-               ((cons $compiled-premises $_rest)
-                  (query-context-compile-assumed-implication
-                     $kbid $ctx $mvars $ctxprf $tv
-                     (brand Statement $consequent)
-                     $compiled-premises)))))
+            (let* (($a (brand Statement (implication-source-term $antecedent)))
+                   ($lowerings (antecedent-lowerings $kbid $ctx $mvars (brand Statement $antecedent)))
+                   ($_named (register-rule-evidence! $kbid $ctxprf $tv (== (extract-vars $type) ()))))
+               (collapse
+                  (compile-implication-forward-rules
+                     $kbid (make-kb-context $kbid $ctx $mvars)
+                     $ctxprf $tv () $tv () $a (brand Statement $consequent)
+                     (list_to_set (extract-vars $a)) $lowerings))))
          ($_other ())))))
 
 (: query-context-premise-adds-step
