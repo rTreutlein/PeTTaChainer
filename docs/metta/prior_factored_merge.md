@@ -210,32 +210,30 @@ one after the other gives the same value as merged with their factored merge.
 Two forward views still revise; when the views are revised first, the
 inversions apply to the revision.
 
-A stored report is instance evidence, rather than another estimate of the
-prediction (#103). First revise the stored reports among themselves (#92),
-then apply their combined likelihood ratio once to the independent prediction:
+A stored report below confidence 1 is instance evidence, rather than another
+estimate of the prediction (#103). First revise the stored reports among
+themselves (#92), then apply their combined likelihood once to the independent
+prediction (B2, Pearl):
 
-    O(posterior) = O(prediction) O(report) / O(calibration rate)
+    O(posterior) = O(prediction) O(report)
 
-The calibration rate uses the statement's predicate shape and the existing
-population-prior read, with the reports' physical sources left out. With no
-other members it is 1/2; an explicit user rate stays authoritative. Cold
-aggregate seeding preserves the merged facts' scoped evidence so several
-reports of one instance cannot enter their own calibration rate. The target
-key subscribes to that rate along with ordinary fold readers; late population
-facts and explicit rate changes invalidate its cached merge and consumers.
-
-The result uses the same `factored-revision` representation, with the prediction
-as prior and `((reported with cpu (prior <calibration TV>)) report-proof)`
-as an update. Its evidence and dependencies include both inputs and the rate
-read. Subsequent diagnostics can therefore read the observation's likelihood
-ratio without counting the prediction as another observation. The report's
-own log-odds variance is added to the prediction's for fractional reports; the
-rate is a calibration parameter, not variance already contained in the report
-that may be subtracted.
-This remains a delta-method approximation, not a calibration guarantee.
+No population rate enters: the report is a likelihood, not a posterior its
+source formed under the population's rate, so later members and explicit
+rates do not move it. The result uses the same `factored-revision`
+representation, with the prediction as prior and
+`((reported with cpu (prior (STV 0.5 0.0))) report-proof)` as an update. Its
+evidence and dependencies include both inputs. Subsequent diagnostics can
+therefore read the observation's likelihood ratio without counting the
+prediction as another observation. The report's own log-odds variance is added
+to the prediction's for fractional reports. This remains a delta-method
+approximation.
 Binary report strengths remain exact at finite confidence. Their likelihood
 ratio makes the posterior independent of the prior's value, so they retain the
 revised reports' confidence rather than adding a singular log-odds variance.
+A key reading a fractional report still subscribes to its predicate's rate and
+recomputes when it changes; the value does not depend on it, but a cyclic
+forward run reaches two reports' product through that refresh
+(`test_forward_chainer.metta`, #112).
 The prior's proof, evidence and dependencies remain: removing its support
 would hide shared ancestors from conditioning and admit confident wrong values.
 Their likelihood ratio is unchanged by every finite empirical centre, so the

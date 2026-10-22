@@ -1,4 +1,4 @@
-"""Reports update independent predictions by odds, after corroboration (#103)."""
+"""Reports update independent predictions by their likelihood, after corroboration (B2, Pearl)."""
 import unittest
 
 import janus_swi as janus
@@ -245,7 +245,9 @@ class SoftReportTests(unittest.TestCase):
             self.assertIn('merge/revision', proof)
             self.assertIn('(prior (STV 0.5 0.0))', proof)
 
-    def test_late_population_and_explicit_rate_refresh_a_warm_report(self):
+    def test_population_and_explicit_rate_leave_a_report_unchanged(self):
+        # A report is a likelihood, not a posterior formed under the
+        # population's rate: later members and a stated rate do not move it.
         h = PeTTaChainer()
         h.set_evidence_confidence_k(5)
         self.addCleanup(h.set_evidence_confidence_k, 800)
@@ -256,20 +258,54 @@ class SoftReportTests(unittest.TestCase):
             '(: pq (Implication (P a) (Q a)) (CTV (STV 0.8 1) (STV 0.3 1)))',
         ])
         q = ['(: $p (Q a) $tv)', '(: $p (P a) $tv)']
-        initial = h.query_many_refs(q, steps=3000)
-        self.assertAlmostEqual(initial[1][0].tv[1], 1 / 7)
-        h.add_atoms_no_check(['(: pb (P b) (STV 0.2 1))', '(: pc (P c) (STV 0.2 1))'])
-        # Two confidence-1 members have empirical weight two. The common
-        # neutral pseudocount 0.2 gives b = (0.4 + 0.1) / 2.2.
-        b = .5 / 2.2
-        expected = (.1 * .6 * (1 - b)) / (.1 * .6 * (1 - b) + .9 * .4 * b)
-        updated = h.query_many_refs(q, steps=3000)
-        self.assertAlmostEqual(updated[1][0].tv[1], expected)
-        self.assertAlmostEqual(updated[0][0].tv[1], .3 + .5 * expected)
-        h._call('set-base-rate', [f'{h.kb} (P $x) (STV 0.8 1)'])
-        explicit = h.query_many_refs(q, steps=3000)
-        self.assertAlmostEqual(explicit[1][0].tv[1], .04)
-        self.assertAlmostEqual(explicit[0][0].tv[1], .32)
+        for change in ([], ['(: pb (P b) (STV 0.2 1))', '(: pc (P c) (STV 0.2 1))'], 'rate'):
+            if change == 'rate':
+                h._call('set-base-rate', [f'{h.kb} (P $x) (STV 0.8 1)'])
+            else:
+                h.add_atoms_no_check(change)
+            rows = h.query_many_refs(q, steps=3000)
+            self.assertAlmostEqual(rows[1][0].tv[1], 1 / 7, delta=1e-12)
+            self.assertAlmostEqual(rows[0][0].tv[1], .3 + .5 / 7, delta=1e-12)
+
+    def test_certain_population_member_does_not_calibrate_a_report(self):
+        # B is derived from A and also reported; (B y) is a certain false
+        # member of B's population. A report reads as its likelihood, so the
+        # member changes nothing (calibrating against its rate of 0 made any
+        # report read as near certain).
+        for diamond in (False, True):
+            for strength, confidence in ((.1, .9), (.5, 1)):
+                with self.subTest(diamond=diamond, strength=strength, confidence=confidence):
+                    h = PeTTaChainer()
+                    h.add_atoms_no_check([
+                        '(: fa (A x) (STV 0.3 1))',
+                        '(: r1 (Implication (A $x) (B $x)) (CTV (STV 0.9 1) (STV 0.2 1)))',
+                        '(: r2 (Implication (B $x) (C $x)) (CTV (STV 0.8 1) (STV 0.1 1)))',
+                        f'(: fb (B x) (STV {strength} {confidence}))',
+                        '(: fa-y (A y) (STV 0.3 1))',
+                        '(: fb-y (B y) (STV 0 1))',
+                    ] + ([
+                        '(: r3 (Implication (B $x) (D $x)) (CTV (STV 0.7 1) (STV 0.2 1)))',
+                        '(: r4 (Implication (And (C $x) (D $x)) (E $x)) (CTV (STV 0.9 1) (STV 0.05 1)))',
+                    ] if diamond else []))
+                    root = h.query_many_refs([f'(: $p ({"E" if diamond else "C"} x) $tv)'], steps=20000)[0][0]
+                    # P(root | B) and P(root | not B); in the diamond C and D are independent given B.
+                    true, false = (.56 * .9 + .44 * .05, .02 * .9 + .98 * .05) if diamond else (.8, .1)
+                    downstream = lambda b: b * true + (1 - b) * false
+                    if confidence == 1:
+                        # Jeffrey: B's marginal is the stored strength.
+                        expected = downstream(strength)
+                    else:
+                        ratio = strength / (1 - strength)
+                        posterior = lambda prior: prior * ratio / (prior * ratio + 1 - prior)
+                        if diamond:
+                            # E conditions on A, a stored fact of confidence 1
+                            # (Jeffrey): the report applies within each branch.
+                            expected = .3 * downstream(posterior(.9)) + .7 * downstream(posterior(.2))
+                        else:
+                            # The chain reads the report over B's marginal
+                            # forward prediction, which moves A (a known limit).
+                            expected = downstream(posterior(.3 * .9 + .7 * .2))
+                    self.assertAlmostEqual(root.tv[1], expected, delta=1e-12)
 
     def test_frozen_diagnostic_summary_remains_the_prior(self):
         h = PeTTaChainer()

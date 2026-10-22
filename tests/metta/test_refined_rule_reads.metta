@@ -45,8 +45,10 @@
 
 ;; An observed but uncertain consequent is a sample of the rule, and the rule
 ;; still applies to it: B new's own sample is left out of the truth hA applies
-;; there, three samples, revised with the stored 0.6 (one observation).
-;; Before, the truth depended on B new, so B new read the prior.
+;; there, three samples. The stored 0.6 is a report on that prediction, its
+;; likelihood ratio 0.6/0.4 (B2, Pearl): O(B new) = O(0.00168) * 1.5. The
+;; three false B samples are no calibration of it. Before, the truth depended
+;; on B new, so B new read the prior.
 !(set-rule-refinement softKb true)
 !(set-positive-only-predicate softKb A)
 !(compileadd softKb (: hA (Implication (A $x) (B $x)) (STV 0.5 0.01)))
@@ -59,12 +61,12 @@
 !(compileadd softKb (: anew (A new) (STV 1 1)))
 !(compileadd softKb (: bnew (B new) (STV 0.6 0.5)))
 !(test (query 200 softKb (: $p (B new) $tv))
-   (: (factored-revision (by hA anew) (prior (STV 0.0016778523489932888 0.7506296931499001)) (((reported with cpu (prior (STV 0.03125 0.75))) bnew))) (B new) (STV 0.07248636009353085 1.0e-06)))
+   (: (factored-revision (by hA anew) (prior (STV 0.0016778523489932888 0.7506296931499001)) (((reported with cpu (prior (STV 0.5 0.0))) bnew))) (B new) (STV 0.0025146689019279155 0.6213466444373567)))
 ;; The truth itself counts every sample.
 !(test (let (: $p $t $tv) (query 200 softKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv)
    (STV 0.08697206540828625 0.7782566475768755))
 !(test (query 200 softKb (: $p (B new) $tv))
-   (: (factored-revision (by hA anew) (prior (STV 0.0016778523489932888 0.7506296931499001)) (((reported with cpu (prior (STV 0.03125 0.75))) bnew))) (B new) (STV 0.07248636009353085 1.0e-06)))
+   (: (factored-revision (by hA anew) (prior (STV 0.0016778523489932888 0.7506296931499001)) (((reported with cpu (prior (STV 0.5 0.0))) bnew))) (B new) (STV 0.0025146689019279155 0.6213466444373567)))
 
 ;; A rule's truth is a parameter: a value through the rule depends on its
 ;; truth's key, not on the instances it was learned from. Learned storm

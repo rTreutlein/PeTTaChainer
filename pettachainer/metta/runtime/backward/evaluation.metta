@@ -446,8 +446,8 @@
 ;; is. Anything else is left to the
 ;; rules below, and so are two certain views that contradict each other.
 ;; Stored reports describe the instance's evidence, while an independent
-;; forward view predicts it. Revise reports first, then use their likelihood
-;; ratio once over a population read that excludes all their sources.
+;; forward view predicts it. Revise reports first, then apply their
+;; likelihood once (sk-report-merge).
 (: sk-report-proof? (-[det]-> Proof Bool))
 (= (sk-report-proof? $proof)
    (case $proof (
@@ -467,44 +467,38 @@
          ($step (head-is? $step forgotten))))
       true))
 
+;; A stored report below confidence 1 is a likelihood over the instance's
+;; independent prediction (B2, Pearl), not a posterior calibrated against a
+;; population: O(post) = O(prediction) O(s), no base rate entering. A report
+;; of strength 0 or 1 is an observation: the prediction's value does not move
+;; it, and it keeps the revised reports' confidence.
 (: sk-report-merge (-[det]-> SkFact EvidenceSet Number SkFact EvidenceSet Number SkeletonValue))
 (= (sk-report-merge $fact $ev $deps $prior $pev $pdeps)
    (case (collapse (once
          (let* ((($type ($kb $ctx $vars) $report (STV $s $c)) $fact)
                 (($_type $_scope $prediction (STV $sp $cp)) $prior)
                 ($endpoint (if (<= $s 0.0) true (>= $s 1.0)))
-                ($pattern (brand Statement (pattern-shape $type)))
-                (($calibration $calibration-deps)
-                   ;; At an endpoint every finite calibration centre gives the
-                   ;; same unbounded likelihood ratio. An unused rate subscription would feed the
-                   ;; report's own population changes back into its readers.
-                   (if (if $endpoint (not (user-base-rate? (brand KB $kb) $pattern)) false)
-                      (data (STV 0.5 0.0) 0)
-                      (let* (($key (sk-key $type ($kb $ctx $vars)))
-                             ($rate-hash (base-rate-cache-hash (brand KB $kb) $pattern))
-                             ($_watched (if (space-row-present? &ctx_sk_rate_readers ($rate-hash $key)) ()
-                                           (let $_reader (context-add! &sk_rate_readers ($rate-hash $key)) ())))
-                             ($goals (base-rate-premises (brand KB $kb) $pattern $raw))
-                             ($excluded (hash-set (observation-keys (observation-sources $ev))))
-                             ((sk-acc $_proofs $_ev $rate-deps $_parts)
-                                (fold-semidet (sk-premise-step () () $excluded false false sk-greedy-read)
-                                   (sk-acc () (ev-set 0) () ()) $goals))
-                             ($plan (base-rate-read-plan (brand KB $kb) $pattern))
-                             ($rate (sk-rate-read (brand KB $kb) $pattern (the TV $raw) $plan () $excluded)))
-                         (data (population-prior-tv $rate) (deps-join $rate-deps)))))
-                ((STV $b $bc) $calibration)
-                ;; Endpoint reports do not depend numerically on the prior.
-                ;; Retain its support below: conditioning still needs it.
+                ;; The value no longer reads its pattern's rate, but a key
+                ;; reading a soft report recomputes when the rate changes:
+                ;; a cyclic forward run reaches two reports' product through
+                ;; that refresh (test_forward_chainer, #112). Endpoint reports
+                ;; keep no subscription, so their population changes are not
+                ;; fed back into their readers.
+                ($_watched (if $endpoint ()
+                   (let* (($key (sk-key $type ($kb $ctx $vars)))
+                          ($rate-hash (base-rate-cache-hash (brand KB $kb) (brand Statement (pattern-shape $type)))))
+                      (if (space-row-present? &ctx_sk_rate_readers ($rate-hash $key)) ()
+                         (let $_reader (context-add! &sk_rate_readers ($rate-hash $key)) ())))))
+                ;; An endpoint report does not depend numerically on the prior.
+                ;; Retain the prior's support below: conditioning still needs it.
                 ($tv (if $endpoint (STV $s $c)
-                        ;; The rate calibrates the report; its variance is not
-                        ;; already contained in the report's own evidence.
-                        (let (STV $posterior $confidence) (sk-factored-tv odds $sp $cp $b 1 $sp $cp $s $c)
+                        (let (STV $posterior $confidence) (sk-factored-tv odds $sp $cp 0.5 1 $sp $cp $s $c)
                            (STV (if (<= $sp 0.0) 0.0 (if (>= $sp 1.0) 1.0 $posterior)) $confidence))))
-                ($update (brand Proof ((reported with cpu (prior (STV $b $bc))) $report))))
+                ($update (brand Proof ((reported with cpu (prior (STV 0.5 0.0))) $report))))
             (sk-val ($type ($kb $ctx $vars)
                         (brand Proof (factored-revision $prediction (prior (STV $sp $cp)) ($update)))
                         $tv)
-               (evidence-union $ev $pev) (deps-union (the Number $calibration-deps) (deps-union $deps $pdeps)))))) (
+               (evidence-union $ev $pev) (deps-union $deps $pdeps))))) (
       ((cons $merged ()) $merged)
       (() sk-none))))
 

@@ -133,6 +133,36 @@ def t8_degraded_given_storms(storm_t1, storm_k, k):
     return numerator / denominator
 
 
+def t8_pinned(periods, storm_t1, k, part):
+    """Exact branches of T8 at one statement of slice k (part 0 Storm, 1 Degraded).
+
+    Returns P(root | statement false, E), P(root | statement true, E) and
+    P(statement | reports before t_k), the statement's forward marginal.
+    """
+    states = list(itertools.product((0, 1), repeat=2))
+
+    def weight(path, last):
+        p, previous = F(1), (storm_t1, 0)
+        for t, state in enumerate(path[:last], 1):
+            p *= t8_slice(t, previous, state)
+            previous = state
+        return p, previous
+
+    mass, root = {0: F(0), 1: F(0)}, {0: F(0), 1: F(0)}
+    for path in itertools.product(states, repeat=periods):
+        if path[0][0] == storm_t1:
+            p, _ = weight(path, periods)
+            mass[path[k - 1][part]] += p
+            root[path[k - 1][part]] += p * path[-1][1]
+    prefix = {0: F(0), 1: F(0)}
+    for path in itertools.product(states, repeat=k):
+        if path[0][0] == storm_t1:
+            (p, (s0, d0)), (s1, d1) = weight(path, k - 1), path[-1]
+            ps, pd = (F(7, 10) if s0 else F(3, 10)), (F(3, 4) if d0 else F(1, 20))
+            prefix[path[-1][part]] += p * (ps if s1 else 1 - ps) * (pd if d1 else 1 - pd)
+    return root[0] / mass[0], root[1] / mass[1], prefix[1] / (prefix[0] + prefix[1])
+
+
 def plant_atoms(periods, storm_confidence=1):
     return [
         f'(: storm-t1 (Storm t1) (STV 0.6 {storm_confidence}))',
@@ -549,6 +579,44 @@ print(json.dumps({'tv': [r.tv for r in rows], 'metrics': metrics}, sort_keys=Tru
         handler.query_many_refs(['(: $p (Degraded plant t5) $tv)'], steps=20000)
         self.assertEqual(handler.last_query_metrics()['conditions_unpaid'], 0,
                          '#81: five-period filtering should have no conditioning debt')
+
+    def stated_root(self, statement, strength, confidence):
+        """T8 at four periods with Storm t1 false and `statement` also stored."""
+        handler = PeTTaChainer()
+        handler.set_bayes_prior_count(0)
+        self.addCleanup(handler.set_bayes_prior_count, .2)
+        handler.add_atoms_no_check([atom.replace('(STV 0.6 1)', '(STV 0 1)') for atom in plant_atoms(4)]
+                                   + [f'(: stated {statement} (STV {strength} {confidence}))'])
+        handler._call('set-base-rate', [f'{handler.kb} (Degraded plant $t) (STV 0.25 0.9)'])
+        handler._call('set-base-rate', [f'{handler.kb} (Storm $t) (STV 0.4 0.9)'])
+        return handler.query_many_refs(['(: $p (Degraded plant t4) $tv)'], steps=20000)[0][0].tv[1]
+
+    def test_stated_certain_fact_is_the_current_belief(self):
+        # B2: a stored fact of confidence 1 is its statement's belief
+        # (Jeffrey), so the root mixes the exact branches by its strength.
+        # The conditioning weight once read it as a report on the forward
+        # view, and the root sat at f(1) for any strength above 0.01.
+        for statement, part, strength in (('(Degraded plant t2)', 1, .01), ('(Degraded plant t2)', 1, .5),
+                                          ('(Storm t2)', 0, .5)):
+            with self.subTest(statement=statement, strength=strength):
+                false, true, _ = t8_pinned(4, 0, 2, part)
+                expected = strength * true + (1 - strength) * false
+                self.assertAlmostEqual(self.stated_root(statement, strength, 1), float(expected), delta=1e-12)
+
+    def test_stated_soft_report_is_a_likelihood(self):
+        # B2 below confidence 1 (Pearl): the weight is the forward marginal
+        # times the report's likelihood ratio. No population rate enters
+        # (sound-t0 alone once made every strength above 0.0001 read as 1).
+        # The branches' own evidence does not reweight it yet (#112); against
+        # full Pearl this leaves 8e-6 here.
+        false, true, forward = t8_pinned(4, 0, 2, 1)
+        for strength in (.1, .5, .9):
+            with self.subTest(strength=strength):
+                odds = forward / (1 - forward) * F(strength) / (1 - F(strength))
+                weight = odds / (1 + odds)
+                expected = weight * true + (1 - weight) * false
+                self.assertAlmostEqual(self.stated_root('(Degraded plant t2)', strength, .9), float(expected),
+                                       delta=1e-12)
 
     def test_four_period_root_matches_branched_product_filter(self):
         handler = PeTTaChainer()
