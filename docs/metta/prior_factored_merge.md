@@ -519,7 +519,11 @@ can therefore induce C. A completion with a certain sibling has the same
 value as the matched plain inversion: likelihoods (0.9, 0.1), P(C) = 0.5,
 and B predicted at 0.8 give 0.8 * 0.9 + 0.2 * 0.1 = 0.74
 (`tests/metta/test_pln_induction.metta`). No predicate-level observation
-gate restricts these paths.
+gate restricts these paths. A completion's sibling with no stored instance
+reads at its population prior, so a predicate the KB states only when true
+must be declared positive-only: otherwise its stored instances sample it as
+true, an absent instance reads as nearly certain, and a forward prediction of
+the consequence through another instance completes the target (#119).
 
 Self-support is excluded by the consumer's transitive dependency sets, not
 by the origin of a consequent's value. A completion excludes its target's

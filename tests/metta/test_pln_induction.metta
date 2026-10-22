@@ -95,3 +95,18 @@
           (query 2000 premiseKb (: $p (Assuming (Action now) (Cause now)) $tv))
           (< (max (- $s 0.29393311641031633) (- 0.29393311641031633 $s)) 0.000001)) true)
 !(set-context-reuse-threshold 0.000001)
+
+;; Induction reads a sibling with no stored instance at its population prior.
+;; A predicate stored only when true samples as true, so undeclared, an absent
+;; Via r1 reads as almost certain and ra's predicted arrival completes Blocked
+;; r1 to 0.19 (SupplyNet stage 4, #119). Declared positive-only, Via has no
+;; prior and Blocked r1 keeps its own.
+!(set-positive-only-predicate viaKb Via)
+!(compileadd viaKb (: arrives (Implication (And (Via $r $t) (Not (Blocked $r $t))) (Arrived $t)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd viaKb (: via-old (Via ra old) (STV 1 1)))
+!(compileadd viaKb (: via (Via ra now) (STV 1 1)))
+!(compileadd viaKb (: r1-old (Blocked r1 old) (STV 0 1)))
+!(compileadd viaKb (: ra-old (Blocked ra old) (STV 1 1)))
+!(compileadd viaKb (: ra-prior (Blocked ra now) (STV 0.2 0.9)))
+!(test (query 2000 viaKb (: $p (Blocked r1 now) $tv))
+   (: (population-prior (Blocked $_0 $_1)) (Blocked r1 now) (STV 0.4129032258064516 0.003611906837713289)))
