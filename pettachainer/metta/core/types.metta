@@ -104,6 +104,7 @@
 (: evidence-negated (-[det]-> EvidenceSet EvidenceSet))
 (: evidence-shared-facts (-[det]-> EvidenceSet EvidenceSet (List Evidence)))
 (: evidence-inherited (-[det]-> EvidenceSet EvidenceSet))
+(: evidence-proof-fact (-[nondet]-> EvidenceSet Proof Evidence))
 (: evidence-uncertain-overlap? (-[det]-> EvidenceSet EvidenceSet Bool))
 (: evidence-subtraction-certain (-[det]-> EvidenceSet EvidenceSet EvidenceSet))
 (: evidence-condition (-[det]-> EvidenceSet (List Number) EvidenceSet))

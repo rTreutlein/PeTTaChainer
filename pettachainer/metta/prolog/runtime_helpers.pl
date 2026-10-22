@@ -2890,6 +2890,20 @@ pw_drop_rep(R) :-
         assertz(ev_inherited_memo(A, C)) ).
 ev_inherited_id(Id, Out) :- ( ev_given_fact(Id, Fact) -> Out = Fact ; Out = Id ).
 
+% The fact entries stored with Proof of Evidence's inherited set, in its
+% order. They are found by the proof's hash, without reading the set: a fact
+% is inherited when it or a condition given it is in the set.
+'evidence-proof-fact'(['ev-set', A], Proof, Entry) :-
+    'index-hash'(Proof, Hash), ev_sorted(A, Sorted),
+    findall(Id, ( ev_proof_entry(Hash, Id), ev_entry(Id, _, ['fact-ev', _, Proof, _]),
+                  ( ord_memberchk(Id, Sorted) -> true ; ev_given_fact(Given, Id), ord_memberchk(Given, Sorted) ) ),
+            Ids),
+    (   Ids = [_, _|_]
+    ->  ev_order(A, Order), maplist(ev_inherited_id, Order, Out), list_to_set(Out, Set),
+        include([Id]>>memberchk(Id, Ids), Set, Ordered)
+    ;   Ordered = Ids ),
+    member(Id, Ordered), ev_entry(Id, _, Entry).
+
 % Stored binary-certain facts and conditions are certain entries. A fact's
 % certainty is read from the live KB, not cached with its entry.
 ev_entry_certain(Id) :- ev_entry(Id, _, E), ev_entry_is_certain(E).

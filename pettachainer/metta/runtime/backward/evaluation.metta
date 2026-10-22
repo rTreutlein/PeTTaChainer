@@ -1064,9 +1064,8 @@
          (let ($parts $s $_complete) (sk-antecedent (brand Proof $part) $ev) (data $parts $s false)))
       ((given $truth) (data () (if (== $truth true) 1.0 0.0) false))
       ($_leaf
-         (let $entries (evidence-entries (evidence-inherited $ev))
-            (once (let (fact-ev $ctx $proof $type) (superpose $entries)
-               (match &kb ($type $ctx $proof (STV $s $_c)) (data (implication-side-conjuncts (brand Statement $type)) $s true)))))))))
+         (once (let (fact-ev $ctx $proof $type) (evidence-proof-fact $ev $proof)
+            (match &kb ($type $ctx $proof (STV $s $_c)) (data (implication-side-conjuncts (brand Statement $type)) $s true))))))))
 
 (= (sk-antecedent-step $ev ($types $s $complete) $part)
    (let ($more $strength $more-complete) (sk-antecedent $part $ev)
