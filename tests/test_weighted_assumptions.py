@@ -90,10 +90,40 @@ class WeightedAssumptionTests(unittest.TestCase):
                 '(: b (P $x) (STV 0.5 0.5))', '(: b (And (P a) (Q a)) (STV 0.5 0.5))',
                 '(: b (Exists ($x) (P $x)) (STV 0.5 0.5))', '(: b (Compute f (1) -> $r) (STV 0.5 0.5))',
                 '(: b (Implication (P a) (Q a)) (PointMass 1.0))', '(: b (Not (P a)) (CTV (STV 1 1) (STV 0 1)))',
-                '(: b (Height bob) (PointMass 170.0))'):
+                '(: b (Height bob) (PointMass 170.0))',
+                '(: b (Implication (P $x) (Q $x)) (STV 0.6 0.5))', '(: b (Inheritance Dog Animal) (STV 0.9 0.9))'):
             with self.subTest(annotation=annotation):
                 with self.assertRaisesRegex(janus.PrologError, 'weighted_assumption'):
                     answers(self.h, f'(Assuming (And (P a) {annotation}) (P a))')
+
+        for query in ('(Implication (: w (P a) (STV 0.9 0.9)) (Q a))',
+                      '(And (P a) (: q (Implication (P a) (Q a)) (STV 0.5 0.5)))',
+                      '(Assuming (And (P a) (And (: w (K a) (STV 0.9 0.9)))) (K a))'):
+            with self.subTest(query=query):
+                with self.assertRaisesRegex(janus.PrologError, 'weighted_assumption'):
+                    answers(self.h, query)
+
+    def test_population_reads_stay_mains(self):
+        # #124: a variable STV rule's base-rate branch reads MAIN's population,
+        # which does not count the weighted fact, unlike an isolated KB.
+        main = ['(: m (P a) (STV 0.2 0.8))', '(: mb (P b) (STV 0.9 0.8))', '(: qb (Q b) (STV 0.7 0.8))',
+                '(: mc (P c) (STV 0.1 0.8))', '(: qc (Q c) (STV 0.2 0.8))',
+                '(: r (Implication (P $x) (Q $x)) (STV 0.8 0.6))']
+        self.h.add_atoms_no_check(main)
+        assumed = tv(self.h, '(Assuming (: w (P a) (STV 0.9 0.9)) (Q a))')
+        self.assertAlmostEqual(assumed[1], 0.6458417372510326, delta=1e-9)
+        self.assertAlmostEqual(assumed[2], 0.017130300623693237, delta=1e-9)
+        self.assertNotAlmostEqual(assumed[1], tv(isolated(*main, '(: w (P a) (STV 0.9 0.9))'), '(Q a)')[1])
+        self.assertNoMainLeak()
+
+    @unittest.expectedFailure
+    def test_assumed_rule_also_stated_in_main(self):
+        # #123: MAIN's stated rule on the same implication key wins over the assumed one.
+        main = ['(: h (P a) (STV 0.9 0.8))', '(: o (Q a) (STV 0.4 0.7))',
+                '(: r (Implication (P a) (Q a)) (STV 0.7 0.5))']
+        self.h.add_atoms_no_check(main)
+        rule = '(: w (Implication (P a) (Q a)) (STV 0.99 0.99))'
+        self.assertEqual(tv(self.h, f'(Assuming {rule} (Q a))'), tv(isolated(*main, rule), '(Q a)'))
 
 
 if __name__ == '__main__':

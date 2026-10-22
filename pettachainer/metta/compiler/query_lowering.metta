@@ -425,16 +425,17 @@
 
 ;; An Assuming fact written `(: name statement tv)` is held in the query's
 ;; world with that value, as `compileadd` would store it; a bare fact is
-;; certain. Only Assuming takes this form: an implication query's antecedent
-;; is a condition, not a weighted input.
+;; certain. Only Assuming facts take this form; `check-query-annotations!`
+;; rejects an annotation in any other statement position.
 (: assuming-premises-step
-   (-[nondet]-> KB $context CompiledPremises Atom CompiledPremises))
-(= (assuming-premises-step $kb $ctx $acc $premise)
-   (append-premise-bundle $acc
-      (if (head-is? $premise :)
-         (let ($type $tv) (weighted-assumption $premise)
-            (premise-bundle ((: (make-kb-context $kb $ctx Nil) $prf $type $tv)) $tv $prf))
-         (lower-query-assumption-premise $kb $ctx Nil (brand Statement $premise)))))
+   (-[nondet]-> KB $context (List Goal) Atom (List Goal)))
+(= (assuming-premises-step $kb $ctx $reversed $premise)
+   (if (head-is? $premise :)
+      (let ($type $tv) (weighted-assumption $premise)
+         (cons (: (make-kb-context $kb $ctx Nil) $prf $type $tv) $reversed))
+      (let (premise-bundle $execs $_tv $_proof)
+         (lower-query-assumption-premise $kb $ctx Nil (brand Statement $premise))
+         (prepend-reversed-goals $execs $reversed))))
 
 (: compileQuery (-[nondet]-> KB AnnotatedStatement CompilationPlan))
 (= (compileQuery $kb (: $prf $Type $tv))
@@ -462,9 +463,8 @@
                 ($ctx (nextctx))
                 ($scope (make-kb-context $kb $ctx Nil))
                 ($premises (implication-side-conjuncts $scoped-facts))
-                (($execs $_proofs $_atv)
-                   (finish-reversed-compiled-premises
-                      (fold-flat (assuming-premises-step $kb $ctx) (data () () (STV 1.0 1.0)) $premises)))
+                ($execs (prepend-reversed-goals
+                   (fold-flat (assuming-premises-step $kb $ctx) () $premises) ()))
                 ($assumed (query-context-premise-adds $kb $ctx Nil $execs))
                 ($_world (context-create! $scope))
                 ((compilation-plan $inner $adapters)

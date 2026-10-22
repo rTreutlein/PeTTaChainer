@@ -221,30 +221,43 @@ instead, alone or among the `And` facts, next to bare ones:
                    (: bridge (Implication (PlaysTennis Bob) (PlayingTennisNow Bob)) (STV 0.12 0.2)))
        (PlayingTennisNow Bob))
 
-The annotation is the source form of a stored input, so it means what the
-same atom added to the knowledge base would mean, inside the query only:
+The annotation is the source form of a stored input. A weighted assumption
+adds evidence; it does not set the statement's value:
 
 - a closed ordinary fact with an STV is a stored soft fact. Read directly, it
   answers its own STV. On a key MAIN also holds, it is one more stored report,
-  merged with MAIN's facts as an isolated KB holding both would merge them;
-- `(: name (Not fact) (STV s c))` stores the fact with `(STV 1-s c)`, as
-  `compileadd` does;
-- an implication with an STV or a CTV is a rule with that truth value. It
-  consumes MAIN facts and sibling assumptions, and its result equals the one
-  the same rule added to an isolated KB gives.
+  merged with MAIN's facts by revision;
+- `(: name (Not statement) (STV s c))` stores the statement with
+  `(STV 1-s c)`, as `compileadd` does;
+- a closed implication with an STV or a CTV is a rule with that truth value.
+  It consumes MAIN facts and sibling assumptions.
+
+On ground facts and rules this matches the same inputs added to an isolated
+KB, with these known limits:
+
+- an assumed implication whose key MAIN already states is not applied; MAIN's
+  stated rule wins (#123);
+- a rule that reads a base rate (a variable STV rule's population branch)
+  reads MAIN's population, which does not count the weighted fact. Only a
+  certain assumption, which gives that branch weight zero, matches an isolated
+  KB (#124);
+- names are labels, not identities: two facts with one name count as two
+  reports, where `compileadd` would replace the first.
 
 The name labels the assumption in the answer's statement; the proof names the
-assumption's context token, as for a bare fact. Anything else in the
-annotation position is rejected with
-`domain_error(weighted_assumption, Annotation)` (message `unsupported weighted
-assumption`) before the query runs, never read as certain or as a
-colon-headed predicate: a missing or open TV or name, an STV outside [0,1], a
-CTV on a fact, a TV that is not an STV or CTV (the KB stores no
-distribution-valued facts; a distribution is an argument of a statement),
-free variables in a fact, and connectives, binders, computations or rule
-wrappers (`And`, `Or`, `Exists`, `Compute`, `ForAll`, `WithPrior`) as the
-weighted statement. Weight each conjunct of a conjunction separately. Implication-query antecedents
-take no annotations: they are conditions, not weighted inputs.
+assumption's context token, as for a bare fact. Any other annotation is
+rejected with `domain_error(weighted_assumption, Annotation)` (message
+`unsupported weighted assumption`) before the query runs, never read as
+certain or as a colon-headed predicate: a missing or open TV or name, an STV
+outside [0,1], a CTV on a fact, a TV that is not an STV or CTV (the KB stores
+no distribution-valued facts; a distribution is an argument of a statement),
+free variables in a fact or an implication (`Exists`-bound ones are allowed),
+and connectives, binders, computations, rule wrappers, `Inheritance` or
+`Assuming` as the weighted statement. Weight each conjunct of a conjunction
+separately. An annotation in any other statement position is rejected the
+same way: the goal, a nested `And`, `Or` or `Not`, an implication query's
+antecedent, or the inside of a weighted statement. An annotation inside a
+predicate argument is data.
 
 As for bare facts, nothing that depends on a weighted assumption is written
 to MAIN, and a later plain query cannot read it.
@@ -266,4 +279,5 @@ with the same name in another KB cannot supply its pooling TV.
 
 Nested `Assuming` inside a conjunction is still unsupported. It needs child
 context-query planning and evaluation that inherits the enclosing world's
-values; a single top-level overlay does not provide that composition.
+values; a single top-level overlay does not provide that composition. A
+nested `Assuming` goal returns unevaluated `ContextQuery` data (#125).

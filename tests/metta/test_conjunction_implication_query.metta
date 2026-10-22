@@ -68,9 +68,8 @@
    (query 300 compoundKb (: $p (And (SourceDocument Report Study) (Reviewed Report) (Implication (AcceptSource Report) (Implication (And (Member $x Supplier) (ExposedTo $x ClimateRisk)) (ChargesLowerPrices $x)))) $tv)) $result-tv))
    ((STV 1 0.999700089898053)))
 
-;; Old CTV answer selectors and nested annotated conjuncts are unsupported.
+;; Old CTV answer selectors are unsupported.
 !(test (collapse (query 300 compoundKb (: $p (Implication (AcceptSource Report) (Implication (And (Member $x Supplier) (ExposedTo $x ClimateRisk)) (ChargesLowerPrices $x))) (CTV $pos $neg)))) ())
-!(test (collapse (query 300 compoundKb (: $p (And (SourceDocument Report Study) (: $q (Implication (AcceptSource Report) (Implication (And (Member $x Supplier) (ExposedTo $x ClimateRisk)) (ChargesLowerPrices $x))) (STV $s $c))) $tv))) ())
 
 ;; Proof comparison must not bind an open proof head.
 !(test (let $same (same-proof? (brand Proof (quote ($head $payload))) (brand Proof (proof-ref 1))) ($same (is-var $head) (is-var $payload))) (false true true))

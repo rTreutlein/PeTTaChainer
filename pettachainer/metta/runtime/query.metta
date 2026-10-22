@@ -47,6 +47,7 @@
    (let*
       (($statement-copy (copy_term $statement))
        ($materialized (the AnnotatedStatement (materialize-stmt-lambdas $statement-copy)))
+       ($_annotations (check-query-annotations! $materialized))
        ($compiled (collapse (mm2compileQuery $kb $materialized)))
        ($statement-plan
           (foldr-flat merge-query-execution-plans
@@ -150,6 +151,7 @@
 (= (query-mode $steps $kb $statement $materialize?)
    (let*
       (($materialized (the AnnotatedStatement (materialize-stmt-lambdas $statement)))
+       ($_annotations (check-query-annotations! $materialized))
        ($compiled-queries (collapse (mm2compileQuery $kb $materialized)))
        ($answers
           (fold-flat append-flat ()

@@ -80,28 +80,31 @@ ingestion_exists(Type) :-
 
 % A weighted query assumption (: Name Statement TV) is one input compileadd
 % would store, held in its Assuming world with its own value: a closed
-% ordinary fact with an STV, a negated fact with an STV
-% (stored, as compileadd stores it, as its inner fact's complement), or an
-% implication with an STV or a CTV. Anything else is rejected rather than
-% read as a certain fact or a colon-headed predicate.
+% ordinary fact with an STV; a negated fact or implication with an STV,
+% stored, as compileadd stores it, as the inner statement's complement; or a
+% closed implication with an STV or a CTV. Anything else is rejected rather
+% than read as a certain fact or a colon-headed predicate.
 'weighted-assumption'(Annotation, [Statement, TV]) :-
     ( Annotation = [':', Name, Source, Value], ground(Name), nonvar(Source), nonvar(Value),
       weighted_assumption(Source, Value, Statement, TV)
     -> true
-    ; throw(error(domain_error(weighted_assumption, Annotation),
-                  context(query/3, 'unsupported weighted assumption'))) ).
+    ; annotation_error(Annotation) ).
+
+annotation_error(Annotation) :-
+    throw(error(domain_error(weighted_assumption, Annotation),
+                context(query/3, 'unsupported weighted assumption'))).
 
 weighted_assumption(Source, Value, Statement, TV) :-
     Source = [Head|Args], atom(Head),
     ( Head == 'Implication'
-    -> Args = [_,_],
+    -> Args = [_,_], maplist(ingestion_closed([]), Args),
        ( assumption_stv(Value) ; Value = ['CTV',P,N], assumption_stv(P), assumption_stv(N) ),
        Statement = Source, TV = Value
     ; Head == 'Not'
     -> Args = [Inner], nonvar(Inner), assumption_stv(Value), Value = [_,S,C],
        Complement is 1.0 - S,
        weighted_assumption(Inner, ['STV',Complement,C], Statement, TV)
-    ; \+ memberchk(Head, [':','CPU','ForAll','Exists','WithPrior']),
+    ; \+ memberchk(Head, [':','CPU','ForAll','Exists','WithPrior','Assuming','Inheritance']),
       'compound-connective?'(Head, false), 'source-computation-head?'(Head, false),
       'bidirectional-implication-form?'(Head, false), ingestion_closed([], Source),
       assumption_stv(Value), Statement = Source, TV = Value ).
@@ -109,3 +112,25 @@ weighted_assumption(Source, Value, Statement, TV) :-
 assumption_stv(Value) :-
     nonvar(Value), Value = ['STV',S,C], number(S), number(C),
     S >= 0, S =< 1, C >= 0, C =< 1.
+
+% An annotation is an input form, valid only as an Assuming fact or one of its
+% And conjuncts. Walk statement positions, never predicate arguments, which
+% are data, and reject an annotation anywhere else in a public query.
+'check-query-annotations!'([':', _, Statement, _], true) :- query_annotations(Statement).
+
+query_annotations(Statement) :-
+    ( var(Statement) -> true
+    ; Statement = [Head|Args], atom(Head)
+    -> ( Head == ':' -> annotation_error(Statement)
+       ; Head == 'Assuming', Args = [Facts, Goal]
+       -> ( nonvar(Facts), Facts = ['And'|Conjuncts] -> true ; Conjuncts = [Facts] ),
+          maplist(assumed_annotations, Conjuncts), query_annotations(Goal)
+       ; ( memberchk(Head, ['And','Or','Not','Implication','ForAll','Exists','WithPrior'])
+         ; 'bidirectional-implication-form?'(Head, true) )
+       -> maplist(query_annotations, Args)
+       ; true )
+    ; true ).
+
+assumed_annotations(Fact) :-
+    ( nonvar(Fact), Fact = [':', _, Statement, _] -> query_annotations(Statement)
+    ; query_annotations(Fact) ).
