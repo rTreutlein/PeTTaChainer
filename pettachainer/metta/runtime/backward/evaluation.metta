@@ -1100,8 +1100,10 @@
                           (match &sk_rule_truth ($id $_truth-hash $truth $_truth-ctx)
                              (let (RuleTruth (Implication $condition $type)) (copy_term $truth) $condition)))))) (
                 ((cons $refined $_more) $refined)
-                (() (let $ctv (sk-rule-ctv (brand KB (car-atom $ctx)) $rule)
-                       (once (match &kb ((Implication $declared $type) $ctx $rule $ctv) $declared))))))))
+                ;; An assumed rule is declared in its context's scope, its
+                ;; applications in MAIN's; a rule name is unique in its KB.
+                (() (let* (($kb (car-atom $ctx)) ($ctv (sk-rule-ctv (brand KB $kb) $rule)))
+                       (once (match &kb ((Implication $declared $type) ($kb $_scope $_vars) $rule $ctv) $declared))))))))
       (sk-reference (sk-condition-class $s (implication-side-conjuncts (brand Statement $antecedent)))
          (sk-val ($type $ctx $proof $tv) $ev $deps))))
 
@@ -1738,10 +1740,12 @@
 
 ;; The rule's CTV, when its conclusion is modus ponens over a conjunction (of
 ;; a statement, or of an implication, docs/metta/derived_implications.md).
+;; An assumed rule's ContextRule premise only confines it to its context.
 (: sk-rule-formula-step (-[semidet]-> (List CTVType) Atom (List CTVType)))
 (= (sk-rule-formula-step $found $premise)
    (case $premise (
       ((CPU AndFormula $_and-args $_and-out) $found)
+      ((CPU ContextRule $_rule-args $_rule-out) $found)
       ((CPU $mp ($_premise-tv $ctv) $_mp-out)
          (if (if (if (== $mp CTVModusPonensFormula) true (== $mp ImplicationModusPonensFormula)) (is-var $ctv) true) (empty)
             (case $ctv (((CTV $pos $neg) (cons (CTV $pos $neg) $found))))))

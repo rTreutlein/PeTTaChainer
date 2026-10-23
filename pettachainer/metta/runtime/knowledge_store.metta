@@ -143,7 +143,8 @@
 
 ;; Index rules by the statement name embedded in their conclusion proof, so a
 ;; rule's rows are found by its name without scanning the rules space (rule
-;; withdrawal, a refined rule's truth). Rules whose proof carries no
+;; withdrawal, a refined rule's truth, its declaration). An assumed rule is
+;; named by its context token (rule-name?). Rules whose proof carries no
 ;; extractable name (open query adapters, negated outputs) are not indexed.
 (: register-rule-name!
    (-[det]-> KbBackend Number (Statement KBContext Proof TV) (| Bool (List $none))))
@@ -153,8 +154,9 @@
          (if (is-var $prf) ()
             (let $name (rule-evidence-head $prf)
                (if (is-var $name) ()
-                  (if (is-expr $name) ()
-                     (once (kb-add-atom $backend rule_name_index (make-space-pair $name $id))))))))
+                  (if (rule-name? $name)
+                     (once (kb-add-atom $backend rule_name_index (make-space-pair $name $id)))
+                     ())))))
       ($_other ()))))
 
 (: typed-runtime-fact (-[det]-> Atom (Statement KBContext Proof TV)))

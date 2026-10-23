@@ -132,23 +132,38 @@ class WeightedAssumptionTests(unittest.TestCase):
         self.assertNotAlmostEqual(assumed[1], tv(isolated(*main, '(: w (P a) (STV 0.9 0.9))'), '(Q a)')[1])
         self.assertNoMainLeak()
 
-    def test_assumed_stv_rule_also_stated_in_main(self):
-        main = ['(: h (P a) (STV 0.9 0.8))', '(: o (Q a) (STV 0.4 0.7))',
-                '(: r (Implication (P a) (Q a)) (STV 0.7 0.5))']
+    def assertAssumedRulesMatchIsolated(self, main, rules, goal):
         self.h.add_atoms_no_check(main)
-        for rule in ('(: w (Implication (P a) (Q a)) (STV 0.99 0.99))',
-                     '(: w (Implication (P a) (Q a)) (STV 0.01 0.99))'):
+        for rule in rules:
             with self.subTest(rule=rule):
-                self.assertEqual(tv(self.h, f'(Assuming {rule} (Q a))'), tv(isolated(*main, rule), '(Q a)'))
+                self.assertEqual(tv(self.h, f'(Assuming {rule} {goal})'), tv(isolated(*main, rule), goal))
+        self.assertNoMainLeak()
 
-    @unittest.expectedFailure
-    def test_assumed_ctv_rule_also_stated_in_main(self):
-        # #123: with a CTV, the assumed and MAIN rules do not combine as two stored ones.
-        main = ['(: h (P a) (STV 0.9 0.8))', '(: o (Q a) (STV 0.4 0.7))',
-                '(: r (Implication (P a) (Q a)) (STV 0.7 0.5))']
-        self.h.add_atoms_no_check(main)
-        rule = '(: w (Implication (P a) (Q a)) (CTV (STV 0.99 0.99) (STV 0.0 0.99)))'
-        self.assertEqual(tv(self.h, f'(Assuming {rule} (Q a))'), tv(isolated(*main, rule), '(Q a)'))
+    def test_assumed_rule_also_stated_in_main(self):
+        # #123: an assumed STV or CTV rule combines with MAIN's statement of it as two stored rules do.
+        self.assertAssumedRulesMatchIsolated(
+            ['(: h (P a) (STV 0.9 0.8))', '(: o (Q a) (STV 0.4 0.7))',
+             '(: r (Implication (P a) (Q a)) (STV 0.7 0.5))'],
+            ['(: w (Implication (P a) (Q a)) (STV 0.99 0.99))',
+             '(: w (Implication (P a) (Q a)) (STV 0.01 0.99))',
+             '(: w (Implication (P a) (Q a)) (CTV (STV 0.99 0.99) (STV 0.0 0.99)))'],
+            '(Q a)')
+
+    def test_assumed_schematic_rule_also_stated_in_main(self):
+        self.assertAssumedRulesMatchIsolated(
+            ['(: h (P a) (STV 0.9 0.8))', '(: hb (P b) (STV 0.3 0.8))', '(: o (Q a) (STV 0.4 0.7))',
+             '(: r (Implication (P $x) (Q $x)) (STV 0.7 0.5))'],
+            ['(: w (Implication (P $x) (Q $x)) (STV 0.9 0.9))',
+             '(: w (Implication (P $x) (Q $x)) (CTV (STV 0.9 0.9) (STV 0.1 0.9)))'],
+            '(Q a)')
+
+    def test_main_and_assumption_state_one_rule_with_different_ctvs(self):
+        self.assertAssumedRulesMatchIsolated(
+            ['(: h (P a) (STV 0.9 0.8))', '(: o (Q a) (STV 0.4 0.7))',
+             '(: r (Implication (P a) (Q a)) (CTV (STV 0.7 0.5) (STV 0.3 0.5)))'],
+            ['(: w (Implication (P a) (Q a)) (CTV (STV 0.95 0.9) (STV 0.1 0.9)))',
+             '(: w (Implication (P a) (Q a)) (CTV (STV 0.2 0.6) (STV 0.6 0.6)))'],
+            '(Q a)')
 
 if __name__ == '__main__':
     unittest.main()

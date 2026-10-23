@@ -241,13 +241,13 @@ adds evidence; it does not set the statement's value:
   own, as a stored rule's are: they are standardized apart from the goal's and
   from other assumptions', even under the same name, and each application
   binds them anew. Applications to different entities are independent, as a
-  stored rule's are (#127).
+  stored rule's are (#127). On a rule MAIN also states, it combines with
+  MAIN's rule as a second stored rule does: its name indexes its rows and its
+  declaration gives its reference class (#123).
 
 This matches the same inputs added to an isolated KB, with these known
 limits:
 
-- an assumed CTV implication whose key MAIN already states does not combine
-  with MAIN's rule as two stored rules do (#123); an STV one does;
 - a judgment of an assumed implication itself, an `Implication` goal on its
   key, has no answer: it reads no stated value of an assumed rule, where an
   isolated KB reads the stated rule. The rule's applications share its
