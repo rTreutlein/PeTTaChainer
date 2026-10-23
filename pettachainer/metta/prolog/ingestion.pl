@@ -152,17 +152,25 @@ assumption_stv(Value) :-
     S >= 0, S =< 1, C >= 0, C =< 1.
 
 % An annotation is an input form, valid only as an Assuming fact or one of its
-% And conjuncts. Walk statement positions, never predicate arguments, which
-% are data, and reject an annotation anywhere else in a public query.
-'check-query-annotations!'([':', _, Statement, _], true) :- query_annotations(Statement).
+% And conjuncts, and Assuming only as the query's outermost statement: one
+% world per query (#125). Walk statement positions, never predicate arguments,
+% which are data, and reject either form anywhere else in a public query.
+'check-query-annotations!'([':', _, Statement, _], true) :-
+    (   nonvar(Statement), Statement = [Head|Args], Head == 'Assuming'
+    ->  ( Args = [Facts, Goal] -> true
+        ; throw(error(domain_error(assuming_arguments, Statement),
+                      context(query/3, 'Assuming takes its facts and a goal'))) ),
+        ( nonvar(Facts), Facts = ['And'|Conjuncts] -> true ; Conjuncts = [Facts] ),
+        maplist(assumed_annotations, Conjuncts), query_annotations(Goal)
+    ;   query_annotations(Statement) ).
 
 query_annotations(Statement) :-
     ( var(Statement) -> true
     ; Statement = [Head|Args], atom(Head)
     -> ( Head == ':' -> annotation_error(Statement)
-       ; Head == 'Assuming', Args = [Facts, Goal]
-       -> ( nonvar(Facts), Facts = ['And'|Conjuncts] -> true ; Conjuncts = [Facts] ),
-          maplist(assumed_annotations, Conjuncts), query_annotations(Goal)
+       ; Head == 'Assuming'
+       -> throw(error(domain_error(nested_assuming, Statement),
+                      context(query/3, 'Assuming is only the outermost query statement')))
        ; ( memberchk(Head, ['And','Or','Not','Implication','ForAll','Exists','WithPrior'])
          ; 'bidirectional-implication-form?'(Head, true) )
        -> maplist(query_annotations, Args)

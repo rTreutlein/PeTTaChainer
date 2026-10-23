@@ -298,7 +298,8 @@ also applies to ordinary conjunction queries, in every conjunct order. Raw
 projection source names are resolved in the premise's own KB context; a source
 with the same name in another KB cannot supply its pooling TV.
 
-Nested `Assuming` inside a conjunction is still unsupported. It needs child
-context-query planning and evaluation that inherits the enclosing world's
-values; a single top-level overlay does not provide that composition. A
-nested `Assuming` goal returns unevaluated `ContextQuery` data (#125).
+`Assuming` is only the query's outermost statement. Anywhere else (its goal,
+its facts, a conjunct, a `Not`) it raises `domain_error(nested_assuming, ...)`
+(#125). Nesting needs child context-query planning and evaluation that
+inherits the enclosing world's values; a single top-level overlay does not
+provide that composition.

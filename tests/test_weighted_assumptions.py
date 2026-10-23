@@ -103,6 +103,22 @@ class WeightedAssumptionTests(unittest.TestCase):
                 with self.assertRaisesRegex(janus.PrologError, 'weighted_assumption'):
                     answers(self.h, query)
 
+    def test_assuming_below_the_root_is_rejected(self):
+        # One world per query: a nested Assuming used to answer with its
+        # unevaluated ContextQuery marker (#125).
+        for query in ('(Assuming (P a) (Assuming (Q a) (R a)))',
+                      f'(Assuming {HABIT} (Assuming (Q a) (R a)))',
+                      '(Assuming (Assuming (P a) (Q a)) (R a))',
+                      '(And (Assuming (P a) (P a)) (Q a))',
+                      '(Not (Assuming (P a) (P a)))'):
+            with self.subTest(query=query):
+                with self.assertRaisesRegex(janus.PrologError, 'nested_assuming'):
+                    answers(self.h, query)
+        for query in ('(Assuming (P a))', '(Assuming (P a) (Q a) (R a))'):
+            with self.subTest(query=query):
+                with self.assertRaisesRegex(janus.PrologError, 'assuming_arguments'):
+                    answers(self.h, query)
+
     def test_population_reads_stay_mains(self):
         # #124: a variable STV rule's base-rate branch reads MAIN's population,
         # which does not count the weighted fact, unlike an isolated KB.
