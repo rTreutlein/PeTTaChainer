@@ -374,11 +374,22 @@
           ($_inputs (foreach-flat sk-input-changed! $kbs)))
       $kbs))
 
-;; The rule rows registered under a statement name, with its gated rows.
+;; The rule rows registered under a statement name, with its gated rows and its
+;; specialization state (#114): its templates, so no later fact grounds it, its
+;; grounded markers, and its Inheritance lifts, which queries compile.
+;; Re-adding the withdrawn rule exactly as it was installs it again, so it
+;; derives once more; another value under its name is rejected (#113).
 (: withdraw-named-rules! (-[det]-> Proof (List KB)))
 (= (withdraw-named-rules! $name)
    (let* (($kbs (withdraw-rule-ids! (list_to_set (collapse (match rule_name_index ($name $id) (the Number $id))))))
           ($_index (collapse (remove-atom rule_name_index ($name $_any))))
           ($_gated (remove-data-rows! &prior_gated_rules (quote ($_h $_k $_p $name $_b $_a $_c))))
-          ($_live (remove-data-rows! &prior_gated_live (quote ($_lh $_lk $_lp $name $_lid)))))
+          ($_live (remove-data-rows! &prior_gated_live (quote ($_lh $_lk $_lp $name $_lid))))
+          ($_rule-templates (remove-data-rows! &spec_template
+             (quote ($_rh (specialization-template-row $_rk $_rhead $_rtriggers (compile-specialization (: $name $_rtype $_rtv)))))))
+          ($_lift-templates (remove-data-rows! &spec_template
+             (quote ($_th (specialization-template-row $_tk $_thead $_ttriggers (inheritance-lift-specialization $_tground (: $name $_ttype $_ttv)))))))
+          ($_done (remove-data-rows! &spec_done (quote ($_dh (specialization-done-row $_dk (: $name $_dtype $_dtv))))))
+          ($_lifts (remove-data-rows! &inheritance_lift_instance
+             (quote ($_ih (inheritance-lift-instance-row $_ik $_istmt (: $name $_itype $_itv)))))))
       $kbs))

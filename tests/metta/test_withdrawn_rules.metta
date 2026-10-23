@@ -159,3 +159,19 @@
 !(compileadd digestKb (: join-open (JoinA warm) (STV 0.2 0.5)))
 !(compileadd digestKb (: join-ground (JoinA warm) (STV 0.8 0.5)))
 !(test (let (: $_p $_statement (STV $s $_c)) (query 40 digestKb (: $p (JoinB $t) $tv)) $s) 0.5)
+
+;; A withdrawn rule's specialization state leaves with it (#114): a later
+;; structural fact grounds no instance of it, and no query lifts it.
+!(set-specializing-predicate Symmetric)
+!(compileadd specKb (: spec-old (Implication (And (Symmetric $r) ($r $x $y)) ($r $y $x)) (STV 0.9 0.9)))
+!(compileadd specKb (: lift-old (Implication (And (Inheritance $x A) (Aux $x)) (Inheritance $x B)) (CTV (STV 0.9 0.9) (STV 0.0 1.0))))
+!(compileadd specKb (: aux (Aux c) (STV 1 1)))
+!(withdraw-named-rules! spec-old)
+!(withdraw-named-rules! lift-old)
+!(compileadd specKb (: tag (Symmetric Friend) (STV 1 1)))
+!(compileadd specKb (: f1 (Friend bob alice) (STV 1 1)))
+!(compileadd specKb (: ca (Inheritance c A) (STV 1 1)))
+!(test (collapse (match &spec_template ($_hash (specialization-template-row specKb $_head $_triggers $_job)) true)) ())
+!(test (collapse (match &inheritance_lift_instance ($_hash (inheritance-lift-instance-row specKb $_stmt $_source)) true)) ())
+!(test (collapse (query 100 specKb (: $p (Friend alice bob) $tv))) ())
+!(test (collapse (query 100 specKb (: $p (Inheritance c B) $tv))) ())
