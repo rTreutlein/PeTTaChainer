@@ -9,9 +9,9 @@ the implementation contract:
 2. `core/logic_config.metta` defines selectable logic configuration.
 3. `third_party/pln_formulas/metta/` provides distributions, inverse operations,
    and truth-value formulas used by compiled rules.
-4. `third_party/metta_lowering/metta/` provides generic source lowering and
-   runtime encoding. `compiler/compiler.metta` combines them with the local
-   rule/specialization component and query lowering.
+4. `compiler/source_lowering.metta` and `compiler/runtime_encoding.metta`
+   provide source lowering and runtime encoding. `compiler/compiler.metta`
+   combines them with the rule/specialization component and query lowering.
 5. `runtime/values.metta`, `scheduling.metta`, `evidence.metta`, and
    `base_rates.metta` provide shared runtime semantics without owning a search
    engine.

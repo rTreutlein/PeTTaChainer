@@ -1,4 +1,4 @@
-!(import! &self ../../../pettachainer/metta/petta_chainer)
+!(import! &self ../../pettachainer/metta/petta_chainer)
 
 ;; Goal sealing depends on source-variable identity and traversal order,
 ;; including repeated variables inside quoted, nested expressions.
