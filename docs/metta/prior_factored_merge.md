@@ -546,6 +546,16 @@ claims causally first, as claim events caused by their content
 (`bench/results/fresh-design/nl2pln-target-format.md`, F7). The conflict
 stage regresses by 2–3x with `(Up n t)` declared under its current encodings.
 
+Limits. A compound target of stages, such as the `(And (S1 t) (S2 t))` an
+inversion onto a pure conjunction proves, is read as an aggregate: only its
+head is looked up (M2 of the #122 review). Implication queries between stage
+predicates do not yet give the stage conditional: the general form
+`(Implication (R $t) (S $t))` is read as an aggregate (PLN abduction), and the
+ground form has no answer when only a prediction reaches S, because an
+implication query's private context gives a world-only consequent no value.
+The matching Assuming query, `(Assuming (R t) (S t))`, gives the stage
+conditional.
+
 For an aggregate C, a completion with a certain sibling has the same
 value as the matched plain inversion: likelihoods (0.9, 0.1), P(C) = 0.5,
 and B predicted at 0.8 give 0.8 * 0.9 + 0.2 * 0.1 = 0.74

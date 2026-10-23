@@ -464,13 +464,12 @@
 ;; An observation of a consequent: its stored reports, an assumption, or for a
 ;; compound consequent, an observation of every part.
 (: sk-observed? (-[det]-> Proof Bool))
-(: sk-all-observed? (-[det]-> (List Proof) Bool))
+(: sk-observed-step (-[det]-> Bool Proof Bool))
 (= (sk-observed? $proof)
    (case (sk-step-proof $proof) (
-      ((cons conjunction $parts) (sk-all-observed? (proof-children $parts)))
+      ((cons conjunction $parts) (fold-flat sk-observed-step true (proof-children $parts)))
       ($step (if (assumption-proof? $step) true (sk-report-proof? $proof))))))
-(= (sk-all-observed? ()) true)
-(= (sk-all-observed? (cons $part $rest)) (if (sk-observed? $part) (sk-all-observed? $rest) false))
+(= (sk-observed-step $seen $part) (if $seen (sk-observed? $part) false))
 
 (: sk-report-prior? (-[det]-> Proof Bool))
 (= (sk-report-prior? $proof)

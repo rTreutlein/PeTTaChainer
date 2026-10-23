@@ -168,3 +168,32 @@
 !(compileadd openViaKb (: ra-prior (Blocked ra now) (STV 0.2 0.9)))
 !(test (query 2000 openViaKb (: $p (Blocked r1 now) $tv))
    (: (population-prior (Blocked $_0 $_1)) (Blocked r1 now) (STV 0.4129032258064516 0.003611906837713289)))
+
+;; What a stage reads as an observation (sk-observed?): a stored soft report
+;; of its consequent, whole, as for an aggregate (0.8 * 0.9 + 0.2 * 0.1 =
+;; 0.74); for a compound consequent, a conjunction of stored facts (Bayes'
+;; rule, 0.9); but not a conjunction one part of which is only predicted.
+!(set-bayes-prior-count 0)
+!(set-predicate-time reportKb C 1 0)
+!(set-base-rate reportKb (C $x) (STV 0.5 1))
+!(compileadd reportKb (: o (O q) (STV 1 1)))
+!(compileadd reportKb (: b-report (B q) (STV 0.8 0.9)))
+!(compileadd reportKb (: cb (Implication (And (O $x) (C $x)) (B $x)) (CTV (STV 0.9 1) (STV 0.1 1))))
+!(test (query 2000 reportKb (: $p (C q) $tv))
+   (: ((antecedent-completion cb 1 with cpu (prior (STV 0.5 1))) (conjunction o b-report)) (C q) (STV 0.7400000000000001 0.9441357165388421)))
+!(set-predicate-time conjKb C 1 0)
+!(set-base-rate conjKb (C $x) (STV 0.5 1))
+!(compileadd conjKb (: b (B q) (STV 1 1)))
+!(compileadd conjKb (: d (D q) (STV 1 1)))
+!(compileadd conjKb (: cbd (Implication (C $x) (And (B $x) (D $x))) (CTV (STV 0.9 1) (STV 0.1 1))))
+!(test (query 2000 conjKb (: $p (C q) $tv))
+   (: ((inverted cbd with cpu (prior (STV 0.5 1))) (conjunction b d)) (C q) (STV 0.9 0.9998820124978173)))
+!(set-predicate-time conjPredKb C 1 0)
+!(set-base-rate conjPredKb (C $x) (STV 0.5 1))
+!(compileadd conjPredKb (: b (B q) (STV 1 1)))
+!(compileadd conjPredKb (: a (A q) (STV 1 1)))
+!(compileadd conjPredKb (: ad (Implication (A $x) (D $x)) (CTV (STV 0.8 1) (STV 0.2 1))))
+!(compileadd conjPredKb (: cbd (Implication (C $x) (And (B $x) (D $x))) (CTV (STV 0.9 1) (STV 0.1 1))))
+!(test (query 2000 conjPredKb (: $p (C q) $tv))
+   (: (population-prior (C $_0)) (C q) (STV 0.5 1)))
+!(set-bayes-prior-count 0.2)

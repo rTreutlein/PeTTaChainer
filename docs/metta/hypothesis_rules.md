@@ -557,6 +557,12 @@ period. The client declares where each mined predicate sits in time:
     !(set-predicate-time kb Blocked 2 1)
     !(set-predicate-time kb Late 2 2)
 
+A time declaration also changes inference: the declared predicate's ground
+statements become stages, which inversions and completions update only from
+evidence below them, never from a forward prediction (#122,
+`prior_factored_merge.md`, "Stages and aggregates"). Declare before adding
+rules and querying.
+
 Only declared predicates are mined; a link fact is recorded under the two
 time points it links and is not mined itself. When the link arrives after
 observations, it also joins observations already indexed at its two endpoints,
