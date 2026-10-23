@@ -26,7 +26,8 @@ Consequences:
 - A previously valid proof remains valid after any addition.
 - Evidence identity must survive materialization so the same evidence is not
   counted twice when forward and backward paths meet.
-- Double negation preserves evidence identity. Negation toggles fact polarity
+- Double negation preserves evidence identity (in judgments and evidence; an
+  ordinary `(Not (Not X))` query or premise does not answer yet, #86). Negation toggles fact polarity
   and cancels its own evidence wrapper; applied rule identities and exclusions
   retain their identity regardless of conclusion polarity. Projection positions
   are proof metadata, never evidence. A stored proof reference carries its
@@ -134,10 +135,15 @@ mixed source branches do not become a negative conjunction.
 A rule and the adapters compiled with it (the projections of a compound
 conclusion, the connective of a compound antecedent) share one context
 pattern, so they hold in every context the rule applies in. An implication
-query's private contexts borrow MAIN observations for independent fixed
-premises, including their compiled projections. They never borrow an observation
+query's private contexts borrow MAIN observations of the other keys they
+read, including their compiled projections (#63). They never borrow an observation
 of their own consequent key, its instances, or its negation: P(B) does not
 establish P(B given A). An assumed key overrides its world value, and a hypothetical individual cannot bind to a world individual.
+The assumption must be necessary (#65): a private key merges only its
+alternatives that depend on an assumption whenever it has one, so a world
+value stands only for a key with no assumption-dependent alternative found so
+far, and the consequent rejects a value without any assumption dependency
+([derived implications](derived_implications.md)).
 Rules hold there: S → (A ∧ B ∧ C) answers S → (A ∧ B).
 
 Boolean judgment conditions, including Not over And/Or, use negation normal
@@ -845,6 +851,7 @@ state so late evidence can wake their readers. Their disjunction checks
 ordinary premise fact overlap and shared uncertain derived statements across
 the full member dependency sets. Projections of one derived compound are
 correlated witnesses; a shared uncertain rule parameter alone is not overlap.
+A plain `Or` over those projections still counts them as independent (#87).
 An outer strength floor compares this witness judgment to the direct claim
 without revising the two. Exact strength ties prefer more evidence, then a
 canonical statement-key order. Correlated witness bounds carry only the chosen

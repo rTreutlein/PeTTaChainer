@@ -22,15 +22,15 @@ action query time per shift rose 1.4 s → 5.7 s at a fixed budget
 (`client_practices.md`).
 
 An implication query, `(Implication A B)`, does not serve: it judges how
-strongly A implies B, from the assumption alone. Its contexts see nothing of
-the main context, and a MAIN premise is read in them when it mentions the
-query's variables (the hypothetical individual) or reads an exact assumed
-key, including a ground key read under negation; world facts about the
-statements it relates would make it hold trivially. A decision wants the
-opposite: the world as it is, plus the decision's facts. Placing premises in
-an implication query by what the assumptions affect, or letting its contexts
-see the world, broke the implication tests (patches kept outside the
-repository); the two questions need two query forms.
+strongly A implies B, from the assumption alone. Its contexts borrow MAIN
+observations only as fixed co-premises (#63), never the world's value of its
+consequent, and keep only derivations that depend on the assumption (#65);
+world facts about the statements it relates would otherwise make it hold
+trivially ([derived implications](derived_implications.md)). A decision wants
+the opposite: the world as it is, plus the decision's facts. Placing premises
+in an implication query by what the assumptions affect broke the implication
+tests (patches kept outside the repository); the two questions need two query
+forms.
 
 ## Query form
 
@@ -294,7 +294,9 @@ Both source proofs survive, and acceptance and derived event values remain local
 Conjunction pooling keeps individual premise parts until their source
 computations have run. A lowered `Not` complements its last fact read before
 pooling, so a later `AndFormula` does not restore the uncomplemented TV. This
-also applies to ordinary conjunction queries, in every conjunct order. Raw
+also applies to ordinary conjunction queries, in every conjunct order. It does
+not fix ordinary disjunction queries: an `Or` with a negated disjunct is still
+computed as the conjunction of its disjuncts (#85). Raw
 projection source names are resolved in the premise's own KB context; a source
 with the same name in another KB cannot supply its pooling TV.
 

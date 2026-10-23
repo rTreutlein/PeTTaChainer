@@ -46,8 +46,9 @@ ticks, garbage collection 94 to 380, runtime type checks 142 to 380).
 4. **Termination** (`sk-new-support?`): a recomputed view whose value did not
    change is kept only when it brings a key the row's views never had. The
    keys are finite, so cyclic evaluation ends.
-5. **Clash cost** (`sk-clash-on`): conditioning costs
-   2^k × (1 + |value's set|).
+5. **Clash cost** (`sk-clash-on`): 1 + |value's set|, an estimate that orders
+   pending conditioning; the work itself is metered per pair of conditioned
+   rows (#74).
 6. **Equality** (`sk-same-view?`, `sk-value-same`): a view is unchanged when
    its truth value, evidence and set are equal.
 7. **Shared statements** (`sk-shared-statements`, `deps-shared`): two views

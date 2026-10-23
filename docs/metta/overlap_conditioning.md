@@ -448,8 +448,11 @@ rule, and stated rules have no key to pin.
   as independence was tried first: it fixed the stage 3 case and broke seven
   tests, all of them two views of one observation (wet ground through an
   inversion and a completion; a late shipment through two rules; one alarm
-  inverted over two priors; two rules over the same facts). The facts no rule
-  concludes are the ones that cannot be observations.
+  inverted over two priors; two rules over the same facts). Since #81 a
+  binary-certain stored fact read as given never counts as shared, even when a
+  rule concludes its statement; the consequence observation a likelihood
+  update reads stays evidence, and soft or nonbinary reports stay shared
+  ([runtime design assumptions](runtime_design_assumptions.md)).
 - **No new estimate of the weight.** The exact mix weighs each branch by K's
   probability given everything, the views' evidence included. The views'
   values do not determine how likely their evidence is under each branch, so
@@ -460,7 +463,8 @@ rule, and stated rules have no key to pin.
   conditioned as deep as its budget allowed and, when it overdrew, discarded
   everything and fell back: a claim either finished or gave nothing, and an
   overdrawn claim waited at the same cost for ever. Now a claim keeps the
-  deepest pass it finished and waits at twice the cost.
+  deepest pass it finished and stays pending; the work meter, not a retry
+  price, bounds each query (#74).
 - **No refusal of the weight's evidence was relaxed.** A mix whose weight
   shares evidence with its branches is still refused; the next statement is
   tried instead.

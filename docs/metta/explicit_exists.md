@@ -32,7 +32,9 @@ certain Birds through a 0.9 rule yield existential strength 0.99, consistent
 with conjunction strength 0.81. Shared uncertain **fact** dependencies use the
 same overlap test as `And`. Shared uncertain derived statements also correlate
 witnesses, even when their fact evidence is empty: two projections of one
-rule-derived conjunction are one source, not independent rule trials. The
+rule-derived conjunction are one source, not independent rule trials. A plain
+`Or` over the same projections still treats them as independent (0.75 where
+`Exists` and the compound give 0.5, #87). The
 witness fold compares full dependency sets, since a joined body can place that
 common source below the ordinary premise entanglement frontier. `RuleTruth`
 parameters and known statements remain exempt. If any such overlap occurs,

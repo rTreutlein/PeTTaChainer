@@ -365,7 +365,10 @@ into one answer:
 
 The hypothetical producer assumes the antecedent in a fresh context and derives
 the consequent through the stored rules, once positively and once for the
-refuting branch. It answers only when some rule connects the two sides.
+refuting branch. The context borrows world observations of other statements
+as co-premises, never of the consequent (#63), and a derivation counts only
+when it depends on the assumed antecedent (#65). It answers only when some
+rule connects the two sides.
 
 The empirical producer samples the instances. For every binding of the
 antecedent variables whose antecedent and consequent are both provable, it

@@ -3808,7 +3808,8 @@
 ;; views still share a statement conditions on the next one, down to the
 ;; depth: the number of statements conditioned on at once, a cutset of
 ;; 2^depth branches. A conditioning nested at the depth takes its approximate
-;; value, the merge's more confident view or the row's approximate value,
+;; value, the merge's component fallback (sk-key-fallback) or the row's
+;; approximate value,
 ;; and the pass is cut; so it is when no shared statement's mix is possible
 ;; there and an approximate value stands in. A clash has no approximate
 ;; value, so it is conditioned at any depth the claim allows.
