@@ -5,6 +5,20 @@ from pettachainer import PeTTaChainer
 
 
 class TestOrJudgments(unittest.TestCase):
+    def test_ordinary_or_with_negated_or_computed_disjunct(self):
+        # #85: such an Or was modus ponens over the conjunction of its disjuncts.
+        h = PeTTaChainer()
+        h.add_atoms_no_check(['(: q1 (Q x) (STV 0.6 0.9))', '(: r1 (R x) (STV 0.5 0.9))',
+                              '(: n1 (Num x 3) (STV 1 1))'])
+        fold = '(FoldAllTruth (Num $o $n) (STV $s $c) $s 0 (|-> ($acc $e) (+ $acc $e)) -> $t)'
+        for goal, strength in (('(Or (Q x) (Not (R x)))', 0.8), ('(Or (Not (R x)) (Q x))', 0.8),
+                               ('(Or (Q x) (Not (Q x)))', 1.0), (f'(Or (Q x) {fold})', 1.0),
+                               ('(And (Q x) (Not (R x)))', 0.3)):
+            with self.subTest(goal=goal):
+                rows = h.query_many_refs([f'(: $p {goal} $tv)'], steps=300)[0]
+                self.assertEqual(len(rows), 1, rows)
+                self.assertAlmostEqual(rows[0].tv[1], strength)
+
     def test_missing_disjunction_prior_is_unknown(self):
         # Exact tracker example: without P(A or C), the A -> B rule alone
         # cannot justify treating A as certain in an Or judgment.

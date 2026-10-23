@@ -295,9 +295,9 @@ Both source proofs survive, and acceptance and derived event values remain local
 Conjunction pooling keeps individual premise parts until their source
 computations have run. A lowered `Not` complements its last fact read before
 pooling, so a later `AndFormula` does not restore the uncomplemented TV. This
-also applies to ordinary conjunction queries, in every conjunct order. It does
-not fix ordinary disjunction queries: an `Or` with a negated disjunct is still
-computed as the conjunction of its disjuncts (#85). Raw
+also applies to ordinary conjunction queries, in every conjunct order. An
+ordinary `Or` with a negated, nested or computed disjunct folds its parts with
+`OrFormula` in one query-local bundle (#85). Raw
 projection source names are resolved in the premise's own KB context; a source
 with the same name in another KB cannot supply its pooling TV.
 

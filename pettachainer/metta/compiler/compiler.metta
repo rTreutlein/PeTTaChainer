@@ -8,17 +8,19 @@
 (: mm2compile (-[nondet]-> KB AnnotatedStatement RuntimeAddition))
 (= (mm2compile $kb $stmt) (let $compiled (compile_ $kb $stmt) (mm2stmt $compiled)))
 
-;; MM2 query entry point. Compound queries with computed/nested children take
-;; the temporary-rule route; implication-bearing Ands use child queries in the
-;; canonical plan. An And root always asks for an STV, including stored answers.
+;; MM2 query entry point. An And with computed/nested children takes the
+;; temporary-rule route, conjunction introduction; implication-bearing Ands use
+;; child queries in the canonical plan. Other compounds lower through the query
+;; adapter with their own formula (#85). An And root always asks for an STV,
+;; including stored answers.
 (: mm2compileQuery (-[nondet]-> KB AnnotatedStatement  CompiledQuery))
 (= (mm2compileQuery $kb (: $prf $type $requested-tv))
    (if (head-is? $requested-tv CTV) (empty)
       (let*
          (($tv (if (head-is? $type And) (statement-query-tv $requested-tv) $requested-tv))
           ($stmt (: $prf $type $tv)))
-         (if (if (head-is-member? $type (And Or LikelierThan))
-                (if (if (head-is? $type And) (conjunction-query-needs-lowering? $type) false)
+         (if (if (head-is? $type And)
+                (if (conjunction-query-needs-lowering? $type)
                    false
                    (compound-direct-query-bundle? (statement-children (cdr-atom $type))))
                 false)
