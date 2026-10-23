@@ -228,7 +228,10 @@
                           $ctv-execs
                           (append-goals ((CPU $mp ($atv $rule-ctv) $btv)) $out-execs))))))
             (brand CompiledAddition ($allargs |- (: $shape-kb $out-prf $out-type $out-tv))))))
-      (if (is-var $out-b) (empty) (compile-outputs (: $shape-kb (by $prf $prfb) $out-b $btv2)))
+      ;; A query-local conjunction (compound-query-temp-stmt) concludes its
+      ;; root from its conjuncts; projecting it back onto them is self-support
+      ;; that reached sibling roots of a batch as wrong values.
+      (if (if (is-var $out-b) true (== $prf query-compound)) (empty) (compile-outputs (: $shape-kb (by $prf $prfb) $out-b $btv2)))
       (if (is-var $a) (empty) (compile-adapter-chain plain (: $shape-kb $prfa $a $adapter-atv)))))))
 
 (: rule-evidence-base-name (-[det]-> Proof Proof))

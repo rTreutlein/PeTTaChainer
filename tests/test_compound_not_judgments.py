@@ -32,6 +32,17 @@ class TestCompoundNotJudgments(unittest.TestCase):
                 # A public query creates and then removes its own scaffold.
                 self.assertTrue(h.query_many_refs([public], steps=1000)[0])
 
+    def test_batch_and_root_does_not_project_onto_a_sibling_root(self):
+        # A batch's And root once projected its conjunction onto its Not
+        # conjunct: (Not (Q x)) read P(not Q and R), 0.2, instead of 0.4.
+        for order in (('(Not (Q x))', '(R x)'), ('(R x)', '(Not (Q x))')):
+            h = PeTTaChainer()
+            h.add_atoms_no_check(['(: q1 (Q x) (STV 0.6 0.9))', '(: r1 (R x) (STV 0.5 0.9))'])
+            with self.subTest(order=order):
+                rows = h.query_many_refs([f'(: $p (And {order[0]} {order[1]}) $tv)',
+                                          '(: $p (Not (Q x)) $tv)'], steps=300)[1]
+                self.assertEqual([r.tv[1:] for r in rows], [[0.4, 0.9]])
+
     def test_compound_negation(self):
         cases = [
             ('(Not (Or (A $x) (C $x)))', 0.1),
