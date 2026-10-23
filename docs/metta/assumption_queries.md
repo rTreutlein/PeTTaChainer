@@ -146,7 +146,8 @@ is permitted; promoting an overlay value into MAIN is not.
 MAIN search uses the query's ordinary expansion and row allowances. Independent
 MAIN evaluation runs first. Each C then receives a fresh evaluation allowance
 scaled by the query's steps and the original near-root reserve. A preceding
-context cannot spend another context's allowance. Contexts in a batch share
+context cannot spend another context's allowance, so N contexts may spend N
+allowances (#55). Contexts in a batch share
 structure and the query's total expansion budget, while evaluating their
 separate input worlds independently. A context
 query leaves no live overlay to continue across calls (persistent contexts are
