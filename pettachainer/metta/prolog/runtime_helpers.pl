@@ -460,12 +460,16 @@ refs_holder(context_propagated, 4, [4]).
 % swept, the next one to take in flag refs_gc_next.
 refs_gc_active :- nb_current(refs_gc_phase, Phase), Phase \== idle.
 
-% A collection is due once more proofs, or proof words, were stored than
-% it kept and holder rows it scanned (at least 4096). Exact-fold proofs
-% grow with their members, so counting only proofs retained large histories. A
-% cycle's work is those rows and proofs, so each stored proof pays a constant
-% share of it however long the history: holder rows grow with the keys, one
-% per decision in Pong, while the proofs kept need not.
+% A collection is due once the garbage expected among the proofs, or proof
+% words, stored since the last one exceeds what it kept and the holder rows it
+% scanned (at least 4096). The garbage expected is the share of them the last
+% cycle collected (all before the first), at least 1/16, so garbage stays
+% bounded by the live store while a store that keeps nearly all it holds is
+% not scanned again and again. Exact-fold proofs grow with their members, so
+% counting only proofs retained large histories. A cycle's work is those rows
+% and proofs, so each stored proof pays a constant share of it however long
+% the history: holder rows grow with the keys, one per decision in Pong,
+% while the proofs kept need not.
 refs_gc_due :-
     (   refs_gc_active -> true
     ;   'search-id-value'(proof_id, Next), flag(refs_gc_last, Last, Last), flag(refs_gc_kept, Kept, Kept),
@@ -473,8 +477,9 @@ refs_gc_due :-
         flag(withdraw_epoch, Epoch, Epoch), flag(refs_gc_retired_last, RetiredLast, RetiredLast),
         flag(refs_gc_words, Words, Words), flag(refs_gc_words_last, LastWords, LastWords),
         flag(refs_gc_words_kept, KeptWords, KeptWords),
-        ( Next - Last > max(Kept + Rows, 4096)
-        ; Words - LastWords > max(KeptWords + Rows, 4096)
+        flag(refs_gc_retained, Retained, Retained), flag(refs_gc_words_retained, RetainedWords, RetainedWords),
+        ( (Next - Last) * max(1 - Retained, 0.0625) > max(Kept + Rows, 4096)
+        ; (Words - LastWords) * max(1 - RetainedWords, 0.0625) > max(KeptWords + Rows, 4096)
         ; Epoch - RetiredLast > 512 ) ).
 
 % One slice, starting a cycle when one is due. Its units grow with the proofs
@@ -689,14 +694,18 @@ refs_gc_erase(sets, ev_set(Set, _, _, _, _), Ref) :- !,
     erase(Ref), retractall(ev_given_memo(Set, _)), retractall(ev_inherited_memo(Set, _)).
 refs_gc_erase(_, _, Ref) :- erase(Ref).
 
+% The share kept of what existed when the cycle started: what the last cycle
+% kept and what was stored between the two.
 refs_gc_finish :-
-    flag(refs_gc_words, Words, Words), flag(refs_gc_words_last, _, Words),
+    flag(refs_gc_words, Words, Words), flag(refs_gc_words_last, LastWords, Words),
     flag(refs_gc_marked_words, MarkedWords, MarkedWords), nb_getval(refs_gc_word_limit, LimitWords),
-    flag(refs_gc_words_kept, _, MarkedWords + Words - LimitWords),
+    flag(refs_gc_words_kept, KeptWords, MarkedWords + Words - LimitWords),
+    flag(refs_gc_words_retained, _, min(1, MarkedWords / max(1, KeptWords + LimitWords - LastWords))),
     nb_getval(refs_gc_retire_epoch, Epoch), flag(refs_gc_retired_last, _, Epoch),
     aggregate_all(count, refs_gc_proof(_), Marked),
     nb_getval(refs_gc_limits, limits(ProofLimit, _)), 'search-id-value'(proof_id, Next),
-    Kept is Marked + Next - ProofLimit, flag(refs_gc_kept, _, Kept), flag(refs_gc_last, _, Next),
+    flag(refs_gc_last, Last, Next), flag(refs_gc_kept, KeptBefore, Marked + Next - ProofLimit),
+    flag(refs_gc_retained, _, min(1, Marked / max(1, KeptBefore + ProofLimit - Last))),
     retractall(refs_gc_proof(_)), retractall(refs_gc_set(_)),
     nb_setval(refs_gc_phase, idle), refs_gc_take(none).
 

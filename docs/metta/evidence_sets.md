@@ -61,9 +61,14 @@ marked, so nothing reachable at the start is lost. A stored proof is found
 only through references, so one nothing reached cannot be reached again.
 
 Every query ends with one slice (`stored-refs-gc-step!`). A cycle starts
-when either new proof count or new proof words exceeds what the previous
-cycle kept plus the holder rows it scanned (at least 4096). Large exact-fold
-proofs therefore pay for collection before thousands of them accumulate.
+when the garbage expected among the new proofs, or new proof words, exceeds
+what the previous cycle kept plus the holder rows it scanned (at least 4096).
+The garbage expected is the new amount times the share the previous cycle
+collected of what existed when it started (all, before the first cycle; at
+least 1/16). Garbage so stays bounded by the live store, and a store that
+keeps nearly everything is not scanned after every doubling (SupplyNet scale
+kept 97%: 3.6 to 4.6% of its query time). Large exact-fold proofs therefore
+pay for collection before thousands of them accumulate.
 Proof size is charged once when the proof is stored and measured for the
 proofs the marker already follows; no store scan is added to the due check.
 A slice allows 512 units plus 8 per new proof, retired rule, and 32 new proof
