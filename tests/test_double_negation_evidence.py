@@ -5,6 +5,35 @@ from pettachainer import PeTTaChainer
 
 
 class TestDoubleNegationEvidence(unittest.TestCase):
+    def test_double_negation_query_and_premise_answer_cold(self):
+        # #86: neither answered until another query compiled (Not (Q x)).
+        for goal, strength in (('(Not (Not (Q x)))', 0.6), ('(W x)', 0.74),
+                               ('(And (R x) (Not (Not (Q x))))', 0.3)):
+            h = PeTTaChainer()
+            h.add_atoms_no_check(['(: q1 (Q x) (STV 0.6 0.9))', '(: r1 (R x) (STV 0.5 0.9))',
+                                  '(: rw (Implication (Not (Not (Q $v))) (W $v)) (STV 0.9 0.9))'])
+            with self.subTest(goal=goal):
+                rows = h.query_many_refs([f'(: $p {goal} $tv)'], steps=300)[0]
+                self.assertEqual(len(rows), 1, rows)
+                self.assertAlmostEqual(rows[0].tv[1], strength)
+                self.assertIn('(negated (negated q1))', h.expand_proof(rows[0].proof))
+
+    def test_double_negation_in_a_batch_reads_its_statement(self):
+        # In a batch with an And over it, the double negation read the And's
+        # projection: 0.6 at 0.84375, and 0.492 with a rule for Q (#86).
+        for kb in (['(: q1 (Q x) (STV 0.6 0.9))'],
+                   ['(: q1 (Q x) (STV 0.6 0.9))', '(: p1 (P x) (STV 0.8 0.9))',
+                    '(: rq (Implication (P $v) (Q $v)) (STV 0.9 0.9))']):
+            h = PeTTaChainer()
+            h.add_atoms_no_check(kb)
+            with self.subTest(kb=kb):
+                _, double, alone = h.query_many_refs(
+                    ['(: $p (And (Not (Not (Q x))) (Q x)) $tv)', '(: $p (Not (Not (Q x))) $tv)',
+                     '(: $p (Q x) $tv)'], steps=300)
+                self.assertEqual(len(double), 1, double)
+                self.assertAlmostEqual(double[0].tv[1], alone[0].tv[1])
+                self.assertAlmostEqual(double[0].tv[2], alone[0].tv[2])
+
     def test_explicit_conditional_matches_positive_control(self):
         confidences = []
         for consequent in ('(DoesNotDilute $e)', '(Not (Dilutes $e))'):

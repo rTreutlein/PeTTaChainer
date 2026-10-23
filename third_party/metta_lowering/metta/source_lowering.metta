@@ -844,12 +844,9 @@
 ;;    executable goal shape differs from the requested source expression.
 (= (compile-adapter-chain query (: $kb $prf $type $tv))
    (if (head-is? $type Not)
-      (let $a (car-atom (cdr-atom $type))
-         (brand CompiledAddition
-            (((: $kb $inner-prf $a $inner-tv)
-                 (CPU NotFormula ($inner-tv) $tv))
-               |-
-               (: $kb (negated $inner-prf) $type $tv))))
+      (let* ((($kbid $ctx $vars) $kb)
+             ((premise-bundle $execs $not-tv $proof-token) (once (lower-source-premise $kbid $ctx $vars $type))))
+         (brand CompiledAddition ($execs |- (: $kb $proof-token $type $not-tv))))
       (if (compound-source? $type)
          (if (query-compound-needs-bundle? $type)
             (let*
@@ -984,8 +981,11 @@
                  (STV 1.0 1.0)
                  cpu))
            ((Not $a)
-              (let $prem-kb (source-premise-kb $kb $ctx $vars)
-                 (premise-bundle ((: $prem-kb $prfa $a $tv_a) (CPU NotFormula ($tv_a) $tv)) $tv (negated $prfa))))
+              (if (head-is? $a Not)
+                 (let (premise-bundle $a-execs $tv_a $prfa) (once (lower-source-premise $kb $ctx $vars (brand Statement $a)))
+                    (premise-bundle (append-goals $a-execs ((CPU NotFormula ($tv_a) $tv))) $tv (negated $prfa)))
+                 (let $prem-kb (source-premise-kb $kb $ctx $vars)
+                    (premise-bundle ((: $prem-kb $prfa $a $tv_a) (CPU NotFormula ($tv_a) $tv)) $tv (negated $prfa)))))
            (($rel $a $b)
               (if (is-member $rel (GreaterThan >))
                  (if (is-var $b) (premise-bundle ((CPU DistGreaterThanDistFormula ($a $b) $tv)) $tv cpu)

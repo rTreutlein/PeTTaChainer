@@ -26,8 +26,7 @@ Consequences:
 - A previously valid proof remains valid after any addition.
 - Evidence identity must survive materialization so the same evidence is not
   counted twice when forward and backward paths meet.
-- Double negation preserves evidence identity (in judgments and evidence; an
-  ordinary `(Not (Not X))` query or premise does not answer yet, #86). Negation toggles fact polarity
+- Double negation preserves evidence identity. Negation toggles fact polarity
   and cancels its own evidence wrapper; applied rule identities and exclusions
   retain their identity regardless of conclusion polarity. Projection positions
   are proof metadata, never evidence. A stored proof reference carries its
@@ -37,6 +36,10 @@ Consequences:
   retains the statement and KB identity through nested negative proofs. It is
   opaque provenance, not a new proof source. Its handle is traced by the
   existing proof/evidence collector; public proof output omits the wrapper.
+  A nested `Not` over a statement, as a query or a rule premise, lowers to
+  that statement's read with one `NotFormula` per negation, so it answers as
+  the statement does, on a first query and in a batch (#86). A `Not` over a
+  compound inside it, as in `(Not (Not (And A B)))`, still has no answer.
 - Overlapping proofs are not independent evidence. Disjoint proofs may be
   revised together; overlapping paths need dominance, refinement, or cycle
   checks before aggregation.
