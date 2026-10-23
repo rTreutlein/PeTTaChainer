@@ -122,9 +122,6 @@
        ($_other ()))))
 
 (= (cpu-expected-tv $fun ($a $b $ctv))
-   (if (== $fun ImplicationLikelihoodsFormula)
-      (ImplicationLikelihoodsFormula (the OptionalSTV (expected-tv $a))
-         (the OptionalSTV (expected-tv $b)) (the (| STVType CTVType) (expected-tv $ctv)))
    (if (== $fun CTVInversionFormula)
       (let*
          (($na (expected-tv $a))
@@ -139,14 +136,17 @@
          (if (or (is-var $a) (is-var $b))
             (CTV (STV 1.0 $confidence) (STV 1.0 $confidence))
             (CTVInversionFormula $na $nb (normalize-expected-likelihoods $ctv))))
-      ())))
+      ()))
 
 (= (cpu-expected-tv $fun ($a $b $c $d))
    (if (== $fun CompletionLikelihoodsFormula)
       (CompletionLikelihoodsFormula $a
          (if (is-var $b) false (case $b ((true true) (false false))))
          (expected-tv $c) (normalize-expected-likelihoods $d))
-      ()))
+   (if (== $fun ImplicationLikelihoodsFormula)
+      (ImplicationLikelihoodsFormula (the OptionalSTV (expected-tv $a))
+         (the OptionalSTV (expected-tv $b)) (the (| STVType CTVType) (expected-tv $c)) (the Number $d))
+      ())))
 
 ;; Open proof templates are optimistic bounds, not evidence to resolve.
 ;; Only a closed observation can be used to select an empirical centre.

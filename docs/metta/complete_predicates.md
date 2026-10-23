@@ -164,6 +164,15 @@ premises in the same cycle multiply that.
   complete statement reads it false once its search there settles. An
   implication query's private contexts override assumed keys and may read
   independent world observations, but the predicate is open there.
+- STV rules. A rule stated with an `STV` gives only `P(G|A)`. When the base
+  rates leave its negative branch unknown, that branch is `(STV 0 0)` for a
+  complete G, not the open world's `(STV 0.5 0)`: G is true only through its
+  rule applications, so a rule whose condition fails derives nothing. Over
+  sufficient causes that exclude each other, such as one per action, the
+  rule applying gives `P(G) = P(A) P(G|A)`. Before, a soft A read
+  `P(A) + (1 - P(A)) / 2` (ChainerGame stage 5, #126). Completion is decided
+  per KB when the rule is compiled; an implication query's contexts, which
+  are open, read the same branch.
 - Hypothesis and refined rules. A rule application concluding a complete
   predicate is one more way it becomes true, read like any rule.
 

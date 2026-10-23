@@ -1405,16 +1405,6 @@
 
 ;; --- Complete predicates (docs/metta/complete_predicates.md) ----------------
 
-;; A KB may declare that a predicate's rules and facts are the only ways one of
-;; its statements becomes true. Declared before knowledge is added.
-(: &complete_predicates (SpaceOf (KB Atom)))
-!(bind! &complete_predicates (new-space))
-
-(: set-complete-predicate (-[det]-> KB Atom Bool))
-(= (set-complete-predicate $kb $head)
-   (if (space-row-present? &complete_predicates ($kb $head)) true
-      (let $_row (add-atom &complete_predicates ($kb $head)) true)))
-
 ;; A ground statement of a complete predicate in the main context or in an
 ;; Assuming query's context, which holds the world's facts and rules with its
 ;; assumptions; an implication query's hypothetical contexts are not complete.
@@ -1423,7 +1413,7 @@
    (if (== $ctx MAIN)
       (if (== (extract-vars $type) ())
          (let* (($kb (brand KB $kbid)) ($head (if (is-expr $type) (car-atom $type) $type)))
-            (space-row-present? &complete_predicates ($kb $head)))
+            (complete-predicate? $kb $head))
          false)
       false))
 

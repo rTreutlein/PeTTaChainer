@@ -569,7 +569,8 @@ A key's value merges its stored facts and one view per row:
   when none exists, internal judgment scaffolds can still read them. An STV
   implication supplies only its positive branch. Its negative branch needs
   informative reconciled base rates and a possible negative antecedent;
-  otherwise it is `(STV 0.5 0)`. Modus ponens must preserve zero confidence
+  otherwise it is `(STV 0.5 0)`, or `(STV 0 0)` for a complete conclusion
+  (`complete_predicates.md`). Modus ponens must preserve zero confidence
   when selecting an unknown branch, without its numerical confidence floor;
 - an identical proof pools its evidence; a marginal projection gives way to its
   full proof, and a settled step to its complete step, before the views merge,
@@ -1027,7 +1028,7 @@ never settle either and be recomputed on every pass (75x on ONA conditioning).
 
 An STV's inferred negative likelihood is read once after deriving its raw
 estimate. Its already-consumed marginals cannot also be its centre. Unknown
-negative branches remain (.5,0); explicit CTVs keep both stated branches. The
+negative branches remain (.5,0), (0,0) for a complete conclusion; explicit CTVs keep both stated branches. The
 quarter-minimum inferred confidence remains a calibration heuristic.
 
 ### Queries read what their roots reach

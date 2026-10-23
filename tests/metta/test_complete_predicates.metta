@@ -185,3 +185,15 @@
 !(test (stage4-tv stage4Fresh 200) (STV 0.95 0.9998999947967693))
 !(test (let $_degraded (collapse (query 50 stage4Warm (: $prf (Degraded power-plant t8) $tv))) (stage4-tv stage4Warm 50))
    (STV 0.95 0.9998999947967693))
+
+;; An STV rule's unknown negative branch is false for a complete conclusion
+;; (#126): F and O hold only by their sufficient causes, so the conjunction
+;; is P(not D now, not D later) = 0.5 * 0.92, also where conditioning on
+;; (D now) selects the unknown branch. Open-world, each reads 0.5 there.
+!(set-complete-predicate carryKb F)
+!(set-complete-predicate carryKb O)
+!(compileadd carryKb (: d (D now) (STV 0.5 1)))
+!(compileadd carryKb (: (no_inverse carry) (Implication (D now) (D later)) (CTV (STV 0.75 1) (STV 0.08 1))))
+!(compileadd carryKb (: (no_inverse f) (Implication (Not (D now)) (F later)) (STV 1 1)))
+!(compileadd carryKb (: (no_inverse o) (Implication (Not (D later)) (O later)) (STV 1 1)))
+!(test (let (: $_p $_t (STV $s $_c)) (query 400 carryKb (: $p (And (F later) (O later)) $tv)) $s) 0.46)

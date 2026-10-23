@@ -97,13 +97,13 @@ class FalseAntecedentTests(unittest.TestCase):
                       '(STV 1 0.001) (STV 1 0.002)'):
             with self.subTest(rates=rates):
                 result = _parse(h._call('ImplicationLikelihoodsFormula',
-                                       [rates + ' (STV 0.5 0.9)'])[0])[2]
+                                       [rates + ' (STV 0.5 0.9) 0.5'])[0])[2]
                 self.assertEqual(result[2], ['STV', '0.5', '0.0'])
 
     def test_informative_rates_still_estimate_negative_branch(self):
         h = PeTTaChainer()
         result = _parse(h._call('ImplicationLikelihoodsFormula',
-                               ['(STV 0.25 0.9) (STV 0.5 0.9) (STV 0.8 0.9)'])[0])[2]
+                               ['(STV 0.25 0.9) (STV 0.5 0.9) (STV 0.8 0.9) 0.5'])[0])[2]
         # #89 reads the raw .4/.225 complement once at neutral .5.
         count = 800 * .225 / (1 - .225)
         self.assertAlmostEqual(float(result[2][1]), (.4 * count + .2 * .5) / (count + .2))

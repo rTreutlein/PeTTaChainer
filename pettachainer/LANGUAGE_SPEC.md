@@ -659,7 +659,10 @@ the base rates of both sides, and its inversion is the ratio
 The missing negative branch is estimated by
 `P(B|not A) = (P(B) - P(A) P(B|A)) / (1 - P(A))` only while all three
 reconciled estimates retain evidence and `P(A) < 1`. Otherwise that branch is
-unknown, `(STV 0.5 0)`. Selecting an unknown branch preserves zero confidence;
+unknown, `(STV 0.5 0)`, or `(STV 0 0)` when the conclusion's predicate is
+complete: only rule applications make it true, so a rule whose condition fails
+adds nothing, and a single sufficient cause `A` gives `P(B) = P(A) P(B|A)`.
+Selecting an unknown branch gives that branch at zero confidence;
 it contributes nothing when an informative view of the conclusion exists.
 Thus a positive STV rule with a known-false condition cannot override an
 applicable rule. An explicit CTV branch or a separately stated rule with a

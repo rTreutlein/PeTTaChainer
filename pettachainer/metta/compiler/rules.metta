@@ -105,9 +105,10 @@
 (= (implication-ctv-goals $kb $params $a $b $value $defer)
    (let* (($a1 (rule-base-rate-pattern $params $a))
           ($b1 (rule-base-rate-pattern $params $b))
-          ($rates (append-goals (antecedent-rate-premises $kb $a1 $rule-atv) (base-rate-premises $kb $b1 $rule-btv))))
+          ($rates (append-goals (antecedent-rate-premises $kb $a1 $rule-atv) (base-rate-premises $kb $b1 $rule-btv)))
+          ($centre (unknown-branch-centre $kb $b)))
          (if $defer
-            (let* (($ctv (CTV (the STVType $value) (STV 0.5 0)))
+            (let* (($ctv (CTV (the STVType $value) (STV $centre 0)))
                    ($a-plan (base-rate-read-plan $kb $a1))
                    ($b-plan (base-rate-read-plan $kb $b1)))
                (data (append-goals $rates
@@ -118,7 +119,7 @@
             (data
                (append-goals $rates
                   (cons (CPU ImplicationLikelihoodsFormula
-                           (quote ($rule-atv $rule-btv $value)) $likelihoods)
+                           (quote ($rule-atv $rule-btv $value $centre)) $likelihoods)
                      ((CPU likelihood-read-tv (quote ($likelihoods)) $rule-ctv))))
                (the CTVType $rule-ctv) (the LikelihoodRead $likelihoods)))))
 
@@ -478,6 +479,27 @@
 
 ;; A pattern one of whose conjuncts (or a negated conjunct's statement) has a
 ;; positive-only predicate.
+;; A KB may declare that a predicate's rules and facts are the only ways one of
+;; its statements becomes true (docs/metta/complete_predicates.md). Declared
+;; before knowledge is added.
+(: &complete_predicates (SpaceOf (KB Atom)))
+!(bind! &complete_predicates (new-space))
+
+(: complete-predicate? (-[det]-> KB Atom Bool))
+(= (complete-predicate? $kb $head)
+   (not (== (collapse (once (match &complete_predicates ($kb $head) true))) ())))
+(: set-complete-predicate (-[det]-> KB Atom Bool))
+(= (set-complete-predicate $kb $head)
+   (if (complete-predicate? $kb $head) true
+      (let $_row (add-atom &complete_predicates ($kb $head)) true)))
+
+;; The strength of a rule's negative branch that no rate determines: even odds,
+;; but false for a complete conclusion, which only rule applications make true.
+(: unknown-branch-centre (-[det]-> KB Statement Number))
+(= (unknown-branch-centre $kb $b)
+   (let $head (if (is-expr $b) (car-atom $b) $b)
+      (if (complete-predicate? $kb $head) 0.0 0.5)))
+
 (: positive-only-pattern? (-[det]-> KB Statement Bool))
 (= (positive-only-pattern? $kb $pattern)
    (fold-flat (positive-only-conjunct? $kb) false (implication-side-conjuncts $pattern)))
@@ -620,7 +642,7 @@
         ($b-plan (base-rate-read-plan $kb $b1))
         ($b-base-rates (append-goals (base-rate-premises $kb $b1 $raw-btv)
                           ((CPU ReadRate (quote ($kb $b1 $raw-btv $b-plan false)) (rate-read $btv $_read-btv)))))
-        ($ctv (CTV (the STVType $itv) (STV 0.5 0)))
+        ($ctv (CTV (the STVType $itv) (STV (unknown-branch-centre $kb $b) 0)))
         ($rule-likelihoods (likelihood-read $ctv $ctv (negative-source (the OptionalSTV $raw-atv) (the OptionalSTV $btv) (the STVType $itv))))
         ($formula-goals
            (the (List Goal)

@@ -112,10 +112,10 @@
 
 (= (CTVModusPonensFormula (STV $as $ac) (CTV (STV $bs_a $bc_a) (STV $bs_na $bc_na)))
    ;; Selecting an unknown branch cannot manufacture evidence through the
-   ;; numerical floor in ideal-conf-from-var. Keep it neutral for later merges.
+   ;; numerical floor in ideal-conf-from-var: it is that branch, unconfirmed.
    (if (if (<= $as 0.0) (<= $bc_na 0.0)
            (if (>= $as 1.0) (<= $bc_a 0.0) false))
-      (STV 0.5 0.0)
+      (if (<= $as 0.0) (STV $bs_na 0.0) (STV $bs_a 0.0))
       (STV
          (+ (* $bs_a $as) (* $bs_na (- 1 $as)))
          (ideal-mp-confidence $as $ac $bs_a $bc_a $bs_na $bc_na))))
@@ -453,9 +453,10 @@
 (: likelihood-read-tv (-[det]-> LikelihoodRead CTVType))
 (= (likelihood-read-tv (likelihood-read $_raw $read $_support)) $read)
 
+;; `$centre` is the strength of a negative branch the rates leave unknown.
 (: ImplicationLikelihoodsFormula
-   (-[det]-> OptionalSTV OptionalSTV (| STVType CTVType) LikelihoodRead))
-(= (ImplicationLikelihoodsFormula $atv $btv $itv)
+   (-[det]-> OptionalSTV OptionalSTV (| STVType CTVType) Number LikelihoodRead))
+(= (ImplicationLikelihoodsFormula $atv $btv $itv $centre)
    (case $itv (
       ((CTV $pos $neg)
          (likelihood-read (CTV $pos $neg) (CTV $pos $neg) (stated (CTV $pos $neg))))
@@ -464,9 +465,9 @@
             ((stv-triple (STV $sa $ca) (STV $sb $cb) (STV $sab $cab))
                (let* (($confidence (if (if (>= $sa 1.0) true (<= (min $ca (min $cb $cab)) 0))
                                      0.0 (* 0.25 (min $ca (min $cb $cab)))))
-                      ($raw (if (<= $confidence 0) 0.5
+                      ($raw (if (<= $confidence 0) $centre
                                (max 0.0 (min 1.0 (/ (- $sb (* $sa $sab)) (- 1.0 $sa))))))
-                      ($read (if (<= $confidence 0) 0.5 (bayes-shrink $raw $confidence 0.5 1.0)))
+                      ($read (if (<= $confidence 0) $centre (bayes-shrink $raw $confidence 0.5 1.0)))
                       ($positive (STV $sab $cab)))
                   (likelihood-read (CTV $positive (STV $raw $confidence))
                      (CTV $positive (STV $read $confidence))

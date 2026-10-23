@@ -359,7 +359,7 @@
                       ((negative-source $atv $btv $itv)
                          (let (likelihood-read (CTV $_reconciled $negative)
                                    (CTV $_read-positive $read-negative) $origin)
-                               (ImplicationLikelihoodsFormula $atv $btv $itv)
+                               (ImplicationLikelihoodsFormula $atv $btv $itv (unknown-branch-centre $kb $consequent))
                             (likelihood-read (CTV $itv $negative) (CTV $itv $read-negative) $origin)))
                       ((stated $_original) (likelihood-read $initial $initial-read $initial-source)))))
                 ($fold (case $source (
