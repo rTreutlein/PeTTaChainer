@@ -85,11 +85,11 @@ memory peaks.
 - `<base>`, `<candidate>`: a PeTTaChainer ref or commit (`master`, `a1980394`),
   a frozen build name under `bench/chainers/`, or a worktree path. A worktree
   counts as its HEAD plus its uncommitted diff and its untracked files under
-  `pettachainer/`.
+  `pettachainer/` and `third_party/`.
 - `--quick` (default, about 75 s: one point per behaviour) while iterating. Run `--full` (about 3 min: each behaviour as a budget curve, plus the ProbLog fuzzer gate) before hand-back.
   `bench/README.md` lists what each profile runs and how long it takes.
-- **Results are stored by the code that ran.** The store key is the
-  `pettachainer/` tree (uncommitted changes included), the PeTTa runtime, the
+- **Results are stored by the code that ran.** The store key is the tree of
+  `pettachainer/` and `third_party/` (uncommitted changes included), the PeTTa runtime, the
   ChainerGame source and the case. A run whose key is stored is never
   repeated: a rebase, an amend, a docs-only commit or a rerun reuses every
   result, and `master`'s results are shared by all agents. A
