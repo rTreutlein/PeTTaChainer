@@ -26,11 +26,11 @@
 
 !(test
    (query 60 implicationPremiseKb (: $prf (Implication (Not (Dog)) (Dog)) $tv))
-   (: (conditional-implication (ctx proof 3)) (Implication (Not (Dog)) (Dog)) (STV 0.0 1.0)))
+   (: (conditional-implication (ctx proof 2)) (Implication (Not (Dog)) (Dog)) (STV 0.0 1.0)))
 
 !(test
    (query 60 implicationPremiseKb (: $prf (Implication (Not (Dog)) (Not (Dog))) (STV 1.0 1.0)))
-   (: (conditional-implication (negated (ctx proof 4))) (Implication (Not (Dog)) (Not (Dog))) (STV 1.0 1.0)))
+   (: (conditional-implication (negated (ctx proof 3))) (Implication (Not (Dog)) (Not (Dog))) (STV 1.0 1.0)))
 
 !(compileadd multiPremiseImplicationQueryKb
    (: ab_c
@@ -47,7 +47,7 @@
 
 !(test
    (query 60 implicationPremiseKb (: $prf (Implication (And (Implication (A) (B)) (A)) (B)) $tv))
-   (: (conditional-implication (merge/revision (by a_b (ctx proof 6 1)) (by (ctx proof 6) (ctx proof 6 1)))) (Implication (And (Implication (A) (B)) (A)) (B)) (STV 1.0 0.9999000099865026)))
+   (: (conditional-implication (merge/revision (by a_b (ctx proof 5 1)) (by (ctx proof 5) (ctx proof 5 1)))) (Implication (And (Implication (A) (B)) (A)) (B)) (STV 1.0 0.9999000099865026)))
 
 !(set-context-polymorphic-facts kbRelativeImplicationQueryKb true)
 
@@ -111,7 +111,7 @@
             (A)
             (B))
          $tv))
-   (: (bidirectional (by (bi-forward a_iff_b) (ctx proof 7)) (by (bi-backward a_iff_b) (ctx proof 8))) (BiImplication (A) (B)) (STV 1.0 0.9996001597861455)))
+   (: (bidirectional (by (bi-forward a_iff_b) (ctx proof 6)) (by (bi-backward a_iff_b) (ctx proof 7))) (BiImplication (A) (B)) (STV 1.0 0.9996001597861455)))
 
 !(test
    (query 60 implicationPremiseKb

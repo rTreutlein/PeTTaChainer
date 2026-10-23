@@ -93,14 +93,16 @@
 ;; Inheritance while compiling this rule.
 !(test
    (query 100 openVariableConclusionImplicationKb (: $p (Implication (Tall $x) (Female $x)) $tv))
-   (: (merge/revision (conditional-implication (merge/revision (by copyPredicate (conjunction (conjunction tallAlice femaleAlice) (ctx proof 0))) (by copyPredicate (conjunction (conjunction tallMary femaleMary) (ctx proof 0))))) (implication-instance-fold cpu)) (Implication (Tall $_0) (Female $_0)) (STV 0.8100239739628896 0.6786287374397676)))
+   (: (merge/revision (conditional-implication (merge/revision (by copyPredicate (conjunction tallAlice femaleAlice (ctx proof 0))) (by copyPredicate (conjunction tallMary femaleMary (ctx proof 0))))) (implication-instance-fold cpu)) (Implication (Tall $_0) (Female $_0)) (STV 0.8100239739628896 0.6786287374397676)))
 
 ;; The open identity holds. Its instance fold also samples each stored
 ;; statement against its other proofs, the completions copying the other
 ;; individual's predicates; the positive judgment remains (STV 1, 1).
 ;; A completion that would read a statement to conclude it again
 ;; (copying Alice's predicates to Alice) builds no row, so no ground instance
-;; answers apart from the open one.
+;; answers apart from the open one. A variable predicate never binds to an
+;; internal key: its premises read in MAIN's scope, so no RuleTruth instance
+;; answers either (#142).
 !(test
    (collapse
       (query 100 openVariableConclusionImplicationKb (: $proof (Implication ($p $x) ($p $x)) (STV 1.0 1.0))))
@@ -180,3 +182,15 @@
 !(test
    (query 50 derivedAndRuleKb (: $p (SeniorExpert kebede) $tv))
    (: (by seniorRule (conjunction (by expertRule (conjunction (by yearsRule yearsFact) mgmtFact)) ethicsFact)) (SeniorExpert kebede) (STV 1.0 0.9495489046959086)))
+
+;; A nested conjunction reads as the flat one (#142): the same rule with a
+;; flat antecedent answers the same judgment.
+!(compileadd flatCopyKb (: tallAlice (Tall alice) (STV 0.9 0.5)))
+!(compileadd flatCopyKb (: femaleAlice (Female alice) (STV 0.9 0.5)))
+!(compileadd flatCopyKb (: tallMary (Tall mary) (STV 0.9 0.5)))
+!(compileadd flatCopyKb (: femaleMary (Female mary) (STV 0.9 0.5)))
+!(compileadd flatCopyKb
+   (: copyPredicate (Implication (And ($p1 $x) ($p2 $x) ($p1 $y)) ($p2 $y)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(test (let (: $_proof $_statement $tv)
+      (query 100 flatCopyKb (: $p (Implication (Tall $x) (Female $x)) $tv)) $tv)
+   (STV 0.8100239739628896 0.6786287374397676))

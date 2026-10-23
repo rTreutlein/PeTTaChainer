@@ -97,10 +97,11 @@
    (: observed-b-three (B 3) (STV 0.9 0.8)))
 
 ;; Observing B(3) runs 3 - 1 = 2, validates 2 + 1 = 3, applies ordinary CTV
-;; inversion, and projects A(2) from the reconstructed antecedent.
+;; inversion, and projects A(2) from the reconstructed antecedent; the
+;; projection reads its computed sibling as the computation.
 !(test
    (query 300 computeInverseKb (: $proof (A 2) $tv))
-   (: (marginal-proj 0 ((inverted addOne with cpu (prior (STV 0.6599999999869455 0.0009990009985938653))) observed-b-three)) (A 2) (STV 0.875683508370345 0.014383358120611879)))
+   (: ((proj 0 ((inverted addOne with cpu (prior (STV 0.6599999999940221 0.000999000998814564))) observed-b-three)) cpu) (A 2) (STV 0.8756835083726222 0.016391821879727795)))
 
 ;; The same reversible computation remains executable when inversion is
 ;; disabled. The observations above demonstrate that its reverse would

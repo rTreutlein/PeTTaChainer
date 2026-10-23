@@ -15,14 +15,6 @@
 (: SkeletonRuleDef Type)
 (: sk-rule-def (-[det]-> SkFact (List SkPattern) SkeletonRuleDef))
 
-(: fold-semidet (-[semidet]-> (-[semidet]-> $acc $item $acc) $acc (List $item) $acc))
-(= (fold-semidet $_fun $acc ()) $acc)
-(= (fold-semidet $fun $acc (cons $item $rest)) (fold-semidet $fun ($fun $acc $item) $rest))
-
-(: map-semidet (-[semidet]-> (-[semidet]-> $input $output) (List $input) (List $output)))
-(= (map-semidet $_fun ()) ())
-(= (map-semidet $fun (cons $item $rest)) (cons ($fun $item) (map-semidet $fun $rest)))
-
 (: sk-cons-step (-[semidet]-> (List $item) $item (List $item)))
 (= (sk-cons-step $items $item) (cons $item $items))
 
@@ -1581,7 +1573,7 @@
 (= (install-existential-member-adapters $scope $pattern)
    (let* (($adapter-scope (brand KBContext $scope))
           ($adapter-pattern (brand Statement $pattern))
-          ($adds (collapse (compile-adapter-chain query
+          ($adds (collapse (query-adapters
              (: $adapter-scope $_proof $adapter-pattern $_tv)))))
       (once (inject-compiled-adds (map-flat mm2stmt $adds)))))
 

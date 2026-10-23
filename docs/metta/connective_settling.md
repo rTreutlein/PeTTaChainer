@@ -33,16 +33,16 @@ Settling depends on values, which a join does not see: a row is built from
 its premise keys, and its value is computed later. So a settled compound is a
 rule variant that reads only the settling part:
 
-- `settled-premise-bundle` (`source_lowering.metta`) turns one part's bundle
-  into the bundle of the compound: the part's goals, then
+- `settled-reading` (`compiler/source_lowering.metta`) turns one part's
+  bundle into the bundle of the compound: the part's goals, then
   `(CPU SettlesFormula ($tv value) value)`, which yields `value` when the part
   is certain at it and nothing otherwise. Its proof token is `(settled P)`.
-- The variants are alternatives of the compound lowering, after the complete
-  one: in `compound-all-premise-bundle` (adapters for compound keys and `Or`
-  antecedents), in `lower-implication-antecedent` for an `And` antecedent
-  (each conjunct lowered as the complete fold lowers it, so `(Not X)` reads X
-  and `NotFormula`), and for n-ary query compounds. `once` callers read the
-  complete lowering; `compile-rule` compiles one forward rule per lowering.
+- The variants are readings of a compound after the complete one
+  (`compound-readings`, used by the producers of compound keys and by a
+  compound conjunct read inline), and lowerings of an `And` antecedent after
+  the complete one (`antecedent-lowerings`, each conjunct read as `lower`
+  reads it, so `(Not X)` reads X and `NotFormula`). `complete-lowering` reads
+  the complete one; `compile-rule` compiles one forward rule per lowering.
   Inversion, completion and outputs use the complete antecedent only.
 - A part settles only when it binds every variable of the compound, so a
   settled row is as ground as the complete join's.

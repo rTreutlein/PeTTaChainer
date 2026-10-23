@@ -50,10 +50,10 @@
        ($goal-adds
           (if (contains-explicit-exists? $consequent)
              (let (premise-bundle $goal-execs $goal-tv $goal-proof)
-                (once (lower-source-premise-with-existentials $kb $ctx $mvars $consequent))
+                (lower $shape-kb $consequent)
                 (cons (brand CompiledAddition
                    ($goal-execs |- (: $shape-kb $goal-proof $goal $goal-tv))) ()))
-             (collapse (compile-adapter-chain query (: $shape-kb $prf $consequent $adapter-tv)))))
+             (collapse (query-adapters (: $shape-kb $prf $consequent $adapter-tv)))))
        ;; Query-local metadata uses the existing temporary fact lifecycle in
        ;; a separate namespace: it is never available as a logical premise.
        ($target-kb (make-kb-context (brand KB (judgment-consequent $kb)) $ctx $mvars))
@@ -123,7 +123,7 @@
           ($result-add (brand CompiledAddition
              ($result-premises |-
                 (: $scope (conditioned-disjunction $joint-proof) $result $result-tv))))
-          ($adapters (collapse (compile-adapter-chain query (: $scope $prf $joint $tv))))
+          ($adapters (collapse (query-adapters (: $scope $prf $joint $tv))))
           (($direct-scope $direct-proof $direct-goal $direct-adds)
              (judgment-query-side-basic $kb $mvars false true $antecedent $consequent))
           ($direct-add (brand CompiledAddition
@@ -380,7 +380,7 @@
 (= (compile-existential-query $kb (: $prf $type $tv))
    (if (explicit-exists-term? $type)
       (let* (((premise-bundle $execs $result-tv $proof)
-                 (lower-source-premise-with-existentials $kb MAIN Nil $type))
+                 (lower (kbctx $kb) $type))
              ($query-tv (statement-query-tv $tv))
              ($canonical (canonical-existential-side $type)))
          (compilation-plan (: (kbctx $kb) $prf (ExistsJudgment $canonical) $query-tv)
@@ -440,7 +440,7 @@
              ($groups (list_to_set (extract-vars $claim)))
              ($alternative-kb (make-kb-context $kb $alternative-ctx $alternative-vars))
              ((premise-bundle $execs $witness-tv $_witness-proof)
-                (fold-existential-premise-bundle $kb MAIN Nil
+                (fold-existential-premise-bundle (kbctx $kb)
                    (brand Statement $body) (the (List Variable) $groups) OrFormula (STV 0 0))))
          (compilation-plan (: (kbctx $kb) $prf $Type $tv)
             (the (List CompiledAddition)
@@ -525,7 +525,7 @@
                   (let $query-tv (if (head-is? $Type And) (statement-query-tv $tv) $tv)
                      (compilation-plan
                         (: (kbctx $kb) $prf $Type $query-tv)
-                        (collapse (compile-adapter-chain query
+                        (collapse (query-adapters
                            (: (kbctx $kb) $prf $Type $query-tv)))))))))))))))
 
 (: compile-conjunction-child
@@ -542,8 +542,9 @@
 (: conjunction-query-fold
    (-[det]-> ((List Statement) CompiledPremises) ConjunctionQueryPart
        ((List Statement) CompiledPremises)))
-(= (conjunction-query-fold ($types $premises) ($type $goal $tv $proof))
-   (data (cons $type $types) (in_fold AndFormula $premises (data $goal $tv $proof))))
+(= (conjunction-query-fold ($types ($goals $proofs $acc-tv)) ($type $goal $tv $proof))
+   (let ($cpu $next-tv) (binary-tv-cpu AndFormula $acc-tv $tv)
+      (data (cons $type $types) (data (cons $cpu (cons $goal $goals)) (cons $proof $proofs) $next-tv))))
 
 (= (compile-conjunction-query $kb $type $tv)
    (let*
@@ -608,13 +609,14 @@
       (case $type (
          ((Implication $antecedent $consequent)
             (let* (($a (brand Statement (implication-source-term $antecedent)))
-                   ($lowerings (antecedent-lowerings $kbid $ctx $mvars (brand Statement $antecedent)))
+                   ($shape-kb (make-kb-context $kbid $ctx $mvars))
                    ($_named (register-rule-evidence! $kbid $ctxprf $tv (== (extract-vars $type) ()))))
                (collapse
                   (compile-implication-forward-rules
-                     $kbid (make-kb-context $kbid $ctx $mvars)
+                     $kbid $shape-kb
                      $ctxprf $tv () $tv () $a (brand Statement $consequent)
-                     (list_to_set (extract-vars $a)) $lowerings))))
+                     (list_to_set (extract-vars $a))
+                     (antecedent-lowerings $shape-kb (brand Statement $antecedent))))))
          ($_other ())))))
 
 (: query-context-premise-adds-step

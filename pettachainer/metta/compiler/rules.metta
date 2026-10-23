@@ -158,8 +158,7 @@
          (compile-consequent-implications $kb $shape-kb $projected-prf $tv
             $projected-premises $projected-tv $params $a $child))
       (if (implication-type? $b)
-         (let* ((($_kbid $ctx $vars) $shape-kb)
-                (($inner $last) (nested-implication-parts $b))
+         (let* ((($inner $last) (nested-implication-parts $b))
                 ($exported-a (brand Statement
                    (seq2expr (append (implication-side-conjuncts $a) $inner)))))
             (superpose (
@@ -169,7 +168,7 @@
                   (compile-implication-forward-rules $kb $shape-kb $prf $tv
                      $truth-premises $value $params $exported-a $last
                      (implication-antecedent-free-vars $exported-a)
-                     (antecedent-lowerings $kb $ctx $vars $exported-a))
+                     (antecedent-lowerings $shape-kb $exported-a))
                   (empty))
                ;; Another conjunction can hide a further conditional.
                (compile-consequent-implications $kb $shape-kb $prf $tv
@@ -178,7 +177,7 @@
 
 ;; Emit the forward rules plus the adapters needed on both sides: one forward
 ;; rule per lowering of the antecedent, the complete one and those of its
-;; settling parts (see settled-premise-bundle). The rule and its adapters
+;; settling parts (see settled-reading). The rule and its adapters
 ;; (the projections of a compound conclusion, the compound antecedent's
 ;; connective) share the shape KB: they hold in whatever context the rule
 ;; applies in, the hypothetical contexts of an implication query included. A
@@ -193,7 +192,7 @@
    (let* ((($inner $last) (nested-implication-parts $b))
           ($rate-a (if (== $inner ()) $a (brand Statement (cons And (append (implication-side-conjuncts $a) $inner)))))
           ($mp (if (== $inner ()) CTVModusPonensFormula ImplicationModusPonensFormula))
-          ($out-b (skolemize-conclusion-vars $prf (append $antecedent-vars (extract-vars $inner)) $b)))
+          ($out-b (skolemize-conclusion-vars $prf (append $params (append $antecedent-vars (extract-vars $inner))) $b)))
      (superpose (
       (let ($execs $proofs $atv) (superpose $antecedents)
        (once
@@ -213,7 +212,7 @@
       ;; root from its conjuncts; projecting it back onto them is self-support
       ;; that reached sibling roots of a batch as wrong values.
       (if (if (is-var $out-b) true (== $prf query-compound)) (empty) (compile-outputs (: $shape-kb (by $prf $prfb) $out-b $btv2)))
-      (if (is-var $a) (empty) (compile-adapter-chain plain (: $shape-kb $prfa $a $adapter-atv)))))))
+      (if (is-var $a) (empty) (let $producers (producers $shape-kb (brand Proof $_name) $a) (superpose $producers)))))))
 
 (: rule-evidence-base-name (-[det]-> Proof Proof))
 (= (rule-evidence-base-name $prf)
@@ -755,11 +754,9 @@
                    false)
                (let*
                   ((($others-execs $others-proofs $others-tv)
-                      (once
-                         (lower-implication-antecedent
-                            $kb $ctx $vars (connective-statement $connective $others))))
+                      (complete-lowering $shape-kb (connective-statement $connective $others)))
                    (($consequent-execs $consequent-proofs $consequent-tv)
-                      (once (lower-implication-antecedent $kb $ctx $vars $consequent)))
+                      (complete-lowering $shape-kb $consequent))
                    ($antecedent-rate-pattern (rule-base-rate-pattern $params $full))
                    ($consequence-rate-pattern (rule-base-rate-pattern $params $consequent))
                    (($rule-execs $rule-ctv $rule-likelihoods)
@@ -874,11 +871,11 @@
              (the (List Atom) ((Inheritance $instance $ground-subj)))
              $contextual-premises))
        (($main-execs $main-proofs $main-atv)
-          (once (lower-implication-antecedent $kbid MAIN Nil
-             (brand Statement (seq2expr (the (List Atom) $auxiliary-premises))))))
+          (complete-lowering (kbctx (brand KB $kbid))
+             (brand Statement (seq2expr (the (List Atom) $auxiliary-premises)))))
        (($context-execs $context-proofs $context-atv)
-          (once (lower-implication-antecedent $kbid $ctx $vars
-             (brand Statement (seq2expr (the (List Atom) $lift-premises))))))
+          (complete-lowering $lift-kb
+             (brand Statement (seq2expr (the (List Atom) $lift-premises)))))
        ($source-proof (implication-proof-token $main-proofs))
        ($context-proof (implication-proof-token $context-proofs))
        ($all-evidence (CPU AndFormula (quote ($main-atv $context-atv)) $all-atv))
@@ -1139,21 +1136,6 @@
                (if (is-var $c) false
                   (if (>= $c 1.0) false (implication-instance-supported? $a $b))))))))
 
-;; collapse copies what it collects: unifying a copy's antecedent, context and
-;; variables with the rule's own relinks the copied lowering to the rule.
-(: relinked-lowering (-[det]-> Atom Atom Atom (Atom Atom Atom CompiledPremises) CompiledPremises))
-(= (relinked-lowering $antecedent $ctx $vars ($antecedent $ctx $vars $lowered)) $lowered)
-
-;; Every lowering of a rule's antecedent, the complete one first, linked to
-;; the rule's own antecedent, context and variables.
-(: antecedent-lowerings (-[det]-> KB Atom Atom Statement (List CompiledPremises)))
-(= (antecedent-lowerings $kb $ctx $vars $antecedent)
-   (map-flat (relinked-lowering $antecedent $ctx $vars)
-      (the (List (Atom Atom Atom CompiledPremises))
-         (collapse
-            (let $lowered (lower-implication-antecedent $kb $ctx $vars $antecedent)
-               (data $antecedent $ctx $vars $lowered))))))
-
 ;; A derived implication is applied by modus ponens like a rule
 ;; (docs/metta/derived_implications.md): one statement rule per implication
 ;; shape a rule concludes reads the statement's rule-derived value, a CTV,
@@ -1175,7 +1157,7 @@
                      (cons (: $shape-kb $source-prf (Implication $x $y) $ctv) ()) $ctv ()
                      (brand Statement $x) (brand Statement $y)
                      (list_to_set (extract-vars (Implication $x $y)))
-                     (antecedent-lowerings $kb $ctx $vars (brand Statement $x)))
+                     (antecedent-lowerings $shape-kb (brand Statement $x)))
                   (compile-implication-statement-rules $kb (brand Statement $y)))))
             (empty)))
       (empty)))
@@ -1199,10 +1181,14 @@
          (specialize-rule-add $kb $triggers (compile-specialization (: $prf $Type $tv)))
          (let*
             (($_evidence-reg (register-rule-evidence! $kb $prf $tv (== (extract-vars $Type) ())))
-             ($antecedents (antecedent-lowerings $kb $ctx $vars (brand Statement $antecedent)))
-             ((cons ($execs $_proofs $_atv) $_settled) $antecedents)
              ($shape-kb (make-kb-context $kb $ctx $vars))
-             ($a (brand Statement (implication-source-term $antecedent)))
+             ($antecedents (antecedent-lowerings $shape-kb (brand Statement $antecedent)))
+             ((cons ($execs $_proofs $_atv) $_settled) $antecedents)
+             ;; A nested conjunction is read as the flat one (#142).
+             ($flat-antecedent (if (head-is? $antecedent And)
+                (cons And (implication-side-conjuncts (brand Statement $antecedent)))
+                $antecedent))
+             ($a (brand Statement (implication-source-term $flat-antecedent)))
              ($b
                 (if (explicit-exists-term? $consequent)
                    (canonical-existential-side (brand Statement $consequent))
@@ -1228,7 +1214,7 @@
                ;; source and the ordinary base rates through a permanent row.
                (let* ((($inner $last) (nested-implication-parts $b))
                       ($source-b (skolemize-conclusion-vars $prf
-                         (append $antecedent-vars (extract-vars $inner)) $b))
+                         (append $params (append $antecedent-vars (extract-vars $inner))) $b))
                       ($source-type (brand Statement (Implication $antecedent $source-b)))
                       ($query-type
                          (if (contains-explicit-exists? $Type)
@@ -1300,11 +1286,11 @@
                             (if (contains-cpu? (execs-goal-type $execs))
                                (compile-reversible-compute-plan $a $b)
                                (inverse-compute-plan () (list_to_set (extract-vars $b)))))
-                         ($na (skolemize-conclusion-vars $prf $inverse-known $a)))
+                         ($na (skolemize-conclusion-vars $prf (append $params $inverse-known) $a)))
                      (superpose (
                         (if (== $prior no-prior) (empty)
                            (let $instance-prior
-                              (skolemize-conclusion-vars $prf $inverse-known (brand Statement $prior))
+                              (skolemize-conclusion-vars $prf (append $params $inverse-known) (brand Statement $prior))
                               (prior-inverse-implication $kb $prf $params $instance-prior
                                  $na $b $tv $value $truth-premises $inverse-execs)))
                         (if (if $ctv? true (not (== $prior no-prior)))
@@ -1318,7 +1304,7 @@
                               (compile-outputs
                                  (: $shape-kb ((inverted $prf $w $pa1 $pa2) $pb2) $na $natv))))
                         (if (is-var $b) (empty)
-                           (compile-adapter-chain plain (: $shape-kb $pb2 $b $btv2)))))))
+                           (let $producers (producers $shape-kb (brand Proof $_name) $b) (superpose $producers)))))))
                ;; No inverse rule of any kind for a rule named no_inverse:
                ;; completion recovers an antecedent conjunct from the
                ;; conclusion as inversion recovers the whole antecedent. Both

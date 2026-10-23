@@ -358,7 +358,11 @@
       ((sk-val $fact $_ev $_deps)
          (let $type (car-atom $fact)
             (if (head-is-member? $type (ExistsJudgment ExistentialAlternatives)) $results
-               (let $_stored (sk-forward-store! $key) (cons $fact $results)))))
+               ;; An open key's value holds for every instance, and an
+               ;; instance query would read a stored copy of it as a report
+               ;; of its own derivation: only closed keys are stored.
+               (let $_stored (if (== (extract-vars $type) ()) (sk-forward-store! $key) ())
+                  (cons $fact $results)))))
       ($_none $results))))
 
 ;; Forward-chains from caller-selected facts within `$units` row

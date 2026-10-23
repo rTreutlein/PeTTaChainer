@@ -97,8 +97,7 @@ class TestIngestion(unittest.TestCase):
         # These paths consume source rules, open premises, keys or recursive
         # expressions. No syntax inspection may instantiate a predicate head.
         cases = {
-            'leaf-source-bundle': "'leaf-source-bundle'(Kb,'MAIN','Nil',[_Head,a,b,c],_Out),var(_Head)",
-            'in_map': "'in_map'([Kb,'MAIN','Nil'],[_Head,a,b,c],_Out),var(_Head)",
+            'lower': "'lower'([Kb,'MAIN','Nil'],[_Head,a,b,c],_Out),var(_Head)",
             'source-compute-goals': "'source-compute-goals'([[_Head,a,b,c]],_Out),var(_Head)",
             'canonical-addition': "'canonical-addition'([Kb,'MAIN','Nil'],[],[by,r,cpu],[_Head,a],['STV',1.0,1.0],_Out),var(_Head)",
             'base-rate-fold': "'base-rate-fold'(Kb,[_Head,_X,concept],_TV,_Out),var(_Head)",

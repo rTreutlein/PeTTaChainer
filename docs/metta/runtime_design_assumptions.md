@@ -145,7 +145,18 @@ mixed source branches do not become a negative conjunction.
 
 A rule and the adapters compiled with it (the projections of a compound
 conclusion, the connective of a compound antecedent) share one context
-pattern, so they hold in every context the rule applies in. An implication
+pattern, so they hold in every context the rule applies in. A rule's
+statement premises read in that same context pattern (#142). Two kinds of
+premise are compiled at MAIN while the pattern is open, and the chainer routes
+them into a hypothetical context by their pattern (`contextualize-rule-premise`):
+a fold, and a variable or variable-headed premise. Read in a private context, a
+variable predicate would unify with the context's internal keys, such as
+`RuleTruth`. The cost of that exception: a rule over a variable predicate still
+counts a forward-stored conclusion again in a later query, as a report of its
+own derivation (`($p $x) → (Seen $p $x)` gives .954/.944 after a forward run
+instead of .82/.910). A forward run stores only closed keys: an open key's
+value holds for every instance, and an instance query would read a stored copy
+of it as a report of its own derivation. An implication
 query's private contexts borrow MAIN observations of the other keys they
 read, including their compiled projections (#63). They never borrow an observation
 of their own consequent key, its instances, or its negation: P(B) does not

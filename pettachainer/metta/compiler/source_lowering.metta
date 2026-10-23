@@ -19,6 +19,16 @@
 (: compilation-plan
    (-[det]-> Goal (List CompiledAddition) CompilationPlan))
 
+;; The strict determinism checker rejects the library folds over a semidet
+;; step; these are their semidet forms, shared by the compiler and runtime.
+(: fold-semidet (-[semidet]-> (-[semidet]-> $acc $item $acc) $acc (List $item) $acc))
+(= (fold-semidet $_fun $acc ()) $acc)
+(= (fold-semidet $fun $acc (cons $item $rest)) (fold-semidet $fun ($fun $acc $item) $rest))
+
+(: map-semidet (-[semidet]-> (-[semidet]-> $input $output) (List $input) (List $output)))
+(= (map-semidet $_fun ()) ())
+(= (map-semidet $fun (cons $item $rest)) (cons ($fun $item) (map-semidet $fun $rest)))
+
 (: atom_concat (-[det]-> Atom Atom Atom))
 (: term_hash (-[det]-> $expression Number))
 
@@ -323,11 +333,17 @@
    (== (\== (list_to_set (extract-vars $term)) $known) ()))
 
 ;; Implication sides are expressions. Callers which need to inspect individual
-;; conjuncts use this view; singleton sides remain singleton lists.
+;; conjuncts use this view, through nested conjunctions: (And (And a b) c) has
+;; the conjuncts of (And a b c). Singleton sides remain singleton lists.
+(: conjunct-leaves (-[det]-> (List Atom) (List Atom) (List Atom)))
+(= (conjunct-leaves () $later) $later)
+(= (conjunct-leaves (cons $part $rest) $later)
+   (let $after (conjunct-leaves $rest $later)
+      (if (head-is? $part And) (conjunct-leaves (the (List Atom) (cdr-atom $part)) $after) (cons $part $after))))
 (: implication-side-conjuncts (-[det]-> Statement (List Atom)))
 (= (implication-side-conjuncts $side)
    (if (head-is? $side And)
-      (the (List Atom) (cdr-atom $side))
+      (conjunct-leaves (the (List Atom) (cdr-atom $side)) ())
       (cons $side ())))
 
 ;; A projection from a compound connective can depend on the other children as
@@ -371,39 +387,6 @@
 (: premise-bundle
    (-[det]-> (List Goal) TV Proof PremiseBundle))
 
-(: projection-evidence-step
-   (-[det]-> KBContext Expression
-       CompiledPremises Statement
-       CompiledPremises))
-(= (projection-evidence-step $kb $formula
-      ($execs $proofs $acc-tv)
-      $elem)
-   (let ($cpu $next-tv)
-      (binary-tv-cpu $formula $acc-tv (the TV $tv))
-      (data
-         (cons $cpu
-            (cons (: $kb $prf $elem $tv) $execs))
-         (cons (brand Proof $prf) $proofs)
-         $next-tv)))
-
-(: projection-evidence-bundle
-   (-[det]-> KBContext Atom (List Statement) PremiseBundle))
-(= (projection-evidence-bundle $kb $head (cons $fst $rst))
-   (let*
-      ((($reversed-execs $reversed-proofs $tv)
-           (fold-flat
-              (projection-evidence-step $kb (atom_concat $head Formula))
-              (data
-                 ((: $kb $fstprf $fst $fsttv))
-                 ((brand Proof $fstprf))
-                 (the TV $fsttv))
-              $rst))
-        ($execs (prepend-reversed-goals $reversed-execs ()))
-        ($proof-token
-           (implication-proof-token
-              (prepend-reversed-proofs $reversed-proofs ()))))
-      (premise-bundle $execs $tv $proof-token)))
-
 ;; Emit projection adapters recursively for every child of a configured
 ;; compound output. The strong projection uses the other children as evidence;
 ;; And additionally exposes a weak marginal projection so independently queried
@@ -415,6 +398,9 @@
    (cons
       (brand Statement $child)
       (statement-children $rest)))
+
+(: lower (-[semidet]-> KBContext Statement PremiseBundle))
+(: lower-all (-[semidet]-> KBContext Atom (List Statement) PremiseBundle))
 
 (: compile-output-children
    (-[nondet]-> KBContext Statement Atom (List Statement)
@@ -429,7 +415,7 @@
                ((: $kb $prf $type $tvin) (CPU (atom_concat $head Projection) ($tvin) $tvout))
                (brand Proof (proj $idx $prf)) $elem $tvout)
             (let (premise-bundle $execs $evidence-tv $evidence-proof)
-                 (projection-evidence-bundle $kb $head $others)
+                 (lower-all $kb $head $others)
                (canonical-addition $kb
                   (cons (: $kb $prf $type $tvin)
                      (append-goals $execs
@@ -499,54 +485,15 @@
 (= (make-kb-context $kb $ctx $vars)
    (brand KBContext (quote ($kb $ctx $vars))))
 
-(: source-premise-kb
-   (-[det]-> KB $context $variables KBContext))
-(= (source-premise-kb $kb $ctx $vars)
-   (if (or (is-var $ctx) (is-var $vars))
-      (kbctx $kb)
-      (make-kb-context $kb $ctx $vars)))
-
-;; Normalize one source premise to the compiler's common bundle:
-;;   premise-bundle(executable goals, evidence TV, proof token).
-;; Keeping this boundary uniform lets compound, computed, and ordinary fact
-;; premises be combined by the same folds below.
-(: leaf-source-bundle
-   (-[det]-> KB $context $variables
-       Statement PremiseBundle))
-(= (leaf-source-bundle $kb $ctx $vars $elem)
-   (let $prem-kb (source-premise-kb $kb $ctx $vars)
-      (if (is-var $elem)
-         (premise-bundle ((: $prem-kb $prf $elem $tv)) $tv $prf)
-         (if (if (head-is? $elem CPU) (= $elem (CPU $f $args $res)) false)
-         (premise-bundle ((CPU $f $args $res))
-            (cpu-premise-tv $f $args $res) cpu)
-         (premise-bundle ((: $prem-kb $prf $elem $tv)) $tv $prf)))))
-
-(: in_map
-   (-[det]-> KBContext Atom CompiledPremise))
-(= (in_map $kb $elem)
-   (if (if (head-is? $elem CPU) (= $elem (CPU $f $args $res)) false)
-      (data (CPU $f $args $res)
-         (cpu-premise-tv $f $args $res) cpu)
-      (data
-         (: $kb $prf $elem $tv)
-         (the TV $tv) (brand Proof $prf))))
-
-(: in_fold
-   (-[det]-> Atom
-       CompiledPremises
-       CompiledPremise
-       CompiledPremises))
-(=
-   (in_fold $formula
-      ($premises $proofs $tv)
-      ($goal $tve $proof))
-   (let ($cpu $next-tv)
-      (binary-tv-cpu $formula $tv $tve)
-      (data
-         (cons $cpu (cons $goal $premises))
-         (cons $proof $proofs)
-         $next-tv)))
+;; A rule's conclusion and its statement premises share one context pattern,
+;; with two exceptions compiled at MAIN while that context is open, which the
+;; chainer routes into a hypothetical scope by their pattern
+;; (contextualize-rule-premise): a fold, and a premise whose predicate is a
+;; variable. Read in a private context, a variable predicate would unify with
+;; the context's internal keys, such as RuleTruth.
+(: fold-scope (-[det]-> KBContext KBContext))
+(= (fold-scope ($kbid $ctx $vars))
+   (if (or (is-var $ctx) (is-var $vars)) (kbctx (brand KB $kbid)) (make-kb-context (brand KB $kbid) $ctx $vars)))
 
 (: exec-goal-type
    (-[det]-> Goal Expression))
@@ -556,117 +503,6 @@
 (: execs-goal-type
    (-[det]-> (List Goal) Expression))
 (= (execs-goal-type $execs) (seq2expr (map-flat exec-goal-type $execs)))
-
-;; Reconstruct the source shape of a lowered connective without treating its
-;; own TV-fold CPU goals as additional children. Real CPU children remain in
-;; the shape; only the <Head>Formula and SettlesFormula bookkeeping inserted by
-;; the compound lowering itself is removed.
-(: compound-exec-source-types
-   (-[det]-> Expression (List Goal) (List Atom)))
-(= (compound-exec-source-types $_formula ()) ())
-(= (compound-exec-source-types $formula (cons $goal $rest))
-   (if (= $goal (CPU $fun $_args $_result))
-      (if (or (== $fun $formula) (== $fun SettlesFormula))
-         (compound-exec-source-types $formula $rest)
-         (cons (exec-goal-type $goal)
-            (compound-exec-source-types $formula $rest)))
-      (cons (exec-goal-type $goal)
-         (compound-exec-source-types $formula $rest))))
-
-;; Compound settling: a part known with certainty at its connective's settling
-;; value (`set-compound-settling`) decides the compound without the other
-;; parts, so a part with no proof does not block it. The settled bundle reads
-;; the part alone, checks its value (SettlesFormula), and carries the settling
-;; value. A part that already carries a value settles only with that value.
-;; Only a part binding all the compound's variables settles it: one leaving a
-;; variable open would decide a single instance of a variable the other parts
-;; range over.
-(: settled-premise-bundle
-   (-[nondet]-> Atom Atom PremiseBundle PremiseBundle))
-(= (settled-premise-bundle $compound $part (premise-bundle $execs $tv $proof))
-   (let $head (car-atom $compound)
-      (case (collapse (match &logic_config (compound-settling $head $setting) $setting)) (
-         ((cons $value $_none)
-            (if (vars-covered? $compound (list_to_set (extract-vars $part)))
-               (if (is-var $tv)
-                  (premise-bundle
-                     (append-goals $execs
-                        (cons (CPU SettlesFormula (quote ($tv $value)) $value) ()))
-                     $value (settled $proof))
-                  (if (== $tv $value)
-                     (premise-bundle $execs $value (settled $proof))
-                     (empty)))
-               (empty)))
-         (() (empty))))))
-
-;; Lower a connective whose configured premise mode is All. Every child must
-;; succeed, child TVs are folded with <Head>Formula, and the proof token records
-;; the conjunction of the child proofs. This is the general conjunction-
-;; introduction mechanism for And premises; it is connective-generic so the
-;; same machinery also serves other All-mode connectives.
-(: compound-all-premise-bundle
-   (-[nondet]-> KB $context $variables
-       Atom Atom PremiseBundle))
-
-(: compound-premise-items
-   (-[nondet]-> KBContext Atom
-       (List CompiledPremise)))
-(= (compound-premise-items $kb $items)
-   (case $items (
-      (() ())
-      ((cons $item $rest)
-         (cons
-            (in_map $kb (brand Statement $item))
-            (compound-premise-items $kb $rest))))))
-
-(= (compound-all-premise-bundle $kb $ctx $vars $head $tail)
-   (let $prem-kb (source-premise-kb $kb $ctx $vars)
-      (superpose (
-         (let*
-            (((cons ($fstgoal $fsttv $fstprf) $rst)
-                (compound-premise-items $prem-kb $tail))
-             ($init
-                (data
-                   (cons $fstgoal ())
-                   (cons $fstprf ())
-                   $fsttv))
-             (($reversed-execs $reversed-proofs $ccltv)
-                (fold-flat
-                   (in_fold (atom_concat $head Formula))
-                   (the CompiledPremises $init)
-                   $rst))
-             ($execs (prepend-reversed-goals $reversed-execs ()))
-             ($proof-token
-                (implication-proof-token
-                   (prepend-reversed-proofs $reversed-proofs ()))))
-            (premise-bundle $execs $ccltv $proof-token))
-         (let* (($compound (cons-atom $head $tail))
-                ($parts (the (List Atom) $tail))
-                ($part (superpose $parts))
-                (($goal $tv $proof) (in_map $prem-kb (brand Statement $part))))
-            (settled-premise-bundle $compound $part
-               (premise-bundle ($goal) $tv $proof)))))))
-
-(: compound-any-premise-bundle
-   (-[nondet]-> KB $context $variables Atom Atom
-       PremiseBundle))
-(= (compound-any-premise-bundle $kb $ctx $vars $head (cons $elem $rest))
-   (superpose (
-      (let*
-         (($prem-kb (source-premise-kb $kb $ctx $vars))
-           (($goal $tv $proof) (in_map $prem-kb $elem)))
-         (premise-bundle
-            ($goal) $tv ((atom_concat $head introduction) $proof)))
-      (compound-any-premise-bundle $kb $ctx $vars $head $rest))))
-
-(: compound-premise-bundle
-   (-[nondet]-> KB $context $variables Atom Atom
-       PremiseBundle))
-(= (compound-premise-bundle $kb $ctx $vars $head $tail)
-   (let $mode (configured-compound-premise-mode $head)
-      (if (= $mode Any)
-         (compound-any-premise-bundle $kb $ctx $vars $head $tail)
-         (compound-all-premise-bundle $kb $ctx $vars $head $tail))))
 
 ;; Compound lowering is deliberately configuration-driven. Merely being an
 ;; expression is insufficient: ordinary predicates such as (Friend a b) must
@@ -680,9 +516,7 @@
             (compound-connective? $head)))
       false))
 
-;; Query compounds need recursive lowering because a child may itself be a
-;; compound or a source-level computation. A plain predicate child stays a leaf
-;; lookup so it can use the normal chainer indexes.
+;; Source-level computations lower to CPU goals rather than key reads.
 (: source-computation-head? (-[det]-> Atom Bool))
 (= (source-computation-head? $head)
    (case $head (
@@ -700,334 +534,177 @@
       (> true)
       ($_other false))))
 
-;; Forward declarations for the mutually recursive compound/source lowering
-;; group.  Their implementations remain below.
-(: query-compound-premise-bundle
-   (-[semidet]-> KB $context $variables Atom
-       (List Statement) PremiseBundle))
-(: lower-source-premise
-   (-[nondet]-> KB $context $variables Statement  PremiseBundle))
-
-(: query-compound-child-bundle
-   (-[semidet]-> KB $context $variables Statement PremiseBundle))
-(= (query-compound-child-bundle $kb $ctx $vars $premise)
-   (if (compound-source? $premise)
-      (let (cons $head $tail) $premise
-         (query-compound-premise-bundle
-            $kb $ctx $vars $head
-            (statement-children $tail)))
-      (if (is-expr $premise)
-         (let $head (car-atom $premise)
-            (if (is-var $head)
-               (leaf-source-bundle $kb $ctx $vars $premise)
-               (if (source-computation-head? $head)
-                  (once (lower-source-premise $kb $ctx $vars $premise))
-                  (leaf-source-bundle $kb $ctx $vars $premise))))
-         (leaf-source-bundle $kb $ctx $vars $premise))))
-
-;; Accumulate a direct compound-query rule in source order. Appending both goals
-;; and proofs is intentional: the returned `(conjunction ...)` proof mirrors the
-;; order written by the caller, while each TV fold consumes the same ordering.
-(: query-compound-premise-step
-   (-[semidet]-> KB $context $variables Expression
-       CompiledPremises
-       Statement
-       CompiledPremises))
-(=
-   (query-compound-premise-step $kb $ctx $vars $formula
-      ($acc-execs $acc-proofs $acc-tv)
-      $premise)
-   (let*
-      (((premise-bundle $execs $tv $proof)
-          (query-compound-child-bundle
-             $kb $ctx $vars
-             $premise))
-       (($cpu $next-tv)
-          (binary-tv-cpu $formula $acc-tv $tv)))
-      (data
-         (cons $cpu
-            (prepend-reversed-goals $execs $acc-execs))
-         (cons $proof $acc-proofs)
-         $next-tv)))
-
-(= (query-compound-premise-bundle $kb $ctx $vars $head (cons $fst $rst))
-   (let*
-      ((($reversed-execs $reversed-proofs $ccltv)
-           (fold-flat
-              (query-compound-premise-step
-                 $kb $ctx $vars (atom_concat $head Formula))
-              (let (premise-bundle $first-execs $first-tv $first-proof)
-                 (query-compound-child-bundle $kb $ctx $vars $fst)
-                 (data
-                    (prepend-reversed-goals $first-execs ())
-                    ($first-proof) $first-tv))
-              $rst))
-        ($execs (prepend-reversed-goals $reversed-execs ()))
-        ($proof-token
-           (implication-proof-token
-              (prepend-reversed-proofs $reversed-proofs ()))))
-      (premise-bundle $execs $ccltv $proof-token)))
-
-;; A direct bundle is required when normal plain adapters cannot faithfully
-;; express a child: nested compounds and computations must be lowered inside
-;; the query rule rather than looked up as already materialized facts.
-(: query-compound-child-needs-bundle? (-[det]-> Statement Bool))
-(= (query-compound-child-needs-bundle? $premise)
-   (if (compound-source? $premise)
-      (query-compound-needs-bundle? $premise)
-      (if (is-expr $premise)
-         (let $head (car-atom $premise)
-            (if (is-var $head) false
-               (source-computation-head? $head)))
-         false)))
-
-(: compound-direct-query-bundle? (-[det]-> (List Statement) Bool))
-(= (compound-direct-query-bundle? $items)
-   (if (== $items ()) false
-      (case $items (
-         ((cons $item $rest)
-            (if (query-compound-child-needs-bundle? $item)
-               true
-               (compound-direct-query-bundle? $rest)))))))
-
-;; Three-or-more-child compound queries are also lowered directly. The ordinary
-;; adapter path was designed around binary rule shapes; forcing an n-ary query
-;; through it can lose the complete ordered proof bundle. This is the explicit
-;; specialization which makes `(And A B C ...)` synthesize one query-local
-;; conjunction-introduction rule with proof `(conjunction a b c ...)`.
-(: compound-nary-query? (-[det]-> (List Statement) Bool))
-(= (compound-nary-query? $items)
-   (case $items (
-      ((cons $_a (cons $_b (cons $_c $_rest))) true)
-      ($_ false))))
-
-(: query-compound-needs-bundle? (-[det]-> Statement Bool))
-(= (query-compound-needs-bundle? $term)
-   (if (is-expr $term)
-      (let $items
-         (statement-children (cdr-atom $term))
-         (if (compound-nary-query? $items)
-            true
-            (compound-direct-query-bundle? $items)))
-      false))
-
-;; An open proof variable should be replaced by the generated bundle itself.
-;; A named/structured query proof is instead retained as an outer provenance
-;; label around that bundle.
-(: query-compound-proof-token (-[det]-> Proof Proof Proof))
-(= (query-compound-proof-token $prf $proof-token)
-   (if (is-var $prf)
-      $proof-token
-      (brand Proof (quote ($prf $proof-token)))))
-
-;; Build reusable adapters for source expressions found in stored rules. Each
-;; adapter derives the requested compound from its lowered children. Recursing
-;; on a different executable type ensures any intermediate source syntax also
-;; receives an adapter, without regenerating the identical rule.
-(: AdapterMode Type)
-(: plain AdapterMode)
-(: query AdapterMode)
-
-(: compile-adapter-chain
-   (-[nondet]-> AdapterMode Goal  CompiledAddition))
-(= (compile-adapter-chain plain (: $kb $prf $type $tv))
-   (if (compound-source? $type)
-      (let ($kbid $ctx $vars) $kb
-         (let*
-            (($head (car-atom $type))
-             ($tail (cdr-atom $type))
-             ((premise-bundle $execs $result-tv $proof-token)
-                 (compound-premise-bundle
-                    $kbid $ctx $vars $head $tail))
-              ($exec-type
-                 (seq2expr
-                    (compound-exec-source-types
-                       (atom_concat $head Formula) $execs))))
-            (superpose
-               ((brand CompiledAddition
-                    ($execs |-
-                       (: $kb $proof-token $type $result-tv)))
-                (if (== $exec-type $type) (empty)
-                   (compile-adapter-chain plain
-                      (: $kb $prfa $exec-type $atv)))))))
-      (empty)))
-
-;; Query adapters differ from stored-rule adapters in three places:
-;; 1. Not is exposed as an explicit negated proof;
-;; 2. complex/n-ary compounds get one query-local direct bundle; and
-;; 3. other computed source forms are lowered and bridged only when their
-;;    executable goal shape differs from the requested source expression.
-(= (compile-adapter-chain query (: $kb $prf $type $tv))
-   (if (head-is? $type Not)
-      (let* ((($kbid $ctx $vars) $kb)
-             ((premise-bundle $execs $not-tv $proof-token) (once (lower-source-premise $kbid $ctx $vars $type))))
-         (brand CompiledAddition ($execs |- (: $kb $proof-token $type $not-tv))))
-      (if (compound-source? $type)
-         (if (query-compound-needs-bundle? $type)
-            (let*
-               (((cons $head $tail) $type)
-                 ((premise-bundle $execs $result-tv $proof-token)
-                    (let ($kbid $ctx $vars) $kb
-                       (superpose (
-                          (once
-                             (query-compound-premise-bundle
-                                $kbid $ctx $vars $head
-                                (statement-children $tail)))
-                          (let* (($children (the (List Atom) $tail))
-                                 ($child (superpose $children)))
-                             (settled-premise-bundle $type $child
-                                (query-compound-child-bundle
-                                   $kbid $ctx $vars (brand Statement $child)))))))))
-               (brand CompiledAddition
-                  ($execs |-
-                     (: $kb
-                         (query-compound-proof-token $prf $proof-token)
-                         $type $result-tv))))
-            (compile-adapter-chain plain (: $kb $prf $type $tv)))
-         (let*
-            (((premise-bundle $execs $result-tv $proof-token)
-                 (let ($kbid $ctx $vars) $kb
-                    (once
-                       (lower-source-premise
-                          $kbid $ctx $vars $type))))
-              ($exec-type (execs-goal-type $execs)))
-            (if (if (is-var $type)
-                   false
-                   (not (== $exec-type $type)))
-               (superpose ((brand CompiledAddition
-                              ($execs |-
-                                 (: $kb ($prf $proof-token) $type $result-tv)))
-                           (compile-adapter-chain plain (: $kb $prfa $exec-type $atv))))
-               (empty))))))
-
-;; Lower the supported source-language premise forms to executable chainer/CPU
-;; goals. This function owns the semantic translation (including which TV and
-;; proof token a computation contributes); callers only combine its bundles.
-(: lower-source-premise-non-open
-   (-[nondet]-> KB $context $variables Statement  PremiseBundle))
-(= (lower-source-premise-non-open $kb $ctx $vars $premise)
-   (if (compound-source? $premise)
-      (let*
-         (($head (car-atom $premise))
-          ($tail (cdr-atom $premise)))
-         (compound-premise-bundle $kb $ctx $vars $head $tail))
+;; How a premise reads a statement: one bundle of goals, its truth value and
+;; its proof. A negation reads its statement and complements it; an
+;; existential reads the floor of its claim and its witnesses; a computation
+;; lowers to CPU goals; every other statement, a compound included, is a key
+;; read, and the compound's producers give that key its value. Statement reads
+;; share the reader's context; folds take `fold-scope`.
+(= (lower $kc $premise)
+   (once (if (head-is? $premise Not)
+      (let (premise-bundle $goals $tv $proof) (lower $kc (brand Statement (car-atom (cdr-atom $premise))))
+         (premise-bundle (append-goals $goals ((CPU NotFormula ($tv) $not-tv))) $not-tv (negated $proof)))
+   (if (explicit-exists-term? $premise)
+      (fold-existential-premise-bundle (fold-scope $kc)
+         (brand Statement (ExistentialAlternatives (canonical-existential-side $premise) $channel))
+         (implication-antecedent-free-vars $premise) ExistentialFloor (STV 0 0))
+   ;; A variable or variable-headed premise is a fact read in `fold-scope`:
+   ;; dispatching it through the cases below would mistake an unknown head for
+   ;; compiler syntax.
+   (if (if (is-var $premise) true (if (is-expr $premise) (is-var (car-atom $premise)) false))
+      (let $read (if (is-var $premise) $premise (if (== (cdr-atom $premise) ()) (car-atom $premise) $premise))
+         (premise-bundle ((: (fold-scope $kc) $prf $read $tv)) $tv $prf))
+   (let ($kb $_ctx $_vars) $kc
       (case $premise (
-           ((Implication $_antecedent $_consequent)
-              (leaf-source-bundle $kb $ctx $vars $premise))
-           ((KnownExistential $binder $body)
-              (let $bound-vars
-                 (list_to_set (explicit-exists-vars $binder))
-                 (if (== $bound-vars ())
-                    (empty)
-                    (fold-existential-premise-bundle
-                       $kb $ctx $vars (brand Statement $body)
-                       (\==
-                          (list_to_set (extract-vars $body))
-                          $bound-vars) OrFormula (STV 0 0)))))
-           ((ExistentialResidual $binder $body)
-              (existential-residual-premise-bundle
-                 $kb $ctx $vars $binder $body))
-           ((Compute $f $args -> $res)
-              (premise-bundle ((CPU $f $args $res))
-                 (cpu-premise-tv $f $args $res) cpu))
-           ((Compute $f $args $res)
-              (lower-source-premise-non-open
-                 $kb $ctx $vars
-                 (brand Statement (Compute $f $args -> $res))))
-           ((MapDist $fun $a $value -> $out)
-              (premise-bundle
-                 ((: (make-kb-context $kb $ctx $vars)
-                      $prfa $a $tv_a)
-                  (CPU DistMapFormula (quote ($fun $value)) $out))
-                 (STV 1.0 1.0)
-                 $prfa))
-           ((Map2Dist $fun $a $valuea $b $valueb -> $out)
-              (premise-bundle
-                 ((: (make-kb-context $kb $ctx $vars)
-                      $prfa $a $tv_a)
-                  (: (make-kb-context $kb $ctx $vars)
-                      $prfb $b $tv_b)
-                    (CPU DistMap2Formula (quote ($fun $valuea $valueb)) $out))
-                 (STV 1.0 1.0)
-                 (conjunction $prfa $prfb)))
-           ((AverageDist $pattern $value -> $out)
-              (premise-bundle
-                 ((CPU FoldAllCompiled
-                       ($kb $pattern
-                          (extract-value $pattern $value)
-                          (SumCount (PointMass 0.0) 0)
-                          DistSumCountAcc
-                          dist-average
-                          unit-stv)
-                       $out))
-                 (STV 1.0 1.0)
-                 cpu))
-           ((FoldAllValue $pattern $init $fun -> $out)
-              (premise-bundle
-                 ((CPU FoldAllCompiled
-                       ($kb $pattern extract-tv $init $fun identity unit-stv)
-                       $out))
-                 (STV 1.0 1.0)
-                 cpu))
-           ;; Like FoldAll, with each member's truth value matched against
-           ;; `$truth` so `$value` can use it.
-           ((FoldAllTruth $pattern $truth $value $init $fun -> $out)
-              (premise-bundle
-                 ((CPU FoldAllCompiled
-                       ($kb $pattern
-                          (extract-with-truth $pattern $truth $value)
-                          $init
-                          $fun
-                          identity
-                          unit-stv)
-                       $out))
-                 (STV 1.0 1.0)
-                 cpu))
-           ((FoldAll $pattern $value $init $fun -> $out)
-              (premise-bundle
-                 ((CPU FoldAllCompiled
-                       ($kb $pattern
-                          (extract-value $pattern $value)
-                          $init
-                          $fun
-                          identity
-                          unit-stv)
-                       $out))
-                 (STV 1.0 1.0)
-                 cpu))
-           ((Not $a)
-              (if (head-is? $a Not)
-                 (let (premise-bundle $a-execs $tv_a $prfa) (once (lower-source-premise $kb $ctx $vars (brand Statement $a)))
-                    (premise-bundle (append-goals $a-execs ((CPU NotFormula ($tv_a) $tv))) $tv (negated $prfa)))
-                 (let $prem-kb (source-premise-kb $kb $ctx $vars)
-                    (premise-bundle ((: $prem-kb $prfa $a $tv_a) (CPU NotFormula ($tv_a) $tv)) $tv (negated $prfa)))))
-           (($rel $a $b)
-              (if (is-member $rel (GreaterThan >))
-                 (if (is-var $b) (premise-bundle ((CPU DistGreaterThanDistFormula ($a $b) $tv)) $tv cpu)
-                    (premise-bundle ((CPU DistGreaterThanFormula ($a $b) $tv)) $tv cpu))
-                 (premise-bundle
-                    ((: (make-kb-context $kb $ctx $vars)
-                         $prf ($rel $a $b) $tv))
-                    $tv $prf)))
-           ($other
-              (premise-bundle
-                 ((: (make-kb-context $kb $ctx $vars)
-                      $prf $other $tv))
-                 $tv $prf))))))
+         ((CPU $f $args $res)
+            (premise-bundle ((CPU $f $args $res)) (cpu-premise-tv $f $args $res) cpu))
+         ((KnownExistential $binder $body)
+            (let $bound-vars (list_to_set (explicit-exists-vars $binder))
+               (if (== $bound-vars ())
+                  (empty)
+                  (fold-existential-premise-bundle (fold-scope $kc) (brand Statement $body)
+                     (\== (list_to_set (extract-vars $body)) $bound-vars) OrFormula (STV 0 0)))))
+         ((ExistentialResidual $binder $body)
+            (existential-residual-premise-bundle $kc $binder $body))
+         ((Compute $f $args -> $res)
+            (premise-bundle ((CPU $f $args $res)) (cpu-premise-tv $f $args $res) cpu))
+         ((Compute $f $args $res)
+            (premise-bundle ((CPU $f $args $res)) (cpu-premise-tv $f $args $res) cpu))
+         ((MapDist $fun $a $value -> $out)
+            (premise-bundle
+               ((: $kc $prfa $a $tv_a) (CPU DistMapFormula (quote ($fun $value)) $out))
+               (STV 1.0 1.0) $prfa))
+         ((Map2Dist $fun $a $valuea $b $valueb -> $out)
+            (premise-bundle
+               ((: $kc $prfa $a $tv_a) (: $kc $prfb $b $tv_b)
+                (CPU DistMap2Formula (quote ($fun $valuea $valueb)) $out))
+               (STV 1.0 1.0) (conjunction $prfa $prfb)))
+         ((AverageDist $pattern $value -> $out)
+            (premise-bundle
+               ((CPU FoldAllCompiled
+                   ($kb $pattern (extract-value $pattern $value) (SumCount (PointMass 0.0) 0)
+                      DistSumCountAcc dist-average unit-stv)
+                   $out))
+               (STV 1.0 1.0) cpu))
+         ((FoldAllValue $pattern $init $fun -> $out)
+            (premise-bundle
+               ((CPU FoldAllCompiled ($kb $pattern extract-tv $init $fun identity unit-stv) $out))
+               (STV 1.0 1.0) cpu))
+         ;; Like FoldAll, with each member's truth value matched against
+         ;; `$truth` so `$value` can use it.
+         ((FoldAllTruth $pattern $truth $value $init $fun -> $out)
+            (premise-bundle
+               ((CPU FoldAllCompiled
+                   ($kb $pattern (extract-with-truth $pattern $truth $value) $init $fun identity unit-stv)
+                   $out))
+               (STV 1.0 1.0) cpu))
+         ((FoldAll $pattern $value $init $fun -> $out)
+            (premise-bundle
+               ((CPU FoldAllCompiled
+                   ($kb $pattern (extract-value $pattern $value) $init $fun identity unit-stv)
+                   $out))
+               (STV 1.0 1.0) cpu))
+         (($rel $a $b)
+            (if (is-member $rel (GreaterThan >))
+               (if (is-var $b) (premise-bundle ((CPU DistGreaterThanDistFormula ($a $b) $tv)) $tv cpu)
+                  (premise-bundle ((CPU DistGreaterThanFormula ($a $b) $tv)) $tv cpu))
+               (premise-bundle ((: $kc $prf ($rel $a $b) $tv)) $tv $prf)))
+         ($other
+            (premise-bundle ((: $kc $prf $other $tv)) $tv $prf))))))))))
 
-;; Variable-headed expressions require the generic fact path. Dispatching them
-;; through the structural cases above would mistake an unknown predicate head
-;; for compiler syntax and could specialize the query incorrectly.
-(= (lower-source-premise $kb $ctx $vars $premise)
-   (if (if (is-expr $premise)
-          (is-var (car-atom $premise))
-          false)
-      (if (== (cdr-atom $premise) ())
-         (leaf-source-bundle
-            $kb $ctx $vars
-            (brand Statement (car-atom $premise)))
-         (leaf-source-bundle $kb $ctx $vars $premise))
-      (lower-source-premise-non-open $kb $ctx $vars $premise)))
+;; A connective over lowered parts: their goals in source order, their values
+;; folded by <Head>Formula, the conjunction of their proofs.
+(: lower-all-step
+   (-[semidet]-> KBContext Expression CompiledPremises Statement CompiledPremises))
+(= (lower-all-step $kc $formula ($goals $proofs $tv) $part)
+   (let* (((premise-bundle $part-goals $part-tv $part-proof) (lower $kc $part))
+          (($cpu $next-tv) (binary-tv-cpu $formula $tv $part-tv)))
+      (data (cons $cpu (prepend-reversed-goals $part-goals $goals)) (cons $part-proof $proofs) $next-tv)))
+
+(= (lower-all $kc $head (cons $first $rest))
+   (let* (((premise-bundle $goals $tv $proof) (lower $kc $first))
+          (($reversed-goals $reversed-proofs $all-tv)
+             (fold-semidet (lower-all-step $kc (atom_concat $head Formula))
+                (data (prepend-reversed-goals $goals ()) ($proof) $tv) $rest)))
+      (premise-bundle (prepend-reversed-goals $reversed-goals ())
+         $all-tv (implication-proof-token (prepend-reversed-proofs $reversed-proofs ())))))
+
+;; Compound settling: a part known with certainty at its connective's settling
+;; value (`set-compound-settling`) decides the compound without the other
+;; parts, so a part with no proof does not block it. The settled reading reads
+;; the part alone, checks its value (SettlesFormula), and carries the settling
+;; value. A part that already carries a value settles only with that value.
+;; Only a part binding all the compound's variables settles it: one leaving a
+;; variable open would decide a single instance of a variable the other parts
+;; range over.
+(: settled-reading (-[det]-> Statement Statement PremiseBundle (List PremiseBundle)))
+(= (settled-reading $compound $part (premise-bundle $goals $tv $proof))
+   (case (let $head (car-atom $compound) (collapse (match &logic_config (compound-settling $head $setting) $setting))) (
+      ((cons $value $_none)
+         (if (vars-covered? $compound (list_to_set (extract-vars $part)))
+            (if (is-var $tv)
+               (cons (premise-bundle
+                        (append-goals $goals ((CPU SettlesFormula (quote ($tv $value)) $value)))
+                        $value (settled $proof))
+                  ())
+               (if (== $tv $value) (cons (premise-bundle $goals $value (settled $proof)) ()) ()))
+            ()))
+      (() ()))))
+
+;; The settling readings of a compound's parts, in source order. This and the
+;; antecedent recursions below prepend onto their later results: the
+;; determinism checker accepts `append` only onto a constructed list, and a
+;; semidet fold's type-variable result would leave a runtime type check.
+(: settlings (-[semidet]-> KBContext Statement (List Statement) (List PremiseBundle)))
+(= (settlings $_kc $_compound ()) ())
+(= (settlings $kc $compound (cons $part $rest))
+   (append (settled-reading $compound $part (lower $kc $part)) (settlings $kc $compound $rest)))
+
+;; An Any-mode compound is introduced by any one of its parts.
+(: any-reading (-[semidet]-> KBContext Atom Statement PremiseBundle))
+(= (any-reading $kc $head $part)
+   (let (premise-bundle $goals $tv $proof) (lower $kc $part)
+      (premise-bundle $goals $tv ((atom_concat $head introduction) $proof))))
+
+;; The readings of a compound: in All mode its complete bundle, then the
+;; bundle of each part that settles it alone; in Any mode one per part.
+(: compound-readings (-[semidet]-> KBContext Statement (List PremiseBundle)))
+(= (compound-readings $kc $compound)
+   (let* (($head (car-atom $compound)) ($parts (statement-children (cdr-atom $compound))))
+      (if (== (configured-compound-premise-mode $head) Any)
+         (map-semidet (any-reading $kc $head) $parts)
+         (cons (lower-all $kc $head $parts) (settlings $kc $compound $parts)))))
+
+;; The rules that give a compound key its value: one per reading, concluding
+;; the compound in the reader's context, and those of every compound key the
+;; readings read, through negations too. A reading's proof is the conclusion's,
+;; or, under a named query proof `$name`, wrapped in that name as an outer
+;; provenance label.
+(: reading-addition (-[det]-> KBContext Proof Statement PremiseBundle CompiledAddition))
+(= (reading-addition $kc $name $compound (premise-bundle $goals $tv $proof))
+   (brand CompiledAddition
+      ($goals |- (: $kc (if (is-var $name) $proof (brand Proof (quote ($name $proof)))) $compound $tv))))
+
+(: producers (-[semidet]-> KBContext Proof Statement (List CompiledAddition)))
+(: child-producers-step
+   (-[semidet]-> KBContext (List CompiledAddition) Statement (List CompiledAddition)))
+(= (child-producers-step $kc $acc $child)
+   (append-compiled-additions $acc (producers $kc (brand Proof $_name) $child)))
+(= (producers $kc $name $statement)
+   (let ($key $_odd) (canon $statement)
+      (if (compound-source? $key)
+         (fold-semidet (child-producers-step $kc)
+            (map-flat (reading-addition $kc $name $key) (compound-readings $kc $key))
+            (statement-children (cdr-atom $key)))
+         ())))
+
+;; The readings of a top-level premise: a compound is read inline through its
+;; readings, any other statement through `lower`.
+(: premise-readings (-[semidet]-> KBContext Statement (List PremiseBundle)))
+(= (premise-readings $kc $premise)
+   (if (compound-source? $premise)
+      (compound-readings $kc $premise)
+      (cons (lower $kc $premise) ())))
 
 ;; Combine premise bundles left-to-right. AndFormula is inserted only between
 ;; non-empty bundles so the first premise supplies the initial TV and no fake
@@ -1050,6 +727,125 @@
             (cons $proof $current-proofs)
             $next-tv))))
 
+(: extend-step
+   (-[det]-> CompiledPremises PremiseBundle (List CompiledPremises) (List CompiledPremises)))
+(= (extend-step $partial $reading $kept) (cons (append-premise-bundle $partial $reading) $kept))
+(: extend-partials-step
+   (-[det]-> (List PremiseBundle) CompiledPremises (List CompiledPremises) (List CompiledPremises)))
+(= (extend-partials-step $readings $partial $kept) (foldr-flat (extend-step $partial) $kept $readings))
+;; Every combination of the conjuncts' readings, the last conjunct varying
+;; fastest, as reversed partial lowerings.
+(: conjunct-combinations
+   (-[semidet]-> KBContext (List CompiledPremises) (List Atom) (List CompiledPremises)))
+(= (conjunct-combinations $_kc $partials ()) $partials)
+(= (conjunct-combinations $kc $partials (cons $conjunct $rest))
+   (conjunct-combinations $kc
+      (foldr-flat (extend-partials-step (premise-readings $kc (brand Statement $conjunct))) () $partials)
+      $rest))
+
+;; The lowerings of a conjunctive antecedent that one conjunct settles alone,
+;; one per reading of the conjunct, in source order. `antecedent-settlings`
+;; keeps the And test in a function body: as an argument, an `if` with an
+;; empty-list branch leaves a runtime type check.
+(: reading-settlings
+   (-[det]-> Statement Statement (List PremiseBundle) (List CompiledPremises) (List CompiledPremises)))
+(= (reading-settlings $_antecedent $_conjunct () $later) $later)
+(= (reading-settlings $antecedent $conjunct (cons $reading $rest) $later)
+   (let $after (reading-settlings $antecedent $conjunct $rest $later)
+      (case (settled-reading $antecedent $conjunct $reading) (
+         ((cons (premise-bundle $goals $tv $proof) $_none) (cons (data $goals (cons $proof ()) $tv) $after))
+         ($_unsettled $after)))))
+(: conjunct-settlings (-[semidet]-> KBContext Statement (List Atom) (List CompiledPremises)))
+(= (conjunct-settlings $_kc $_antecedent ()) ())
+(= (conjunct-settlings $kc $antecedent (cons $conjunct $rest))
+   (let $part (brand Statement $conjunct)
+      (reading-settlings $antecedent $part (premise-readings $kc $part)
+         (conjunct-settlings $kc $antecedent $rest))))
+(: antecedent-settlings (-[semidet]-> KBContext Statement (List CompiledPremises)))
+(= (antecedent-settlings $kc $antecedent)
+   (if (head-is? $antecedent And)
+      (conjunct-settlings $kc $antecedent (implication-side-conjuncts $antecedent))
+      ()))
+
+;; Every lowering of a rule's antecedent, the complete one first: each conjunct
+;; is read through each of its readings, and a conjunct that settles a
+;; conjunctive antecedent alone adds a lowering of its own.
+(: antecedent-lowerings (-[semidet]-> KBContext Statement (List CompiledPremises)))
+(: finished-lowerings (-[det]-> (List CompiledPremises) (List CompiledPremises) (List CompiledPremises)))
+(= (finished-lowerings () $later) $later)
+(= (finished-lowerings (cons $partial $rest) $later)
+   (cons (finish-reversed-compiled-premises $partial) (finished-lowerings $rest $later)))
+(= (antecedent-lowerings $kc $antecedent)
+   (let* (($conjuncts (implication-side-conjuncts $antecedent))
+          ($combinations (conjunct-combinations $kc ((data () () (STV 1.0 1.0))) $conjuncts)))
+      (finished-lowerings $combinations (antecedent-settlings $kc $antecedent))))
+
+;; The complete lowering of a statement read as an antecedent.
+(: complete-lowering (-[semidet]-> KBContext Statement CompiledPremises))
+(= (complete-lowering $kc $statement)
+   (case (antecedent-lowerings $kc $statement) (((cons $complete $_others) $complete))))
+
+;; A compound query root is complex when a child is a compound or a
+;; computation, or when it has three or more children: the temporary-rule
+;; route compiles it (compound-query-temp-stmt), and its producers carry the
+;; query's proof name.
+(: query-compound-child-needs-bundle? (-[det]-> Statement Bool))
+(= (query-compound-child-needs-bundle? $premise)
+   (if (compound-source? $premise)
+      (query-compound-needs-bundle? $premise)
+      (if (is-expr $premise)
+         (let $head (car-atom $premise)
+            (if (is-var $head) false
+               (source-computation-head? $head)))
+         false)))
+
+(: compound-direct-query-bundle? (-[det]-> (List Statement) Bool))
+(= (compound-direct-query-bundle? $items)
+   (if (== $items ()) false
+      (case $items (
+         ((cons $item $rest)
+            (if (query-compound-child-needs-bundle? $item)
+               true
+               (compound-direct-query-bundle? $rest)))))))
+
+;; A three-or-more-child compound query, `(And A B C ...)`, is complex too: it
+;; synthesizes one query-local conjunction-introduction rule with proof
+;; `(conjunction a b c ...)`.
+(: compound-nary-query? (-[det]-> (List Statement) Bool))
+(= (compound-nary-query? $items)
+   (case $items (
+      ((cons $_a (cons $_b (cons $_c $_rest))) true)
+      ($_ false))))
+
+(: query-compound-needs-bundle? (-[det]-> Statement Bool))
+(= (query-compound-needs-bundle? $term)
+   (if (is-expr $term)
+      (let $items
+         (statement-children (cdr-atom $term))
+         (if (compound-nary-query? $items)
+            true
+            (compound-direct-query-bundle? $items)))
+      false))
+
+;; The query-local rules a query goal needs: a negation reads its statement; a
+;; compound gets its producers, a complex or n-ary one under the query's proof
+;; name; a computation is bridged when its goals differ from the goal shape.
+(: query-adapters (-[nondet]-> Goal CompiledAddition))
+(= (query-adapters (: $kb $prf $type $tv))
+   (if (head-is? $type Not)
+      (let $adds
+         (cons (let (premise-bundle $execs $not-tv $proof-token) (lower $kb $type)
+                  (brand CompiledAddition ($execs |- (: $kb $proof-token $type $not-tv))))
+            (producers $kb (brand Proof $_name) $type))
+         (superpose $adds))
+      (if (compound-source? $type)
+         (let $adds (producers $kb (if (query-compound-needs-bundle? $type) $prf (brand Proof $_root-name)) $type)
+            (superpose $adds))
+         (let (premise-bundle $execs $result-tv $proof-token) (lower $kb $type)
+            (if (if (is-var $type) false (not (== (execs-goal-type $execs) $type)))
+               (brand CompiledAddition ($execs |- (: $kb ($prf $proof-token) $type $result-tv)))
+               (empty))))))
+
 ;; Build the canonical direct-claim statement corresponding to a source
 ;; binder/body pair. Free variables remain available for grouping; only bound
 ;; witness positions become slots.
@@ -1066,22 +862,21 @@
 ;; OrFormula. Free variables form independent groups, while variables named by
 ;; the binder do not escape into the compiled rule.
 (: fold-existential-premise-bundle
-   (-[det]-> KB $context $variables Statement (List Variable) (-[det]-> STVType STVType STVType) STVType PremiseBundle))
-(= (fold-existential-premise-bundle $kb $ctx $vars $premise $group-vars $function $empty-tv)
-   (let $prem-kb (source-premise-kb $kb $ctx $vars)
-      (if (== $group-vars ())
-         (premise-bundle
-            ((CPU FoldAllCompiled
-                 (quote ($prem-kb $premise extract-tv $empty-tv $function identity result-tv))
-                 $fold-tv))
-            $fold-tv
-            cpu)
-         (premise-bundle
-            ((CPU GroupedFoldAllCompiled
-                 (quote ($prem-kb $premise $group-vars extract-tv $empty-tv $function identity result-tv))
-                 $fold-tv))
-            $fold-tv
-            cpu))))
+   (-[det]-> KBContext Statement (List Variable) (-[det]-> STVType STVType STVType) STVType PremiseBundle))
+(= (fold-existential-premise-bundle $scope $premise $group-vars $function $empty-tv)
+   (if (== $group-vars ())
+      (premise-bundle
+         ((CPU FoldAllCompiled
+              (quote ($scope $premise extract-tv $empty-tv $function identity result-tv))
+              $fold-tv))
+         $fold-tv
+         cpu)
+      (premise-bundle
+         ((CPU GroupedFoldAllCompiled
+              (quote ($scope $premise $group-vars extract-tv $empty-tv $function identity result-tv))
+              $fold-tv))
+         $fold-tv
+         cpu)))
 
 ;; Existential channels are nested propositions. Keep the stronger TV intact;
 ;; confidence breaks exact strength ties by evidence amount, without revision.
@@ -1107,68 +902,25 @@
 ;; arguments before the scalar fold, including groups without witnesses. Only
 ;; the residual requests the empty disjunction identity (0,1).
 (: existential-residual-premise-bundle
-   (-[nondet]-> KB $context $variables Atom Atom PremiseBundle))
-(= (existential-residual-premise-bundle $kb $ctx $vars $binder $body)
+   (-[nondet]-> KBContext Atom Atom PremiseBundle))
+(= (existential-residual-premise-bundle $kc $binder $body)
    (let*
       (($bound-vars (list_to_set (explicit-exists-vars $binder)))
        ($claim (existential-claim-statement $binder $body))
+       ($scope (fold-scope $kc))
        ((premise-bundle $fold-execs $known-tv $_fold-proof)
-          (fold-existential-premise-bundle
-             $kb $ctx $vars (brand Statement $body) () OrFormula (STV 0 1)))
-       ($prem-kb (source-premise-kb $kb $ctx $vars)))
+          (fold-existential-premise-bundle $scope (brand Statement $body) () OrFormula (STV 0 1))))
       (if (== $bound-vars ())
          (empty)
          (premise-bundle
             (cons
-               (: $prem-kb $direct-proof $claim $direct-tv)
+               (: $scope $direct-proof $claim $direct-tv)
                (append-goals
                   $fold-execs
                   ((CPU ExistentialResidualFormula
                        ($direct-tv $known-tv) $residual-tv))))
             $residual-tv
             (conjunction $direct-proof cpu)))))
-
-(: lower-source-premise-with-existentials
-   (-[nondet]-> KB $context $variables Statement  PremiseBundle))
-(= (lower-source-premise-with-existentials $kb $ctx $vars $premise)
-   (if (explicit-exists-term? $premise)
-      (let* (($claim (canonical-existential-side $premise))
-             ($group-vars (implication-antecedent-free-vars $premise)))
-         (fold-existential-premise-bundle $kb $ctx $vars
-            (brand Statement (ExistentialAlternatives $claim $channel))
-            $group-vars ExistentialFloor (STV 0 0)))
-      (lower-source-premise $kb $ctx $vars $premise)))
-
-(: lower-implication-antecedent
-   (-[nondet]-> KB $context $variables Statement CompiledPremises))
-(: lower-implication-conjunct-step
-   (-[nondet]-> KB $context $variables CompiledPremises Atom
-       CompiledPremises))
-(= (lower-implication-conjunct-step $kb $ctx $vars $acc $conjunct)
-   (append-premise-bundle $acc
-      (lower-source-premise
-         $kb $ctx $vars (brand Statement $conjunct))))
-
-;; The complete lowering comes first; the bundles of settling conjuncts follow
-;; (see settled-premise-bundle), so `once` reads the complete antecedent.
-(= (lower-implication-antecedent $kb $ctx $vars $antecedent)
-   (if (head-is? $antecedent And)
-      (superpose (
-         (finish-reversed-compiled-premises
-            (fold-flat
-               (lower-implication-conjunct-step $kb $ctx $vars)
-               (data () () (STV 1.0 1.0))
-               (the (List Atom) (cdr-atom $antecedent))))
-         (let* (($conjuncts (the (List Atom) (cdr-atom $antecedent)))
-                ($conjunct (superpose $conjuncts))
-                ((premise-bundle $settled-execs $settled-tv $settled-proof)
-                   (settled-premise-bundle $antecedent $conjunct
-                      (lower-source-premise $kb $ctx $vars (brand Statement $conjunct)))))
-            (data $settled-execs (cons $settled-proof ()) $settled-tv))))
-      (let (premise-bundle $execs $tv $proof)
-         (lower-source-premise-with-existentials
-            $kb $ctx $vars $antecedent)
-         (data $execs (cons $proof ()) $tv))))
 
 ;; Probability reads retain the written event's key; connective evaluation
 ;; uses De Morgan expansion. Do not descend into predicate arguments
@@ -1189,15 +941,16 @@
    (-[nondet]-> KB $context $variables Statement  PremiseBundle))
 ;; Antecedents of an implication *query* are temporary assumptions, asserted at
 ;; their canonical key (an existential at its claim): an assumed negation is
-;; its statement at strength zero.
+;; its statement at strength zero. An assumed compound asserts the keys of one
+;; of its readings, each reading a world of its own, since rules read a
+;; compound antecedent through its parts.
 (= (lower-query-assumption-premise $kb $ctx $vars $source)
    (let* ((($statement $odd) (canon $source))
-          ($premise (if (contains-explicit-exists? $statement) (canonical-existential-side $statement) $statement)))
+          ($premise (if (contains-explicit-exists? $statement) (canonical-existential-side $statement) $statement))
+          ($kc (make-kb-context $kb $ctx $vars)))
       (if $odd
-         (premise-bundle ((: (source-premise-kb $kb $ctx $vars) $prf $premise (STV 0.0 1.0))) (STV 1.0 1.0) $prf)
-         (if (head-is? $premise Implication)
-            (leaf-source-bundle $kb $ctx $vars $premise)
-            (lower-source-premise $kb $ctx $vars $premise)))))
+         (premise-bundle ((: $kc $prf $premise (STV 0.0 1.0))) (STV 1.0 1.0) $prf)
+         (let $readings (premise-readings $kc $premise) (superpose $readings)))))
 
 (: lower-query-assumption-premises
    (-[nondet]-> KB $context $variables (List Atom)
@@ -1229,7 +982,7 @@
 (= (lower-query-assumption-premise-false $kb $ctx $vars $source)
    (let ($premise $odd) (canon $source)
       (if $odd
-         (premise-bundle ((: (source-premise-kb $kb $ctx $vars) $prf $premise (STV 1.0 1.0))) (STV 0.0 1.0) (negated $prf))
+         (premise-bundle ((: (make-kb-context $kb $ctx $vars) $prf $premise (STV 1.0 1.0))) (STV 0.0 1.0) (negated $prf))
          (if (head-is? $premise Implication)
             (premise-bundle
                ((: (make-kb-context $kb $ctx $vars)

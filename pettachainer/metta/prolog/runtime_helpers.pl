@@ -2876,8 +2876,7 @@ pw_drop_rep(R) :-
 % Unlike a sampling declaration, immutable inputs forbid every derived value.
 'functional-pattern?'(Kb, Pattern, Result) :-
     'implication-side-conjuncts'(Pattern, Parts),
-    ( member(Part, Parts),
-      ( nonvar(Part), Part = [Tag, Inner], Tag == 'Not' -> Type = Inner ; Type = Part ),
+    ( member(Part, Parts), 'canon'(Part, [Type, _]),
       nonvar(Type), Type = [Head|_], functional_predicate(Declared, Kb, _, _),
       ( var(Head) ; Head == Declared )
     -> Result = true ; Result = false ).

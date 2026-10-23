@@ -66,7 +66,7 @@ before the residual's scalar witness fold, including groups with no witnesses.
 A later witness refines D and U through the existing formula. The empty identity
 does not assert that Exists is false or that its population is complete.
 
-`lower-source-premise-with-existentials` is shared by bare queries and rule
+`lower` reads an existential the same way for bare queries and rule
 premises. Applying a rule then uses the existing modus-ponens formula, including
 its usual confidence propagation. A claim and concrete witness derived from
 the same Seed are compared by the floor, never counted twice.
