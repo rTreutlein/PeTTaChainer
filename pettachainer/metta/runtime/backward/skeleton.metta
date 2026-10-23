@@ -1509,6 +1509,24 @@
             ()))
       ($_other ()))))
 
+;; A compound key's producers depend only on the key, so they are installed
+;; as permanent backward rules where a compound key is read (see sk-expand!),
+;; once per context pattern and key (`producers` registers them): a query
+;; root, a batch member, a judgment consequent, a fold member and a rule
+;; premise share the same rules (#142). A MAIN read gets MAIN's rules; any other read gets rules for every
+;; context, since hypothetical contexts are query-local. Rules for every
+;; context would let a ground key's rows conclude in a hypothetical context
+;; and bind its open individual.
+(: install-producers! (-[semidet]-> Statement KBContext Atom))
+(= (install-producers! $type ($kbid $ctx $vars))
+   (let $adds (producers
+                 (if (if (== $ctx MAIN) (== $vars Nil) false)
+                    (make-kb-context (brand KB $kbid) MAIN Nil)
+                    (make-kb-context (brand KB $kbid) $any-ctx $any-vars))
+                 $type)
+      (if (== $adds ()) ()
+         (let $_rules (once (foreach-flat (kb-add-expr backward) (map-flat mm2stmt $adds))) ()))))
+
 ;; The empirical Member producer of a concrete Inheritance link depends only on
 ;; the link, so it is installed once as permanent backward rules: its rows
 ;; survive the query, and a later zero-budget read still has them. Forward
@@ -1553,10 +1571,8 @@
           ($kbid (if (is-expr $scope) (car-atom $scope) $scope))
           ($pattern (car-atom (cdr-atom $args)))
           ($existential (sk-existential-fold? (CPU fold $args unused)))
-          ($_adapters
-             (if (if $existential (if (is-expr $scope) (not (== (car-atom (cdr-atom $scope)) MAIN)) false) false)
-                (install-existential-member-adapters $scope $pattern)
-                ()))
+          ($member-kbctx (the KBContext (if (is-expr $scope) $scope (quote ($kbid MAIN Nil)))))
+          ($_producers (install-producers! (brand Statement $pattern) $member-kbctx))
           ($shape (pattern-shape $pattern))
           ($compiled (sk-shape-members $kbid $shape))
           ;; Existential shapes retain free variables. Relink the cached
@@ -1565,17 +1581,6 @@
           ($members (if (if $existential false (== $shape $pattern))
                         $compiled (map-semidet (sk-narrow-member $pattern) $compiled))))
       (if (is-expr $scope) (map-semidet (sk-scoped-member $scope) $members) $members)))
-
-;; Private witness compounds need scoped adapters just as a compound query
-;; goal does. MAIN dormancy cannot decide their hypothetical support. Keep this
-;; Atom boundary: inlining constrains the fold's KB-or-context scope as KBContext.
-(: install-existential-member-adapters (-[semidet]-> Atom Atom Atom))
-(= (install-existential-member-adapters $scope $pattern)
-   (let* (($adapter-scope (brand KBContext $scope))
-          ($adapter-pattern (brand Statement $pattern))
-          ($adds (collapse (query-adapters
-             (: $adapter-scope $_proof $adapter-pattern $_tv)))))
-      (once (inject-compiled-adds (map-flat mm2stmt $adds)))))
 
 ;; A member compiled for an abstracted shape is narrowed to the fold's pattern.
 (: sk-narrow-member (-[semidet]-> Atom SkPattern SkPattern))
@@ -1623,6 +1628,16 @@
          (let* (($_special
                    (if (> $depth 0) (inject-special-subgoal-query-adds temp $type $kbctx $proof $tv) ()))
                 ($_member (install-member-inheritance-rules! $type $kbctx))
+                ;; A compound read in a hypothetical context gets its
+                ;; producers here; a MAIN root and a fold member get theirs
+                ;; when they are read, a rule premise with its rule. Other
+                ;; MAIN compound nodes stay without: an open variable-headed
+                ;; node matches each new producer's conclusion, and installing
+                ;; for those instances would nest compound keys without bound.
+                ($_producers
+                   (if (compound-source? $type)
+                      (if (== (car-atom (cdr-atom $kbctx)) MAIN) () (install-producers! $type $kbctx))
+                      ()))
                 ($_activate (sk-activate-pending!))
                 ($_mark (sk-mark-expanded! $hash $node))
                 ($_seeds (context-answer-seeds! $node))

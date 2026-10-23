@@ -47,7 +47,7 @@
 ;; Its own observation and negation remain unavailable even below another row.
 !(compileadd ke63Targets (: own_target (Target Split1) (STV 0.1 0.9)))
 !(compileadd ke63Targets (: other_target (Target Split2) (STV 0.7 0.9)))
-!(let* ((($scope $_proof $_goal $adds)
+!(let* ((($scope $_read $adds)
            (judgment-query-side ke63Targets Nil false (brand Statement (Gate)) (brand Statement (Target Split1))))
         ($_injected (collapse (once (inject-compiled-adds (map-flat mm2stmt $adds)))))
         ($own (sk-leaf-facts (Target Split1) (the KBContext $scope) sk-any-filter))
@@ -59,7 +59,7 @@
 
 ;; An open target excludes all its ground instances without binding the query.
 !(let* (($target (brand Statement (Target $event)))
-        (($scope $_proof $_goal $adds)
+        (($scope $_read $adds)
            (judgment-query-side ke63Targets Nil false (brand Statement (Gate)) $target))
         ($_injected (collapse (once (inject-compiled-adds (map-flat mm2stmt $adds)))))
         ($facts (sk-leaf-facts (Target Split1) (the KBContext $scope) sk-any-filter))

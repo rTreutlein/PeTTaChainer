@@ -76,6 +76,16 @@ heap_pop(Heap, [Priority, Value, Rest]) :-
 'heap-empty?'(Heap, Empty) :-
     (   empty_heap(Heap) -> Empty = true ; Empty = false ).
 
+% A statically imported rule dump stores its rule ids without advancing the
+% live counter, so the counter's next id may already be taken: a new live rule
+% then takes the id past every stored live one. Temp ids start at 10^9.
+'fresh-rule-id'(Next, Id) :-
+    (   catch(rules('runtime-rule-row', Next, _, _), error(existence_error(procedure, _), _), fail)
+    ->  aggregate_all(max(I), (rules('runtime-rule-row', I, _, _), I < 1000000000), Max),
+        Id is Max + 1
+    ;   Id = Next
+    ).
+
 % Hash a lookup column with every variable replaced by one marker, so a row
 % keeps an integer SWI can JIT-index; =alpha on the stored key still decides.
 'index-hash'(Term, Hash) :-

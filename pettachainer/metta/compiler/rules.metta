@@ -165,19 +165,22 @@
                ;; Export the projected conditional directly. A named source
                ;; owns this row, including after materialization/withdrawal.
                (if (head-is? $prf consequent-projection)
-                  (compile-implication-forward-rules $kb $shape-kb $prf $tv
-                     $truth-premises $value $params $exported-a $last
-                     (implication-antecedent-free-vars $exported-a)
-                     (antecedent-lowerings $shape-kb $exported-a))
+                  (superpose (
+                     (compile-implication-forward-rules $kb $shape-kb $prf $tv
+                        $truth-premises $value $params $exported-a $last
+                        (implication-antecedent-free-vars $exported-a)
+                        (antecedent-lowerings $shape-kb $exported-a))
+                     (let $producers (producers $shape-kb $exported-a) (superpose $producers))))
                   (empty))
                ;; Another conjunction can hide a further conditional.
                (compile-consequent-implications $kb $shape-kb $prf $tv
                   $truth-premises $value $params $exported-a $last))))
          (empty))))
 
-;; Emit the forward rules plus the adapters needed on both sides: one forward
+;; Emit the forward rules plus the conclusion's projections: one forward
 ;; rule per lowering of the antecedent, the complete one and those of its
-;; settling parts (see settled-reading). The rule and its adapters
+;; settling parts (see settled-reading). A permanent caller adds the
+;; producers of the compound keys the lowerings read. The rule and its adapters
 ;; (the projections of a compound conclusion, the compound antecedent's
 ;; connective) share the shape KB: they hold in whatever context the rule
 ;; applies in, the hypothetical contexts of an implication query included. A
@@ -192,7 +195,7 @@
    (let* ((($inner $last) (nested-implication-parts $b))
           ($rate-a (if (== $inner ()) $a (brand Statement (cons And (append (implication-side-conjuncts $a) $inner)))))
           ($mp (if (== $inner ()) CTVModusPonensFormula ImplicationModusPonensFormula))
-          ($out-b (skolemize-conclusion-vars $prf (append $params (append $antecedent-vars (extract-vars $inner))) $b)))
+          ($out-b (skolemize-conclusion-vars $prf (append $params $antecedent-vars) $b)))
      (superpose (
       (let ($execs $proofs $atv) (superpose $antecedents)
        (once
@@ -208,11 +211,7 @@
                        (append-goals $ctv-execs ((CPU $mp ($atv $rule-ctv) $btv)))))))
             (canonical-addition $shape-kb $allargs
                (brand Proof (quote (by $prf $proof-token))) $out-b $btv))))
-      ;; A query-local conjunction (compound-query-temp-stmt) concludes its
-      ;; root from its conjuncts; projecting it back onto them is self-support
-      ;; that reached sibling roots of a batch as wrong values.
-      (if (if (is-var $out-b) true (== $prf query-compound)) (empty) (compile-outputs (: $shape-kb (by $prf $prfb) $out-b $btv2)))
-      (if (is-var $a) (empty) (let $producers (producers $shape-kb (brand Proof $_name) $a) (superpose $producers)))))))
+      (if (is-var $out-b) (empty) (compile-outputs (: $shape-kb (by $prf $prfb) $out-b $btv2)))))))
 
 (: rule-evidence-base-name (-[det]-> Proof Proof))
 (= (rule-evidence-base-name $prf)
@@ -1158,6 +1157,7 @@
                      (brand Statement $x) (brand Statement $y)
                      (list_to_set (extract-vars (Implication $x $y)))
                      (antecedent-lowerings $shape-kb (brand Statement $x)))
+                  (let $producers (producers $shape-kb (brand Statement $x)) (superpose $producers))
                   (compile-implication-statement-rules $kb (brand Statement $y)))))
             (empty)))
       (empty)))
@@ -1213,8 +1213,7 @@
                ;; executable rule storage in MAIN; an STV's full CTV reads its
                ;; source and the ordinary base rates through a permanent row.
                (let* ((($inner $last) (nested-implication-parts $b))
-                      ($source-b (skolemize-conclusion-vars $prf
-                         (append $params (append $antecedent-vars (extract-vars $inner))) $b))
+                      ($source-b (skolemize-conclusion-vars $prf (append $params $antecedent-vars) $b))
                       ($source-type (brand Statement (Implication $antecedent $source-b)))
                       ($query-type
                          (if (contains-explicit-exists? $Type)
@@ -1252,12 +1251,16 @@
                                  (brand CompiledAddition
                                     ((cons (: $source-kb $prf $source-type $tv) $ctv-execs)
                                        |- (: (kbctx $kb) $prf $source-type $source-ctv)))))))))
-                     (compile-consequent-implications $kb $shape-kb $prf $tv
-                        (cons (: $source-kb $prf $source-type $tv) $truth-premises)
-                        $value $params $a $b))))
+                     ;; The variables a nested implication of the source binds
+                     ;; are its own: a projection reads the source apart from them.
+                     (let* (($bound (\== (list_to_set (extract-vars $source-b)) (append $params $antecedent-vars)))
+                            ($source (sealed $bound (: $source-kb $prf $source-type $tv))))
+                        (compile-consequent-implications $kb $shape-kb $prf $tv
+                           (cons $source $truth-premises) $value $params $a $b)))))
                (compile-implication-forward-rules
                   $kb $shape-kb $prf $tv $truth-premises $value $params
                   $a $b $antecedent-vars $antecedents)
+               (if (is-var $a) (empty) (let $producers (producers $shape-kb $a) (superpose $producers)))
                ;; The stored truth is the goal's axiom, and the rule's
                ;; instances are folded into a second proof of it.
                (if $refine?
@@ -1304,7 +1307,7 @@
                               (compile-outputs
                                  (: $shape-kb ((inverted $prf $w $pa1 $pa2) $pb2) $na $natv))))
                         (if (is-var $b) (empty)
-                           (let $producers (producers $shape-kb (brand Proof $_name) $b) (superpose $producers)))))))
+                           (let $producers (producers $shape-kb $b) (superpose $producers)))))))
                ;; No inverse rule of any kind for a rule named no_inverse:
                ;; completion recovers an antecedent conjunct from the
                ;; conclusion as inversion recovers the whole antecedent. Both
@@ -1348,13 +1351,12 @@
                (brand Statement $antecedent) (brand Statement $consequent) $tv))))
       (if (implication-type? $Type) (empty)
          ;; An asserted negation keeps the source name and is stored at its
-         ;; canonical key, with complemented strength when the count is odd.
+         ;; canonical key, with complemented strength when the count is odd
+         ;; (ingestion accepts only an STV on a negation).
          (if (head-is? $Type Not)
             (let ($key $odd) (canon $Type)
                (if $odd
-                  (case $tv (
-                     ((STV $s $c) (compile_ $kb (: $prf $key (STV (- 1.0 $s) $c))))
-                     ($_unsupported-tv (compile-ordinary-fact $kb $prf $Type $tv))))
+                  (let (STV $s $c) $tv (compile_ $kb (: $prf $key (STV (- 1.0 $s) $c))))
                   (compile_ $kb (: $prf $key $tv))))
             ;; An existential fact is its claim; an existential nested in a
             ;; connective is no fact form yet.

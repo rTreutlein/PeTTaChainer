@@ -102,7 +102,6 @@ class TestIngestion(unittest.TestCase):
             'canonical-addition': "'canonical-addition'([Kb,'MAIN','Nil'],[],[by,r,cpu],[_Head,a],['STV',1.0,1.0],_Out),var(_Head)",
             'base-rate-fold': "'base-rate-fold'(Kb,[_Head,_X,concept],_TV,_Out),var(_Head)",
             'inheritance-context-premise?': "'inheritance-context-premise?'([_Head,a,b],a,_Out),var(_Head),_Out==false",
-            'query-temp-rule-premise': "'query-temp-rule-premise'([_Head,a,b,c],_Out),var(_Head)",
             'default-query-assumption-tv': "'default-query-assumption-tv'([_Head,a,b],_TV,_Out),var(_Head),_Out==['STV',1.0,1.0]",
             'query-context-assumed-implication-rules': "'query-context-assumed-implication-rules'(Kb,ctx,[],proof,[_Head,a,b],['STV',1.0,1.0],_Out),var(_Head),_Out==[]",
             'internalize-proof-structure-any': "'internalize-proof-structure-any'([_Head,a,b,c,d],_Out),var(_Head)",
@@ -253,6 +252,14 @@ class TestIngestion(unittest.TestCase):
             self.assertEqual(janus.query_once(
                 "aggregate_all(count,'&kb'(_, [Kb,'MAIN','Nil'], malformed, _),N)",
                 {'Kb': self.h.kb})['N'], 0)
+
+    def test_negated_statement_takes_only_an_stv(self):
+        # A negation is stored at its statement's key with the strength
+        # complemented; no other value has a complement (#142).
+        for value in ('(CTV (STV 0.8 0.9) (STV 0.2 0.9))', '(PointMass 1.0)'):
+            with self.subTest(value=value), self.assertRaisesRegex(
+                    janus.PrologError, 'negated statement takes an STV'):
+                self.h.add_atom(f'(: notP (Not (P a)) {value})')
 
     def test_variable_head_query_order_and_population_refinement(self):
         # The generic population needs more search than the Friend-only one.

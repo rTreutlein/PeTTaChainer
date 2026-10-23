@@ -15,8 +15,8 @@
     ( Size =< Limit -> true
     ; throw(error(resource_error(stored_term_bytes(Size, Limit)),
                   context(compileadd/2, 'stored term exceeds max-term-bytes'))) ),
-    Statement = [':', _, Type, _],
-    ingestion_negation(Type),
+    Statement = [':', _, Type, TV],
+    ingestion_negation(Type, TV),
     ( ingestion_closed([], Type) -> true
     ; throw(error(domain_error(fact_without_free_variables, Type),
                   context(compileadd/2, 'fact contains free variables'))) ).
@@ -52,14 +52,18 @@ ingestion_stored_value(Type, Ctx, Proof, TV) :-
         catch('&kb_open'(Hash, Stored, Ctx, Proof, TV), error(existence_error(procedure, _), _), fail),
         Stored =@= Type ).
 
-% Asserted negations are unwrapped by compile_. Validate the entire leading
-% chain before compilation: exact destructuring would silently fail on Not/0
-% or Not/2, and an outer Not must not hide an invalid inner negation.
-ingestion_negation(Type) :-
+% Asserted negations are stored at their canonical key by compile_, with the
+% strength complemented. Validate the entire leading chain before compilation:
+% exact destructuring would silently fail on Not/0 or Not/2, and an outer Not
+% must not hide an invalid inner negation. Only an STV has a complement.
+ingestion_negation(Type, TV) :-
     ( nonvar(Type), Type = [Head|Args], Head == 'Not'
-    -> ( Args = [Inner] -> ingestion_negation(Inner)
+    -> ( Args = [Inner] -> ingestion_negation(Inner, TV)
        ; throw(error(domain_error(unary_negation, Type),
-                     context(compileadd/2, 'negation requires exactly one argument'))) )
+                     context(compileadd/2, 'negation requires exactly one argument'))) ),
+       ( nonvar(TV), TV = ['STV'|_] -> true
+       ; throw(error(domain_error(negated_fact_value, TV),
+                     context(compileadd/2, 'a negated statement takes an STV'))) )
     ; true ).
 
 % Heads must be inspected without unification: a variable predicate is data,

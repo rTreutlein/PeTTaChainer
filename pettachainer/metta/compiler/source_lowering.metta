@@ -294,13 +294,27 @@
        ($elem (exists-slot $idx)))
       (brand SkolemizeState ((+ 1 $idx) $atom))))
 
+;; The antecedents of the implications among a conclusion's conjuncts,
+;; through nested implications: their variables are universal, bound by the
+;; implication that reads them, never existential witnesses.
+(: implication-binders (-[det]-> (List Atom) (List Atom) (List Atom)))
+(= (implication-binders () $later) $later)
+(= (implication-binders (cons $part $rest) $later)
+   (let $after (implication-binders $rest $later)
+      (if (head-is? $part Implication)
+         (case $part (
+            ((Implication $x $y) (cons $x (implication-binders (implication-side-conjuncts (brand Statement $y)) $after)))
+            ($_other $after)))
+         $after)))
+
 (: skolemize-conclusion-vars
    (-[det]-> Proof (List Variable) Statement Statement))
 (= (skolemize-conclusion-vars $rule $avars $exprb)
    (if (is-var $exprb) $exprb
       (let*
          (($bvars (list_to_set (extract-vars $exprb)))
-           ($onlyb (\== $bvars $avars))
+           ($kept (implication-binders (implication-side-conjuncts $exprb) $avars))
+           ($onlyb (\== $bvars (extract-vars $kept)))
            ($state
               (if (head-is? $exprb ExistentialClaim)
                  (sealed $onlyb
@@ -612,17 +626,26 @@
          ($other
             (premise-bundle ((: $kc $prf $other $tv)) $tv $prf))))))))))
 
+;; A connective's part. Its formula reads an implication part at the
+;; implication's probability, which the chainer judges in the implication's
+;; query scaffold.
+(: lower-part (-[semidet]-> KBContext Statement PremiseBundle))
+(= (lower-part $kc $part)
+   (if (implication-type? $part)
+      (premise-bundle ((: $kc $prf $part (STV $s $c))) (STV $s $c) $prf)
+      (lower $kc $part)))
+
 ;; A connective over lowered parts: their goals in source order, their values
 ;; folded by <Head>Formula, the conjunction of their proofs.
 (: lower-all-step
    (-[semidet]-> KBContext Expression CompiledPremises Statement CompiledPremises))
 (= (lower-all-step $kc $formula ($goals $proofs $tv) $part)
-   (let* (((premise-bundle $part-goals $part-tv $part-proof) (lower $kc $part))
+   (let* (((premise-bundle $part-goals $part-tv $part-proof) (lower-part $kc $part))
           (($cpu $next-tv) (binary-tv-cpu $formula $tv $part-tv)))
       (data (cons $cpu (prepend-reversed-goals $part-goals $goals)) (cons $part-proof $proofs) $next-tv)))
 
 (= (lower-all $kc $head (cons $first $rest))
-   (let* (((premise-bundle $goals $tv $proof) (lower $kc $first))
+   (let* (((premise-bundle $goals $tv $proof) (lower-part $kc $first))
           (($reversed-goals $reversed-proofs $all-tv)
              (fold-semidet (lower-all-step $kc (atom_concat $head Formula))
                 (data (prepend-reversed-goals $goals ()) ($proof) $tv) $rest)))
@@ -658,12 +681,12 @@
 (: settlings (-[semidet]-> KBContext Statement (List Statement) (List PremiseBundle)))
 (= (settlings $_kc $_compound ()) ())
 (= (settlings $kc $compound (cons $part $rest))
-   (append (settled-reading $compound $part (lower $kc $part)) (settlings $kc $compound $rest)))
+   (append (settled-reading $compound $part (lower-part $kc $part)) (settlings $kc $compound $rest)))
 
 ;; An Any-mode compound is introduced by any one of its parts.
 (: any-reading (-[semidet]-> KBContext Atom Statement PremiseBundle))
 (= (any-reading $kc $head $part)
-   (let (premise-bundle $goals $tv $proof) (lower $kc $part)
+   (let (premise-bundle $goals $tv $proof) (lower-part $kc $part)
       (premise-bundle $goals $tv ((atom_concat $head introduction) $proof))))
 
 ;; The readings of a compound: in All mode its complete bundle, then the
@@ -677,24 +700,37 @@
 
 ;; The rules that give a compound key its value: one per reading, concluding
 ;; the compound in the reader's context, and those of every compound key the
-;; readings read, through negations too. A reading's proof is the conclusion's,
-;; or, under a named query proof `$name`, wrapped in that name as an outer
-;; provenance label.
-(: reading-addition (-[det]-> KBContext Proof Statement PremiseBundle CompiledAddition))
-(= (reading-addition $kc $name $compound (premise-bundle $goals $tv $proof))
-   (brand CompiledAddition
-      ($goals |- (: $kc (if (is-var $name) $proof (brand Proof (quote ($name $proof)))) $compound $tv))))
+;; readings read, through negations too. They are permanent and installed once
+;; per context pattern and key, up to variable renaming, so every reader of a
+;; key in that context shares the same rules (#142): a call for a key
+;; registered in that context or in every context returns none.
+(: &compound_producers (SpaceOf (Number Atom)))
+!(bind! &compound_producers (new-space))
 
-(: producers (-[semidet]-> KBContext Proof Statement (List CompiledAddition)))
+(: newly-registered? (-[det]-> KBContext Statement Bool))
+(= (newly-registered? ($kbid $ctx $vars) $key)
+   (let* (($shape (quote (($kbid $ctx $vars) $key)))
+          ($every-context (quote (($kbid $any-ctx $any-vars) $key)))
+          ($hash (index-hash (quote ($kbid $key)))))
+      (if (== (collapse (once (match &compound_producers ($hash $stored)
+                (if (=alpha $stored $shape) true (if (=alpha $stored $every-context) true (empty)))))) ())
+         (let* (($copy (copy_term $shape)) ($_row (add-atom &compound_producers ($hash $copy)))) true)
+         false)))
+
+(: reading-addition (-[det]-> KBContext Statement PremiseBundle CompiledAddition))
+(= (reading-addition $kc $compound (premise-bundle $goals $tv $proof))
+   (brand CompiledAddition ($goals |- (: $kc $proof $compound $tv))))
+
+(: producers (-[semidet]-> KBContext Statement (List CompiledAddition)))
 (: child-producers-step
    (-[semidet]-> KBContext (List CompiledAddition) Statement (List CompiledAddition)))
 (= (child-producers-step $kc $acc $child)
-   (append-compiled-additions $acc (producers $kc (brand Proof $_name) $child)))
-(= (producers $kc $name $statement)
+   (append-compiled-additions $acc (producers $kc $child)))
+(= (producers $kc $statement)
    (let ($key $_odd) (canon $statement)
-      (if (compound-source? $key)
+      (if (if (compound-source? $key) (newly-registered? $kc $key) false)
          (fold-semidet (child-producers-step $kc)
-            (map-flat (reading-addition $kc $name $key) (compound-readings $kc $key))
+            (map-flat (reading-addition $kc $key) (compound-readings $kc $key))
             (statement-children (cdr-atom $key)))
          ())))
 
@@ -785,63 +821,17 @@
 (= (complete-lowering $kc $statement)
    (case (antecedent-lowerings $kc $statement) (((cons $complete $_others) $complete))))
 
-;; A compound query root is complex when a child is a compound or a
-;; computation, or when it has three or more children: the temporary-rule
-;; route compiles it (compound-query-temp-stmt), and its producers carry the
-;; query's proof name.
-(: query-compound-child-needs-bundle? (-[det]-> Statement Bool))
-(= (query-compound-child-needs-bundle? $premise)
-   (if (compound-source? $premise)
-      (query-compound-needs-bundle? $premise)
-      (if (is-expr $premise)
-         (let $head (car-atom $premise)
-            (if (is-var $head) false
-               (source-computation-head? $head)))
-         false)))
-
-(: compound-direct-query-bundle? (-[det]-> (List Statement) Bool))
-(= (compound-direct-query-bundle? $items)
-   (if (== $items ()) false
-      (case $items (
-         ((cons $item $rest)
-            (if (query-compound-child-needs-bundle? $item)
-               true
-               (compound-direct-query-bundle? $rest)))))))
-
-;; A three-or-more-child compound query, `(And A B C ...)`, is complex too: it
-;; synthesizes one query-local conjunction-introduction rule with proof
-;; `(conjunction a b c ...)`.
-(: compound-nary-query? (-[det]-> (List Statement) Bool))
-(= (compound-nary-query? $items)
-   (case $items (
-      ((cons $_a (cons $_b (cons $_c $_rest))) true)
-      ($_ false))))
-
-(: query-compound-needs-bundle? (-[det]-> Statement Bool))
-(= (query-compound-needs-bundle? $term)
-   (if (is-expr $term)
-      (let $items
-         (statement-children (cdr-atom $term))
-         (if (compound-nary-query? $items)
-            true
-            (compound-direct-query-bundle? $items)))
-      false))
-
-;; The query-local rules a query goal needs: a negation reads its statement; a
-;; compound gets its producers, a complex or n-ary one under the query's proof
-;; name; a computation is bridged when its goals differ from the goal shape.
-(: query-adapters (-[nondet]-> Goal CompiledAddition))
-(= (query-adapters (: $kb $prf $type $tv))
-   (if (head-is? $type Not)
-      (let $adds
-         (cons (let (premise-bundle $execs $not-tv $proof-token) (lower $kb $type)
-                  (brand CompiledAddition ($execs |- (: $kb $proof-token $type $not-tv))))
-            (producers $kb (brand Proof $_name) $type))
-         (superpose $adds))
-      (if (compound-source? $type)
-         (let $adds (producers $kb (if (query-compound-needs-bundle? $type) $prf (brand Proof $_root-name)) $type)
-            (superpose $adds))
-         (let (premise-bundle $execs $result-tv $proof-token) (lower $kb $type)
+;; The query-local rule a goal reading a statement as a whole needs: a negation
+;; is read through a view of its statement, whose proof is negated so its
+;; evidence is the statement's as written, and which is never stored; a
+;; computation is bridged when its goals differ from the goal shape. A compound
+;; goal reads its key, whose producers the chainer installs.
+(: root-adapters (-[nondet]-> Goal CompiledAddition))
+(= (root-adapters (: $kb $prf $type $tv))
+   (if (compound-source? $type) (empty)
+      (let (premise-bundle $execs $result-tv $proof-token) (lower $kb $type)
+         (if (head-is? $type Not)
+            (brand CompiledAddition ($execs |- (: $kb $proof-token $type $result-tv)))
             (if (if (is-var $type) false (not (== (execs-goal-type $execs) $type)))
                (brand CompiledAddition ($execs |- (: $kb ($prf $proof-token) $type $result-tv)))
                (empty))))))

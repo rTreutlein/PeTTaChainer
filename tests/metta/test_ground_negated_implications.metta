@@ -269,7 +269,7 @@
    (Implication (Not (G)) (Y)) (STV 0.9 0.9)))
 ;; Read the judgment context itself: a public query also has independent
 ;; empirical instance evidence from g and y, which remains valid.
-!(let* ((($shape $_assumption $conclusion $adds)
+!(let* ((($shape (premise-bundle ((: $_read-scope $_assumption $conclusion $_read-tv)) $_tv $_proof) $adds)
             (judgment-query-side unsupportedPopulationNegCtxKb Nil false
                (brand Statement (quote (G))) (brand Statement (quote (Y)))))
           ($_injected (collapse (once (inject-compiled-adds (map-flat mm2stmt $adds)))))
@@ -285,7 +285,7 @@
 !(let* (($a (quote (A $prototype)))
           ($b (quote (B $prototype)))
           ($vars (cons (brand Variable $prototype) ()))
-          (($shape $_proof $_b $adds)
+          (($shape $_read $adds)
              (judgment-query-side indexedPrototypeNegCtxKb $vars false
                 (brand Statement $a) (brand Statement $b)))
           ($_injected (collapse (once (inject-compiled-adds (map-flat mm2stmt $adds)))))

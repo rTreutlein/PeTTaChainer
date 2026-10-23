@@ -40,23 +40,32 @@
 
 ;; A query of (Not s) is a query of s, answered complemented once per written
 ;; negation: its root reads s's canonical key, so it answers wherever s does,
-;; at budget zero from a stored or materialized value too.
+;; at budget zero from a stored or materialized value too. A query of
+;; (ForAll params rule) is the judgment of its rule (#142).
 (: query-root (-[det]-> AnnotatedStatement AnnotatedStatement))
 (= (query-root (: $prf $type $tv))
    (if (head-is? $type Not)
       (let ($key $_odd) (canon $type) (: $key-proof $key $key-tv))
-      (: $prf $type $tv)))
+      (if (head-is? $type ForAll)
+         (: $prf (brand Statement (car-atom (cdr-atom (cdr-atom $type)))) $tv)
+         (: $prf $type $tv))))
+
+;; A ForAll answer is its rule's answer under the written binder.
+(: forall-result (-[semidet]-> Statement RuntimeResult RuntimeResult))
+(= (forall-result $written ($type $kbctx $proof $tv))
+   (let (ForAll $params $rule) (copy_term $written)
+      (let $rule $type (brand RuntimeResult (data (ForAll $params $rule) $kbctx $proof $tv)))))
 
 ;; The public answers of a written root from those of its query root: each
 ;; written negation complements the answer, negates its proof and wraps its
 ;; public statement, and the written truth-value pattern constrains the
 ;; complemented value. A computation row answers no statement.
-(: written-results (-[det]-> AnnotatedStatement (List RuntimeResult) (List RuntimeResult)))
+(: written-results (-[semidet]-> AnnotatedStatement (List RuntimeResult) (List RuntimeResult)))
 (= (written-results (: $_prf $type $tv) $results)
    (if (head-is? $type Not)
       (negated-results $tv
          (written-results (: $_inner-proof (car-atom (cdr-atom $type)) $_inner-tv) $results))
-      $results))
+      (if (head-is? $type ForAll) (map-semidet (forall-result $type) $results) $results)))
 
 (: negated-step (-[det]-> Atom RuntimeResult (List RuntimeResult) (List RuntimeResult)))
 (= (negated-step $tv $result $kept)

@@ -93,6 +93,7 @@
 ;; A counter's value, 0 before it is set (runtime_helpers.pl): read on every
 ;; search step, so kept native.
 (: search-id-value (-[det]-> CounterKey Number))
+(: fresh-rule-id (-[det]-> Number Number))
 
 (: next-search-id (-[det]-> CounterKey Number))
 (= (next-search-id $key) (let $n (search-id-value $key) (progn (change-state! $key (+ $n 1)) $n)))

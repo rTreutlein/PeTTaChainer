@@ -74,6 +74,12 @@
    (query 300 overlapProjectionKb (: $p
       (Implication (AcceptSource S) (Implication (A $x) (C $x))) $tv))
    (data $s (< $c 0.6))) (0.8 true))
+;; The nested implication binds $x: it is no witness, so no instance answers
+;; for a Skolem individual beside the general rule.
+!(test (map-flat (|-> ((: $_proof (Implication $_gate (Implication (A $x) $_c)) $_tv)) (is-var $x))
+   (collapse (query 300 overlapProjectionKb (: $p
+      (Implication (AcceptSource S) (Implication (A $x) (C $x))) $tv))))
+   (true))
 ;; Inspect the live judgment before the ordinary query bracket removes its
 ;; temporary context, so this checks semantic evidence rather than proof leaves.
 !(let* (((compilation-plan (: $ctx $proof $type $tv) $adds)

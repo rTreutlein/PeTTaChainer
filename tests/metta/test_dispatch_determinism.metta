@@ -45,5 +45,3 @@
       ((length $subjects) (length $concepts)))
    (1 1))
 
-!(test (collapse (query-temp-rule-premise (Compute f args result))) ((Compute f args -> result)))
-!(test (collapse (query-temp-rule-premise premise)) (premise))

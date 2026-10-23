@@ -3,8 +3,8 @@
 ;; query context, lower the premises (negatively for the refuting side of a
 ;; total implication, positively otherwise), and collect the context + adapter
 ;; atoms the chainer needs to resolve this side's conclusion. Returns the ground
-;; shape-kb, the fresh proof var (shared with the caller's goal and proof
-;; token), the conclusion expression, and the side's adds.
+;; shape-kb, the bundle reading the conclusion there (a negated conclusion
+;; reads its statement), and the side's adds.
 ;;
 ;; Judgment contexts know the whole compound antecedent as well as its
 ;; lowered parts. In particular a Not reader of a ground And must read that
@@ -14,7 +14,7 @@
 (: judgment-query-side
    (-[semidet]-> KB (| NilType (List Variable)) Bool
        Statement Statement
-       (KBContext Proof Statement (List CompiledAddition))))
+       (KBContext PremiseBundle (List CompiledAddition))))
 (= (judgment-query-side $kb $mvars $negative? $antecedent $consequent)
    (let* ((($key $odd) (canon $antecedent))
           ($normalized (if $odd (brand Statement (Not $key)) $key))
@@ -31,7 +31,7 @@
 
 (: judgment-query-side-basic
    (-[semidet]-> KB (| NilType (List Variable)) Bool Bool Statement Statement
-       (KBContext Proof Statement (List CompiledAddition))))
+       (KBContext PremiseBundle (List CompiledAddition))))
 (= (judgment-query-side-basic $kb $mvars $negative? $whole-only? $antecedent $consequent)
    (once (let*
       (($ctx (nextctx))
@@ -47,13 +47,16 @@
                   (let $claim (canonical-existential-side $consequent)
                      (brand Statement (ExistsJudgment $claim)))
                   $consequent))
+       ;; The consequent is read as a whole: a negation through its view, so
+       ;; its evidence is the statement's as written; a compound through its
+       ;; key, whose producers the chainer installs.
        ($goal-adds
-          (if (contains-explicit-exists? $consequent)
+          (collapse (if (contains-explicit-exists? $consequent)
              (let (premise-bundle $goal-execs $goal-tv $goal-proof)
                 (lower $shape-kb $consequent)
-                (cons (brand CompiledAddition
-                   ($goal-execs |- (: $shape-kb $goal-proof $goal $goal-tv))) ()))
-             (collapse (query-adapters (: $shape-kb $prf $consequent $adapter-tv)))))
+                (brand CompiledAddition ($goal-execs |- (: $shape-kb $goal-proof $goal $goal-tv))))
+             (root-adapters (: $shape-kb $prf $consequent $adapter-tv)))))
+       ($goal-read (premise-bundle ((: $shape-kb $read-proof $goal $read-tv)) $read-tv $read-proof))
        ;; Query-local metadata uses the existing temporary fact lifecycle in
        ;; a separate namespace: it is never available as a logical premise.
        ($target-kb (make-kb-context (brand KB (judgment-consequent $kb)) $ctx $mvars))
@@ -63,7 +66,7 @@
           (union-compiled-additions
              (query-context-premise-adds $kb $ctx $mvars (the (List Goal) $execs)) (the (List CompiledAddition) $goal-adds))))
        ($whole-tv (if $negative? (STV 0 1) (STV 1 1))))
-      (data $shape-kb (brand Proof $prf) (the Statement $goal)
+      (data $shape-kb $goal-read
          (if (head-is-member? $antecedent (And Or))
             (cons (brand CompiledAddition
                (() |- (: $shape-kb (ctx proof $ctx whole) $antecedent $whole-tv)))
@@ -101,14 +104,14 @@
 
 (: disjunction-judgment-query-side
    (-[semidet]-> KB (| NilType (List Variable)) Statement Statement
-       (KBContext Proof Statement (List CompiledAddition))))
+       (KBContext PremiseBundle (List CompiledAddition))))
 (= (disjunction-judgment-query-side $kb $mvars $antecedent $consequent)
    (once (let* (($parts (implication-side-conjuncts $antecedent))
           (($alternatives $fixed) (foldr-flat judgment-condition-part (() ()) $parts))
           ($event (brand Statement (seq2expr (the (List Atom) $alternatives))))
           ($assumptions (brand Statement (seq2expr
              (cons (JudgmentPrior $event) (the (List Atom) $fixed)))))
-          (($scope $_proof $_goal $adds)
+          (($scope $_assumed-read $adds)
              (judgment-query-side-basic $kb $mvars false false $assumptions $consequent))
           (($kbid $ctx $vars) $scope)
           ($priors (list_to_set (collapse (disjunction-judgment-prior $kb $ctx $mvars $event))))
@@ -123,15 +126,13 @@
           ($result-add (brand CompiledAddition
              ($result-premises |-
                 (: $scope (conditioned-disjunction $joint-proof) $result $result-tv))))
-          ($adapters (collapse (query-adapters (: $scope $prf $joint $tv))))
-          (($direct-scope $direct-proof $direct-goal $direct-adds)
+          (($_direct-scope (premise-bundle $direct-goals $direct-tv $direct-proof) $direct-adds)
              (judgment-query-side-basic $kb $mvars false true $antecedent $consequent))
           ($direct-add (brand CompiledAddition
-             (((: $direct-scope $direct-proof $direct-goal $direct-tv)) |-
-                (: $scope (conditioned-disjunction $direct-proof) $result $direct-tv)))))
-      (data $scope (brand Proof $prf) $result
+             ($direct-goals |- (: $scope (conditioned-disjunction $direct-proof) $result $direct-tv)))))
+      (data $scope (premise-bundle ((: $scope $result-proof $result $result-read-tv)) $result-read-tv $result-proof)
          (cons $direct-add (cons $result-add (append-compiled-additions $direct-adds
-            (append-compiled-additions $adds (append-compiled-additions $priors $adapters)))))))))
+            (append-compiled-additions $adds $priors))))))))
 
 ;; A collapse/superpose partition would freshen the hypothetical variables
 ;; away from the consequent. Keep the source sharing through this fold.
@@ -148,15 +149,15 @@
 (: query-pos-neg-scaffold
    (-[semidet]-> KB (| NilType (List Variable))
        Statement Statement
-       (KBContext KBContext Statement Statement Proof Proof (List CompiledAddition))))
+       (KBContext KBContext PremiseBundle PremiseBundle (List CompiledAddition))))
 (= (query-pos-neg-scaffold $kb $mvars $antecedent $consequent)
    (let*
-      ((($pos-shape-kb $pos-prf $b $pos-adds)
+      ((($pos-shape-kb $pos-read $pos-adds)
           (judgment-query-side $kb $mvars false $antecedent $consequent))
-       (($neg-shape-kb $neg-prf $_b $neg-adds)
+       (($neg-shape-kb $neg-read $neg-adds)
           (judgment-query-side $kb $mvars true $antecedent $consequent)))
       (data
-         $pos-shape-kb $neg-shape-kb $b $_b $pos-prf $neg-prf
+         $pos-shape-kb $neg-shape-kb $pos-read $neg-read
          (union-compiled-additions $pos-adds $neg-adds))))
 
 ;; Build the empirical Member producer independently from the rest of a root
@@ -230,20 +231,19 @@
        ($antecedent (Inheritance $x $subj))
        ($consequent (Inheritance $x $concept))
        ($mvars (cons (brand Variable $x) ()))
-       (($pos-shape-kb $neg-shape-kb $b $negative-b $pos-prf $neg-prf $all-adds)
+       (($pos-shape-kb $neg-shape-kb (premise-bundle $pos-goals $induction-tv $pos-prf)
+          (premise-bundle $neg-goals $_negative-tv $neg-prf) $all-adds)
           (query-pos-neg-scaffold $kb $mvars
              (brand Statement $antecedent)
              (brand Statement $consequent)))
        ($pos-lift-adds (collect-inheritance-lifts-for-context $kb $pos-shape-kb))
        ($neg-lift-adds (collect-inheritance-lifts-for-context $kb $neg-shape-kb))
-       ($known-pos-goal (: $pos-shape-kb $pos-prf $b $induction-tv))
-      ($known-neg-goal (: $neg-shape-kb $neg-prf $negative-b $negative-tv))
       ($induction-goal (: (kbctx $kb) (inheritance-query-result
          (total-implication-frontier
             (inheritance-implication-fold (total-implication $pos-prf $neg-prf))))
          (Inheritance $subj $concept) $induction-tv))
       ($induction-rule
-         (brand CompiledAddition ((quote ($known-pos-goal $known-neg-goal)) |- $induction-goal)))
+         (brand CompiledAddition ((append-goals $pos-goals $neg-goals) |- $induction-goal)))
       ($query-adds
          (list_to_set
             (append-compiled-additions $all-adds
@@ -275,12 +275,12 @@
       (($type (brand Statement (Implication $a $b)))
        (($antecedent $consequent) (implication-query-sides $type))
        ($mvars (query-variables (extract-vars $type)))
-       (($pk $nk $concl $negative-concl $pp $np $adds)
+       (($_pk $_nk (premise-bundle $pos-goals $pos-tv $pp) (premise-bundle $neg-goals $neg-tv $np) $adds)
           (query-pos-neg-scaffold $kb $mvars $antecedent $consequent)))
       (compilation-plan (: (kbctx $kb) $prf $type (CTV $pos $neg))
          (cons (brand CompiledAddition
-            ((the (List Goal) ((: $pk $pp $concl $pos) (: $nk $np $negative-concl $neg)))
-               |- (: (kbctx $kb) (total-implication-frontier (total-implication $pp $np)) $type (CTV $pos $neg))))
+            ((append-goals $pos-goals $neg-goals)
+               |- (: (kbctx $kb) (total-implication-frontier (total-implication $pp $np)) $type (CTV $pos-tv $neg-tv))))
             (append-compiled-additions
                (if (rule-truth-installed? $kb $type)
                   (rule-truth-query-adds $kb $type $antecedent $consequent)
@@ -349,24 +349,6 @@
                    ($source-add (brand CompiledAddition (() |- $source-goal))))
                   (positive-implication-producer $query-ctx (brand Statement $lookup-type) $source-add)))))))
 
-(: ConjunctionQueryPart (Alias (Statement Goal TV Proof)))
-
-;; Implication judgments need a child query plan.
-;; Other compound queries keep their adapters and computed-premise lowering.
-(: conjunction-query-needs-lowering? (-[det]-> Statement Bool))
-(= (conjunction-query-needs-lowering? $type)
-   (if (head-is? $type Implication) true
-      (if (head-is? $type And)
-         (fold-flat conjunction-query-needs-lowering-step false
-            (statement-children (cdr-atom $type)))
-         false)))
-
-(: conjunction-query-needs-lowering-step (-[det]-> Bool Statement Bool))
-(= (conjunction-query-needs-lowering-step $found $child)
-   (if $found true (conjunction-query-needs-lowering? $child)))
-
-(: compile-conjunction-query (-[nondet]-> KB Statement TV CompilationPlan))
-
 ;; Compile a public query into one goal rule plus temporary additions.
 ;; Implication queries return the STV proved in the positive assumption context;
 ;; bidirectional queries require one context per direction. A concrete
@@ -395,13 +377,13 @@
              ($scope (make-kb-context (brand KB (implication-query $kb)) MAIN Nil))
              ($query-tv (statement-query-tv $tv))
              ($mvars (query-variables (extract-vars $canonical)))
-             (($positive $positive-proof $goal $adds)
+             (($_positive (premise-bundle $positive-goals $positive-tv $positive-proof) $adds)
                 (judgment-query-side $kb $mvars false (brand Statement $a) (brand Statement $b))))
          (compilation-plan (: $scope $prf (QuantifiedRule $hash $canonical) $query-tv)
             (cons (brand CompiledAddition
-               (((: $positive $positive-proof $goal $query-tv))
+               ($positive-goals
                   |- (: $scope (conditional-implication $positive-proof)
-                     (QuantifiedRule $hash $canonical) $query-tv))) $adds)))))
+                     (QuantifiedRule $hash $canonical) $positive-tv))) $adds)))))
 
 ;; Reopen canonical slots with fresh local binders before an Assuming answer
 ;; can bind free goal variables. Equal source spellings across scopes must not
@@ -476,14 +458,13 @@
              ($query-kb (brand KB (implication-query $kb)))
              ($query-ctx (make-kb-context $query-kb MAIN Nil))
              ($mvars (query-variables (extract-vars $Type)))
-             (($pos-shape-kb $pos-prf $b $pos-adds)
+             (($_pos-shape-kb (premise-bundle $pos-goals $pos-tv $pos-prf) $pos-adds)
                 (judgment-query-side $kb $mvars false $antecedent $consequent)))
             (compilation-plan
                (: $query-ctx $root-prf $Type $query-tv)
                (cons
                   (brand CompiledAddition
-                     ((the (List Goal) ((: $pos-shape-kb $pos-prf $b $query-tv)))
-                        |- (: $query-ctx (conditional-implication $pos-prf) $Type $query-tv)))
+                     ($pos-goals |- (: $query-ctx (conditional-implication $pos-prf) $Type $pos-tv)))
                   (append-compiled-additions
                      (implication-statement-query-adds $kb $query-ctx (brand Statement $Type))
                      (append-compiled-additions
@@ -498,92 +479,31 @@
             (let*
                ((($_head $left $right) $Type)
                 ($mvars (query-variables (extract-vars $Type)))
-                (($left-shape-kb $left-prf $left-goal-expr $left-adds)
+                (($_left-shape-kb (premise-bundle $left-goals $left-tv $left-prf) $left-adds)
                     (judgment-query-side $kb $mvars false
                        (brand Statement $left)
                        (brand Statement $right)))
-                 (($right-shape-kb $right-prf $right-goal-expr $right-adds)
+                 (($_right-shape-kb (premise-bundle $right-goals $right-tv $right-prf) $right-adds)
                     (judgment-query-side $kb $mvars false
                        (brand Statement $right)
                        (brand Statement $left)))
-                 ($left-goal (: $left-shape-kb $left-prf $left-goal-expr $left-tv))
-                 ($right-goal (: $right-shape-kb $right-prf $right-goal-expr $right-tv))
                  ($goal (: (kbctx $kb) (bidirectional $left-prf $right-prf) $Type $tv)))
                (compilation-plan
                   $goal
                   (cons
                      (brand CompiledAddition
-                        ((the (List Goal)
-                             ($left-goal $right-goal (CPU AndFormula ($left-tv $right-tv) $tv)))
+                        ((append-goals $left-goals
+                            (append-goals $right-goals ((CPU AndFormula ($left-tv $right-tv) $tv))))
                            |- $goal))
                      (union-compiled-additions $left-adds $right-adds))))
             (if (if (head-is? $Type Inheritance)
                    (if (= $Type (Inheritance $subj $concept)) (concrete-inheritance-link? $subj $concept) false) false)
                (compile-inheritance-query $kb (brand Term $subj) (brand Term $concept))
-               (if (if (head-is? $Type And) (conjunction-query-needs-lowering? $Type) false)
-                  (compile-conjunction-query $kb $Type $tv)
-                  (let $query-tv (if (head-is? $Type And) (statement-query-tv $tv) $tv)
-                     (compilation-plan
-                        (: (kbctx $kb) $prf $Type $query-tv)
-                        (collapse (query-adapters
-                           (: (kbctx $kb) $prf $Type $query-tv)))))))))))))))
-
-(: compile-conjunction-child
-   (-[nondet]-> KB Statement (ConjunctionQueryPart (List CompiledAddition))))
-(= (compile-conjunction-child $kb $child)
-   (let (compilation-plan $goal $adds)
-      (once (compileQuery $kb (: $proof $child $tv)))
-      (let (: $ctx $prf $type $child-tv) $goal
-         (data (data (brand Statement $type)
-                  (: (the KBContext $ctx) (brand Proof $prf) (brand Statement $type) $child-tv)
-                  (the TV $child-tv) (brand Proof $prf))
-            $adds))))
-
-(: conjunction-query-fold
-   (-[det]-> ((List Statement) CompiledPremises) ConjunctionQueryPart
-       ((List Statement) CompiledPremises)))
-(= (conjunction-query-fold ($types ($goals $proofs $acc-tv)) ($type $goal $tv $proof))
-   (let ($cpu $next-tv) (binary-tv-cpu AndFormula $acc-tv $tv)
-      (data (cons $type $types) (data (cons $cpu (cons $goal $goals)) (cons $proof $proofs) $next-tv))))
-
-(= (compile-conjunction-query $kb $type $tv)
-   (let*
-      (($children (statement-children (cdr-atom $type)))
-       ($plans (once (map-flat (compile-conjunction-child $kb) $children)))
-       ($parts (the (List ConjunctionQueryPart) (map-flat fst $plans)))
-       ($child-adds (map-flat snd $plans))
-       ($adds (fold-flat union-compiled-additions () $child-adds))
-       ((cons ($first-type $first-goal $first-tv $first-proof) $rest) $parts)
-       (($reversed-types ($reversed-goals $reversed-proofs $result-tv))
-          (fold-flat conjunction-query-fold
-             (data (cons $first-type ())
-                (the CompiledPremises
-                   (data (cons $first-goal ()) (cons $first-proof ()) $first-tv)))
-             $rest))
-       ($result-type (brand Statement (cons And (reverse $reversed-types))))
-       ($root-tv (statement-query-tv $tv))
-       ($conclusion (: (kbctx $kb)
-          (implication-proof-token (prepend-reversed-proofs $reversed-proofs ()))
-          $result-type $result-tv)))
-      (compilation-plan (: (kbctx $kb) $root-proof $result-type $root-tv)
-         (cons (brand CompiledAddition
-            ((prepend-reversed-goals $reversed-goals ()) |- $conclusion)) $adds))))
-
-(: query-temp-rule-premise (-[det]-> Atom Statement))
-(= (query-temp-rule-premise $premise)
-   (if (head-is? $premise Compute)
-      (case $premise (
-         ((Compute $f $args $res) (brand Statement (Compute $f $args -> $res)))
-         ($_other (brand Statement $premise))))
-      (brand Statement $premise)))
-
-(: compound-query-temp-stmt (-[semidet]-> AnnotatedStatement AnnotatedStatement))
-(= (compound-query-temp-stmt (: $_prf $type $_tv))
-   (let $premises
-      (map-flat query-temp-rule-premise (statement-children (cdr-atom $type)))
-      (: query-compound
-         (Implication (seq2expr $premises) $type)
-         (CTV (STV 1.0 1.0) (STV 0.0 1.0)))))
+               (let $query-tv (if (head-is? $Type And) (statement-query-tv $tv) $tv)
+                  (compilation-plan
+                     (: (kbctx $kb) $prf $Type $query-tv)
+                     (collapse (root-adapters
+                        (: (kbctx $kb) $prf $Type $query-tv))))))))))))))
 
 ;; Query assumptions with no caller-supplied TV are treated as certain. An
 ;; implication needs a CTV-shaped default because its positive and negative
@@ -611,12 +531,16 @@
             (let* (($a (brand Statement (implication-source-term $antecedent)))
                    ($shape-kb (make-kb-context $kbid $ctx $mvars))
                    ($_named (register-rule-evidence! $kbid $ctxprf $tv (== (extract-vars $type) ()))))
-               (collapse
-                  (compile-implication-forward-rules
-                     $kbid $shape-kb
-                     $ctxprf $tv () $tv () $a (brand Statement $consequent)
-                     (list_to_set (extract-vars $a))
-                     (antecedent-lowerings $shape-kb (brand Statement $antecedent))))))
+               ;; The producers of a compound the antecedent reads hold in the
+               ;; assumption's own context, which no later query reuses.
+               (append-compiled-additions
+                  (collapse
+                     (compile-implication-forward-rules
+                        $kbid $shape-kb
+                        $ctxprf $tv () $tv () $a (brand Statement $consequent)
+                        (list_to_set (extract-vars $a))
+                        (antecedent-lowerings $shape-kb (brand Statement $antecedent))))
+                  (collapse (let $producers (producers $shape-kb $a) (superpose $producers))))))
          ($_other ())))))
 
 (: query-context-premise-adds-step

@@ -39,9 +39,11 @@ Consequences:
   A statement is stored, assumed and concluded at its canonical key (`canon`):
   under its negations, the statement they negate, complemented for an odd
   count; an existential is stored at its claim (`canonical-existential-side`).
-  Two Not keys remain until the lowering steps of #142 remove them: an odd-Not
-  fact whose value is not an STV, and the query adapters of judgment
-  consequents. A query of `(Not s)` reads
+  Only an STV has a complement, so ingestion rejects a negated statement with
+  any other value. No Not key is stored: a negation read as a whole (a judgment
+  consequent, a fold member, a non-public Not root) is a view of its
+  statement, a query-local row whose proof is `negated`, because the evidence
+  polarity flips only at such a row. A query of `(Not s)` reads
   `s`'s key and answers complemented once per written negation, so it
   answers wherever `s` does, from a stored or materialized value at budget
   zero too (#142). A nested `Not` over a statement as a rule premise lowers to
@@ -267,11 +269,22 @@ with an implication or other compiler-specific child keeps its original
 shape; abstracting that child changes how the query compiles and can leave
 expansion unfinished with temporary waiters still installed.
 
-Rules compiled for one query (query adapters, implication scaffolds) leave with
-it: their rows, waiters and views are removed and the keys they fed change.
-Producers that depend only on the pattern (the Member inheritance producer of a
-concrete `Inheritance` link, the compiled source of a fold pattern) are
-installed once as permanent backward rules, so their rows outlive the query.
+Rules compiled for one query (negation views, computation bridges, implication
+scaffolds) leave with it: their rows, waiters and views are removed and the
+keys they fed change. Producers that depend only on the pattern (the Member
+inheritance producer of a concrete `Inheritance` link, the compiled source of a
+fold pattern, the producers of a compound key) are installed once as permanent
+backward rules, so their rows outlive the query. A compound key's producers are
+registered per context pattern and key up to renaming: a MAIN read gets
+MAIN's rules, a read elsewhere rules for every context, and rules for every
+context cover a later MAIN read. A query root, a batch member, a judgment
+consequent, a fold member and a rule premise reading the key share them
+(#142). They are installed where a compound key is read, never for a MAIN
+compound node a search reaches otherwise: an open variable-headed node matches
+each new producer's conclusion, and installing for those instances would nest
+compound keys without bound. Rules imported from a static dump keep their ids;
+a new live rule takes an id past them. A connective's producer reads an
+implication part at its probability, in the implication's query scaffold.
 An implication premise of a permanent join likewise installs its own permanent
 scaffold, including its private assumptions and consequent metadata. A temporary
 scaffold from an earlier query cannot supply that lifetime, even when the

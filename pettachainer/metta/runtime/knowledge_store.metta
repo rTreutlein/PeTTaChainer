@@ -268,7 +268,8 @@
        ($id
           (if (== $backend temp)
              (+ 1000000000 (next-search-id bwd_tmp_ruleid))
-             (next-search-id ruleid)))
+             (let $fresh (fresh-rule-id (search-id-value ruleid))
+                (progn (change-state! ruleid (+ $fresh 1)) $fresh))))
        ($_context (context-note-rule! $id $typed-ccls))
        ($_functional (functional-rule! $typed-ccls))
        ($_1 (if (== $backend backward) 0 (fold-flat (kb-add-prem $backend $id) 0 $rule-args)))
