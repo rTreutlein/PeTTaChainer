@@ -256,7 +256,7 @@ limits:
   certain assumption, which gives that branch weight zero, matches an isolated
   KB (#124);
 - names are labels, not identities: two facts with one name count as two
-  reports, where `compileadd` would replace the first;
+  reports, where `compileadd` rejects a second value under one name (#113);
 - a variable only in a rule's consequent is Skolemised with the assumption's
   context token, which differs per query, where a stored rule uses its name:
   the value is the same, the answer term is not stable across queries;

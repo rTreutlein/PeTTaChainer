@@ -21,6 +21,37 @@
     ; throw(error(domain_error(fact_without_free_variables, Type),
                   context(compileadd/2, 'fact contains free variables'))) ).
 
+% A fact's context, proof name and statement are its evidence identity. A new
+% observation is new evidence, never a replacement (append-only), so a source
+% that gives a stored identity another value is rejected before any of it is
+% published (#113). Restating the stored value is accepted: values compare
+% by number, so (STV 1 1) restates (STV 1.0 1.0) and a negation's stored
+% complement 1 - 0.8 restates 0.2.
+'proof-identities-free!'(Adds, true) :- maplist(ingestion_identity_free, Adds).
+
+ingestion_identity_free(Add) :-
+    (   Add = [Type, Ctx, Proof, TV], ingestion_stored_value(Type, Ctx, Proof, Stored),
+        \+ ingestion_same_value(Stored, TV)
+    ->  throw(error(permission_error(restate, proof, Proof),
+                    context(compileadd/2, 'proof name already stores another value for this statement')))
+    ;   true ).
+
+ingestion_same_value(A, B) :- number(A), number(B), !, abs(A - B) =< 1.0e-9.
+ingestion_same_value(A, B) :- is_list(A), is_list(B), !, maplist(ingestion_same_value, A, B).
+ingestion_same_value(A, B) :- A == B.
+
+% The values stored under an identity, read through the fact's own index row
+% as kb-fact-present? reads it; an open statement is compared as a variant.
+ingestion_stored_value(Type, Ctx, Proof, TV) :-
+    (   ground(Type)
+    ->  (   'kb-fact-prefix-hashes'(Type, [])
+        ->  catch('&kb'(Type, Ctx, Proof, TV), error(existence_error(procedure, _), _), fail)
+        ;   'kb-fact-open-hash'(Type, Hash),
+            catch('&kb_prefix'(Hash, Type, Ctx, Proof, TV), error(existence_error(procedure, _), _), fail) )
+    ;   'kb-fact-open-hash'(Type, Hash),
+        catch('&kb_open'(Hash, Stored, Ctx, Proof, TV), error(existence_error(procedure, _), _), fail),
+        Stored =@= Type ).
+
 % Asserted negations are unwrapped by compile_. Validate the entire leading
 % chain before compilation: exact destructuring would silently fail on Not/0
 % or Not/2, and an outer Not must not hide an invalid inner negation.

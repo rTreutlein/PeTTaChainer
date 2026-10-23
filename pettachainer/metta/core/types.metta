@@ -45,6 +45,7 @@
 (: stored-refs-gc-step! (-[det]-> Bool))
 (: set-functional-predicate (-[det]-> KB Atom Number (List Number) Bool))
 (: functional-check-additions! (-[det]-> KB $adds Bool))
+(: proof-identities-free! (-[det]-> $adds Bool))
 (: functional-fact! (-[det]-> $fact Bool))
 (: functional-rule! (-[det]-> $conclusion Bool))
 (: sk-functional-conflict? (-[det]-> $premise Bool))

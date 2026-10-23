@@ -37,6 +37,7 @@
        ($_valid (validate-ingestion! $kb $source))
        ($iatoms (list_to_set (collapse (mm2compile $kb $source))))
         ($_functional (functional-check-additions! $kb $iatoms))
+        ($_identities (proof-identities-free! $iatoms))
         ($eatoms (the (List CompiledAddition) (map-flat externalize-proof-structure $iatoms)))
         ($_recorded (collapse (foreach-flat record-compiled-inheritance! $eatoms)))
         ($_ (collapse (foreach-flat add-to-kb $iatoms)))

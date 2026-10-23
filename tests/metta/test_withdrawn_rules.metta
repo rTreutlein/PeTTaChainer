@@ -25,17 +25,18 @@
             (data $proof $strength))
    ((by alternative c-fresh) 0.2))
 
-;; Reusing a source name creates new rule identities, without resurrecting
-;; the views of the earlier rule bearing that name.
+;; Restating a withdrawn rule's statement creates new rule identities, without
+;; resurrecting the views of the earlier rule. The withdrawn name keeps its
+;; value (#113), so the restatement takes a new name.
 !(compileadd reuseKb (: reusable (Implication (Input $t) (Output $t)) (STV 1 1)))
 !(compileadd reuseKb (: input (Input warm) (STV 1 1)))
 !(query 40 reuseKb (: $p (Output warm) $tv))
 !(withdraw-named-rules! reusable)
-!(compileadd reuseKb (: reusable (Implication (Input $t) (Output $t)) (STV 0.2 1)))
+!(compileadd reuseKb (: restated (Implication (Input $t) (Output $t)) (STV 0.2 1)))
 !(test (let (: $proof $_statement (STV $strength $_confidence))
                (query 40 reuseKb (: $p (Output warm) $tv))
             (data $proof $strength))
-   ((by reusable input) 0.2))
+   ((by restated input) 0.2))
 
 
 ;; Cached fold proofs carry their members' rule identities too.

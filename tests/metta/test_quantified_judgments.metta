@@ -148,10 +148,11 @@
 !(test (collapse (query 500 quantifiedKb (: $p (Implication (Exists ($flood) (And (RecordedFlood $site $flood) (Member $site Facility) (During $flood S1))) (MustPauseProductionDuring $site S1)) $tv))) ())
 
 ;; Retirement and re-addition cannot retain the warm conditional answer.
+;; The withdrawn name keeps its value (#113): the re-addition takes a new name.
 !(withdraw-named-rules! src_flood_inspection)
 !(test (collapse (query 500 quantifiedKb (: $p (Implication (Exists ($flood) (And (Member $site Facility) (RecordedFlood $site $flood) (During $flood S1))) (MustPauseProductionDuring $site S1)) $tv))) ())
-!(compileadd quantifiedKb (: src_flood_inspection (Implication (Exists ($flood) (And (Member $site Facility) (RecordedFlood $site $flood) (During $flood S1))) (RequiresInspectionDuring $site S1)) (CTV (STV 0.8 0.9) (STV 0 1))))
-!(test (quantified-answer? quantifiedKb (Implication (Exists ($flood) (And (Member $site Facility) (RecordedFlood $site $flood) (During $flood S1))) (MustPauseProductionDuring $site S1)) (conditional-implication (by src_inspection_pause (by src_flood_inspection (ctx proof $ctx)))) 0.8) true)
+!(compileadd quantifiedKb (: src_flood_inspection_renewed (Implication (Exists ($flood) (And (Member $site Facility) (RecordedFlood $site $flood) (During $flood S1))) (RequiresInspectionDuring $site S1)) (CTV (STV 0.8 0.9) (STV 0 1))))
+!(test (quantified-answer? quantifiedKb (Implication (Exists ($flood) (And (Member $site Facility) (RecordedFlood $site $flood) (During $flood S1))) (MustPauseProductionDuring $site S1)) (conditional-implication (by src_inspection_pause (by src_flood_inspection_renewed (ctx proof $ctx)))) 0.8) true)
 !(withdraw-named-rules! src_inspection_pause)
 !(test (collapse (query 500 quantifiedKb (: $p (Implication (Exists ($flood) (And (Member $site Facility) (RecordedFlood $site $flood) (During $flood S1))) (MustPauseProductionDuring $site S1)) $tv))) ())
 

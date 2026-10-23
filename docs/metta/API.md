@@ -33,6 +33,13 @@ surface this as `janus_swi.PrologError`. Rejection publishes no compiled
 facts, rules or ingestion observations for that input. Bulk Python ingestion
 keeps its successfully added prefix, including its timed-worker replay journal.
 
+A proof name, with its statement and context, is one observation's identity.
+Restating it with the same value is accepted, values compared by number:
+`(STV 1 1)` restates `(STV 1.0 1.0)`, and `(Not (P a))` at 0.8 restates
+`(P a)` at 0.2. A different value raises `permission_error(restate, proof,
+Name)` (#113). A new
+observation of the same statement takes a new name and revises with the old.
+
 Scope is lexical to each occurrence, with actual constant heads and the stated
 arities (a variable head never becomes a binder by unification):
 

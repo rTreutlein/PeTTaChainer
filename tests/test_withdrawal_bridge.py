@@ -76,7 +76,8 @@ class TestWithdrawalBridge(unittest.TestCase):
             self.assertNotIn('old', proof)
         h._call('withdraw-named-rules!', ['live'])
         self.assertEqual(h.query_many_refs([query], steps=100)[0], [])
-        h.add_atom('(: old (Implication (A $x) (B $x)) (CTV (STV 0.6 1) (STV 0 1)))')
+        # The withdrawn name keeps its value (#113): the new rule takes a new name.
+        h.add_atom('(: renewed (Implication (A $x) (B $x)) (CTV (STV 0.6 1) (STV 0 1)))')
         for _ in range(2):
             rows = h.query_many_refs([query], steps=100)[0]
             self.assertEqual(len(rows), 1, rows)

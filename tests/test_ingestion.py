@@ -221,6 +221,26 @@ class TestIngestion(unittest.TestCase):
             answers = self.h.query('(: $proof (P $x) $tv)', steps=0, timeout_sec=timeout)
             self.assertEqual(answers, ['(: accepted (P a) (STV 1 1))'])
 
+    def test_proof_name_restated_with_another_value_rejects(self):
+        # A name, context and statement are one observation's identity (#113).
+        for name, statement in (('fact', '(P a)'), ('rule', '(Implication (P $x) (Q $x))')):
+            with self.subTest(statement=statement):
+                stored = f'(: {name} {statement} (STV 0.6 0.5))'
+                rows = lambda: janus.query_once(
+                    "aggregate_all(count,'&kb'(_, _, Name, _),N)", {'Name': name})['N']
+                self.h.add_atom(stored)
+                count = rows()
+                self.h.add_atom(stored)
+                with self.assertRaisesRegex(janus.PrologError, 'restate proof'):
+                    self.h.add_atom(f'(: {name} {statement} (STV 1.0 1.0))')
+                self.assertEqual(rows(), count)
+        # The same value is a restatement however it is written.
+        for stored, restated in (('(P b) (STV 1 1)', '(P b) (STV 1.0 1.0)'),
+                                 ('(P c) (STV 0.2 0.9)', '(Not (P c)) (STV 0.8 0.9)')):
+            with self.subTest(restated=restated):
+                self.h.add_atom(f'(: same {stored})')
+                self.h.add_atom(f'(: same {restated})')
+
     def test_malformed_asserted_negation_rejects_before_publication(self):
         for statement in ('(Not)', '(Not a b)', '(Not (Not a b))'):
             atom = f'(: malformed {statement} (STV 0.8 0.9))'

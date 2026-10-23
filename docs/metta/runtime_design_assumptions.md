@@ -97,7 +97,8 @@ until the referencing proof has captured its rule set, or is itself collected.
 
 Facts and rules are only added; there is no removal API. A new observation of
 an existing statement adds evidence (revision) and never replaces the old
-value, and a changed world is a new fact at a new time. Hypothesis review's
+value, and a changed world is a new fact at a new time. A proof name keeps
+one value per statement: `compileadd` rejects a restatement under another value. Hypothesis review's
 rule withdrawal (above), forgetting's summaries and Assuming worlds are the
 only ways knowledge stops contributing, and none of them deletes a fact.
 Corrections and supersession are new facts, not retractions. Configuration is
