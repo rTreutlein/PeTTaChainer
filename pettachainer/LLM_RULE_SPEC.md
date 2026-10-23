@@ -34,6 +34,111 @@ unchanged confidence. This lets population/base-rate folds count both positive
 and negative observations. `Not` remains available normally in rule premises,
 rule conclusions, and queries.
 
+## Assuming Queries
+
+`Assuming` asks a query as if some premises held, without storing them. The
+`(: $proof ... $tv)` annotation encloses the whole `Assuming` form, which
+takes exactly two arguments: the premises and the goal.
+
+```metta
+(: $proof (Assuming (: premise (Accepted Report1) (STV 1.0 1.0)) (Claim Topic1)) $tv)
+```
+
+- **Premises:** one premise, or several combined with `And`. Never a bare
+  list of premises.
+- **A bare premise** such as `(Accepted Report1)` is certain.
+- **A weighted premise** is written as a stored statement,
+  `(: name statement tv)`. It can be a closed fact or `(Not fact)` with an
+  `STV`, or an implication (next section).
+- **The goal** is an ordinary statement pattern, and its variables are
+  answered.
+- **Answers** have proof `(assuming ...)` and statement
+  `(Assuming premises goal)` with the goal's bindings. Nothing is stored.
+
+The examples below read a KB that holds `(About Report1 Topic1)` and the
+rules `(Implication (And (Accepted $r) (About $r $t)) (Claim $t))` and
+`(Implication (Claim $t) (Covered $t))`:
+
+```metta
+(: $proof (Assuming (Accepted Report1) (Claim Topic1)) $tv)
+(: $proof (Assuming (: premise (Accepted Report1) (STV 0.8 0.9)) (Claim Topic1)) $tv)
+(: $proof (Assuming (: premise (Not (Accepted Report1)) (STV 0.9 0.9)) (Claim Topic1)) $tv)
+(: $proof (Assuming (And (: premise (Accepted Report2) (STV 0.8 0.9)) (About Report2 Topic2)) (Claim Topic2)) $tv)
+(: $proof (Assuming (Accepted Report1) (Claim $topic)) $tv)
+```
+
+### Implication premises
+
+An implication premise is a rule of the query's world. A bare one is
+certain; a weighted one takes an `STV` or a `CTV`. Its variables are its own,
+as a stored rule's are. They are standardized apart from the goal's and from
+other premises' variables, even when spelled the same, and each application
+binds them anew (#120, #127). Both sides must be given, and the consequent
+must be a plain statement: a nested implication or an `Exists` consequent is
+rejected.
+
+```metta
+(: $proof (Assuming (And (Accepted Report1) (: bridge (Implication (Claim $t) (Newsworthy $t)) (STV 0.6 0.8))) (Newsworthy $t)) $tv)
+(: $proof (Assuming (And (Accepted Report1) (: bridge (Implication (Claim $t) (Newsworthy $t)) (CTV (STV 0.6 0.8) (STV 0.1 0.8)))) (Newsworthy Topic1)) $tv)
+(: $proof (Assuming (And (Accepted Report1) (Implication (Claim $t) (Newsworthy $t))) (Newsworthy Topic1)) $tv)
+```
+
+In the first example the goal's `$t` and the rule's `$t` are different
+variables; the answer binds the goal's `$t` to `Topic1`.
+
+### Stored rules and assumed rules
+
+A rule stored in the KB applies to the premises, and judging it reads its
+stated value:
+
+```metta
+(: $proof (Assuming (Accepted Report1) (Covered Topic1)) $tv)
+(: $proof (Assuming (Accepted Report1) (Implication (Claim $t) (Covered $t))) $tv)
+```
+
+A rule introduced as a premise applies the same way, but judging that rule
+itself has no answer
+([#129](https://github.com/rTreutlein/PeTTaChainer/issues/129)). Ask for its
+consequences instead:
+
+```metta
+(: $proof (Assuming (: bridge (Implication (Claim $t) (Newsworthy $t)) (STV 0.6 0.8)) (Implication (Claim $t) (Newsworthy $t))) $tv)
+```
+
+### Not supported
+
+These forms are rejected or have no answer. Do not write them:
+
+```metta
+(: $proof (Assuming ((Accepted Report1) (About Report1 Topic1)) (Claim Topic1)) $tv)
+(: $proof (Assuming (Accepted Report1) (Assuming (Accepted Report2) (Claim Topic1))) $tv)
+(: $proof (Assuming (Accepted Report1)) $tv)
+(: $proof (Assuming (: premise (Accepted Report1) (CTV (STV 1 1) (STV 0 1))) (Claim Topic1)) $tv)
+(: $proof (Assuming (Implication (Claim $t) (Implication (Hot $t) (Newsworthy $t))) (Newsworthy Topic1)) $tv)
+(: $proof (Assuming (Implication (Claim $t) (Exists ($x) (Covers $x $t))) (Claim Topic1)) $tv)
+```
+
+- **A bare list of premises** is read as one statement and answers nothing.
+  Combine premises with `And`.
+- **`Assuming` must be the outermost statement of the query.** It cannot be
+  nested, nor sit under `And`, `Or` or `Not`
+  ([#125](https://github.com/rTreutlein/PeTTaChainer/issues/125)), and it
+  takes exactly its premises and a goal.
+- **A weighted fact takes an `STV`**, not a `CTV`.
+- **An implication premise** cannot have a nested-implication or an `Exists`
+  consequent.
+- **Without the enclosing `(: $proof ... $tv)`**, `(Assuming ...)` is not a
+  query.
+
+Two limits answer, but not as storing the premises would:
+
+- An assumed `CTV` rule whose implication the KB already states is not
+  combined with the stored rule
+  ([#123](https://github.com/rTreutlein/PeTTaChainer/issues/123)).
+- A rule that reads a population base rate counts only the KB's facts, not
+  the weighted premises
+  ([#124](https://github.com/rTreutlein/PeTTaChainer/issues/124)).
+
 ## Member and Inheritance
 
 Use `Member` for an object belonging to a class:
