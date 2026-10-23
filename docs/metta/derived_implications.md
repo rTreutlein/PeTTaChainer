@@ -397,8 +397,14 @@ the query of that nested statement returns an STV with strength 1 and
 confidence 0.9, read from the stated source, under the same nested statement. The query
 assumes the source gate only in its private context. Asking about the rule
 does not accept the source: `(AcceptSource Report1)`, `(LowerPrices Supplier1)`
-and the inner rule remain unsupported in the main KB. The implication
-judgment does not answer `(Not (Implication ...))`.
+and the inner rule remain unsupported in the main KB.
+
+A negated implication is the conditional complement: `(Not (Implication G A))`
+at strength s means `(Implication G (Not A))`, P(not A given G) = 1 - s, not the
+material reading G and not A. `compileadd` stores `(: n (Not (Implication G A))
+(STV s c))` as the rule `(Implication G A)` at 1 - s, and a query of
+`(Not (Implication G A))` reads the implication's judgment and answers its
+complement (#142).
 
 ### Projection through consequent conjunctions
 

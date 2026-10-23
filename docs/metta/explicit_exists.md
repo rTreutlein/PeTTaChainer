@@ -52,7 +52,10 @@ has no value. Neither exhaustion, a budget cut, all known witnesses being false,
 nor `set-complete-predicate` makes an open existential false. A
 `Not (Exists ...)` query answers the complement of this judgment (#142), and a
 stored `Exists` or `Not (Exists ...)` fact is the claim E at its value or the
-complement. `Not (Exists ...)` as a premise is deferred to stage 3;
+complement. The complement is an upper bound on "none exists": the witness
+disjunction is a lower bound in an open world, and `set-complete-predicate`
+does not close the population. A lone witness at strength 0 contributes
+nothing, so there is no answer, while one at 0.01 answers 0.99. `Not (Exists ...)` as a premise is deferred to stage 3;
 completion is stage 4.
 `ExistentialClaim` remains a direct-claim view, not a witness aggregate.
 

@@ -193,7 +193,10 @@ body fact, or categorical consequence is published to MAIN.
 
 A stored `Exists` fact is its `ExistentialClaim`, and a stored `Not (Exists ...)`
 is that claim at the complement. A `Not (Exists ...)` query answers the
-complement of the existential judgment. Nested binders, quantified nested
+complement of the existential judgment. The complement is an upper bound on "none exists": the witness
+disjunction is a lower bound in an open world, and `set-complete-predicate`
+does not close the population. A lone witness at strength 0 contributes
+nothing, so there is no answer, while one at 0.01 answers 0.99. Nested binders, quantified nested
 implication export, quantified implications as Assuming goals, assumed
 implications with an existential consequent, and `Not (Exists ...)` as a rule
 premise remain unsupported. Existentials must

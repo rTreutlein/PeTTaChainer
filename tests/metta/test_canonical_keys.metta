@@ -12,9 +12,21 @@
    (data seen (STV 0.7 1)))
 !(test (let (: $proof $_statement $tv) (query 100 existsKb (: $p (Exists ($y) (Met alice $y)) $tv)) (data $proof $tv))
    (data none (STV 0.19999999999999996 1)))
-;; Not (Exists ...) is the complement of the existential judgment.
-!(test (let (: $proof $_statement $tv) (query 100 existsKb (: $p (Not (Exists ($y) (Saw alice $y))) $tv)) (data $proof $tv))
-   (data (negated seen) (STV 0.30000000000000004 1)))
+;; Not (Exists ...) is the complement of the existential judgment, answered
+;; with its public statement.
+!(test (query 100 existsKb (: $p (Not (Exists ($y) (Saw alice $y))) $tv))
+   (: (negated seen) (Not (Exists ($_0) (Saw alice $_0))) (STV 0.30000000000000004 1)))
+
+;; So is the negation of a quantified implication.
+!(compileadd quantKb (: saw (Implication (Exists ($y) (Saw $x $y)) (Seen $x)) (STV 0.8 0.9)))
+!(test (query 100 quantKb (: $p (Not (Implication (Exists ($y) (Saw $x $y)) (Seen $x))) $tv))
+   (: (negated saw) (Not (Implication (Exists ($_0) (Saw $_1 $_0)) (Seen $_1))) (STV 0.19999999999999996 0.9)))
+
+;; A negated CTV implication is its positive branch's complement: the value
+;; of (Implication (G a) (Not (A a))).
+!(compileadd ctvKb (: r (Implication (G a) (A a)) (CTV (STV 0.7 0.9) (STV 0.2 0.9))))
+!(test (query 50 ctvKb (: $p (Not (Implication (G a) (A a))) $tv))
+   (: (negated r) (Not (Implication (G a) (A a))) (STV 0.30000000000000004 0.9)))
 
 ;; A rule concluding a double negation concludes its statement.
 !(compileadd notNotKb (: g (G a) (STV 0.74 1)))
@@ -34,3 +46,13 @@
 !(compileadd zeroKb (: fa (A a) (STV 0.3 1)))
 !(test (query 0 zeroKb (: $p (Not (A a)) $tv)) (: (negated fa) (Not (A a)) (STV 0.7 1)))
 !(test (collapse (query 0 zeroKb (: $p (Not (A a)) (STV 0.3 1)))) ())
+
+;; A negated open statement has no answer: a computation row answers none.
+!(test (collapse (query 10 zeroKb (: $p (Not $s) $tv))) ())
+
+;; In a batch, a negated root's pattern filters only its own answers.
+!(compileadd manyKb (: fa (A a) (STV 0.3 1)))
+!(compileadd manyKb (: fb (A b) (STV 0.6 1)))
+!(test (collapse (query-many 10 manyKb ((: $p (A $x) $tv) (: $q (Not (A $y)) (STV 0.7 1)))))
+   ((query-result 0 (: fa (A a) (STV 0.3 1))) (query-result 0 (: fb (A b) (STV 0.6 1)))
+    (query-result 1 (: (negated fa) (Not (A a)) (STV 0.7 1)))))

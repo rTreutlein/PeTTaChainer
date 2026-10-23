@@ -38,7 +38,10 @@ Consequences:
   existing proof/evidence collector; public proof output omits the wrapper.
   A statement is stored, assumed and concluded at its canonical key (`canon`):
   under its negations, the statement they negate, complemented for an odd
-  count. A negation is a reading, never a key. A query of `(Not s)` reads
+  count; an existential is stored at its claim (`canonical-existential-side`).
+  Two Not keys remain until the lowering steps of #142 remove them: an odd-Not
+  fact whose value is not an STV, and the query adapters of judgment
+  consequents. A query of `(Not s)` reads
   `s`'s key and answers complemented once per written negation, so it
   answers wherever `s` does, from a stored or materialized value at budget
   zero too (#142). A nested `Not` over a statement as a rule premise lowers to

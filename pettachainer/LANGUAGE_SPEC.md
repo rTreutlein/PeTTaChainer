@@ -20,8 +20,10 @@ If you need an LLM-oriented helper-first spec, use `pettachainer/LLM_RULE_SPEC.m
   projections and assumptions follow the same rule, so ordinary population
   folds see negative observations. A query of `(Not s)` reads `s` and answers
   complemented, so it answers wherever `s` does, at budget zero included. A
-  stored `Exists` fact is its `ExistentialClaim`. `Not` in rules and queries
-  keeps its logical meaning.
+  stored `Exists` fact is its `ExistentialClaim`. A negated implication is the
+  conditional complement: `(Not (Implication G A))` at s means
+  `(Implication G (Not A))`, P(not A given G) = 1 - s, not the material reading
+  G and not A. `Not` in rules and queries keeps its logical meaning.
 
 - In user code, facts/rules are usually inserted with:
 

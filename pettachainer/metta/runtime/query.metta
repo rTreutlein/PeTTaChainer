@@ -47,30 +47,31 @@
       (let ($key $_odd) (canon $type) (: $key-proof $key $key-tv))
       (: $prf $type $tv)))
 
-(: negated-result (-[semidet]-> RuntimeResult RuntimeResult))
-(= (negated-result ($type $kbctx $proof $tv))
-   (brand RuntimeResult (data (Not $type) $kbctx (negated $proof) (NotFormula (the STVType $tv)))))
-
-;; The answers of a written root from those of its query root. The written
-;; truth-value pattern constrains the complemented answer.
-(: written-results (-[semidet]-> AnnotatedStatement (List RuntimeResult) (List RuntimeResult)))
+;; The public answers of a written root from those of its query root: each
+;; written negation complements the answer, negates its proof and wraps its
+;; public statement, and the written truth-value pattern constrains the
+;; complemented value. A computation row answers no statement.
+(: written-results (-[det]-> AnnotatedStatement (List RuntimeResult) (List RuntimeResult)))
 (= (written-results (: $_prf $type $tv) $results)
    (if (head-is? $type Not)
-      (written-tv-results $tv
-         (map-semidet negated-result
-            (written-results (: $_inner-proof (car-atom (cdr-atom $type)) $_inner-tv) $results)))
+      (negated-results $tv
+         (written-results (: $_inner-proof (car-atom (cdr-atom $type)) $_inner-tv) $results))
       $results))
 
-(: written-tv-step (-[det]-> Atom RuntimeResult (List RuntimeResult) (List RuntimeResult)))
-(= (written-tv-step $tv ($type $kbctx $proof $result-tv) $kept)
-   (if (= (copy_term $tv) $result-tv)
-      (cons (brand RuntimeResult (data $type $kbctx $proof $result-tv)) $kept)
-      $kept))
+(: negated-step (-[det]-> Atom RuntimeResult (List RuntimeResult) (List RuntimeResult)))
+(= (negated-step $tv $result $kept)
+   (case $result (
+      ((CPU $_fun $_args $_res) $kept)
+      (($type $kbctx $proof $result-tv)
+         (let $not-tv (NotFormula (the STVType $result-tv))
+            (if (= (copy_term $tv) $not-tv)
+               (cons (brand RuntimeResult (data (Not $type) $kbctx (negated $proof) $not-tv)) $kept)
+               $kept))))))
 
 ;; The results arrive as a parameter: the determinism checker proves a fold
 ;; over a parameter list, not over a function result.
-(: written-tv-results (-[det]-> Atom (List RuntimeResult) (List RuntimeResult)))
-(= (written-tv-results $tv $results) (foldr-flat (written-tv-step $tv) () $results))
+(: negated-results (-[det]-> Atom (List RuntimeResult) (List RuntimeResult)))
+(= (negated-results $tv $results) (foldr-flat (negated-step $tv) () $results))
 
 ;; Each source statement is copied before compilation so variables cannot
 ;; become shared between roots in a batch. Compiler alternatives remain in
@@ -150,8 +151,8 @@
       (map-flat (|-> ($answer) (data $key $answer))
          (pretty-results
             (map-flat externalize-proof-structure
-               (map-flat public-query-result
-                  (written-results $written
+               (written-results $written
+                  (map-flat public-query-result
                      (if $expand? (map-flat expand-result $results) $results))))))
       (present-query-plan-results $expand? $roots $rest-results)))
 
