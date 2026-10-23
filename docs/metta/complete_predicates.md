@@ -134,7 +134,12 @@ premises in the same cycle multiply that.
   other premise value; before, it was refused and an `And` loop over a soft
   root had no answer.
 - Merging. A closed value has the evidence of the recomputed rows and depends
-  on K and the pinned statements; the reader's view merges as any other.
+  on K and the pinned statements; the reader's view merges as any other. The
+  unfounded statement itself has no evidence, also when evidence is read off a
+  stored proof: the bare proof name `unfounded` is no fact, and two closed
+  reads of different statements must not share it (#128: a SupplyNet stage 4
+  decision read the plant's run as a clash once its search reached a
+  completion through an earlier period's closed stock read).
 - Observations inside a loop. A rule application of a complete G may read a
   certain fact of a complete K as a premise (a cause of G) that an inversion
   or completion onto G observes as G's effect: K is both only in a loop

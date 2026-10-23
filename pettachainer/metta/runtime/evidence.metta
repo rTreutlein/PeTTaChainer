@@ -172,6 +172,10 @@
       ;; from it.
       (cpu (ev-set 0))
       ((population-prior $_pattern) (ev-set 0))
+      ;; A closed read's unfounded statement is a pin or a completion, no
+      ;; stored fact: it has no evidence (sk-unfounded-value), so two closed
+      ;; reads never share one through the bare proof name.
+      (unfounded (ev-set 0))
       ((class-mixture $sources) (proof-term-evidence-children $mode (proof-children $sources)))
       ;; A factored merge's evidence is its prior view's and its updates';
       ;; the prior's truth value is none.

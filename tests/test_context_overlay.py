@@ -4,6 +4,7 @@ CTX_OVERLAY_BROKEN selects a deliberately broken in-memory implementation for
 negative-control runs; normal unittest discovery always uses the real runtime.
 """
 import os
+import random
 from pathlib import Path
 import unittest
 
@@ -211,6 +212,60 @@ class OverlayChecks:
                             for space, _, row in local), local)
         self.assertTrue(any(space == "&forward_aggregate_state" for space, _, _ in local))
         self.assertEqual(self.h._call("cached-base-rate", [f"{self.h.kb} (P $t)"]), before)
+
+    def test_context_answer_is_independent_of_main_query_history(self):
+        # #128 (SupplyNet stage 4, t9): two closed reads of the stock shared
+        # the bare proof name `unfounded` as one evidence item, so the plant's
+        # run clashed and the context answered the population prior once its
+        # search, or an earlier MAIN query's, reached the t8 completion.
+        def plant(handler):
+            for head in ("Producing", "Fuelled", "FuelArrived", "StockedFuel"):
+                handler.set_complete_predicate(head)
+            for head in ("FuelVia", "InService"):
+                handler.set_positive_only_predicate(head)
+            handler.add_atoms_no_check([
+            "(: persist-east (Implication (And (NextPeriod $p $t) (Storm east $p)) (Storm east $t)) (CTV (STV 0.7 1) (STV 0.3 1)))",
+            "(: block-rf (Implication (Storm east $p) (Blocked rf $p)) (CTV (STV 0.8 1) (STV 0.03 1)))",
+            "(: block-ra (Implication (Storm east $p) (Blocked ra $p)) (CTV (STV 0.4 1) (STV 0.03 1)))",
+            "(: persist-degraded-power-plant (Implication (And (NextPeriod $p $t) (Degraded power-plant $p) (Not (Repairing power-plant $p))) (Degraded power-plant $t)) (CTV (STV 0.75 1) (STV 0.05 1)))",
+            "(: fuel-arrives (Implication (And (NextPeriod $p $t) (Producing mine $p) (FuelVia $r $p) (Not (Blocked $r $p))) (FuelArrived $t)) (CTV (STV 1 1) (STV 0 1)))",
+            "(: fuelled (Implication (Or (StockedFuel $t) (FuelArrived $t)) (Fuelled power-plant $t)) (CTV (STV 1 1) (STV 0 1)))",
+            "(: runs-power-plant (Implication (And (Fuelled power-plant $t) (Not (Degraded power-plant $t)) (InService power-plant $t)) (Producing power-plant $t)) (CTV (STV 1 1) (STV 0 1)))",
+            "(: runs-mine (Implication (And (Producing power-plant $t) (Not (Degraded mine $t)) (InService mine $t)) (Producing mine $t)) (CTV (STV 1 1) (STV 0 1)))",
+            "(: runs-plant-a (Implication (And (Producing power-plant $t) (InputArrived plant-a $t) (Not (Degraded plant-a $t)) (InService plant-a $t)) (Producing plant-a $t)) (CTV (STV 1 1) (STV 0 1)))",
+            "(: runs-plant-b (Implication (And (Producing power-plant $t) (InputArrived plant-b $t) (Not (Degraded plant-b $t)) (InService plant-b $t)) (Producing plant-b $t)) (CTV (STV 1 1) (STV 0 1)))",
+            "(: via-t7 (FuelVia ra t7) (STV 1 1))",
+            "(: stocked-t7 (StockedFuel t7) (STV 1 1))",
+            "(: repairing-power-plant-t7 (Repairing power-plant t7) (STV 0 1))",
+            "(: in-service-power-plant-t7 (InService power-plant t7) (STV 1 1))",
+            "(: next-t8 (NextPeriod t7 t8) (STV 1 1))",
+            "(: blocked-rf-t8 (Blocked rf t8) (STV 0 1))",
+            "(: degraded-mine-t8 (Degraded mine t8) (STV 0 1))",
+            "(: producing-mine-t7 (Producing mine t7) (STV 1 1))",
+            "(: producing-power-plant-t7 (Producing power-plant t7) (STV 1 1))",
+            "(: via-t8 (FuelVia rf t8) (STV 1 1))",
+            "(: repairing-power-plant-t8 (Repairing power-plant t8) (STV 0 1))",
+            "(: in-service-mine-t8 (InService mine t8) (STV 1 1))",
+            "(: in-service-power-plant-t8 (InService power-plant t8) (STV 1 1))",
+            "(: next-t9 (NextPeriod t8 t9) (STV 1 1))",
+            "(: producing-mine-t8 (Producing mine t8) (STV 1 1))",
+            ])
+            return handler
+
+        assumed = "(And (FuelVia rf t9) (InService mine t9) (InService power-plant t9) (InService plant-a t9) (InService plant-b t9))"
+        decide = lambda handler: [a.tv for a in handler.query_many_refs(
+            [f"(: $p (Assuming {assumed} (Producing power-plant t9)) $tv)"], steps=200)[0]]
+        self.assertEqual(decide(plant(PeTTaChainer())), [["STV", 0.95, 0.9998999947967693]])
+        main_goals = ["(Degraded power-plant t8)", "(Degraded power-plant t9)", "(Producing power-plant t9)",
+                      "(Fuelled power-plant t9)", "(Storm east t8)", "(InService power-plant $x)"]
+        rng = random.Random(128)
+        for _ in range(3):
+            history = rng.sample(main_goals, rng.randint(1, len(main_goals)))
+            handler = plant(PeTTaChainer())
+            for goal in history:
+                handler.query_many_refs([f"(: $p {goal} $tv)"], steps=200)
+            with self.subTest(history=history):
+                self.assertEqual(decide(handler), [["STV", 0.95, 0.9998999947967693]])
 
     def test_cleanup_keeps_only_assumption_independent_main_work(self):
         self.diagnostic(self.h)
