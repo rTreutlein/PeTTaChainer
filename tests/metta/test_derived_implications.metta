@@ -152,7 +152,8 @@
 ;; A source gate stays a condition (the knowledge-extraction report): the
 ;; query's contexts assume the gate, and nothing accepts it in the main KB, so
 ;; neither the consequent nor the inner rule holds without it. An implication's
-;; negation has no answer.
+;; negation is read at its canonical key, the implication, and answers its
+;; complement, as compileadd stores a negated implication.
 !(compileadd gateKb (: s1 (Supplier Supplier1) (STV 1.0 0.9)))
 !(compileadd gateKb (: e1 (ExposedTo Supplier1 ClimateRisk) (STV 1.0 0.9)))
 !(compileadd gateKb (: src_rule (Implication (AcceptSource Report1) (Implication (And (Supplier $x) (ExposedTo $x ClimateRisk)) (LowerPrices $x))) (STV 1 0.9)))
@@ -179,7 +180,7 @@
          $tv))
    (: src_rule (Implication (AcceptSource Report1) (Implication (And (Supplier Supplier1) (ExposedTo Supplier1 ClimateRisk)) (LowerPrices Supplier1))) (STV 1 0.9)))
 !(test (collapse (query 100 gateKb (: $p (Not (Implication (AcceptSource Report1) (Implication (And (Supplier $x) (ExposedTo $x ClimateRisk)) (LowerPrices $x)))) $tv)))
-   ())
+   ((: (negated src_rule) (Not (Implication (AcceptSource Report1) (Implication (And (Supplier $_0) (ExposedTo $_0 ClimateRisk)) (LowerPrices $_0)))) (STV 0 0.9))))
 !(test (collapse (query 100 gateKb (: $p (LowerPrices Supplier1) $tv)))
    ())
 !(test (collapse (query 100 gateKb (: $p (Implication (And (Supplier $x) (ExposedTo $x ClimateRisk)) (LowerPrices $x)) $tv)))

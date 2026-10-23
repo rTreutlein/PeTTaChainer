@@ -111,8 +111,8 @@ ingestion_exists(Type) :-
 
 % A weighted query assumption (: Name Statement TV) is one input compileadd
 % would store, held in its Assuming world with its own value: a closed
-% ordinary fact with an STV; a negated fact or implication with an STV,
-% stored, as compileadd stores it, as the inner statement's complement; or an
+% ordinary fact with an STV; a negated fact or implication with an STV (the
+% compiler stores it, as compileadd does, at its canonical key); or an
 % implication, whose variables are its own, with an STV or a CTV. Anything
 % else is rejected rather than read as a certain fact or a colon-headed
 % predicate.
@@ -133,9 +133,8 @@ weighted_assumption(Source, Value, Statement, TV) :-
        ( assumption_stv(Value) ; Value = ['CTV',P,N], assumption_stv(P), assumption_stv(N) ),
        Statement = Source, TV = Value
     ; Head == 'Not'
-    -> Args = [Inner], nonvar(Inner), assumption_stv(Value), Value = [_,S,C],
-       Complement is 1.0 - S,
-       weighted_assumption(Inner, ['STV',Complement,C], Statement, TV)
+    -> Args = [Inner], nonvar(Inner), assumption_stv(Value),
+       weighted_assumption(Inner, Value, _, _), Statement = Source, TV = Value
     ; \+ memberchk(Head, [':','CPU','ForAll','Exists','WithPrior','Assuming','Inheritance']),
       'compound-connective?'(Head, false), 'source-computation-head?'(Head, false),
       'bidirectional-implication-form?'(Head, false), ingestion_closed([], Source),

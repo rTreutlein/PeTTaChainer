@@ -10,18 +10,14 @@
 ;; lowered parts. In particular a Not reader of a ground And must read that
 ;; conjunction as assumed true, rather than finding no contextual fact and
 ;; falling back to MAIN. Assuming queries retain their ordinary fact lowering.
-(: judgment-consequent-key (-[det]-> Statement Statement))
-(= (judgment-consequent-key $type)
-   (if (head-is? $type Not)
-      (let $inner (car-atom (cdr-atom $type)) (judgment-consequent-key (brand Statement $inner)))
-      $type))
-
+;; The antecedent is judged with its double negations cancelled.
 (: judgment-query-side
    (-[semidet]-> KB (| NilType (List Variable)) Bool
        Statement Statement
        (KBContext Proof Statement (List CompiledAddition))))
 (= (judgment-query-side $kb $mvars $negative? $antecedent $consequent)
-   (let* (($normalized (query-assumption-normal-form $antecedent))
+   (let* ((($key $odd) (canon $antecedent))
+          ($normalized (if $odd (brand Statement (Not $key)) $key))
           ($nnf (query-assumption-nnf $normalized)))
       (if (if $negative? false
               (if (contains-head? (== Or) $normalized) true (contains-head? (== Or) $nnf)))
@@ -61,7 +57,7 @@
        ;; Query-local metadata uses the existing temporary fact lifecycle in
        ;; a separate namespace: it is never available as a logical premise.
        ($target-kb (make-kb-context (brand KB (judgment-consequent $kb)) $ctx $mvars))
-       ($target (judgment-consequent-key $goal))
+       (($target $_negated) (canon $goal))
        ($adds (cons (brand CompiledAddition
           (() |- (: $target-kb (ctx consequent $ctx) $target (STV 1 1))))
           (union-compiled-additions
@@ -79,10 +75,8 @@
 ;; makes the prior world's event certain or selects any of its alternatives.
 (: judgment-whole-premise (-[det]-> KBContext Atom Goal))
 (= (judgment-whole-premise $scope $source)
-   (let $type (query-assumption-normal-form (brand Statement $source))
-      (if (head-is? $type Not)
-         (: $scope $proof (brand Statement (car-atom (cdr-atom $type))) (STV 0 1))
-         (: $scope $proof $type (STV 1 1)))))
+   (let ($key $odd) (canon (brand Statement $source))
+      (: $scope $proof $key (if $odd (STV 0 1) (STV 1 1)))))
 
 ;; Evaluate P(B and D) in the private prior world, then divide by P(D).
 ;; Unlike making every disjunct true, this preserves the alternatives of D.
@@ -90,12 +84,11 @@
 ;; the dependence between B and the disjuncts it reads. No Boolean worlds
 ;; are enumerated by the compiler.
 (: disjunction-judgment-prior (-[nondet]-> KB $context $variables Statement CompiledAddition))
-(= (disjunction-judgment-prior $kb $ctx $vars $type)
-   (if (head-is-member? $type (And Or))
-      (let* (($children (statement-children (cdr-atom $type))) ($child (superpose $children)))
-         (disjunction-judgment-prior $kb $ctx $vars $child))
-      (if (head-is? $type Not)
-         (disjunction-judgment-prior $kb $ctx $vars (brand Statement (car-atom (cdr-atom $type))))
+(= (disjunction-judgment-prior $kb $ctx $vars $source)
+   (let ($type $_odd) (canon $source)
+      (if (head-is-member? $type (And Or))
+         (let* (($children (statement-children (cdr-atom $type))) ($child (superpose $children)))
+            (disjunction-judgment-prior $kb $ctx $vars $child))
          (let* (($scope (make-kb-context $kb $ctx $vars))
                 ($marker (brand Statement (JudgmentPrior $type)))
                 ($idx (index-hash $type))
@@ -424,15 +417,17 @@
          (brand Statement $statement))))
 
 ;; An Assuming fact written `(: name statement tv)` is held in the query's
-;; world with that value, as `compileadd` would store it; a bare fact is
-;; certain. Only Assuming facts take this form; `check-query-annotations!`
-;; rejects an annotation in any other statement position.
+;; world with that value at its canonical key, as `compileadd` would store it;
+;; a bare fact is certain. Only Assuming facts take this form;
+;; `check-query-annotations!` rejects an annotation in any other statement
+;; position.
 (: assuming-premises-step
    (-[nondet]-> KB $context (List Goal) Atom (List Goal)))
 (= (assuming-premises-step $kb $ctx $reversed $premise)
    (if (head-is? $premise :)
-      (let ($type $tv) (weighted-assumption $premise)
-         (cons (: (make-kb-context $kb $ctx Nil) $prf $type $tv) $reversed))
+      (let* ((($source $value) (weighted-assumption $premise))
+             (($type $odd) (canon (brand Statement $source))))
+         (cons (: (make-kb-context $kb $ctx Nil) $prf $type (if $odd (NotFormula (the STVType $value)) $value)) $reversed))
       (let (premise-bundle $execs $_tv $_proof)
          (lower-query-assumption-premise $kb $ctx Nil (brand Statement $premise))
          (prepend-reversed-goals $execs $reversed))))

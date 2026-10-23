@@ -33,4 +33,6 @@ class KEQueryOrderTests(unittest.TestCase):
                 self.assertEqual(normalized, expected)
                 if scenario == "history":
                     self.assertEqual(len(result["history_counts"]), 10)
-                    self.assertEqual(result["history_counts"][6], [1, 0])
+                    # Record 6 asks a conjunction and its negation: a query
+                    # of (Not s) reads s and answers its complement (#142).
+                    self.assertEqual(result["history_counts"][6], [1, 1])

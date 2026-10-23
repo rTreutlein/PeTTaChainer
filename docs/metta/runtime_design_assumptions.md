@@ -36,10 +36,15 @@ Consequences:
   retains the statement and KB identity through nested negative proofs. It is
   opaque provenance, not a new proof source. Its handle is traced by the
   existing proof/evidence collector; public proof output omits the wrapper.
-  A nested `Not` over a statement, as a query or a rule premise, lowers to
-  that statement's read with one `NotFormula` per negation, so it answers as
-  the statement does, on a first query and in a batch (#86). A `Not` over a
-  compound inside it, as in `(Not (Not (And A B)))`, still has no answer.
+  A statement is stored, assumed and concluded at its canonical key (`canon`):
+  under its negations, the statement they negate, complemented for an odd
+  count. A negation is a reading, never a key. A query of `(Not s)` reads
+  `s`'s key and answers complemented once per written negation, so it
+  answers wherever `s` does, from a stored or materialized value at budget
+  zero too (#142). A nested `Not` over a statement as a rule premise lowers to
+  that statement's read with one `NotFormula` per negation (#86); a `Not` over
+  a compound inside a premise, as in `(Not (Not (And A B)))`, still has no
+  answer.
 - Overlapping proofs are not independent evidence. Disjoint proofs may be
   revised together; overlapping paths need dominance, refinement, or cycle
   checks before aggregation.

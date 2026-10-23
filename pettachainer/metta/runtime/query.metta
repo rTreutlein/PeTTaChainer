@@ -20,11 +20,11 @@
    (append-flat (collapse (pretty $result)) (pretty-results $rest)))
 
 ;; One plan is one execution group. The root list preserves source identity,
-;; compiler-alternative order, and duplicates; additions are already in their
-;; final installation order for that group.
+;; the written statement, compiler-alternative order, and duplicates; additions
+;; are already in their final installation order for that group.
 (: QueryExecutionPlan Type)
 (: query-execution-plan
-   (-[det]-> (List (Number CompiledQueryGoal)) (List RuntimeAddition) QueryExecutionPlan))
+   (-[det]-> (List (Number AnnotatedStatement CompiledQueryGoal)) (List RuntimeAddition) QueryExecutionPlan))
 
 (: merge-query-execution-plans (-[det]-> QueryExecutionPlan QueryExecutionPlan QueryExecutionPlan))
 (= (merge-query-execution-plans
@@ -34,9 +34,43 @@
       (append-flat $left-roots $right-roots)
       (append-flat $left-adds $right-adds)))
 
-(: compiled-query-execution-plan (-[nondet]-> Number CompiledQuery QueryExecutionPlan))
-(= (compiled-query-execution-plan $key (compiled-query $goal $adds))
-   (if (or (is-var $goal) (is-var $adds)) (empty) (query-execution-plan (($key $goal)) $adds)))
+(: compiled-query-execution-plan (-[nondet]-> Number AnnotatedStatement CompiledQuery QueryExecutionPlan))
+(= (compiled-query-execution-plan $key $written (compiled-query $goal $adds))
+   (if (or (is-var $goal) (is-var $adds)) (empty) (query-execution-plan (($key $written $goal)) $adds)))
+
+;; A query of (Not s) is a query of s, answered complemented once per written
+;; negation: its root reads s's canonical key, so it answers wherever s does,
+;; at budget zero from a stored or materialized value too.
+(: query-root (-[det]-> AnnotatedStatement AnnotatedStatement))
+(= (query-root (: $prf $type $tv))
+   (if (head-is? $type Not)
+      (let ($key $_odd) (canon $type) (: $key-proof $key $key-tv))
+      (: $prf $type $tv)))
+
+(: negated-result (-[semidet]-> RuntimeResult RuntimeResult))
+(= (negated-result ($type $kbctx $proof $tv))
+   (brand RuntimeResult (data (Not $type) $kbctx (negated $proof) (NotFormula (the STVType $tv)))))
+
+;; The answers of a written root from those of its query root. The written
+;; truth-value pattern constrains the complemented answer.
+(: written-results (-[semidet]-> AnnotatedStatement (List RuntimeResult) (List RuntimeResult)))
+(= (written-results (: $_prf $type $tv) $results)
+   (if (head-is? $type Not)
+      (written-tv-results $tv
+         (map-semidet negated-result
+            (written-results (: $_inner-proof (car-atom (cdr-atom $type)) $_inner-tv) $results)))
+      $results))
+
+(: written-tv-step (-[det]-> Atom RuntimeResult (List RuntimeResult) (List RuntimeResult)))
+(= (written-tv-step $tv ($type $kbctx $proof $result-tv) $kept)
+   (if (= (copy_term $tv) $result-tv)
+      (cons (brand RuntimeResult (data $type $kbctx $proof $result-tv)) $kept)
+      $kept))
+
+;; The results arrive as a parameter: the determinism checker proves a fold
+;; over a parameter list, not over a function result.
+(: written-tv-results (-[det]-> Atom (List RuntimeResult) (List RuntimeResult)))
+(= (written-tv-results $tv $results) (foldr-flat (written-tv-step $tv) () $results))
 
 ;; Each source statement is copied before compilation so variables cannot
 ;; become shared between roots in a batch. Compiler alternatives remain in
@@ -48,11 +82,11 @@
       (($statement-copy (copy_term $statement))
        ($materialized (the AnnotatedStatement (materialize-stmt-lambdas $statement-copy)))
        ($_annotations (check-query-annotations! $materialized))
-       ($compiled (collapse (mm2compileQuery $kb $materialized)))
+       ($compiled (collapse (mm2compileQuery $kb (query-root $materialized))))
        ($statement-plan
           (foldr-flat merge-query-execution-plans
              (query-execution-plan () ())
-             (map-flat (compiled-query-execution-plan $key) $compiled)))
+             (map-flat (compiled-query-execution-plan $key $materialized) $compiled)))
        ($rest-plan (prepare-query-many-plan (+ $key 1) $kb $rest)))
       (merge-query-execution-plans $statement-plan $rest-plan)))
 
@@ -107,22 +141,23 @@
                   $kbctx (public-query-proof (brand Proof $proof)) $answer-tv)))))))
 
 (: present-query-plan-results
-   (-[nondet]-> Bool (List (Number CompiledQueryGoal))
+   (-[nondet]-> Bool (List (Number AnnotatedStatement CompiledQueryGoal))
        (List (List RuntimeResult))
        (List (Number AnnotatedStatement))))
 (= (present-query-plan-results $_expand? () ()) ())
-(= (present-query-plan-results $expand? (cons ($key $_goal) $roots) (cons $results $rest-results))
+(= (present-query-plan-results $expand? (cons ($key $written $_goal) $roots) (cons $results $rest-results))
    (append-flat
       (map-flat (|-> ($answer) (data $key $answer))
          (pretty-results
             (map-flat externalize-proof-structure
                (map-flat public-query-result
-                  (if $expand? (map-flat expand-result $results) $results)))))
+                  (written-results $written
+                     (if $expand? (map-flat expand-result $results) $results))))))
       (present-query-plan-results $expand? $roots $rest-results)))
 
 (: query-plan-runtime-goal
-   (-[nondet]-> (Number CompiledQueryGoal) (| Goal (Statement KBContext Proof TV))))
-(= (query-plan-runtime-goal ($_key $goal)) (typed-runtime-premise $goal))
+   (-[nondet]-> (Number AnnotatedStatement CompiledQueryGoal) (| Goal (Statement KBContext Proof TV))))
+(= (query-plan-runtime-goal ($_key $_written $goal)) (typed-runtime-premise $goal))
 
 ;; Temporary additions and Assuming contexts stay installed through proof
 ;; externalization and pretty printing. Direct chainer entrypoints
@@ -152,7 +187,7 @@
    (let*
       (($materialized (the AnnotatedStatement (materialize-stmt-lambdas $statement)))
        ($_annotations (check-query-annotations! $materialized))
-       ($compiled-queries (collapse (mm2compileQuery $kb $materialized)))
+       ($compiled-queries (collapse (mm2compileQuery $kb (query-root $materialized))))
        ($answers
           (fold-flat append-flat ()
              (map-flat
@@ -160,7 +195,7 @@
                    (map-flat snd
                       (run-query-execution-plan
                          $steps
-                         (compiled-query-execution-plan 0 $compiled-query)
+                         (compiled-query-execution-plan 0 $materialized $compiled-query)
                          $materialize? true)))
                 $compiled-queries))))
       (superpose $answers)))

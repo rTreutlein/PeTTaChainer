@@ -12,12 +12,16 @@ If you need an LLM-oriented helper-first spec, use `pettachainer/LLM_RULE_SPEC.m
 (: proof-id type tv)
 ```
 
-- A negated STV fact is canonicalized to its inner expression with complemented
-  strength and unchanged confidence. For example,
+- A statement is stored, assumed and concluded at its canonical key. A negated
+  STV fact is stored as the statement under its negations, its strength
+  complemented once per negation and its confidence unchanged. For example,
   `(: noLeak (Not (SealLeak old unit-1)) (STV 1.0 1.0))` is stored as
-  `(: noLeak (SealLeak old unit-1) (STV 0.0 1.0))`. This ensures ordinary
-  population folds see negative observations. `Not` in rules and queries keeps
-  its logical meaning.
+  `(: noLeak (SealLeak old unit-1) (STV 0.0 1.0))`. Rule conclusions,
+  projections and assumptions follow the same rule, so ordinary population
+  folds see negative observations. A query of `(Not s)` reads `s` and answers
+  complemented, so it answers wherever `s` does, at budget zero included. A
+  stored `Exists` fact is its `ExistentialClaim`. `Not` in rules and queries
+  keeps its logical meaning.
 
 - In user code, facts/rules are usually inserted with:
 

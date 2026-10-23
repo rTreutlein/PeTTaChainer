@@ -123,23 +123,6 @@
                      ((CPU likelihood-read-tv (quote ($likelihoods)) $rule-ctv))))
                (the CTVType $rule-ctv) (the LikelihoodRead $likelihoods)))))
 
-;; A negated conclusion is stored as positive evidence for its inner expression
-;; with a negated proof and transformed TV. Keeping the runtime type positive
-;; lets it share the ordinary fact indexes.
-(: compile-implication-output
-   (-[det]-> Proof Proof Statement STVType ((List Goal) Proof Statement STVType)))
-(= (compile-implication-output $prf $proof-token $b $btv)
-   (if (head-is? $b Not)
-      (case $b (
-         ((Not $inner)
-            (data
-               ((CPU NotFormula ($btv) $out-tv))
-               (brand Proof (negated (quote (by $prf $proof-token))))
-               (brand Statement $inner)
-               (the STVType $out-tv)))
-         ($_other (data () (brand Proof (quote (by $prf $proof-token))) $b $btv))))
-      (data () (brand Proof (quote (by $prf $proof-token))) $b $btv)))
-
 ;; A rule concluding an implication, a → (x → y), holds as its exported form
 ;; (a ∧ x) → y (docs/metta/derived_implications.md): the conjuncts of its
 ;; nested antecedents, outermost first, and its innermost consequent.
@@ -218,17 +201,14 @@
             (($proof-token (implication-proof-token $proofs))
               (($ctv-execs $rule-ctv $rule-likelihoods)
                  (compile-implication-ctv-execs $kb $params $rate-a $last $tv $value false))
-              (($out-execs $out-prf $out-type $out-tv)
-                 (compile-implication-output $prf $proof-token $out-b (the STVType $btv)))
               ($allargs
                  (append-goals
                     $truth-premises
                     (append-goals
                        $execs
-                       (append-goals
-                          $ctv-execs
-                          (append-goals ((CPU $mp ($atv $rule-ctv) $btv)) $out-execs))))))
-            (brand CompiledAddition ($allargs |- (: $shape-kb $out-prf $out-type $out-tv))))))
+                       (append-goals $ctv-execs ((CPU $mp ($atv $rule-ctv) $btv)))))))
+            (canonical-addition $shape-kb $allargs
+               (brand Proof (quote (by $prf $proof-token))) $out-b $btv))))
       ;; A query-local conjunction (compound-query-temp-stmt) concludes its
       ;; root from its conjuncts; projecting it back onto them is self-support
       ;; that reached sibling roots of a batch as wrong values.
@@ -506,7 +486,7 @@
 (: positive-only-conjunct? (-[det]-> KB Bool Atom Bool))
 (= (positive-only-conjunct? $kb $seen $conjunct)
    (if $seen true
-      (let* (($statement (if (head-is? $conjunct Not) (car-atom (cdr-atom $conjunct)) $conjunct))
+      (let* ((($statement $_odd) (canon (brand Statement $conjunct)))
              ($head (if (is-expr $statement) (car-atom $statement) $statement)))
          (not (== (collapse (once (match &positive_only_predicates ($kb $head) true))) ())))))
 
@@ -558,8 +538,7 @@
 (: compile-implication-instance-adds
    (-[det]-> Bool KB Statement Statement Statement (List CompiledAddition)))
 (= (compile-implication-instance-adds $ctv? $kb $Type $stated $consequent)
-   (let* (($negated (head-is? $stated Not))
-          ($antecedent (if $negated (brand Statement (car-atom (cdr-atom $stated))) $stated)))
+   (let ($antecedent $negated) (canon $stated)
       (if (implication-instance-supported? $antecedent $consequent)
          (let*
             (($conjuncts (implication-side-conjuncts $antecedent))
@@ -749,7 +728,7 @@
 (: computing-child? (-[det]-> Bool Atom Bool))
 (= (computing-child? $seen $child)
    (if $seen true
-      (let $statement (if (head-is? $child Not) (car-atom (cdr-atom $child)) $child)
+      (let ($statement $_odd) (canon (brand Statement $child))
          (contains-head? source-computation-head? $statement))))
 ;; The connective over a compound's children, or its one child.
 (: connective-statement (-[det]-> Atom (List Statement) Statement))
@@ -791,8 +770,7 @@
                    ($proof-token
                       (implication-proof-token (append $others-proofs $consequent-proofs)))
                    ($consequent-proof (implication-proof-token $consequent-proofs))
-                   ($negated (head-is? $missing Not))
-                   ($target (if $negated (brand Statement (car-atom (cdr-atom $missing))) $missing))
+                   (($target $negated) (canon $missing))
                    ($premises
                       (append-goals $truth-premises
                          (append-goals $others-execs
@@ -1235,7 +1213,7 @@
              ($ctv? (if (= $tv (CTV $_pos $_neg)) true false))
              ($refine? (refined-rule? $kb $prf $a $b $tv))
              ($truth-type (RuleTruth (Implication $a $b)))
-             ($a-opposite (if (head-is? $a Not) (car-atom (cdr-atom $a)) (Not $a)))
+             ($a-opposite (let ($key $odd) (canon $a) (if $odd $key (brand Statement (Not $key)))))
              ($truth-premises (rule-truth-premises $refine? $kb $truth-type $truth-tv))
              ($_truth-shape
                 (if $refine?
@@ -1266,18 +1244,16 @@
                   (superpose (
                      (case $tv (
                         ((CTV $source-pos $source-neg)
-                           (let $opposite (if (head-is? $antecedent Not)
-                              (car-atom (cdr-atom $antecedent)) (Not $antecedent))
-                              (superpose (
-                                 (brand CompiledAddition
-                                    (() |- (: (kbctx $kb) $prf $source-type $tv)))
-                                 (brand CompiledAddition
-                                    (() |- (: (kbctx $kb) $prf (Implication $opposite $source-b)
-                                       (CTV $source-neg $source-pos))))
-                                 (brand CompiledAddition
-                                    (() |- (: $query-kb $prf $query-type $source-pos)))
-                                 (brand CompiledAddition
-                                    (() |- (: $query-kb $prf (Implication $opposite $source-b) $source-neg)))))))
+                           (superpose (
+                              (brand CompiledAddition
+                                 (() |- (: (kbctx $kb) $prf $source-type $tv)))
+                              (brand CompiledAddition
+                                 (() |- (: (kbctx $kb) $prf (Implication $a-opposite $source-b)
+                                    (CTV $source-neg $source-pos))))
+                              (brand CompiledAddition
+                                 (() |- (: $query-kb $prf $query-type $source-pos)))
+                              (brand CompiledAddition
+                                 (() |- (: $query-kb $prf (Implication $a-opposite $source-b) $source-neg))))))
                         ((STV $s $c)
                            (let* (($rate-a (if (== $inner ()) $a
                                      (brand Statement (cons And (append (implication-side-conjuncts $a) $inner)))))
@@ -1385,17 +1361,23 @@
             (compile-rule $kb (extract-vars $params) $prior $prf
                (brand Statement $antecedent) (brand Statement $consequent) $tv))))
       (if (implication-type? $Type) (empty)
-         (if (source-exists? $Type) (empty)
-            (if (bidirectional-implication-type? $Type)
-               (let ($_head $left $right) $Type
-                  (superpose (
-                     (compile_ $kb (: (bi-forward $prf) (Implication $left $right) $tv))
-                     (compile_ $kb (: (bi-backward $prf) (Implication $right $left) $tv)))))
-            ;; Asserted negation keeps the source name and stores its
-            ;; inner statement with complemented strength.
-            (if (head-is? $Type Not)
-               (let (Not $inner) $Type
+         ;; An asserted negation keeps the source name and is stored at its
+         ;; canonical key, with complemented strength when the count is odd.
+         (if (head-is? $Type Not)
+            (let ($key $odd) (canon $Type)
+               (if $odd
                   (case $tv (
-                     ((STV $s $c) (compile_ $kb (: $prf $inner (STV (- 1.0 $s) $c))))
-                     ($_unsupported-tv (compile-ordinary-fact $kb $prf $Type $tv)))))
-               (compile-ordinary-fact $kb $prf $Type $tv)))))))
+                     ((STV $s $c) (compile_ $kb (: $prf $key (STV (- 1.0 $s) $c))))
+                     ($_unsupported-tv (compile-ordinary-fact $kb $prf $Type $tv))))
+                  (compile_ $kb (: $prf $key $tv))))
+            ;; An existential fact is its claim; an existential nested in a
+            ;; connective is no fact form yet.
+            (if (explicit-exists-term? $Type)
+               (compile-ordinary-fact $kb $prf (canonical-existential-side $Type) $tv)
+               (if (source-exists? $Type) (empty)
+                  (if (bidirectional-implication-type? $Type)
+                     (let ($_head $left $right) $Type
+                        (superpose (
+                           (compile_ $kb (: (bi-forward $prf) (Implication $left $right) $tv))
+                           (compile_ $kb (: (bi-backward $prf) (Implication $right $left) $tv)))))
+                     (compile-ordinary-fact $kb $prf $Type $tv))))))))

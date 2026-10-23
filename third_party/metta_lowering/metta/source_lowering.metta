@@ -343,6 +343,28 @@
          (brand Proof
             (cons conjunction (cons $proof $rest)))))))
 
+;; A statement is stored, assumed and concluded at its canonical key: under any
+;; number of negations, the statement they negate, with its value complemented
+;; when the count is odd. A negation is a reading of its key, never a key.
+(: canon (-[det]-> Statement (Statement Bool)))
+(= (canon $statement)
+   (if (head-is? $statement Not)
+      (let ($key $odd) (canon (brand Statement (car-atom (cdr-atom $statement))))
+         (data $key (if $odd false true)))
+      (data $statement false)))
+
+;; An addition concluding a statement concludes its canonical key: a negated
+;; conclusion complements its value and negates its proof.
+(: canonical-addition
+   (-[det]-> KBContext (List Goal) Proof Statement Atom CompiledAddition))
+(= (canonical-addition $kb $premises $proof $statement $tv)
+   (let ($key $odd) (canon $statement)
+      (if $odd
+         (brand CompiledAddition
+            ((append-goals $premises ((CPU NotFormula ($tv) $not-tv)))
+               |- (: $kb (brand Proof (negated $proof)) $key $not-tv)))
+         (brand CompiledAddition ($premises |- (: $kb $proof $key $tv))))))
+
 ;; One lowered source premise may expand into several executable goals, but it
 ;; still contributes one evidence value and one proof token to its caller.
 (: PremiseBundle Type)
@@ -403,27 +425,20 @@
    (superpose (
       (let $others (remove-index $idx $children)
          (if (== $others ())
-            (brand CompiledAddition
-               (((: $kb $prf $type $tvin)
-                    (CPU (atom_concat $head Projection) ($tvin) $tvout)) |-
-                  (: $kb (proj $idx $prf) $elem $tvout)))
-            (let*
-               (((premise-bundle $execs $evidence-tv $evidence-proof)
-                    (projection-evidence-bundle $kb $head $others))
-                 ($allargs
-                    (cons (: $kb $prf $type $tvin)
-                       (append-goals $execs
-                             ((CPU
-                                (atom_concat $head Projection)
-                                ($tvin $evidence-tv) $tvout)))))
-                 ($proof-token ((proj $idx $prf) $evidence-proof)))
-               (brand CompiledAddition
-                  ($allargs |- (: $kb $proof-token $elem $tvout))))))
+            (canonical-addition $kb
+               ((: $kb $prf $type $tvin) (CPU (atom_concat $head Projection) ($tvin) $tvout))
+               (brand Proof (proj $idx $prf)) $elem $tvout)
+            (let (premise-bundle $execs $evidence-tv $evidence-proof)
+                 (projection-evidence-bundle $kb $head $others)
+               (canonical-addition $kb
+                  (cons (: $kb $prf $type $tvin)
+                     (append-goals $execs
+                        ((CPU (atom_concat $head Projection) ($tvin $evidence-tv) $tvout))))
+                  (brand Proof ((proj $idx $prf) $evidence-proof)) $elem $tvout))))
       (if (== $head And)
-         (brand CompiledAddition
-            (((: $kb $prf $type $tvin)
-                 (CPU AndMarginalProjection ($tvin) $tvout)) |-
-               (: $kb (marginal-proj $idx $prf) $elem $tvout)))
+         (canonical-addition $kb
+            ((: $kb $prf $type $tvin) (CPU AndMarginalProjection ($tvin) $tvout))
+            (brand Proof (marginal-proj $idx $prf)) $elem $tvout)
          (empty))
       (compile-outputs (: $kb $childprf $elem $childtv))
       (compile-output-children
@@ -1155,56 +1170,34 @@
             $kb $ctx $vars $antecedent)
          (data $execs (cons $proof ()) $tv))))
 
-;; Antecedents of an implication *query* are temporary assumptions. A positive
-;; `(Not A)` assumption is represented by an A-shaped contextual fact with
-;; strength zero, allowing ordinary fact matching while preserving its logical
-;; truth through the bundle TV.
-(: query-assumption-normal-form (-[det]-> Statement Statement))
-(= (query-assumption-normal-form $type)
-   (if (head-is? $type Not)
-      (let $inner (brand Statement (car-atom (cdr-atom $type)))
-         (if (head-is? $inner Not)
-            (query-assumption-normal-form
-               (brand Statement (car-atom (cdr-atom $inner))))
-            $type))
-      $type))
-
 ;; Probability reads retain the written event's key; connective evaluation
 ;; uses De Morgan expansion. Do not descend into predicate arguments
 ;; or binders, which are terms rather than Boolean statement children.
 (: query-assumption-nnf (-[det]-> Statement Statement))
 (= (query-assumption-nnf $source)
-   (let $type (query-assumption-normal-form $source)
-      (if (head-is? $type Not)
-         (let $inner (brand Statement (car-atom (cdr-atom $type)))
-            (if (head-is-member? $inner (And Or))
-               (brand Statement (cons (if (head-is? $inner And) Or And)
-                  (map-flat (|-> ($child)
-                     (query-assumption-nnf (brand Statement (Not $child))))
-                     (statement-children (cdr-atom $inner)))))
-               $type))
-         (if (head-is-member? $type (And Or))
-            (brand Statement (cons (car-atom $type)
-               (map-flat query-assumption-nnf (statement-children (cdr-atom $type)))))
-            $type))))
+   (let ($key $odd) (canon $source)
+      (if (head-is-member? $key (And Or))
+         (if $odd
+            (brand Statement (cons (if (head-is? $key And) Or And)
+               (map-flat (|-> ($child) (query-assumption-nnf (brand Statement (Not $child))))
+                  (statement-children (cdr-atom $key)))))
+            (brand Statement (cons (car-atom $key)
+               (map-flat query-assumption-nnf (statement-children (cdr-atom $key))))))
+         (if $odd (brand Statement (Not $key)) $key))))
 
 (: lower-query-assumption-premise
    (-[nondet]-> KB $context $variables Statement  PremiseBundle))
+;; Antecedents of an implication *query* are temporary assumptions, asserted at
+;; their canonical key (an existential at its claim): an assumed negation is
+;; its statement at strength zero.
 (= (lower-query-assumption-premise $kb $ctx $vars $source)
-   (let $premise (query-assumption-normal-form $source)
-   (if (contains-explicit-exists? $premise)
-      (leaf-source-bundle $kb $ctx $vars (canonical-existential-side $premise))
-   (if (if (is-expr $premise)
-          (if (is-var (car-atom $premise)) false true)
-          false)
-      (let $head (car-atom $premise)
-         (if (== $head Implication)
+   (let* ((($statement $odd) (canon $source))
+          ($premise (if (contains-explicit-exists? $statement) (canonical-existential-side $statement) $statement)))
+      (if $odd
+         (premise-bundle ((: (source-premise-kb $kb $ctx $vars) $prf $premise (STV 0.0 1.0))) (STV 1.0 1.0) $prf)
+         (if (head-is? $premise Implication)
             (leaf-source-bundle $kb $ctx $vars $premise)
-            (if (== $head Not)
-               (let $prem-kb (source-premise-kb $kb $ctx $vars)
-                  (premise-bundle ((: $prem-kb $prf (car-atom (cdr-atom $premise)) (STV 0.0 1.0))) (STV 1.0 1.0) $prf))
-               (lower-source-premise $kb $ctx $vars $premise))))
-      (lower-source-premise $kb $ctx $vars $premise)))))
+            (lower-source-premise $kb $ctx $vars $premise)))))
 
 (: lower-query-assumption-premises
    (-[nondet]-> KB $context $variables (List Atom)
@@ -1234,29 +1227,20 @@
 (: lower-query-assumption-premise-false
    (-[det]-> KB $context $variables Statement PremiseBundle))
 (= (lower-query-assumption-premise-false $kb $ctx $vars $source)
-   (let $premise (query-assumption-normal-form $source)
-   (if (if (is-expr $premise)
-          (if (is-var (car-atom $premise)) false true)
-          false)
-      (let $head (car-atom $premise)
-         (if (== $head Not)
-            (let $prem-kb (source-premise-kb $kb $ctx $vars)
-               (premise-bundle ((: $prem-kb $prf (car-atom (cdr-atom $premise)) (STV 1.0 1.0))) (STV 0.0 1.0) (negated $prf)))
-            (if (== $head Implication)
-               (premise-bundle
-                  ((: (make-kb-context $kb $ctx $vars)
-                       $prf $premise
-                       (CTV (STV 0.0 1.0) (STV 1.0 1.0))))
-                  (CTV (STV 0.0 1.0) (STV 1.0 1.0))
-                  $prf)
-               (premise-bundle
-                  ((: (make-kb-context $kb $ctx $vars)
-                       $prf $premise (STV 0.0 1.0)))
-                  (STV 0.0 1.0) $prf))))
-      (premise-bundle
-         ((: (make-kb-context $kb $ctx $vars)
-              $prf $premise (STV 0.0 1.0)))
-         (STV 0.0 1.0) $prf))))
+   (let ($premise $odd) (canon $source)
+      (if $odd
+         (premise-bundle ((: (source-premise-kb $kb $ctx $vars) $prf $premise (STV 1.0 1.0))) (STV 0.0 1.0) (negated $prf))
+         (if (head-is? $premise Implication)
+            (premise-bundle
+               ((: (make-kb-context $kb $ctx $vars)
+                    $prf $premise
+                    (CTV (STV 0.0 1.0) (STV 1.0 1.0))))
+               (CTV (STV 0.0 1.0) (STV 1.0 1.0))
+               $prf)
+            (premise-bundle
+               ((: (make-kb-context $kb $ctx $vars)
+                    $prf $premise (STV 0.0 1.0)))
+               (STV 0.0 1.0) $prf)))))
 
 (: lower-query-assumption-premises-negative
    (-[nondet]-> KB $context $variables (List Atom)

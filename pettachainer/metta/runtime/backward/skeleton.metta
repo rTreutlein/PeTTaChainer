@@ -1268,7 +1268,7 @@
 ;; a target's instances are excluded without hiding unrelated open bindings.
 (: judgment-consequent? (-[det]-> Bool Atom KBContext Bool))
 (= (judgment-consequent? $instances? $type ($kbid $ctx $vars))
-   (let* (($base (judgment-consequent-key (brand Statement $type)))
+   (let* ((($base $_negated) (canon (brand Statement $type)))
           ($scope (make-kb-context (brand KB (judgment-consequent $kbid)) $ctx $target-vars))
           ($targets (kb-facts $base $scope)))
       (not (== (collapse (once

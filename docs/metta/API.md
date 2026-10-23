@@ -191,8 +191,12 @@ retains its ordinary world-reading behavior. Local binders are fresh in public
 answers; free outer variables remain shared. No hypothetical claim, witness,
 body fact, or categorical consequence is published to MAIN.
 
-Nested binders, quantified nested implication export, quantified implications
-as Assuming goals, assumed implications with an existential consequent, and `Not (Exists ...)` remain unsupported. Existentials must
+A stored `Exists` fact is its `ExistentialClaim`, and a stored `Not (Exists ...)`
+is that claim at the complement. A `Not (Exists ...)` query answers the
+complement of the existential judgment. Nested binders, quantified nested
+implication export, quantified implications as Assuming goals, assumed
+implications with an existential consequent, and `Not (Exists ...)` as a rule
+premise remain unsupported. Existentials must
 occupy a complete implication side; moving them across connectives is not
 inferred. Existential completion and overlap-aware witness OR are deferred.
 See [Existential queries and premises](explicit_exists.md) for semantics,
