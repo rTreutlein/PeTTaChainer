@@ -45,7 +45,7 @@
 !(test (query 2000 selfKb (: $p (Produced now) $tv))
    (: (by rule (conjunction service (negated degraded-prior))) (Produced now) (STV 0.75 0.8999999994868244)))
 !(test (query 2000 selfKb (: $p (Degraded now) $tv)) (: degraded-prior (Degraded now) (STV 0.25 0.9)))
-!(test (sk-observation-prior (brand Proof unfounded) (STV 0 1)) ())
+!(test (sk-observation-prior (brand Proof unfounded) (STV 0 1) false) ())
 
 ;; Also exercise a materialized forward prediction: its evidence and dependency
 ;; identities survive storage, so it still cannot feed back into Degraded.
@@ -109,4 +109,62 @@
 !(compileadd viaKb (: ra-old (Blocked ra old) (STV 1 1)))
 !(compileadd viaKb (: ra-prior (Blocked ra now) (STV 0.2 0.9)))
 !(test (query 2000 viaKb (: $p (Blocked r1 now) $tv))
+   (: (population-prior (Blocked $_0 $_1)) (Blocked r1 now) (STV 0.4129032258064516 0.003611906837713289)))
+
+;; A statement of a predicate with a place in time is stage-level: an update
+;; of it reads only its consequent's evidence from below, never the
+;; prediction from above (#122). The induction KB above, with C at time
+;; argument 1: A's prediction of B leaves C at its prior 0.5; an assumed B
+;; is an observation (0.9, or 0.1 for Not B), for a completion and a plain
+;; inversion alike.
+!(set-bayes-prior-count 0)
+!(set-predicate-time stageKb C 1 0)
+!(set-base-rate stageKb (C $x) (STV 0.5 1))
+!(compileadd stageKb (: a (A q) (STV 1 1)))
+!(compileadd stageKb (: o (O q) (STV 1 1)))
+!(compileadd stageKb (: ab (Implication (A $x) (B $x)) (CTV (STV 0.8 1) (STV 0.2 1))))
+!(compileadd stageKb (: cb (Implication (And (O $x) (C $x)) (B $x)) (CTV (STV 0.9 1) (STV 0.1 1))))
+!(test (query 2000 stageKb (: $p (C q) $tv))
+   (: (population-prior (C $_0)) (C q) (STV 0.5 1)))
+!(test (query 2000 stageKb (: $p (Assuming (B q) (C q)) $tv))
+   (: (assuming ((antecedent-completion cb 1 with cpu (prior (STV 0.5 1))) (conjunction o (ctx proof 3)))) (Assuming (B q) (C q)) (STV 0.9 0.99988201320876)))
+!(test (query 2000 stageKb (: $p (Assuming (Not (B q)) (C q)) $tv))
+   (: (assuming ((antecedent-completion cb 1 with cpu (prior (STV 0.5 1))) (conjunction o (ctx proof 4)))) (Assuming (Not (B q)) (C q)) (STV 0.09999999999999998 0.99988201320876)))
+!(set-predicate-time stageInvKb C 1 0)
+!(set-base-rate stageInvKb (C $x) (STV 0.5 1))
+!(compileadd stageInvKb (: a (A q) (STV 1 1)))
+!(compileadd stageInvKb (: ab (Implication (A $x) (B $x)) (CTV (STV 0.8 1) (STV 0.2 1))))
+!(compileadd stageInvKb (: cb (Implication (C $x) (B $x)) (CTV (STV 0.9 1) (STV 0.1 1))))
+!(test (query 2000 stageInvKb (: $p (C q) $tv))
+   (: (population-prior (C $_0)) (C q) (STV 0.5 1)))
+
+;; A derived consequent that mixes both parts: B predicted from A and
+;; observed through its child D, (0.9, 0.1). B's value is the factored merge
+;; of D's update over the prediction, so C receives D's likelihood ratio 9
+;; and not the prediction: odds(C) = (0.9 * 9 + 0.1) / (0.1 * 9 + 0.9),
+;; P = 0.82. Read whole, B (0.973) would have given 0.876.
+!(set-predicate-time mixedKb C 1 0)
+!(set-base-rate mixedKb (C $x) (STV 0.5 1))
+!(set-base-rate mixedKb (B $x) (STV 0.5 1))
+!(compileadd mixedKb (: a (A q) (STV 1 1)))
+!(compileadd mixedKb (: o (O q) (STV 1 1)))
+!(compileadd mixedKb (: d (D q) (STV 1 1)))
+!(compileadd mixedKb (: ab (Implication (A $x) (B $x)) (CTV (STV 0.8 1) (STV 0.2 1))))
+!(compileadd mixedKb (: cb (Implication (And (O $x) (C $x)) (B $x)) (CTV (STV 0.9 1) (STV 0.1 1))))
+!(compileadd mixedKb (: bd (Implication (B $x) (D $x)) (CTV (STV 0.9 1) (STV 0.1 1))))
+!(test (query 2000 mixedKb (: $p (C q) $tv))
+   (: ((antecedent-completion cb 1 with cpu (prior (STV 0.5 1))) (conjunction o (factored-revision (by ab a) (prior (STV 0.8 0.9999000097740453)) (((inverted bd with cpu (prior (STV 0.5 1))) d))))) (C q) (STV 0.8200000000000003 0.9999090080024867)))
+!(set-bayes-prior-count 0.2)
+
+;; #119 without the positive-only declaration: an absent Via r1 reads as
+;; almost certain, but with Blocked stage-level ra's predicted arrival is no
+;; evidence about Blocked r1, which keeps its population prior, as declared.
+!(set-predicate-time openViaKb Blocked 2 0)
+!(compileadd openViaKb (: arrives (Implication (And (Via $r $t) (Not (Blocked $r $t))) (Arrived $t)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd openViaKb (: via-old (Via ra old) (STV 1 1)))
+!(compileadd openViaKb (: via (Via ra now) (STV 1 1)))
+!(compileadd openViaKb (: r1-old (Blocked r1 old) (STV 0 1)))
+!(compileadd openViaKb (: ra-old (Blocked ra old) (STV 1 1)))
+!(compileadd openViaKb (: ra-prior (Blocked ra now) (STV 0.2 0.9)))
+!(test (query 2000 openViaKb (: $p (Blocked r1 now) $tv))
    (: (population-prior (Blocked $_0 $_1)) (Blocked r1 now) (STV 0.4129032258064516 0.003611906837713289)))

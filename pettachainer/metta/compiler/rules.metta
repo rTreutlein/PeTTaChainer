@@ -627,7 +627,8 @@
               ((CPU ReadLikelihoodContext () $read-context)
                (CPU rule-likelihood-read (quote ($kb $prf $a1 $b1 $rule-likelihoods $read-context)) $read-likelihoods)
                (CPU CTVInversionFormula (quote ($atv $btv $read-likelihoods)) $iitv)
-               (CPU sk-observation-prior (quote ($prfb_wit $btv_wit)) $obs-prior)
+               (CPU stage-statement? (quote ($kb $a)) $stage)
+               (CPU sk-observation-prior (quote ($prfb_wit $btv_wit $stage)) $obs-prior)
                (CPU ObservationRatioFormula (quote ($btv_wit $obs-prior $atv $iitv)) $obs-tv)
                (CPU CTVModusPonensFormula (quote ($obs-tv $iitv)) $mp-tv))))
         ($premises
@@ -697,7 +698,8 @@
                       (append-goals (append-goals $ctv-execs $read-goals)
                          (the (List Goal)
                             ((CPU CTVBayesFormula (quote ($atv $read-likelihoods)) $iitv)
-                             (CPU sk-observation-prior (quote ($prfb_wit $btv_wit)) $obs-prior)
+                             (CPU stage-statement? (quote ($kb $a)) $stage)
+                             (CPU sk-observation-prior (quote ($prfb_wit $btv_wit $stage)) $obs-prior)
                              (CPU ObservationRatioFormula (quote ($btv_wit $obs-prior $atv $iitv)) $obs-tv)
                              (CPU CTVModusPonensFormula (quote ($obs-tv $iitv)) $mp-tv))))))))))
       ($premises |-
@@ -782,8 +784,9 @@
                                          (quote ($connective $negated $others-tv $read-rule-likelihoods)) $likelihood-read)
                                       (CPU CTVBayesFormula
                                          (quote ($target-base-tv $likelihood-read)) $completion-ctv)
+                                      (CPU stage-statement? (quote ($kb $target)) $stage)
                                       (CPU sk-observation-prior
-                                         (quote ($consequent-proof $consequent-tv))
+                                         (quote ($consequent-proof $consequent-tv $stage))
                                          $consequent-prior)
                                       (CPU ObservationRatioFormula
                                          (quote ($consequent-tv $consequent-prior $target-base-tv $completion-ctv))

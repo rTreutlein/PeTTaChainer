@@ -512,10 +512,41 @@ whatever the window showed (`tests/metta/test_implication_inversion.metta`,
 `tests/metta/test_math.metta`, `tests/metta/test_antecedent_completion.metta`).
 
 A completion reads its consequent exactly as plain inversion does, through
-`sk-observation-prior`. A stored value or a forward conclusion with no
-identified prior is consumed under the inversion's implied prior (PLN
-induction, Jeffrey's rule). With `A -> B` and `C -> B`, A's prediction of B
-can therefore induce C. A completion with a certain sibling has the same
+`sk-observation-prior`.
+
+**Stages and aggregates (#122).** A time declaration
+(`set-predicate-time`) marks a predicate's ground statements as stages, such
+as `(Blocked r1 t4)`; for a wrapper such as `(AtTime (Event x) t)` the
+wrapper carries the declaration. A stage gets evidence from below only. A
+consequent's value has two parts: what was observed of it or of what follows
+from it, and what was computed forward from its causes. An inversion or
+completion of a stage reads the first, B's λ message in belief propagation,
+and never the second sent back into one of B's causes:
+- a stored report, a revision of reports, an assumption, or a conjunction of
+  these: read whole;
+- a view that updates a prior: only its updates, the ratio over that prior.
+  So B predicted from A and observed through a child D gives C D's ratio
+  alone (`tests/metta/test_pln_induction.metta`: 0.82, not 0.876);
+- a forward conclusion, a combination or conditioning of views, a population
+  prior: nothing. With `A -> B`, `C -> B` and C a stage, A's prediction of B
+  leaves C at its prior 0.5.
+
+The prediction is still used everywhere else: to answer B, as B's prior
+(#103), and for what follows from B. Every other statement is an aggregate,
+a rate-like statement about an entity or a concept, and keeps PLN induction
+and abduction: a value updating nothing is consumed under the inversion's
+implied prior (Jeffrey's rule), so A's prediction of B induces C, and an
+undeclared KB behaves as before.
+
+Do not declare report-style claim predicates stage-level while a claim is
+written as a forward rule into the claimed state, as in
+`(Implication (Reliable s up) (Up c t))`: its forward conclusion is the only
+value that state has, and a stage would read it as a prediction. Encode
+claims causally first, as claim events caused by their content
+(`bench/results/fresh-design/nl2pln-target-format.md`, F7). The conflict
+stage regresses by 2–3x with `(Up n t)` declared under its current encodings.
+
+For an aggregate C, a completion with a certain sibling has the same
 value as the matched plain inversion: likelihoods (0.9, 0.1), P(C) = 0.5,
 and B predicted at 0.8 give 0.8 * 0.9 + 0.2 * 0.1 = 0.74
 (`tests/metta/test_pln_induction.metta`). No predicate-level observation
@@ -523,18 +554,22 @@ gate restricts these paths. A completion's sibling with no stored instance
 reads at its population prior, so a predicate the KB states only when true
 must be declared positive-only: otherwise its stored instances sample it as
 true, an absent instance reads as nearly certain, and a forward prediction of
-the consequence through another instance completes the target (#119).
+the consequence through another instance completes the target (#119). A
+stage target refuses that prediction, but still reads an observed
+consequence through the absent sibling, so the declaration stays necessary
+(SupplyNet stage 4 without it: .0066 with time declared, .00016 with it).
 
 Self-support is excluded by the consumer's transitive dependency sets, not
 by the origin of a consequent's value. A completion excludes its target's
 key and unifying keys (`sk-row-exclusions`); a consequent view depending on
 that target fails `sk-admits?`. Thus `(And (InService t) (Not (Degraded t)))
 -> (Produced t)` cannot turn its own Produced prediction back into new
-evidence of Degraded. A prediction from another source remains admissible:
-the backup feed predicting production at 0.4 induces degradation at 0.6,
-since the plant is running and production is the complement of degradation.
-A closed read's unfounded value is still refused by `sk-observation-prior`:
-it is a circular-support hypothesis, not a value.
+evidence of Degraded. For an aggregate a prediction from another source
+remains admissible: the backup feed predicting production at 0.4 induces
+degradation at 0.6, since the plant is running and production is the
+complement of degradation; a stage Degraded would keep its prior. A closed
+read's unfounded value is refused by `sk-observation-prior` either way: it is
+a circular-support hypothesis, not a value.
 
 ### Historical worked example (before #89): production reports and degradation
 
@@ -687,8 +722,9 @@ then left out of λ: it is C's prediction from other sources, which the
 likelihood ratio of C's own evidence does not contain, as a child's message
 to its parent in belief propagation carries only its diagnostic evidence. A
 view updating nothing (a stored fact, a forward conclusion, a revision) was
-formed under no known prior; it is read as before, as a posterior under π
-(Jeffrey's rule), and so is a value over a prior of 0 or 1. Reading a stored
+formed under no known prior; it is read as a posterior under π (Jeffrey's
+rule), and so is a value over a prior of 0 or 1. For a stage target only
+reports and assumptions are (see "Stages and aggregates"). Reading a stored
 soft fact against b's population base rate instead would count the fact in
 the rate it is compared with, and a predicate with a single soft fact would
 carry no evidence at all.

@@ -273,17 +273,21 @@
 
 ;; The prior an observation's value was formed under, for an inversion or a
 ;; completion that reads the value as a likelihood ratio over it
-;; (ObservationRatioFormula): the prior a view updates. A view updating
-;; nothing, a stored fact or a forward conclusion, is a value of its own, read
-;; under the prior the inversion implies for it, as modus ponens reads it. An
-;; unfounded value is a closed read's pin, the reading conclusion taken false
-;; to cut its circular support (docs/metta/complete_predicates.md): a
-;; hypothesis, not an observation, so nothing is inferred from it.
-(: sk-observation-prior (-[semidet]-> Proof TV TV))
-(= (sk-observation-prior $proof $tv)
+;; (ObservationRatioFormula): the prior a view updates, so only its updates
+;; count. A view updating nothing is a value of its own, read under the prior
+;; the inversion implies, as modus ponens reads it, except:
+;; - an unfounded value is a closed read's pin, the reading conclusion taken
+;;   false to cut its circular support (docs/metta/complete_predicates.md): a
+;;   hypothesis, not an observation, so nothing is inferred from it;
+;; - a stage (stage-statement?) gets evidence from below only (#122): its
+;;   consequence's reports and assumptions count, a forward prediction does
+;;   not. An aggregate keeps PLN induction and abduction.
+(: sk-observation-prior (-[semidet]-> Proof TV Bool TV))
+(= (sk-observation-prior $proof $tv $stage)
    (if (== (sk-step-proof $proof) unfounded) (empty)
       (case (sk-prior-update-of $proof $tv) (
-         ((sk-prior-update $_prior $_own ()) no-evidence)
+         ((sk-prior-update $_prior $_own ())
+            (if $stage (if (sk-observed? $proof) no-evidence (empty)) no-evidence))
          ((sk-prior-update $_prior (prior $prior-tv) $_parts) (the TV $prior-tv))))))
 
 ;; Leave-one-out branch centres require actual source support. Unknown or
@@ -456,6 +460,17 @@
          ((merge/revision $left $right)
             (if (sk-report-proof? (brand Proof $left)) (sk-report-proof? (brand Proof $right)) false))
          ($_derived false)))))))
+
+;; An observation of a consequent: its stored reports, an assumption, or for a
+;; compound consequent, an observation of every part.
+(: sk-observed? (-[det]-> Proof Bool))
+(: sk-all-observed? (-[det]-> (List Proof) Bool))
+(= (sk-observed? $proof)
+   (case (sk-step-proof $proof) (
+      ((cons conjunction $parts) (sk-all-observed? (proof-children $parts)))
+      ($step (if (assumption-proof? $step) true (sk-report-proof? $proof))))))
+(= (sk-all-observed? ()) true)
+(= (sk-all-observed? (cons $part $rest)) (if (sk-observed? $part) (sk-all-observed? $rest) false))
 
 (: sk-report-prior? (-[det]-> Proof Bool))
 (= (sk-report-prior? $proof)

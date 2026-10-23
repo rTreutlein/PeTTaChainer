@@ -109,6 +109,16 @@
           ($_row (add-atom &hm_time ($head $kb $position $layer))))
       true))
 
+;; A stage: a ground statement of a predicate with a time declaration. Its
+;; inversions and completions get evidence from below only
+;; (sk-observation-prior, #122); every other statement is an aggregate.
+(: stage-statement? (-[det]-> KB Atom Bool))
+(= (stage-statement? $kb $statement)
+   (if (== (extract-vars $statement) ())
+      (let $head (car-atom $statement)
+         (not (== (collapse (once (match &hm_time ($head $kb $_position $_layer) true))) ())))
+      false))
+
 ;; `($link $earlier $later)` facts say that time point $earlier immediately
 ;; precedes $later.
 (: set-time-link (-[det]-> KB Atom Bool))

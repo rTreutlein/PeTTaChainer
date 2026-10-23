@@ -596,6 +596,12 @@ A key's value merges its stored facts and one view per row:
   event either observes) and no statement whose value is uncertain (by their
   dependency sets, so a derived statement both read counts, not only shared
   leaves);
+- an inversion or antecedent completion of a stage (a ground statement of a
+  predicate with a time declaration, `set-predicate-time`) gets evidence from
+  below only: its consequence's reports and assumptions, or a view's updates
+  over its prior, never a forward prediction (#122). Aggregates, everything
+  else, keep PLN induction and abduction (`prior_factored_merge.md`, "Stages
+  and aggregates");
 - inversions and antecedent completions over one prior through different
   observations combine by Bayes' rule (a completion observes its consequence;
   a sibling it reads as certain, alone or inside the compound of the other
