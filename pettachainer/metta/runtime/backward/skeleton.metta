@@ -1100,13 +1100,13 @@
       ((CPU ContextRule ($assumption $_ctx) $_res) (cons (the SkeletonKey $assumption) $keys))
       ((CPU FoldAllCompiled $fold-args $_fold-res) (cons (sk-fold $fold-args) $keys))
       ((CPU GroupedFoldAllCompiled $group-args $_group-res) (cons (sk-group $group-args) $keys))
-      ((CPU CompoundRate $rate-args $_rate-res) (cons (sk-rate $rate-args) $keys))
+      ((CPU CompoundRate $rate-args $_rate-res) (cons (sk-prior $rate-args) $keys))
       ((CPU $_fun $_args $_res) $keys)
       (($type $kbctx $_proof $_tv) (cons (sk-key $type $kbctx) $keys)))))
 
 ;; The keys a compound's prior reads directly.
-(: sk-rate-inputs (-[det]-> (List SkPattern) (List SkeletonKey)))
-(= (sk-rate-inputs $goals) (fold-flat sk-direct-key-step () $goals))
+(: sk-prior-inputs (-[det]-> (List SkPattern) (List SkeletonKey)))
+(= (sk-prior-inputs $goals) (fold-flat sk-direct-key-step () $goals))
 (: sk-use-step! (-[det]-> SkeletonKey Atom SkeletonKey Atom))
 (= (sk-use-step! $parent $_acc $key) (sk-add-use! $key $parent))
 

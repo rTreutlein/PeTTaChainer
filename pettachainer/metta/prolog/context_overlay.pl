@@ -149,6 +149,11 @@ context_inputs_local(C,_,['sk-fold',Args]) :-
 context_inputs_local(C,_,Key) :-
     Key=['sk-group',Args],
     'sk-group-members'(Key,Args,['sk-group-found',_,Keys]), context_local_member(C,Keys).
+% A compound's prior is local when a key it reads is, or has local inputs.
+context_inputs_local(C,_,['sk-prior',Args]) :-
+    'compound-rate-goals'(Args,false,_,Goals), 'sk-prior-inputs'(Goals,Keys),
+    member(Key,Keys), 'index-hash'(Key,H),
+    ( context_key_local(C,H,Key) ; context_inputs_local(C,H,Key) ), !.
 
 context_local_member(C,Keys) :-
     member(Key,Keys), 'index-hash'(Key,H), context_key_local(C,H,Key), !.

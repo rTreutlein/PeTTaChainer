@@ -390,8 +390,6 @@
             (connective-rate-goals $kb $key $searched $brtv $children (conjunct-parts $children))))))
 ;; The parts arrive as a parameter: the determinism checker proves the fold
 ;; over a parameter list, not over a function result.
-(: child-part (-[det]-> Atom (List Atom)))
-(= (child-part $child) (cons $child ()))
 (: connective-rate-goals (-[det]-> KB Statement Bool $truth-value (List Atom) (List Atom) (List Goal)))
 (= (connective-rate-goals $kb $key $searched $brtv $children $parts)
    (if (== (cdr-atom $parts) ())
@@ -399,7 +397,7 @@
          (base-rate-premises $kb (brand Statement (car-atom $children)) $brtv)
          (if $searched (cons (base-rate-fold $kb $key $brtv) ())
             (cons (base-rate-fold $kb $key $joint)
-               (composed-rate-premises $kb $key (map-flat child-part $children) $composed
+               (composed-rate-premises $kb $key (map-flat (|-> ($child) (the (List Atom) (cons $child ()))) $children) $composed
                   ((CPU CompoundRateFormula (quote ($joint $composed)) $brtv))))))
       (composed-rate-premises $kb $key $parts $brtv ())))
 

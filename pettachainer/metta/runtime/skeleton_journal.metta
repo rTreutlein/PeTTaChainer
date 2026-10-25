@@ -26,14 +26,14 @@
              (-[semidet]-> $c $d $c) AggregateFinish AggregateTVMode)))
 
 ;; What a value belongs to: a statement in a context, a fold, one group of a
-;; grouped fold, or a compound's prior (sk-rate, #142).
+;; grouped fold, or a compound's prior (sk-prior, #142).
 (: SkeletonKey Type)
 ;; A fold's arguments come out of a CPU goal, whose arguments are polymorphic;
 ;; they are typed as a fold spec once, where the fold is computed.
 (: sk-key (-[det]-> Statement KBContext SkeletonKey))
 (: sk-fold (-[det]-> $spec SkeletonKey))
 (: sk-group (-[det]-> $spec SkeletonKey))
-(: sk-rate (-[det]-> $spec SkeletonKey))
+(: sk-prior (-[det]-> $spec SkeletonKey))
 
 ;; a key a conditioned read takes as known true or false, or a complete
 ;; statement a closed read takes as unfounded (docs/metta/complete_predicates.md)

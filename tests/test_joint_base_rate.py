@@ -35,6 +35,14 @@ class TestJointBaseRate(unittest.TestCase):
             f'!(cached-base-rate {h.kb} (Or (P $y) (Q $y)))')
         self.assertIn('0.4', str(rate))
 
+    def test_negated_rate_takes_an_stv(self):
+        h = PeTTaChainer()
+        with self.assertRaisesRegex(janus.PrologError, 'negated_base_rate_value'):
+            h.handler.process_metta_string(
+                f'!(set-base-rate {h.kb} (Not (P $x)) (CTV (STV 0.4 1) (STV 0.2 1)))')
+        self.assertEqual(str(h.handler.process_metta_string(
+            f'!(cached-base-rate {h.kb} (P $x))')), "['()']")
+
     def test_pin_inside_a_negation_is_honoured(self):
         """A negated antecedent's prior is the complement of its statement's,
         so a rate set on the statement or on its negation is the same pin."""

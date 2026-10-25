@@ -2893,7 +2893,11 @@ pw_drop_rep(R) :-
 
 % Disconnected parts range over a Cartesian product. A separate joint rate
 % would contradict that model; reject it rather than silently ignoring it.
-'validate-base-rate!'(Pattern, Parts, true) :-
+'validate-base-rate!'(Pattern, Parts, TV, true) :-
+    ( 'canon'(Pattern, [_, true]), \+ (nonvar(TV), TV = ['STV'|_])
+    -> throw(error(domain_error(negated_base_rate_value, TV),
+                   context('set-base-rate'/3, 'a negated statement takes an STV')))
+    ; true ),
     ( Parts = [_,_|_]
     -> throw(error(domain_error(disconnected_base_rate, Pattern),
                    context('set-base-rate'/3, 'set a rate for each connected part')))
