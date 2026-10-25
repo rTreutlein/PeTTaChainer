@@ -414,7 +414,8 @@
       (statement-children $rest)))
 
 (: lower (-[semidet]-> KBContext Statement PremiseBundle))
-(: lower-all (-[semidet]-> KBContext Atom (List Statement) PremiseBundle))
+(: lower-all (-[semidet]-> (-[semidet]-> KBContext Statement PremiseBundle) KBContext Atom
+   (List Statement) PremiseBundle))
 
 (: compile-output-children
    (-[nondet]-> KBContext Statement Atom (List Statement)
@@ -429,7 +430,7 @@
                ((: $kb $prf $type $tvin) (CPU (atom_concat $head Projection) ($tvin) $tvout))
                (brand Proof (proj $idx $prf)) $elem $tvout)
             (let (premise-bundle $execs $evidence-tv $evidence-proof)
-                 (lower-all $kb $head $others)
+                 (lower-all lower $kb $head $others)
                (canonical-addition $kb
                   (cons (: $kb $prf $type $tvin)
                      (append-goals $execs
@@ -628,26 +629,29 @@
 
 ;; A connective's part. Its formula reads an implication part at the
 ;; implication's probability, which the chainer judges in the implication's
-;; query scaffold.
+;; query scaffold. A rule's own conclusion is never read so: its projections
+;; would take a part judged from the same rule as evidence for its siblings
+;; (see compile-output-children).
 (: lower-part (-[semidet]-> KBContext Statement PremiseBundle))
 (= (lower-part $kc $part)
    (if (implication-type? $part)
       (premise-bundle ((: $kc $prf $part (STV $s $c))) (STV $s $c) $prf)
       (lower $kc $part)))
 
-;; A connective over lowered parts: their goals in source order, their values
-;; folded by <Head>Formula, the conjunction of their proofs.
+;; A connective over parts read by `$read`: their goals in source order, their
+;; values folded by <Head>Formula, the conjunction of their proofs.
 (: lower-all-step
-   (-[semidet]-> KBContext Expression CompiledPremises Statement CompiledPremises))
-(= (lower-all-step $kc $formula ($goals $proofs $tv) $part)
-   (let* (((premise-bundle $part-goals $part-tv $part-proof) (lower-part $kc $part))
+   (-[semidet]-> (-[semidet]-> KBContext Statement PremiseBundle) KBContext Expression
+       CompiledPremises Statement CompiledPremises))
+(= (lower-all-step $read $kc $formula ($goals $proofs $tv) $part)
+   (let* (((premise-bundle $part-goals $part-tv $part-proof) ($read $kc $part))
           (($cpu $next-tv) (binary-tv-cpu $formula $tv $part-tv)))
       (data (cons $cpu (prepend-reversed-goals $part-goals $goals)) (cons $part-proof $proofs) $next-tv)))
 
-(= (lower-all $kc $head (cons $first $rest))
-   (let* (((premise-bundle $goals $tv $proof) (lower-part $kc $first))
+(= (lower-all $read $kc $head (cons $first $rest))
+   (let* (((premise-bundle $goals $tv $proof) ($read $kc $first))
           (($reversed-goals $reversed-proofs $all-tv)
-             (fold-semidet (lower-all-step $kc (atom_concat $head Formula))
+             (fold-semidet (lower-all-step $read $kc (atom_concat $head Formula))
                 (data (prepend-reversed-goals $goals ()) ($proof) $tv) $rest)))
       (premise-bundle (prepend-reversed-goals $reversed-goals ())
          $all-tv (implication-proof-token (prepend-reversed-proofs $reversed-proofs ())))))
@@ -696,27 +700,13 @@
    (let* (($head (car-atom $compound)) ($parts (statement-children (cdr-atom $compound))))
       (if (== (configured-compound-premise-mode $head) Any)
          (map-semidet (any-reading $kc $head) $parts)
-         (cons (lower-all $kc $head $parts) (settlings $kc $compound $parts)))))
+         (cons (lower-all lower-part $kc $head $parts) (settlings $kc $compound $parts)))))
 
 ;; The rules that give a compound key its value: one per reading, concluding
 ;; the compound in the reader's context, and those of every compound key the
-;; readings read, through negations too. They are permanent and installed once
-;; per context pattern and key, up to variable renaming, so every reader of a
-;; key in that context shares the same rules (#142): a call for a key
-;; registered in that context or in every context returns none.
-(: &compound_producers (SpaceOf (Number Atom)))
-!(bind! &compound_producers (new-space))
-
-(: newly-registered? (-[det]-> KBContext Statement Bool))
-(= (newly-registered? ($kbid $ctx $vars) $key)
-   (let* (($shape (quote (($kbid $ctx $vars) $key)))
-          ($every-context (quote (($kbid $any-ctx $any-vars) $key)))
-          ($hash (index-hash (quote ($kbid $key)))))
-      (if (== (collapse (once (match &compound_producers ($hash $stored)
-                (if (=alpha $stored $shape) true (if (=alpha $stored $every-context) true (empty)))))) ())
-         (let* (($copy (copy_term $shape)) ($_row (add-atom &compound_producers ($hash $copy)))) true)
-         false)))
-
+;; readings read, through negations too. They live with their reader: a rule
+;; emits those of the keys it reads, and the chainer installs a query's for
+;; its lifetime (install-producers!) (#142).
 (: reading-addition (-[det]-> KBContext Statement PremiseBundle CompiledAddition))
 (= (reading-addition $kc $compound (premise-bundle $goals $tv $proof))
    (brand CompiledAddition ($goals |- (: $kc $proof $compound $tv))))
@@ -728,7 +718,7 @@
    (append-compiled-additions $acc (producers $kc $child)))
 (= (producers $kc $statement)
    (let ($key $_odd) (canon $statement)
-      (if (if (compound-source? $key) (newly-registered? $kc $key) false)
+      (if (compound-source? $key)
          (fold-semidet (child-producers-step $kc)
             (map-flat (reading-addition $kc $key) (compound-readings $kc $key))
             (statement-children (cdr-atom $key)))

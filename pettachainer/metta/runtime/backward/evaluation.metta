@@ -5776,7 +5776,7 @@
              (case (copy_term $goal) (
                 ((CPU $_fun $_args $_res) ())
                 (($type $kbctx $_proof $_tv)
-                   (let $_producers (install-producers! $type $kbctx) (install-member-inheritance-rules! $type $kbctx)))))))
+                   (let $_producers (install-producers! temp $type $kbctx) (install-member-inheritance-rules! $type $kbctx)))))))
       (sk-raise-score! $hash $goal 1.0)))
 
 (: execute-backward

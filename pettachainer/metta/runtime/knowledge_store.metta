@@ -337,6 +337,11 @@
                      (empty)))))
             ()))))
 
+;; The producers installed with each lifetime (install-producers!); the
+;; temporary ones leave with the query's temporary rules.
+(: &installed_producers (SpaceOf (Number KbBackend CompiledAddition)))
+!(bind! &installed_producers (new-space))
+
 (: clear-temp-query-adds (-[det]-> (List $none)))
 (= (clear-temp-query-adds)
    (progn
@@ -345,6 +350,7 @@
             (progn
                (callPredicate (Predicate (erase $ref)))
                (remove-atom &temp_query_ref (clause_ref $ref)))))
+      (collapse (match &installed_producers ($hash temp $add) (remove-atom &installed_producers ($hash temp $add))))
       (rule-dormancy-forget-temp!)
       ()))
 

@@ -816,13 +816,36 @@
           ;; A durable join cannot depend on a query-local judgment producer.
           ;; Install its exact scaffold with the join's lifetime, even if a
           ;; prior query already expanded this premise using temporary rules.
+          ;; A query-local join reading an implication's judgment, as a
+          ;; compound key's producer does, gets the query's own scaffold too:
+          ;; an earlier query's left with it.
           ($_scaffold
-             (if (< $rule 1000000000)
-                (case $premise (
-                   ((CPU $_fun $_args $_res) ())
-                   (($type $scope $proof $tv)
-                      (inject-special-subgoal-query-adds backward $type $scope $proof $tv))))
-                ()))
+             (case $premise (
+                ((CPU $_fun $_args $_res) ())
+                (($type $scope $proof $tv)
+                   (if (< $rule 1000000000)
+                      (inject-special-subgoal-query-adds backward $type $scope $proof $tv)
+                      (let $premise-kbid (car-atom $scope)
+                         (if (head-is? $premise-kbid implication-query)
+                            (let $_installed (inject-special-subgoal-query-adds temp $type $scope $proof $tv)
+                               (sk-activate-pending!))
+                            ())))))))
+          ;; A compound premise read in a hypothetical context gets its
+          ;; producers with the join's lifetime too. A MAIN compound premise
+          ;; gets none here: an open variable-headed node matches each new
+          ;; producer's conclusion, and installing for those instances would
+          ;; nest compound keys without bound. A root's producers come with
+          ;; the root, a rule's own compound premises with the rule.
+          ($_producers
+             (case $premise (
+                ((CPU $_pfun $_pargs $_pres) ())
+                (($ptype $pscope $_pproof $_ptv)
+                   (if (compound-source? $ptype)
+                      (let $pctx (car-atom (cdr-atom $pscope))
+                         (if (== $pctx MAIN) ()
+                            (let $_installed (install-producers! (if (< $rule 1000000000) backward temp) $ptype $pscope)
+                               (sk-activate-pending!))))
+                      ())))))
           ($_leaves
              (if (sk-expanded? $hash $premise) ()
                 (case (copy_term $premise) (
@@ -1509,23 +1532,33 @@
             ()))
       ($_other ()))))
 
-;; A compound key's producers depend only on the key, so they are installed
-;; as permanent backward rules where a compound key is read (see sk-expand!),
-;; once per context pattern and key (`producers` registers them): a query
-;; root, a batch member, a judgment consequent, a fold member and a rule
-;; premise share the same rules (#142). A MAIN read gets MAIN's rules; any other read gets rules for every
-;; context, since hypothetical contexts are query-local. Rules for every
-;; context would let a ground key's rows conclude in a hypothetical context
-;; and bind its open individual.
-(: install-producers! (-[semidet]-> Statement KBContext Atom))
-(= (install-producers! $type ($kbid $ctx $vars))
+;; The producers of a compound key a reader reads get the reader's lifetime,
+;; as its scaffolds do (#142): a query root's and a query-local join's leave
+;; with the query's temporary rules, a durable join's stay. So a query's cost
+;; does not grow with the compounds earlier queries read. Each producer is
+;; installed once per lifetime, up to variable renaming (&installed_producers);
+;; a durable one also serves a query. A MAIN read gets MAIN's rules, any other
+;; read rules for every context.
+(: fresh-producer-step
+   (-[det]-> KbBackend (List CompiledAddition) CompiledAddition (List CompiledAddition)))
+(= (fresh-producer-step $backend $fresh $add)
+   (let $hash (index-hash $add)
+      (if (== (collapse (once (match &installed_producers ($hash $lifetime $stored)
+                (if (if (== $lifetime backward) true (== $backend temp)) (if (=alpha $stored $add) true (empty)) (empty)))))
+             ())
+         (let* (($copy (copy_term $add)) ($_row (add-atom &installed_producers ($hash $backend $copy)))) (cons $add $fresh))
+         $fresh)))
+
+(: install-producers! (-[semidet]-> KbBackend Statement KBContext Atom))
+(= (install-producers! $backend $type ($kbid $ctx $vars))
    (let $adds (producers
                  (if (if (== $ctx MAIN) (== $vars Nil) false)
                     (make-kb-context (brand KB $kbid) MAIN Nil)
                     (make-kb-context (brand KB $kbid) $any-ctx $any-vars))
                  $type)
-      (if (== $adds ()) ()
-         (let $_rules (once (foreach-flat (kb-add-expr backward) (map-flat mm2stmt $adds))) ()))))
+      (let $_rules (once (foreach-flat (kb-add-expr $backend)
+                     (map-flat mm2stmt (fold-flat (fresh-producer-step $backend) () $adds))))
+         ())))
 
 ;; The empirical Member producer of a concrete Inheritance link depends only on
 ;; the link, so it is installed once as permanent backward rules: its rows
@@ -1571,8 +1604,6 @@
           ($kbid (if (is-expr $scope) (car-atom $scope) $scope))
           ($pattern (car-atom (cdr-atom $args)))
           ($existential (sk-existential-fold? (CPU fold $args unused)))
-          ($member-kbctx (the KBContext (if (is-expr $scope) $scope (quote ($kbid MAIN Nil)))))
-          ($_producers (install-producers! (brand Statement $pattern) $member-kbctx))
           ($shape (pattern-shape $pattern))
           ($compiled (sk-shape-members $kbid $shape))
           ;; Existential shapes retain free variables. Relink the cached
@@ -1601,7 +1632,11 @@
             (case (collapse (once (mm2compileQuery (brand KB $kbid) (: $_h (brand Statement $shape) $_i)))) (
                ((cons (compiled-query $goal $adds) $_rest)
                   (if (if (is-var $goal) true (is-var $adds)) ()
+                     ;; A compound shape's producers come with its member,
+                     ;; once per shape: compileQuery leaves them to the reader.
                      (let* (($_rules (once (foreach-flat (kb-add-expr backward) $adds)))
+                            ($_producers (once (foreach-flat (kb-add-expr backward)
+                               (map-flat mm2stmt (producers (make-kb-context (brand KB $kbid) $ctx $vars) (brand Statement $shape))))))
                             ($compiled (typed-runtime-premise $goal))
                             ($_row (add-space-atom! &sk_fold_members (make-space-row3 $hash $source $compiled))))
                         (cons $compiled ()))))
@@ -1628,16 +1663,6 @@
          (let* (($_special
                    (if (> $depth 0) (inject-special-subgoal-query-adds temp $type $kbctx $proof $tv) ()))
                 ($_member (install-member-inheritance-rules! $type $kbctx))
-                ;; A compound read in a hypothetical context gets its
-                ;; producers here; a MAIN root and a fold member get theirs
-                ;; when they are read, a rule premise with its rule. Other
-                ;; MAIN compound nodes stay without: an open variable-headed
-                ;; node matches each new producer's conclusion, and installing
-                ;; for those instances would nest compound keys without bound.
-                ($_producers
-                   (if (compound-source? $type)
-                      (if (== (car-atom (cdr-atom $kbctx)) MAIN) () (install-producers! $type $kbctx))
-                      ()))
                 ($_activate (sk-activate-pending!))
                 ($_mark (sk-mark-expanded! $hash $node))
                 ($_seeds (context-answer-seeds! $node))

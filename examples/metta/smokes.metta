@@ -39,21 +39,14 @@
             (by smokingCancerRule
                (merge/revision
                   ((inheritance-rule-lift friendSmokingRule)
-                     (conjunction friendAnnaEdward
-                        (factored-revision smokesAnna (prior (STV 0.999986111496903 0.9))
-                           ((shared 352
-                              ((antecedent-completion friendSmokingRule 1 with cpu
-                                  (prior (STV 0.49840637291471407 1.0e-06)))
-                                 (conjunction friendAnnaFrank
-                                    (by friendSmokingRule (conjunction friendEdwardFrank smokesEdward))))))))
+                     (conjunction friendAnnaEdward smokesAnna)
                      (ctx proof 0))
                   (by (inheritance-implication smokesEdward) (ctx proof 0))))
             (by smokingCancerRule
                (merge/revision
                   ((inheritance-rule-lift friendSmokingRule)
-                     (conjunction friendAnnaEdward
-                        (factored-revision smokesAnna (prior (STV 0.999986111496903 0.9)) ((shared 352))))
+                     (conjunction friendAnnaEdward smokesAnna)
                      (ctx proof 1))
                   (by (inheritance-implication smokesEdward) (ctx proof 1))))))
       (Inheritance Edward (IntSet cancerous))
-      (STV 0.5699927878862528 0.012197409811813702)))
+      (STV 0.5699932770295287 0.012197838169426609)))

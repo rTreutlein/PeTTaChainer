@@ -270,21 +270,31 @@ shape; abstracting that child changes how the query compiles and can leave
 expansion unfinished with temporary waiters still installed.
 
 Rules compiled for one query (negation views, computation bridges, implication
-scaffolds) leave with it: their rows, waiters and views are removed and the
-keys they fed change. Producers that depend only on the pattern (the Member
-inheritance producer of a concrete `Inheritance` link, the compiled source of a
-fold pattern, the producers of a compound key) are installed once as permanent
-backward rules, so their rows outlive the query. A compound key's producers are
-registered per context pattern and key up to renaming: a MAIN read gets
-MAIN's rules, a read elsewhere rules for every context, and rules for every
-context cover a later MAIN read. A query root, a batch member, a judgment
-consequent, a fold member and a rule premise reading the key share them
-(#142). They are installed where a compound key is read, never for a MAIN
+scaffolds, the producers of the compound keys it reads) leave with it: their
+rows, waiters and views are removed and the keys they fed change. A query's
+cost therefore does not grow with the compounds earlier queries read. A
+compound key's producers are the one way it gets a value (#142): a rule emits
+those of the keys it reads, which live with the rule, and the chainer installs
+those of a query root, a batch member, a judgment consequent, a fold member, an
+assumed rule's antecedent and a compound read in a hypothetical context for
+the query's lifetime, each once up to renaming. A MAIN read gets MAIN's rules,
+any other read rules for every context. They are never installed for a MAIN
 compound node a search reaches otherwise: an open variable-headed node matches
 each new producer's conclusion, and installing for those instances would nest
-compound keys without bound. Rules imported from a static dump keep their ids;
-a new live rule takes an id past them. A connective's producer reads an
-implication part at its probability, in the implication's query scaffold.
+compound keys without bound. Producers that depend only on a pattern (the
+Member inheritance producer of a concrete `Inheritance` link, the compiled
+source of a fold pattern shape) are installed once as permanent backward
+rules, so their rows outlive the query. Rules imported from a static dump keep
+their ids; a new live rule takes an id past them.
+
+A connective's producer reads an implication part at its probability, in the
+implication's query scaffold. A rule's own conclusion is never read so: its
+strong projections read an implication sibling as a plain key, because that
+sibling is judged from the same rule, and dividing by it would make the
+projected part certain. Limit: a producer of a compound key that a rule
+concludes, as `(And (Implication X Y) M)`, can still read the implication part
+judged from that rule beside the rule's own value of the key; the judgment
+does not carry the rule's evidence, so the overlap check cannot see it.
 An implication premise of a permanent join likewise installs its own permanent
 scaffold, including its private assumptions and consequent metadata. A temporary
 scaffold from an earlier query cannot supply that lifetime, even when the
