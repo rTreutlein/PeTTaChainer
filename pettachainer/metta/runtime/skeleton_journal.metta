@@ -25,14 +25,15 @@
    (Alias (KB Statement $a (| ExtractValue ExtractInheritanceTV ExtractTV) $b
              (-[semidet]-> $c $d $c) AggregateFinish AggregateTVMode)))
 
-;; What a value belongs to: a statement in a context, a fold, or one group of
-;; a grouped fold.
+;; What a value belongs to: a statement in a context, a fold, one group of a
+;; grouped fold, or a compound's prior (sk-rate, #142).
 (: SkeletonKey Type)
 ;; A fold's arguments come out of a CPU goal, whose arguments are polymorphic;
 ;; they are typed as a fold spec once, where the fold is computed.
 (: sk-key (-[det]-> Statement KBContext SkeletonKey))
 (: sk-fold (-[det]-> $spec SkeletonKey))
 (: sk-group (-[det]-> $spec SkeletonKey))
+(: sk-rate (-[det]-> $spec SkeletonKey))
 
 ;; a key a conditioned read takes as known true or false, or a complete
 ;; statement a closed read takes as unfounded (docs/metta/complete_predicates.md)
@@ -383,8 +384,7 @@
 (= (sk-input-epoch $key)
    (let $kb (case $key (
            ((sk-key $_type ($kbid $_ctx $_vars)) $kbid)
-           ((sk-fold $args) (brand KB (car-atom $args)))
-           ((sk-group $group-args) (brand KB (car-atom $group-args)))))
+           (($_aggregate $args) (brand KB (car-atom $args)))))
       (chainer-first-or 0 (collapse (once (match &ctx_sk_input_epoch ($kb $epoch) $epoch))))))
 
 (: &sk_root_exhausted (SpaceOf (Number SkeletonKey SkeletonRootLimit)))

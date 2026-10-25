@@ -359,40 +359,48 @@
 (= (rate-children $key)
    (if (head-is? $key Or) (the (List Atom) (cdr-atom $key)) (implication-side-conjuncts $key)))
 
-;; The premises estimating a pattern's base rate as `$brtv`, its prior,
-;; recursively over its structure (#142). A negation's prior is the complement
-;; of its canonical key's, as a rate set on (Not X) is stored on X. A
-;; connective whose children fall into parts sharing no variables ranges over
-;; the cross product of the parts' instances, so its rate is exactly the
-;; product (And) or the independent disjunction (Or) of theirs. A connective
-;; whose children share variables takes its joint rate, the fold over the
-;; compound itself, when that has evidence or a user pin, and otherwise the
-;; rate composed from its children's priors (CompoundRateFormula). Any other
+;; The premises estimating a pattern's base rate as `$brtv`, its prior: a
+;; compound's is one aggregate key per pattern (CompoundRate, #142), any other
 ;; statement is folded.
 (: BaseRateParts Type)
 (: base-rate-parts (-[det]-> (List Goal) (List Atom) BaseRateParts))
 (: base-rate-premises (-[det]-> KB Statement $truth-value (List Goal)))
 (= (base-rate-premises $kb $pattern $brtv)
-   (let ($key $odd) (canon $pattern)
+   (if (head-is-member? $pattern (Not And Or))
+      (cons (CPU CompoundRate (quote ($kb $pattern)) $brtv) ())
+      (cons (base-rate-fold $kb $pattern $brtv) ())))
+
+;; The goals computing a compound's prior, recursively over its structure. A
+;; negation's is the complement of its canonical key's, as a rate set on
+;; (Not X) is stored on X. A connective whose children fall into parts sharing
+;; no variables ranges over the cross product of the parts' instances, so its
+;; rate is exactly the product (And) or the independent disjunction (Or) of
+;; theirs. A connective whose children share variables takes its joint rate,
+;; the fold over the compound itself, when that has evidence or a user pin,
+;; and otherwise the rate composed from its children's priors as if
+;; independent (CompoundRateFormula). A connective of one child, as an (And X)
+;; a nested conjunction leaves, is that child. A search (`$searched`) reads
+;; only the joint, which is the prior once it has evidence.
+(: compound-rate-goals (-[det]-> $spec Bool $truth-value (List Goal)))
+(= (compound-rate-goals ($kbid $pattern) $searched $brtv)
+   (let* (($kb (brand KB $kbid)) (($key $odd) (canon (brand Statement $pattern))))
       (if $odd
          (append-goals (base-rate-premises $kb $key $rate) ((CPU BaseRateNotFormula (quote ($rate)) $brtv)))
-         (if (head-is-member? $key (And Or))
-            (let $children (rate-children $key)
-               (base-rate-part-premises $kb $key $brtv $children (conjunct-parts $children)))
-            (cons (base-rate-fold $kb $key $brtv) ())))))
+         (let $children (rate-children $key)
+            (connective-rate-goals $kb $key $searched $brtv $children (conjunct-parts $children))))))
+;; The parts arrive as a parameter: the determinism checker proves the fold
+;; over a parameter list, not over a function result.
 (: child-part (-[det]-> Atom (List Atom)))
 (= (child-part $child) (cons $child ()))
-;; The parts arrive as a parameter: the determinism checker proves the fold
-;; over a parameter list, not over a function result. A connective of one
-;; child, as an (And X) a nested conjunction leaves, is that child.
-(: base-rate-part-premises (-[det]-> KB Statement $truth-value (List Atom) (List Atom) (List Goal)))
-(= (base-rate-part-premises $kb $key $brtv $children $parts)
+(: connective-rate-goals (-[det]-> KB Statement Bool $truth-value (List Atom) (List Atom) (List Goal)))
+(= (connective-rate-goals $kb $key $searched $brtv $children $parts)
    (if (== (cdr-atom $parts) ())
       (if (== (cdr-atom $children) ())
          (base-rate-premises $kb (brand Statement (car-atom $children)) $brtv)
-         (cons (base-rate-fold $kb $key $joint)
-            (composed-rate-premises $kb $key (map-flat child-part $children) $composed
-               ((CPU CompoundRateFormula (quote ($joint $composed)) $brtv)))))
+         (if $searched (cons (base-rate-fold $kb $key $brtv) ())
+            (cons (base-rate-fold $kb $key $joint)
+               (composed-rate-premises $kb $key (map-flat child-part $children) $composed
+                  ((CPU CompoundRateFormula (quote ($joint $composed)) $brtv))))))
       (composed-rate-premises $kb $key $parts $brtv ())))
 
 ;; The rate the connective `$key` composes from its parts' priors, left to

@@ -318,19 +318,25 @@
 ;; Neither operation interns or walks a population-sized evidence set.
 (: sk-computed-centre (-[semidet]-> KB Statement SourceList (List Number) OptionalSTV))
 (= (sk-computed-centre $kb $pattern $sources $exclude)
-   (let* (((CPU FoldAllCompiled $args $_result) (base-rate-fold $kb $pattern $_rate))
-          ((cons (fa-subscription $identity $descriptor $_triggers) ())
-             (fa-premise-subscriptions (CPU FoldAllCompiled $args $_out)))
-          ($id (fa-id $identity))
-          ($group (quote (aggregate-support $id))))
-      (if (likelihood-support-admissible? $group $sources)
-         (let* (($state (fold-flat fa-subtract-step (fa-state $id)
-                            (fa-left-out $id (hash-union $exclude (hash-set (observation-keys $sources))))))
-                ((forward-aggregate-state $_id $_sum $_mass $members) $state))
-            (if (> $members 0)
-               (let (STV $g $gc) (fa-result $descriptor $state) (STV $g $gc))
-               (empty)))
-         (empty))))
+   (let $left-out (hash-union $exclude (hash-set (observation-keys $sources)))
+      (case (base-rate-premises $kb $pattern $_rate) (
+         ((cons (CPU FoldAllCompiled $args $_result) ())
+            (let* (((cons (fa-subscription $identity $descriptor $_triggers) ())
+                      (fa-premise-subscriptions (CPU FoldAllCompiled $args $_out)))
+                   ($id (fa-id $identity))
+                   ($group (quote (aggregate-support $id))))
+               (if (likelihood-support-admissible? $group $sources)
+                  (let* (($state (fold-flat fa-subtract-step (fa-state $id) (fa-left-out $id $left-out)))
+                         ((forward-aggregate-state $_id $_sum $_mass $members) $state))
+                     (if (> $members 0)
+                        (let (STV $g $gc) (fa-result $descriptor $state) (STV $g $gc))
+                        (empty)))
+                  (empty))))
+         ;; A compound's centre is the prior every other reader reads.
+         ((cons (CPU CompoundRate $rate-args $_rate-res) ())
+            (case (sk-value (sk-rate $rate-args) sk-any-filter $left-out) (
+               ((sk-goal-val (CPU $_fun $_args (STV $s $c)) $_proof $_ev $_deps) (STV $s $c))
+               ($_none (empty)))))))))
 
 ;; The watch already applied the row's cuts. Additional observation cuts
 ;; use the same cached fold evaluator, never a separate raw-tally snapshot.
@@ -344,6 +350,22 @@
                       (sk-acc () (ev-set 0) () ()) $goals) (
                ((sk-acc $_proofs $_ev $_deps $_parts) (the TV $result))
                ($_missing (STV 0.5 0))))))))
+
+;; A compound's prior (#142), computed from the keys its goals read, once per
+;; pattern, and recomputed when one of them changes: each is used by the key
+;; (&sk_use), so its change checks the key, whose readers change only with its
+;; value. A reader excluding keys an input leaves out gets it computed again
+;; without them. Like a base rate it carries no member evidence; it carries its
+;; inputs' dependencies, so no base rate it reads counts a value derived
+;; through it.
+(: sk-rate-view (-[semidet]-> Number $spec (List Number) SkeletonValue))
+(= (sk-rate-view $hash $args $exclude)
+   (let* (($_uses (fold-flat (sk-use-step! (sk-rate $args)) () (sk-rate-inputs (compound-rate-goals $args false $_rate))))
+          ($goals (compound-rate-goals $args false $rate)))
+      (case (fold-semidet (sk-premise-step () () $exclude false false sk-greedy-read) (sk-acc () (ev-set 0) () ()) $goals) (
+         ((sk-acc $_proofs $_ev $deps $_parts)
+            (sk-goal-val (CPU CompoundRate $args (the TV $rate)) (brand Proof cpu) (ev-set 0) (deps-join (cons (deps-key $hash) $deps))))
+         ($_missing sk-none)))))
 
 (: LikelihoodContext Type)
 (: likelihood-context (-[det]-> (List Number) EvidenceSet LikelihoodContext))
@@ -2043,11 +2065,16 @@
 ;; Whether a consumer excluding these keys reads the key with a sample left
 ;; out: an instance fold, or a refined rule's truth, which reads one.
 (: sk-leaves-out? (-[det]-> Number SkeletonKey (List Number) Bool))
+(: sk-input-leaves-out-step (-[det]-> (List Number) Bool SkeletonKey Bool))
+(= (sk-input-leaves-out-step $exclude $found $input)
+   (if $found true (sk-leaves-out? (index-hash $input) $input $exclude)))
 (= (sk-leaves-out? $hash $key $exclude)
    (if (== $exclude ()) false
       (case $key (
          ((sk-fold $args) (if (sk-instance-fold? $args) (not (== (sk-left-out $hash $exclude) ()))
                             (not (== (sk-rate-left-out $args $exclude) ()))))
+         ((sk-rate $rate-args)
+            (fold-flat (sk-input-leaves-out-step $exclude) false (sk-rate-inputs (compound-rate-goals $rate-args false $_rate))))
          ($_statement
             (if (sk-rule-truth-key? $key)
                (fold-flat (sk-row-leaves-out-step $exclude) false
@@ -2079,6 +2106,7 @@
                         (sk-instance-view $hash (the ScalarFoldSpec $args)
                            (sk-tally-without $hash (sk-instance-tally $hash $key $kb) $left))))))
                (sk-rate-without $hash $args $exclude)))
+         ((sk-rate $rate-args) (if (sk-leaves-out? $hash $key $exclude) (sk-rate-view $hash $rate-args $exclude) sk-none))
          ($_statement
             (if (sk-rule-truth-key? $key)
                (case (collapse (once (match &sk_row ($hash $stored $rhash (sk-row $ident $concl $premises $seq))
@@ -2704,6 +2732,7 @@
       ((sk-fold $args) (sk-keep-view $hash $key (sk-fold-view $hash (the ScalarFoldSpec $args))))
       ((sk-group $group-args)
          (sk-keep-view $hash $key (sk-group-view $hash $key (the GroupedFoldSpec $group-args))))
+      ((sk-rate $rate-args) (sk-keep-view $hash $key (sk-rate-view $hash $rate-args ())))
       ((sk-key $_type $_kbctx) ()))))
 
 (: sk-keep-view (-[semidet]-> Number SkeletonKey SkeletonValue (List SkeletonVersion)))
@@ -3698,6 +3727,10 @@
                (if (== $policy sk-reference-read)
                   (sk-consume-fold $state $fold-res (sk-goal-val (CPU FoldAllCompiled $fold-args (STV 0.5 0.0)) (brand Proof cpu) (ev-set 0) 0))
                   (sk-consume-fold $state $fold-res (sk-value (sk-fold $fold-args) sk-any-filter $exclude))))
+            ((CPU CompoundRate $rate-args $rate-res)
+               (if (== $policy sk-reference-read)
+                  (sk-consume-fold $state $rate-res (sk-goal-val (CPU CompoundRate $rate-args (STV 0.5 0.0)) (brand Proof cpu) (ev-set 0) 0))
+                  (sk-consume-fold $state $rate-res (sk-value (sk-rate $rate-args) sk-any-filter $exclude))))
             ((CPU GroupedFoldAllCompiled $group-args $group-res)
                (if (== $policy sk-reference-read) sk-fail
                   (sk-consume-fold $state $group-res (sk-value (sk-group $group-args) sk-any-filter $exclude))))
@@ -5097,6 +5130,9 @@
             (case (sk-fold-node-member (CPU FoldAllCompiled $args $_result)) (
                ((cons $member $_rest) (sk-need-next (fold-semidet sk-cons-step $next (sk-answers $member)) $members))
                (() (sk-need-next $next $members)))))))
+      ;; A compound's prior reads its inputs as its reader would read them.
+      ((sk-rate $rate-args)
+         (fold-semidet (sk-need! $depth) (sk-need-next $next $members) (sk-rate-inputs (compound-rate-goals $rate-args false $_rate))))
       ((sk-group $group-args)
          (let $_reserve (sk-reserve-near! $depth)
             (case (sk-group-members $key $group-args) (

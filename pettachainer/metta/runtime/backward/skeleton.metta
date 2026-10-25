@@ -20,7 +20,7 @@
 
 (: aggregate-fold-function? (-[det]-> $function Bool))
 (= (aggregate-fold-function? $function)
-   (or (== $function FoldAllCompiled) (== $function GroupedFoldAllCompiled)))
+   (stored-list-member? $function (FoldAllCompiled GroupedFoldAllCompiled CompoundRate)))
 
 (: contextual-cpu? (-[det]-> $formula Bool))
 (= (contextual-cpu? $fun)
@@ -741,6 +741,24 @@
                 ($_linked (link-open-variables (sk-key $read-type $read-kbctx) (sk-key $type $kbctx))))
             (sk-reading $rest (cons (assemble-stored-runtime-fact $read-type $read-kbctx $proof $tv) $read)))))))
 
+;; A fold premise of a join is searched as a child of the join's owner, scored
+;; by what the join is worth, and a compound's prior through the folds it
+;; reads (#142); a forward run notes them instead.
+(: sk-fold-child! (-[semidet]-> SkPattern Number SkFact (List SkPattern) Atom SkPattern Atom))
+(= (sk-fold-child! $owner $rule $concl $remaining $_acc $premise)
+   (case $premise (
+      ((CPU CompoundRate $rate-args $_rate)
+         (fold-semidet (sk-fold-child! $owner $rule $concl $remaining) () (compound-rate-goals $rate-args true $_inner)))
+      ((CPU FoldAllCompiled $args $_res)
+         (if (== (search-id-value sk_forward_run) 1) (sk-forward-note-fold! $premise)
+            (let $score (sk-fold-child-score $args (sk-join-score $owner $rule $remaining) (sk-rate-entries $args))
+               (if (> $score 0.0)
+                  (let* (($child (copy_term $premise))
+                         ($digest (link-digest (sk-child-link $owner $child)))
+                         ($_kept (sk-keep-child! $digest $concl)))
+                     (sk-add-child! $owner $child $score $digest)) ()))))
+      ($_formula ()))))
+
 (= (sk-advance! (sk-partial $owner $rule $concl $done $remaining $keys))
    (if (rule-live? $rule)
    (case $remaining (
@@ -750,18 +768,11 @@
       ((cons $premise $rest)
          (case $premise (
             ((CPU $fun $args $_res)
-               (if (== $fun FoldAllCompiled)
-                  (let $_child
-                     (if (== (search-id-value sk_forward_run) 1) (sk-forward-note-fold! $premise)
-                        (let $score (sk-fold-child-score $args (sk-join-score $owner $rule $remaining) (sk-rate-entries $args))
-                           (if (> $score 0.0)
-                              (let* (($child (copy_term $premise))
-                                     ($digest (link-digest (sk-child-link $owner $child)))
-                                     ($_kept (sk-keep-child! $digest $concl)))
-                                 (sk-add-child! $owner $child $score $digest)) ())))
+               (if (stored-list-member? $fun (FoldAllCompiled CompoundRate))
+                  (let $_child (sk-fold-child! $owner $rule $concl $remaining () $premise)
                      (sk-advance!
                         (sk-partial $owner $rule $concl (cons $premise $done) $rest
-                           (cons (sk-fold $args) $keys))))
+                           (sk-direct-key-step $keys $premise))))
                   (if (== $fun GroupedFoldAllCompiled)
                      (let $_fold (if (== (search-id-value sk_forward_run) 1) (sk-forward-note-fold! $premise) ())
                         (sk-wait-on! $owner $rule $premise
@@ -1089,8 +1100,15 @@
       ((CPU ContextRule ($assumption $_ctx) $_res) (cons (the SkeletonKey $assumption) $keys))
       ((CPU FoldAllCompiled $fold-args $_fold-res) (cons (sk-fold $fold-args) $keys))
       ((CPU GroupedFoldAllCompiled $group-args $_group-res) (cons (sk-group $group-args) $keys))
+      ((CPU CompoundRate $rate-args $_rate-res) (cons (sk-rate $rate-args) $keys))
       ((CPU $_fun $_args $_res) $keys)
       (($type $kbctx $_proof $_tv) (cons (sk-key $type $kbctx) $keys)))))
+
+;; The keys a compound's prior reads directly.
+(: sk-rate-inputs (-[det]-> (List SkPattern) (List SkeletonKey)))
+(= (sk-rate-inputs $goals) (fold-flat sk-direct-key-step () $goals))
+(: sk-use-step! (-[det]-> SkeletonKey Atom SkeletonKey Atom))
+(= (sk-use-step! $parent $_acc $key) (sk-add-use! $key $parent))
 
 (: sk-add-reader! (-[det]-> Number Number Atom SkeletonKey Atom))
 (= (sk-add-reader! $khash $rhash $_acc $key)
