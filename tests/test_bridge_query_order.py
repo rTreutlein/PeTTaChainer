@@ -30,7 +30,7 @@ class TestBridgeQueryOrder(unittest.TestCase):
                                 self.assertEqual(rows[0].tv, expected[-1])
                 self.assertEqual(expected[0], expected[1])
                 if confidence == 0.9:
-                    self.assertAlmostEqual(expected[0][2], 0.8178932640383947)
+                    self.assertAlmostEqual(expected[0][2], 0.811765274435159)
                 for first, second in ((0, 1), (1, 0)):
                     h = PeTTaChainer()
                     h.add_atoms_no_check(atoms)

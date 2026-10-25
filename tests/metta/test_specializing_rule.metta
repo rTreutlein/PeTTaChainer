@@ -68,11 +68,11 @@
 
 !(test
    (query 100 kb3 (: $prf (Related alice bob) $tv))
-   (: (merge/revision (merge/revision (by main_rel (conjunction tag3 r1)) (by alt_rel (conjunction tag3 r1))) ((antecedent-completion alt_rel 1 with cpu (prior (STV 0.5 0.0))) (conjunction tag3 r1))) (Related alice bob) (STV 0.8076922870512053 0.9285714332791246)))
+   (: (merge/revision (merge/revision (by main_rel (conjunction tag3 r1)) (by alt_rel (conjunction tag3 r1))) ((antecedent-completion alt_rel 1 with cpu (prior (STV 0.5 0.0))) (conjunction tag3 r1))) (Related alice bob) (STV 0.8076565140762186 0.9285804813734582)))
 
 !(test
    (query 100 kb3 (: (by alt_rel $prf) (Related alice bob) $tv))
-   (: (by alt_rel (conjunction tag3 r1)) (Related alice bob) (STV 0.6 0.7999999998612068)))
+   (: (by alt_rel (conjunction tag3 r1)) (Related alice bob) (STV 0.6 0.7999999999501513)))
 
 ;; A specializing rule over certain structural facts.
 !(compileadd kb4 (: tag4 (Symmetric Knows) (STV 1.0 1.0)))
@@ -87,4 +87,4 @@
 ;; they revise rather than multiply, and no view is selected.
 !(test (query 100 kb4 (: $prf (Knows alice bob) $tv))
    (: (merge/revision (by late_rel (conjunction tag4 k1)) ((antecedent-completion late_rel 1 with cpu (prior (STV 0.5 0.0))) (conjunction tag4 k1)))
-      (Knows alice bob) (STV 0.8999999714282308 0.9000000092617825)))
+      (Knows alice bob) (STV 0.899942394418026 0.9000201617450606)))

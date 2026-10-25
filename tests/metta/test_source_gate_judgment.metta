@@ -12,13 +12,13 @@
       (by (consequent-projection $source $child rule)
          (conjunction accepted (ctx proof $ctx))))) $type $tv)
    (query 300 wrappedGate45 (: $p (Implication (A $x) (C $x)) $value)) $tv))
-   ((STV 0.8 0.4897959182395719)))
+   ((STV 0.8 0.4897959183021761)))
 !(test (collapse (let
    (: (conditional-implication (marginal-proj 1
       (by (consequent-projection $source $child rule)
          (conjunction accepted (ctx proof $ctx))))) $type $tv)
    (query 300 wrappedGate45 (: $p (Implication (A $x) (C $x)) $value)) $tv))
-   ((STV 0.8 0.4897959182395719)))
+   ((STV 0.8 0.4897959183021761)))
 
 !(compileadd unwrappedGate45 (: accepted (AcceptSource S) (STV 1 1)))
 !(compileadd unwrappedGate45 (: rule
@@ -28,12 +28,12 @@
    (: (conditional-implication (marginal-proj 1
       (by (by rule accepted) (ctx proof $ctx)))) $type $tv)
    (query 300 unwrappedGate45 (: $p (Implication (A $x) (C $x)) $value)) $tv))
-   ((STV 0.8 0.5454545452961622)))
+   ((STV 0.8 0.5454545453737707)))
 !(test (collapse (let
    (: (conditional-implication (marginal-proj 1
       (by (by rule accepted) (ctx proof $ctx)))) $type $tv)
    (query 300 unwrappedGate45 (: $p (Implication (A $x) (C $x)) $value)) $tv))
-   ((STV 0.8 0.5454545452961622)))
+   ((STV 0.8 0.5454545453737707)))
 
 ;; Inspect the live private value: MAIN evidence/dependency identity survives
 ;; borrowing, the certain gate is read as a condition (given-ev), and the

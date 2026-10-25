@@ -76,5 +76,5 @@
 ;; still means unknown .5: .5 * .5 / (.5 * .5 + .2 * .5).
 !(set-bayes-prior-count 0.0)
 !(test (let $resolved-likelihoods (read-likelihoods (CTV (STV 0.9 0.0) (STV 0.2 0.9)) (CTV (STV 0.5 1) (STV 0.5 1)) test-support) (CTVBayesFormula (STV 0.5 0.9) $resolved-likelihoods))
-   (CTV (STV 0.7142857142857143 0.0048446183554436105) (STV 0.3846153846153846 0.004011974094203194)))
+   (CTV (STV 0.7142857142857143 0.01677766844201804) (STV 0.3846153846153846 0.014356631773778437)))
 !(set-bayes-prior-count 0.2)

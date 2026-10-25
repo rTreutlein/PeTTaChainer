@@ -50,11 +50,11 @@
 
 !(test
    (let (: $_prf $_type $tv) (query 100 stvKb (: $prf (Implication (S x) (And (A x) (B x))) $tv)) $tv)
-   (STV 0.9 0.8901098897087285))
+   (STV 0.9 0.8901098898717973))
 
 !(test
    (let (: $_prf $_type $tv) (query 100 stvKb (: $prf (Implication (S $y) (And (A $y) (B $y))) $tv)) $tv)
-   (STV 0.9 0.8901098897087285))
+   (STV 0.9 0.8901098898717973))
 
 ;; A nested conclusion, S -> (A and (B and C)). B and C are parts of one
 ;; source and pool; A and B are parts of different sources, (A and (B and C))
@@ -70,7 +70,7 @@
 
 !(test
    (let (: $_prf $_type $tv) (query 100 nestedKb (: $prf (Implication S (And A B)) $tv)) $tv)
-   (STV 0.9 0.8999278939280647))
+   (STV 0.9 0.11628896912684161))
 
 ;; A part's projection that reads the other parts as evidence divides the
 ;; source by them, P(A) = P(ABC) / P(BC). The other parts' marginals read off

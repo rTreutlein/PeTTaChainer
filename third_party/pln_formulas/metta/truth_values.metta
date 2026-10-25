@@ -73,9 +73,13 @@
 (: count-confidence (-[det]-> Number Number))
 (= (count-confidence $n) (/ $n (+ $n (evidence-confidence-k))))
 
+;; The Beta variance of a strength over its evidence count. A value with no
+;; evidence is the uniform prior Beta(1,1), variance 1/12, whatever its
+;; strength: not the Bernoulli variance s(1-s) of zero pseudo-observations.
 (: ideal-var (-[det]-> Number Number Number))
 (= (ideal-var $s $c)
-   (let $cs (ideal-clip $s) (/ (* $cs (- 1.0 $cs)) (+ (confidence-to-count $c) 1.0))))
+   (if (<= $c 0.0) (/ 1.0 12.0)
+      (let $cs (ideal-clip $s) (/ (* $cs (- 1.0 $cs)) (+ (confidence-to-count $c) 1.0)))))
 
 ;; Convert a strength and its propagated variance back to confidence. Clamp the
 ;; variance to the maximum possible Bernoulli variance so the implied count is

@@ -1144,7 +1144,10 @@ never settle either and be recomputed on every pass (75x on ONA conditioning).
 An STV's inferred negative likelihood is read once after deriving its raw
 estimate. Its already-consumed marginals cannot also be its centre. Unknown
 negative branches remain (.5,0), (0,0) for a complete conclusion; explicit CTVs keep both stated branches. The
-quarter-minimum inferred confidence remains a calibration heuristic.
+quarter-minimum inferred confidence remains a calibration heuristic. In the
+idealized variance formulas a value of confidence 0 has the uniform prior's
+variance 1/12 (`ideal-var`), so an unknown branch of modus ponens costs its
+mass squared times 1/12, not times the Bernoulli maximum 1/4.
 
 ### Queries read what their roots reach
 

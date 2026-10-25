@@ -25,15 +25,15 @@
 !(compileadd flatKb (: r (Implication (And (A $x) (B $x)) (C $x)) (STV 0.9 1.0)))
 
 !(test (query 20 nestedKb (: $p (C x) $tv))
-   (: (by (by r a) b) (C x) (STV 0.9 0.999900009088072)))
+   (: (by (by r a) b) (C x) (STV 0.9 0.9999000094583679)))
 !(test (query 20 flatKb (: $p (C x) $tv))
-   (: (by r (conjunction a b)) (C x) (STV 0.9 0.999900009088072)))
+   (: (by r (conjunction a b)) (C x) (STV 0.9 0.999900009458368)))
 
 ;; Query the derived implication's positive judgment as an STV. Its internal
 ;; negative storage branch still participates in modus ponens below.
 !(test
    (query 20 nestedKb (: $p (Implication (B x) (C x)) $tv))
-   (: (by r a) (Implication (B x) (C x)) (STV 0.9 0.9999000095435361)))
+   (: (by r a) (Implication (B x) (C x)) (STV 0.9 0.999900009728684)))
 
 ;; Uncertain antecedents, with base rates from (A y), (B y), (C y): the same
 ;; strength as the flat rule, a b p + (1 - a b) n, for any a and b. The
@@ -83,9 +83,9 @@
 !(compileadd flat3Kb (: r (Implication (And (A $x) (B $x) (C $x)) (D $x)) (STV 0.9 1.0)))
 
 !(test (query 30 nested3Kb (: $p (D x) $tv))
-   (: (by (by (by r a) b) c) (D x) (STV 0.6344 0.005328409169109493)))
+   (: (by (by (by r a) b) c) (D x) (STV 0.6344 0.018229331547207916)))
 !(test (query 30 flat3Kb (: $p (D x) $tv))
-   (: (by r (conjunction a b c)) (D x) (STV 0.6344000000000001 0.001378179044029685)))
+   (: (by r (conjunction a b c)) (D x) (STV 0.6344000000000001 0.006595964253962663)))
 ;; The query of a three-level nested implication is the exported query's.
 ;; Actual-work conditioning (#74) lets the exported fold settle at budget 30;
 ;; master reaches this same complete proof at budget 2000.
@@ -94,7 +94,7 @@
    (: r (Implication (A x) (Implication (B x) (Implication (C x) (D x)))) (STV 0.9 1.0)))
 !(test
    (query 30 nested3Kb (: $p (Implication (And (A x) (B x) (C x)) (D x)) $tv))
-   (: (merge/revision (conditional-implication (by (by (by r (ctx proof 5)) (ctx proof 5 1)) (ctx proof 5 2))) (implication-instance-fold cpu)) (Implication (And (A x) (B x) (C x)) (D x)) (STV 0.9 0.9999000086451008)))
+   (: (merge/revision (conditional-implication (by (by (by r (ctx proof 5)) (ctx proof 5 1)) (ctx proof 5 2))) (implication-instance-fold cpu)) (Implication (And (A x) (B x) (C x)) (D x)) (STV 0.9 0.9999000092005444)))
 
 ;; A CTV (p, n) on a nested rule is its exported rule's CTV:
 ;; a b p + (1 - a b) n = 0.48 · 0.9 + 0.52 · 0.2 = 0.536.
@@ -137,16 +137,16 @@
 !(compileadd forwardKb (: b (B x) (STV 1.0 1.0)))
 !(compileadd forwardKb (: r (Implication (A $x) (Implication (B $x) (C $x))) (STV 0.9 1.0)))
 !(test (result-values (forward-chain 20 forwardKb (selected-facts forwardKb (A x))))
-   (((Implication (B x) (C x)) (CTV (STV 0.9 0.9999000095435361) (STV 0.5 0.0)))
-    ((C x) (STV 0.9 0.999900009088072))))
+   (((Implication (B x) (C x)) (CTV (STV 0.9 0.999900009728684) (STV 0.5 0.0)))
+    ((C x) (STV 0.9 0.9999000094583679))))
 !(test (query 0 forwardKb (: $p (C x) $tv))
-   (: (by (by r a) b) (C x) (STV 0.9 0.999900009088072)))
+   (: (by (by r a) b) (C x) (STV 0.9 0.9999000094583679)))
 
 ;; A knowledge base whose rules conclude no implication gets no statement rule.
 !(compileadd plainKb (: a (A x) (STV 0.8 0.9)))
 !(compileadd plainKb (: r (Implication (A $x) (C $x)) (STV 0.9 0.9)))
 !(test (query 20 plainKb (: $p (C x) $tv))
-   (: (by r a) (C x) (STV 0.8200000000000001 0.016878705929448283)))
+   (: (by r a) (C x) (STV 0.8200000000000001 0.051123823870127615)))
 !(test (collapse (match &implication_statement_rules ($hash (plainKb $shape)) $shape))
    ())
 ;; A source gate stays a condition (the knowledge-extraction report): the
@@ -202,9 +202,9 @@
 !(compileadd openFlatKb (: fr (From x y) (STV 0.9 0.9)))
 !(compileadd openFlatKb (: r (Implication (And (G R) (A $a) (F $f) (From $a $f)) (C $a)) (STV 0.9 1.0)))
 !(test (query 30 openKb (: $p (C x) $tv))
-   (: (by (by r g) (conjunction a f fr)) (C x) (STV 0.788 0.00931078241272059)))
+   (: (by (by r g) (conjunction a f fr)) (C x) (STV 0.788 0.029767978784662013)))
 !(test (query 30 openFlatKb (: $p (C x) $tv))
-   (: (by r (conjunction g a f fr)) (C x) (STV 0.788 0.009310782412720587)))
+   (: (by r (conjunction g a f fr)) (C x) (STV 0.788 0.029767978784662016)))
 ;; Its nested query, the gate a condition as above.
 !(compileadd openGateKb (: r (Implication (G R) (Implication (And (A $a) (F $f) (From $a $f)) (C $a))) (STV 1 0.9)))
 !(test

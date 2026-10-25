@@ -15,6 +15,8 @@ def count(confidence):
 
 
 def variance(strength, confidence):
+    if confidence <= 0:
+        return 1 / 12
     s = min(.999999, max(.000001, strength))
     return s * (1 - s) / (count(confidence) + 1)
 

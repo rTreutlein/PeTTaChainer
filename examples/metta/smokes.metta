@@ -49,4 +49,4 @@
                      (ctx proof 1))
                   (by (inheritance-implication smokesEdward) (ctx proof 1))))))
       (Inheritance Edward (IntSet cancerous))
-      (STV 0.5699932770295287 0.012197838169426609)))
+      (STV 0.5699932770295287 0.037985910713636446)))

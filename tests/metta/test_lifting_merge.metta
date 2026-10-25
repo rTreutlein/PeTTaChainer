@@ -42,7 +42,7 @@
 ;; population strength and halve confidence for the minimum R=1 allowance.
 !(test
    (query 80 conjKb (: $prf (B i) $tv))
-   (: (combination odds (prior (STV 0.5 0.0)) ((by r1 (conjunction a xx)) (by r2 (conjunction a yy)))) (B i) (STV 0.6923076923076922 0.00010848340203948785)))
+   (: (combination odds (prior (STV 0.5 0.0)) ((by r1 (conjunction a xx)) (by r2 (conjunction a yy)))) (B i) (STV 0.6923076923076922 0.001570571895849017)))
 
 ;; --- Not independent: both paths to D share the uncertain bImpliesD rule, so
 ;; their residuals overlap and the group must NOT pool (dominance instead). ---
@@ -86,4 +86,4 @@
 !(test
    (let (: $prf $_type $tv) (query 100 rtKb (: $prf (D i) $tv))
       ($tv (car-atom $prf)))
-   ((STV 0.17965779467755605 0.014827336747515504) conditioned))
+   ((STV 0.17965779467755605 0.03198435426343378) conditioned))

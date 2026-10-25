@@ -38,12 +38,12 @@
 ;; Its two views, through the symmetric and transitive rules in either order,
 ;; record the same evidence (f1, f2, r1, r2): one estimate, which the larger
 ;; count holds, rather than a revision counting f1 and f2 twice.
-!(test (let (: $p $t $tv) (query 25 relKb (: $p (Same C1 B1) $tv)) $tv) (STV 1.0 0.808964616272188))
+!(test (let (: $p $t $tv) (query 25 relKb (: $p (Same C1 B1) $tv)) $tv) (STV 1.0 0.8496398349221305))
 !(test (<= (query_metric_value row-computes) (+ (* 2 25) (* 8 (near-root-items)))) true)
 
 ;; A query without budget has no allowance and still brings what its root
 ;; reads current: a new fact reaches it from the reserve alone.
 !(compileadd relKb (: f5 (Same C1 D1) (STV 1.0 0.9)))
 !(begin-backward-query-metrics!)
-!(test (let (: $p $t $tv) (query 0 relKb (: $p (Same D1 C1) $tv)) $tv) (STV 1.0 0.8571343532239725))
+!(test (let (: $p $t $tv) (query 0 relKb (: $p (Same D1 C1) $tv)) $tv) (STV 1.0 0.8709625388003415))
 !(test (<= (query_metric_value row-computes) (* 8 (near-root-items))) true)

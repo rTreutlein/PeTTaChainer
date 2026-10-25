@@ -119,4 +119,4 @@
              (by propagateUpstreamFailure (conjunction feederFeedsPress feederDefect))
              observedPressStopped))
       (Defective press)
-      (STV 0.5857142857142857 0.0014551015180091081)))
+      (STV 0.5857142857142857 0.006822439134954615)))

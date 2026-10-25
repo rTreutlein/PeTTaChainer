@@ -42,4 +42,4 @@
 !(compileadd inverseKb (: bb (B a) (STV 0.9 0.9)))
 !(compileadd inverseKb (: r (ForAll ($c) (Implication (A $c $x) (B $x))) (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 !(test (query 100 inverseKb (: $prf (A k a) $tv))
-   (: ((inverted r with cpu (prior (STV 0.5 0.0))) bb) (A k a) (STV 0.8181718195152319 0.004449397590627516)))
+   (: ((inverted r with cpu (prior (STV 0.5 0.0))) bb) (A k a) (STV 0.8181718195152319 0.015641870789093324)))

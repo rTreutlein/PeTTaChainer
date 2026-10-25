@@ -37,7 +37,7 @@ class TestSourceGateJudgment(unittest.TestCase):
     def test_observed_gate_fresh_and_warm(self):
         for wrapped in (False, True):
             for tv, strength, confidence in (
-                ('(STV 1 1)', 1, 0.9998000399670116),
+                ('(STV 1 1)', 1, 0.9998333610925979),
                 ('(STV 0.8 0.6)', 0.8,
                  0.4897959182395719 if wrapped else 0.5454545452961622),
             ):

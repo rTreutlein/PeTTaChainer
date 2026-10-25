@@ -17,7 +17,7 @@
     (Implication (And (Powered $x) (Connected $x)) (Ready $x)) (STV 1.0 0.9)))
 !(test (query 100 demo (: $p (Ready robot) $tv))
     (: (by ready-rule (conjunction (marginal-proj 0 observation) (marginal-proj 1 observation)))
-       (Ready robot) (STV 0.95 0.021999154017726053)))
+       (Ready robot) (STV 0.95 0.06538913704558486)))
 
 ;; Transform the projections along separate branches.
 !(compileadd demo (: move-rule
@@ -26,10 +26,10 @@
     (Implication (Connected $x) (CanReport $x)) (STV 1.0 0.9)))
 !(test (query 100 demo (: $p (CanMove robot) $tv))
     (: (by move-rule (marginal-proj 0 observation))
-       (CanMove robot) (STV 0.95 0.021999154017726053)))
+       (CanMove robot) (STV 0.95 0.06538913704558486)))
 !(test (query 100 demo (: $p (CanReport robot) $tv))
     (: (by report-rule (marginal-proj 1 observation))
-       (CanReport robot) (STV 0.95 0.021999154017726053)))
+       (CanReport robot) (STV 0.95 0.06538913704558486)))
 
 ;; Join the separate branches. Both outputs share the observation, so the
 ;; chainer conditions on it instead of multiplying the two .95 strengths.
@@ -41,4 +41,4 @@
                        (by report-rule (marginal-proj 1 (given true))))
           (conjunction (by move-rule (marginal-proj 0 (given false)))
                        (by report-rule (marginal-proj 1 (given false)))))
-       (And (CanMove robot) (CanReport robot)) (STV 0.925 0.04304295333890686)))
+       (And (CanMove robot) (CanReport robot)) (STV 0.925 0.09315222652036656)))

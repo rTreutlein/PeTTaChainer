@@ -12,4 +12,4 @@
 !(compileadd partsKb (: f2 (Member a EA) (STV 1.0 1.0)))
 !(compileadd partsKb (: f3 (Member g Firm) (STV 1.0 1.0)))
 !(test (query 100 partsKb (: $p (P a) $tv))
-   (: (by r (conjunction f1 f2 f3)) (P a) (STV 1.0 0.9997500624375273)))
+   (: (by r (conjunction f1 f2 f3)) (P a) (STV 1.0 0.9998000399670116)))

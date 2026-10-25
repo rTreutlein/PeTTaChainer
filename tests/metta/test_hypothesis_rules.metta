@@ -324,4 +324,4 @@
 !(compileadd specKb (: sx (S a new) (STV 1 1)))
 !(compileadd specKb (: lx (L b new) (STV 1 1)))
 !(test (query 200 specKb (: $p (Win new) $tv))
-   (: (specializes (by spec (conjunction sx lx)) (by gen sx) (STV 0.9917202260594017 0.37887466671136305) (STV 0.0027901785714285715 0.6441408966745946)) (Win new) (STV 0.9689109131062922 0.37887466671136305)))
+   (: (specializes (by spec (conjunction sx lx)) (by gen sx) (STV 0.9917202260594017 0.3788746677388355) (STV 0.0027901785714285715 0.6441408997394711)) (Win new) (STV 0.9689109127775376 0.3788746677388355)))

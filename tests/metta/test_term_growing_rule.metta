@@ -15,13 +15,13 @@
 !(compileadd numKb (: f10 (Num 1) (STV 1.0 0.9)))
 
 !(test (query 100 numKb (: $p (Num (succ 1)) $tv))
-   (: (by r9 f10) (Num (succ 1)) (STV 1.0 0.8571343532239725)))
+   (: (by r9 f10) (Num (succ 1)) (STV 1.0 0.8709625388003415)))
 !(test (query 100 numKb (: $p (Num (succ (succ 1))) $tv))
-   (: (by r9 (by r9 f10)) (Num (succ (succ 1))) (STV 1.0 0.8371951042025686)))
+   (: (by r9 (by r9 f10)) (Num (succ (succ 1))) (STV 1.0 0.8616947709793574)))
 !(test (query 100 numKb (: $p (Num (succ (succ (succ 1)))) $tv))
-   (: (by r9 (by r9 (by r9 f10))) (Num (succ (succ (succ 1)))) (STV 1.0 0.8275688646555949)))
+   (: (by r9 (by r9 (by r9 f10))) (Num (succ (succ (succ 1)))) (STV 1.0 0.8586491273564638)))
 !(test (query 100 numKb (: $p (Num (succ (succ (succ (succ 1))))) $tv))
-   (: (by r9 (by r9 (by r9 (by r9 f10)))) (Num (succ (succ (succ (succ 1))))) (STV 1.0 0.8228381611975941)))
+   (: (by r9 (by r9 (by r9 (by r9 f10)))) (Num (succ (succ (succ (succ 1))))) (STV 1.0 0.8576386846041206)))
 
 ;; Rules were started on (Num $x) and (Num (succ $x)) only; every deeper open
 ;; node reads one of them.

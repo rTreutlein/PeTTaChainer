@@ -15,4 +15,4 @@
 !(test (let (: $_proof $_type $tv) (query 2000 seedStartKb (: $p
    (Assuming (: bridge (Implication (AlwaysPlayedTennis Bob) (PlayingTennisNow Bob)) (STV 0.12 0.2))
       (PlayingTennisNow Bob)) $tv)) $tv)
-   (STV 0.15799999999999997 0.052471596029189604))
+   (STV 0.15799999999999997 0.11518282916803525))

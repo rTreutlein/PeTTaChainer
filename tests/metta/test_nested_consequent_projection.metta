@@ -12,19 +12,19 @@
    (query 300 projectedKb (: $p
       (Implication (AcceptSource S) (Implication (A $x) (C $x))) $value))
    $tv)
-   (STV 1.0 0.9998000399670116))
+   (STV 1.0 0.9998333610925979))
 !(test (let (: (conditional-implication
       (marginal-proj 1 (by
          (consequent-projection $source $child rule) (conjunction $gate $a)))) $type $tv)
    (query 300 projectedKb (: $p
       (Implication (AcceptSource S) (Implication (A $x) (C $x))) $value))
    $tv)
-   (STV 1.0 0.9998000399670116))
+   (STV 1.0 0.9998333610925979))
 ;; A bound instance also works; $x remains the inner rule's variable.
 !(test (let (: (conditional-implication $proof) $type $tv)
    (query 300 projectedKb (: $p
       (Implication (AcceptSource S) (Implication (A a) (C a))) $value)) $tv)
-   (STV 1.0 0.9998000399670116))
+   (STV 1.0 0.9998333610925979))
 
 ;; Both controls from the report still compose with ordinary And elimination.
 !(compileadd unwrappedKb (: rule
@@ -82,7 +82,7 @@
 !(compileadd boundConjunctKb (: g (G) (STV 1 1)))
 !(test (let (: (conditional-implication $_proof) $_type $tv)
    (query 300 boundConjunctKb (: $p (Implication (A $x) (B $x)) $tv)) $tv)
-   (STV 0.9 0.8901098893877744))
+   (STV 0.9 0.8901098896813074))
 
 ;; A sibling of a conclusion's implication part is read apart from that part:
 ;; judged from the same rule, it would divide P(X and M) by itself and make M
@@ -90,13 +90,13 @@
 ;; plain And conclusion does (#142).
 !(compileadd projectionSelfKb (: r (Implication (G $x) (And (Implication (A $x) (B $x)) (M $x))) (STV 0.9 0.9)))
 !(compileadd projectionSelfKb (: g (G c) (STV 1 1)))
-!(test (let (: $_proof $_type $tv) (query 300 projectionSelfKb (: $p (M c) $tv)) $tv) (STV 0.9 0.8901098897087285))
+!(test (let (: $_proof $_type $tv) (query 300 projectionSelfKb (: $p (M c) $tv)) $tv) (STV 0.9 0.8901098898717973))
 !(compileadd projectionSelfGroundKb (: r (Implication (G) (And (Implication (A) (B)) (M))) (STV 0.9 0.9)))
 !(compileadd projectionSelfGroundKb (: g (G) (STV 1 1)))
-!(test (let (: $_proof $_type $tv) (query 300 projectionSelfGroundKb (: $p (M) $tv)) $tv) (STV 0.9 0.8901098897087285))
+!(test (let (: $_proof $_type $tv) (query 300 projectionSelfGroundKb (: $p (M) $tv)) $tv) (STV 0.9 0.8901098898717973))
 !(compileadd projectionPlainKb (: r (Implication (G) (And (X) (M))) (STV 0.9 0.9)))
 !(compileadd projectionPlainKb (: g (G) (STV 1 1)))
-!(test (let (: $_proof $_type $tv) (query 300 projectionPlainKb (: $p (M) $tv)) $tv) (STV 0.9 0.8901098897087285))
+!(test (let (: $_proof $_type $tv) (query 300 projectionPlainKb (: $p (M) $tv)) $tv) (STV 0.9 0.8901098898717973))
 ;; Inspect the live judgment before the ordinary query bracket removes its
 ;; temporary context, so this checks semantic evidence rather than proof leaves.
 !(let* (((compilation-plan (: $ctx $proof $type $tv) $adds)

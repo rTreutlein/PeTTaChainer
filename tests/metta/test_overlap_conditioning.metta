@@ -86,7 +86,7 @@
 ;; #49/#77: no live shared-class estimate resolves this overlap. Keep the
 ;; population strength and halve confidence for the minimum R=1 allowance.
 !(test (query 100 premiseKb (: $p (X b) $tv))
-   (: (combination odds (prior (STV 0.5 0.0)) ((by ra (conjunction link sa)) (by rb (conjunction link sb)))) (X b) (STV 0.5518672199170126 6.79858828673945e-06)))
+   (: (combination odds (prior (STV 0.5 0.0)) ((by ra (conjunction link sa)) (by rb (conjunction link sb)))) (X b) (STV 0.5518672199170126 0.0012671764103957621)))
 ;; A row conditioned on the statement its premises share keeps its rule's
 ;; class: it combines with a sibling rule's view by odds, as the unconditioned
 ;; row would, not by revision.
@@ -102,4 +102,4 @@
          ((by rb (conjunction link sb))
           (conditioned s (by ra (conjunction link (by sx (given true)) (by sy (given true))))
                          (by ra (conjunction link (by sx (given false)) (by sy (given false)))))))
-      (W b) (STV 0.28649693844666446 0.0001393321587118146)))
+      (W b) (STV 0.28649693844666446 0.0016625662924501777)))
