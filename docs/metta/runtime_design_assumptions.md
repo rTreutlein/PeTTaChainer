@@ -837,23 +837,25 @@ the child leaves the compound open, the child given false for an Or and true
 for an And, so a root in a loop of complete predicates observed only through
 the loop is updated by it (`overlap_conditioning.md`, "Completions"). A
 negated antecedent is the rule on its canonical key with the branches
-swapped: the inversion concludes the key (`prior_factored_merge.md`).
-Inversions read the observed consequence through `lower`, so a negated or
-compound consequence is read off its key (#142).
+swapped: the inversion concludes the key, and a negated connective is
+completed as its De Morgan dual (`prior_factored_merge.md`). Inversions read
+the observed consequence through `lower`, so a negated or compound
+consequence is read off its key (#142).
 
-Known limits. A negated connective, `(Not (And O M)) -> C`, is not completed:
-its rule reads the connective's key K, so a completion of M would read C
-predicted from K's own evidence (a stored `(And O M)`) as an observation, and
-excluding such views alone ignores K's evidence, which screens C off from M.
-The same holds for a positive connective whose key has evidence of its own:
-with `(And G H)` stored false and C observed, the completion of G reads H's
-projection of the stored compound and gives G its prior instead of
-P(G | not (G and H)) (#142; a known failure in `test_compound_completion.py`).
-Completing either needs K's own evidence as an observation: a key read with
-its own exclusions (views depending on M, and the rule's inversion onto K
-from C) that gives no factor when K has no view, as `sk-prior` reads a prior,
-and completion likelihoods conditioned on it, M's prior replaced by
-P(M | e_K) and the sibling's value by its posterior given M and e_K.
+A connective's key K can have evidence of its own (a stored compound, a rule
+concluding it), which screens the consequence C off from its parts. A
+completion of a part M is conditioned on it (#142): the row reads K's value
+without the views that depend on K's parts or on C (`CompoundEvidence`, a
+contextual premise whose key K is a direct input of the row, so it reads and
+needs K), and none, no factor, when K has no such view; M's prior becomes
+P(M | e_K), the sibling's value its posterior given e_K where M leaves K
+open, and the siblings read none of K's views (`prior_factored_merge.md`,
+"The connective's own evidence"). Known limits: a part is conditioned on its
+connective's evidence only through a completion, so a stored `(And G H)` with
+no rule over it still leaves G a PLN projection (`AndProjection`,
+`AndMarginalProjection`: K's strength read as the joint marginal), and a
+completion merged with such a projection of an uncertain compound gives the
+projection's value; an assumed compound's parts read MAIN without it (#143).
 
 A clash that survives the fresh read is resolved by conditioning, not refused.
 The row is evaluated with the statement of a shared fact known true and again

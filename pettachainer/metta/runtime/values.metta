@@ -139,14 +139,18 @@
       ()))
 
 (= (cpu-expected-tv $fun ($a $b $c $d))
-   (if (== $fun CompletionLikelihoodsFormula)
-      (CompletionLikelihoodsFormula $a
-         (if (is-var $b) false (case $b ((true true) (false false))))
-         (expected-tv $c) (normalize-expected-likelihoods $d))
    (if (== $fun ImplicationLikelihoodsFormula)
       (ImplicationLikelihoodsFormula (the OptionalSTV (expected-tv $a))
          (the OptionalSTV (expected-tv $b)) (the (| STVType CTVType) (expected-tv $c)) (the Number $d))
-      ())))
+      ()))
+
+;; A completion is scored as if its connective had no evidence of its own.
+(= (cpu-expected-tv $fun ($a $b $c $d $e))
+   (if (== $fun CompletionLikelihoodsFormula)
+      (CompletionLikelihoodsFormula $a
+         (if (is-var $b) false (case $b ((true true) (false false))))
+         false (expected-tv $d) (normalize-expected-likelihoods $e))
+      ()))
 
 ;; Open proof templates are optimistic bounds, not evidence to resolve.
 ;; Only a closed observation can be used to select an empirical centre.

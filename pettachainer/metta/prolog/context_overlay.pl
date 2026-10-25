@@ -155,6 +155,11 @@ context_inputs_local(C,_,['sk-prior',Args]) :-
     member(Key,Keys), 'index-hash'(Key,H),
     ( context_key_local(C,H,Key) ; context_inputs_local(C,H,Key) ), !.
 
+% A connective's own evidence is local when its key is, or has local inputs.
+context_inputs_local(C,_,['sk-evidence',[_,Type,_,Scope]]) :-
+    Key=['sk-key',Type,Scope], 'index-hash'(Key,H),
+    ( context_key_local(C,H,Key) ; context_inputs_local(C,H,Key) ), !.
+
 context_local_member(C,Keys) :-
     member(Key,Keys), 'index-hash'(Key,H), context_key_local(C,H,Key), !.
 

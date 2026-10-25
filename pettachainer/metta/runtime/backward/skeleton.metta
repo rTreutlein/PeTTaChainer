@@ -24,7 +24,7 @@
 
 (: contextual-cpu? (-[det]-> $formula Bool))
 (= (contextual-cpu? $fun)
-   (if (== $fun ContextRule) true (if (== $fun ReadRate) true (== $fun ReadLikelihoodContext))))
+   (stored-list-member? $fun (ContextRule ReadRate ReadLikelihoodContext CompoundEvidence)))
 
 ;; Signatures of the mutually recursive functions below.
 (: sk-drop-branch! (-[det]-> Atom Number Atom))
@@ -1098,6 +1098,7 @@
 (= (sk-direct-key-step $keys $premise)
    (case $premise (
       ((CPU ContextRule ($assumption $_ctx) $_res) (cons (the SkeletonKey $assumption) $keys))
+      ((CPU CompoundEvidence $evidence-args $_evidence) (cons (sk-evidence $evidence-args) $keys))
       ((CPU FoldAllCompiled $fold-args $_fold-res) (cons (sk-fold $fold-args) $keys))
       ((CPU GroupedFoldAllCompiled $group-args $_group-res) (cons (sk-group $group-args) $keys))
       ((CPU CompoundRate $rate-args $_rate-res) (cons (sk-prior $rate-args) $keys))

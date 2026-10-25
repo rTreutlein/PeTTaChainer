@@ -405,8 +405,9 @@ A rule with a negated antecedent `(Not s)` is the rule on s with its two
 branches swapped. Its inversion concludes s with the inverted value and the
 prior complemented, which is Bayes' rule over P(s) with the swapped
 likelihoods, so its proof updates s's prior and merges with s's other
-updates. A negated connective, `(Not (And O M)) -> C`, is not completed yet;
-see `runtime_design_assumptions.md` for why and what it needs.
+updates. A negated connective is completed as its De Morgan dual over the
+negated children: `(Not (And O M)) -> C` completes M as the disjunct
+`(Not M)` of `(Or (Not O) (Not M)) -> C`.
 
 A disjunct M of `(Or O M) -> C` is completed the same way with the
 likelihoods of a disjunction (`DisjunctLikelihoodFormula`): P(C | M) = u and
@@ -421,6 +422,37 @@ rather than M's base rate as a view that competes in merges. A part the
 completion does not complete with no
 value of its own is read at its population prior (see
 `runtime_design_assumptions.md`, "Queries read what their roots reach").
+
+### The connective's own evidence
+
+The connective's key K can have evidence of its own, e_K: a stored compound,
+or a rule concluding it. K then screens C off from its parts: with `(And G
+H)` stored false, P(G | not (G and H)) = 0.24 / 0.64 = 0.375 for rates 0.6,
+whatever C says. The completion reads K's value without the views that
+depend on K's parts or on C (`CompoundEvidence`; the rule's inversion onto K
+reads C), and none when there is no such view: the completion is then the
+one above. The siblings read none of K's views, which carry e_K (a
+projection of the stored compound onto O would count it again). e_K is read
+as C is, a value (STV s c) formed under the prior p it updates or, a value of
+its own, under the prior K has from its parts, which it sets (Jeffrey). It
+weighs K by w1 = s (1 − p) and not K by w0 = (1 − s) p
+(`CompletionEvidenceFormula`). Where M leaves K open (M true for And, false
+for Or), K is O, so
+
+    P(M | e_K) ∝ P(M) (s_O w1 + (1 − s_O) w0)   against   (1 − P(M)) w0     (And)
+    P(M | e_K) ∝ P(M) w1   against   (1 − P(M)) (s_O w1 + (1 − s_O) w0)     (Or)
+    s_O' = s_O w1 / (s_O w1 + (1 − s_O) w0)
+
+and the completion is the one above over P(M | e_K) with s_O' for s_O, its
+proof's prior P(M | e_K). A sibling e_K decides (s_O' certainly at the
+connective's absorbing value) leaves C uninformative: the likelihoods are
+then equal and the completion is P(M | e_K), rather than no view. C itself
+may read its prediction from K: under P(M | e_K) the prediction is the prior
+C has, so its ratio is one. A negated connective's e_K is K's complemented;
+a negated part is conditioned as its statement's complement. The
+confidence is the least of P(M)'s, s_O's and e_K's, a heuristic. With
+`(Or G H)` stored true, the completions of `(Not (Or G H)) -> Y` give G
+0.6 / 0.84 (`test_compound_completion.py`).
 
 For an STV rule, v is recovered from the base rates of `(And O M)` and C, as
 for a plain inversion. The proof is `((antecedent-completion R idx with cpu

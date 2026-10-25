@@ -1,9 +1,7 @@
-"""A completion of a connective's part never reads the connective's own
-evidence as an observation (#142). G and H have pinned rates 0.6 throughout.
-
-Completing a part when the connective's key has evidence of its own needs that
-evidence as an observation (runtime_design_assumptions.md, "Known limits").
-Until then such a part gets no confident value."""
+"""A completion of a connective's part is conditioned on the connective's own
+evidence (#142): a stored compound screens the consequence off from its
+parts, so the completion gives the part's posterior given the compound. G and
+H have pinned rates 0.6 throughout."""
 import unittest
 
 from pettachainer import PeTTaChainer
@@ -20,41 +18,38 @@ def answers(facts, query='(: $p (G) $tv)'):
 
 
 class TestCompoundCompletion(unittest.TestCase):
-    def assertNoConfidentValue(self, tvs):
-        for tv in tvs:
-            self.assertLess(tv[2], 1e-6, tv)
+    def assertStrength(self, tvs, strength):
+        self.assertEqual(len(tvs), 1, tvs)
+        self.assertAlmostEqual(tvs[0][1], strength, delta=1e-6)
 
     def test_negated_conjunction_with_stored_compound(self):
-        """A1: exact P(G | not (G and H)) = 0.375; the rule's own prediction
-        of Y from the stored compound is no observation."""
-        self.assertNoConfidentValue(answers([
+        """A1: P(G | not (G and H)) = 0.24 / 0.64; the rule's prediction of Y
+        from the stored compound tells nothing more."""
+        self.assertStrength(answers([
             '(: g (And (G) (H)) (STV 0 1))',
-            f'(: rn (Implication (Not (And (G) (H))) (Y)) {RULE_TV})']))
+            f'(: rn (Implication (Not (And (G) (H))) (Y)) {RULE_TV})']), 0.375)
 
     def test_negated_conjunction_with_observed_consequence(self):
-        """B1: Y observed independently; exact 0.375, as the stored compound
-        screens Y off from G."""
-        self.assertNoConfidentValue(answers([
+        """B1: Y observed independently; the stored compound screens Y off
+        from G."""
+        self.assertStrength(answers([
             '(: g (And (G) (H)) (STV 0 1))',
             '(: y (Y) (STV 1 1))',
-            f'(: rn (Implication (Not (And (G) (H))) (Y)) {RULE_TV})']))
+            f'(: rn (Implication (Not (And (G) (H))) (Y)) {RULE_TV})']), 0.375)
 
     def test_negated_disjunction_with_stored_compound(self):
-        """B6: exact P(G | G or H) = 0.6 / 0.84."""
-        self.assertNoConfidentValue(answers([
+        """B6: P(G | G or H) = 0.6 / 0.84."""
+        self.assertStrength(answers([
             '(: g (Or (G) (H)) (STV 1 1))',
-            f'(: rn (Implication (Not (Or (G) (H))) (Y)) {RULE_TV})']))
+            f'(: rn (Implication (Not (Or (G) (H))) (Y)) {RULE_TV})']), 0.6 / 0.84)
 
-    @unittest.expectedFailure
     def test_conjunction_with_stored_compound(self):
-        """B2, also on master: the completion of G reads H's projection of the
-        stored compound and gives G its prior 0.6 instead of the exact 0.375."""
-        tvs = answers([
+        """B2: the completion of G reads H apart from the stored compound,
+        which it is conditioned on."""
+        self.assertStrength(answers([
             '(: g (And (G) (H)) (STV 0 1))',
             '(: y (Y) (STV 1 1))',
-            f'(: rn (Implication (And (G) (H)) (Y)) {RULE_TV})'])
-        self.assertEqual(len(tvs), 1)
-        self.assertAlmostEqual(tvs[0][1], 0.375, delta=1e-6)
+            f'(: rn (Implication (And (G) (H)) (Y)) {RULE_TV})']), 0.375)
 
 
 if __name__ == '__main__':

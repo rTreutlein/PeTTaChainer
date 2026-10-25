@@ -620,12 +620,14 @@
 ;; posterior of O and M given C, marginalized over O: C's value also updates
 ;; O, and given O it decides M as the rule does. O certainly true leaves the
 ;; rule's branch as it is. O certainly false decides the conjunction without
-;; M: C then tells nothing about M, and there are no likelihoods to update it
-;; with, as a projection onto an undetermined part gives no value. A negated
-;; conjunct (Not I) gives I's likelihoods, the two swapped.
-(: ConjunctLikelihoodFormula (-[semidet]-> Bool TV TV CTVType))
-(= (ConjunctLikelihoodFormula $negated (STV $so $co) (CTV $pos $neg))
-   (if (certain-at? 0.0 $so $co) (empty)
+;; M: C then tells nothing about M. Unless the completion is conditioned on
+;; the conjunction's own evidence, whose posterior of M it then is, there are
+;; no likelihoods to update M with, as a projection onto an undetermined part
+;; gives no value. A negated conjunct (Not I) gives I's likelihoods, the two
+;; swapped.
+(: ConjunctLikelihoodFormula (-[semidet]-> Bool Bool TV TV CTVType))
+(= (ConjunctLikelihoodFormula $negated $conditioned (STV $so $co) (CTV $pos $neg))
+   (if (certain-at? 0.0 $so $co) (if $conditioned (CTV $neg $neg) (empty))
       (let $given (if (certain-at? 1.0 $so $co) $pos (CTVModusPonensFormula (STV $so $co) (CTV $pos $neg)))
          (if $negated (CTV $neg $given) (CTV $given $neg)))))
 
@@ -633,23 +635,65 @@
 ;; disjunction true, P(C|M) = u, and without M the others decide it,
 ;; P(C|not M) = s_O u + (1 - s_O) v. O certainly false leaves the rule's
 ;; negative branch as it is; O certainly true decides the disjunction without
-;; M, and there are no likelihoods.
-(: DisjunctLikelihoodFormula (-[semidet]-> Bool TV TV CTVType))
-(= (DisjunctLikelihoodFormula $negated (STV $so $co) (CTV $pos $neg))
-   (if (certain-at? 1.0 $so $co) (empty)
+;; M, and there are no likelihoods unless the completion is conditioned.
+(: DisjunctLikelihoodFormula (-[semidet]-> Bool Bool TV TV CTVType))
+(= (DisjunctLikelihoodFormula $negated $conditioned (STV $so $co) (CTV $pos $neg))
+   (if (certain-at? 1.0 $so $co) (if $conditioned (CTV $pos $pos) (empty))
       (let $given (if (certain-at? 0.0 $so $co) $neg (CTVModusPonensFormula (STV $so $co) (CTV $pos $neg)))
          (if $negated (CTV $given $pos) (CTV $pos $given)))))
 
-(: CompletionLikelihoodsFormula (-[semidet]-> Atom Bool TV LikelihoodRead LikelihoodRead))
-(= (CompletionLikelihoodsFormula $connective $negated $others
+(: CompletionLikelihoodsFormula (-[semidet]-> Atom Bool Bool TV LikelihoodRead LikelihoodRead))
+(= (CompletionLikelihoodsFormula $connective $negated $conditioned $others
       (likelihood-read $raw $read $support))
    (if (== $connective And)
-      (likelihood-read (ConjunctLikelihoodFormula $negated $others $raw)
-         (ConjunctLikelihoodFormula $negated $others $read)
+      (likelihood-read (ConjunctLikelihoodFormula $negated $conditioned $others $raw)
+         (ConjunctLikelihoodFormula $negated $conditioned $others $read)
          (completion And $negated $others $support))
-      (likelihood-read (DisjunctLikelihoodFormula $negated $others $raw)
-         (DisjunctLikelihoodFormula $negated $others $read)
+      (likelihood-read (DisjunctLikelihoodFormula $negated $conditioned $others $raw)
+         (DisjunctLikelihoodFormula $negated $conditioned $others $read)
          (completion Or $negated $others $support))))
+
+;; A completion of a part M of a connective K = (op M O) conditioned on K's
+;; own evidence e_K (#142): its value (STV s c), read apart from K's parts and
+;; the consequence (`no-evidence` when it has none), formed under the prior p
+;; it updates, or (`no-evidence`) under the prior K has from its parts, which it then sets (Jeffrey). So e_K
+;; weighs K by s (1 - p) and not K by (1 - s) p; an odd key (the rule reads
+;; Not K, completed as its De Morgan dual) swaps them. M's prior P(M) becomes
+;; P(M | e_K), and O's value its posterior where M leaves K open (M true for
+;; And, false for Or), where K is O: P(O | K = O, e_K). The consequence then
+;; updates M through these as without e_K. A negated part (Not I) is
+;; conditioned as I's complement. Without e_K, or with e_K at confidence 0,
+;; prior and sibling stay as they are and the completion is not conditioned.
+;; The confidence is the least of the inputs' (a heuristic). The result has a
+;; head of its own: a bare tuple of three would unify with an (STV s c)
+;; pattern, as rule scoring's tv-confidence reads a goal's result.
+(: CompletionEvidenceFormula (-[det]-> Atom Bool Bool TV TV TV TV Atom))
+(= (CompletionEvidenceFormula $connective $negated $odd $base $others $key $formed)
+   (case $key (
+      ((STV $s $cs)
+         (case $base (
+            ((STV $a $ca)
+               (case $others (
+                  ((STV $o $co)
+                     (let* (($c (if $negated (- 1.0 $a) $a))
+                            ($p (case $formed (
+                                   ((STV $q $_cq) (if $odd (- 1.0 $q) $q))
+                                   ($_parts (if (== $connective And) (* $c $o) (- 1.0 (* (- 1.0 $c) (- 1.0 $o))))))))
+                            ($sk (if $odd (- 1.0 $s) $s))
+                            ($w1 (* $sk (- 1.0 $p)))
+                            ($w0 (* (- 1.0 $sk) $p))
+                            ($open (+ (* $o $w1) (* (- 1.0 $o) $w0)))
+                            ($true (* $c (if (== $connective And) $open $w1)))
+                            ($false (* (- 1.0 $c) (if (== $connective And) $w0 $open))))
+                        (if (if (<= $cs 0.0) true (<= (+ $true $false) 0.0))
+                           (completion-given $base $others false)
+                           (let $child (/ $true (+ $true $false))
+                              (completion-given (STV (if $negated (- 1.0 $child) $child) (min $ca (min $co $cs)))
+                                 (STV (if (> $open 0.0) (/ (* $o $w1) $open) $o) (min $co $cs))
+                                 true)))))
+                  ($_other (completion-given $base $others false)))))
+            ($_none (completion-given $base $others false)))))
+      ($_none (completion-given $base $others false)))))
 
 ;; An inversion reads an observation of b as a likelihood ratio. A soft
 ;; observation's strength s is a posterior under the prior p it was formed

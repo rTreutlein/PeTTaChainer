@@ -765,9 +765,8 @@
 
 ;; For every child M of a pure conjunction or disjunction H, compile the
 ;; completion (And O C) -> M, where O is the connective over H's other
-;; children and C is the original consequence. A negated connective is not
-;; completed: its key's own evidence screens C off from its parts, and a
-;; completion would have to condition on it (#142). That is the only
+;; children and C is the original consequence. A negated connective H is
+;; completed as its De Morgan dual over the negated children. That is the only
 ;; child-recovery operator for a pure And or Or: whole-H inversion still
 ;; proves H itself, but does not also project to each child. The completion
 ;; inverts the rule onto M over M's base rate, as a plain inversion inverts
@@ -779,7 +778,10 @@
 ;; known disjunct did not condition it. A negated child (Not I) completes I,
 ;; the statement its observations and base rate are about. The proof carries
 ;; the base rate, so the completion merges with other updates of it by
-;; Bayes' rule (sk-factored-merge).
+;; Bayes' rule (sk-factored-merge). H's key K can have evidence of its own (a
+;; stored compound), which screens C off from M: the completion reads it
+;; apart from K's parts and C (CompoundEvidence, sk-evidence-view) and is
+;; conditioned on it (CompletionEvidenceFormula), its prior then P(M | e_K).
 ;; A conjunction or disjunction is pure when no child computes (`computing?`).
 ;; The connective over a compound's children, or its one child.
 (: connective-statement (-[det]-> Atom (List Statement) Statement))
@@ -796,7 +798,8 @@
       (if (is-var $missing)
          (empty)
          (let* (($others (remove-index $idx $children))
-                ($connective (car-atom $full))
+                (($key $odd) (canon $full))
+                ($connective (if $odd (if (head-is? $key And) Or And) (car-atom $key)))
                 ($known (brand Statement (seq2expr (append $others (cons $consequent ()))))))
             ;; A missing conjunct that alone links the others' variables would be
             ;; inferred for every combination of unrelated instances; only a
@@ -830,15 +833,20 @@
                                      (rule-base-rate-pattern $params $target) $_raw-target $target-base-tv)
                                   (append-goals (stage-goals $kb $target ($full $consequent) $stage)
                                   (the (List Goal)
-                                     ((CPU CompletionLikelihoodsFormula
-                                         (quote ($connective $negated $others-tv $read-rule-likelihoods)) $likelihood-read)
+                                     ((CPU CompoundEvidence (quote ($kb $key $consequent $shape-kb)) (key-evidence $key-tv $key-formed))
+                                      (CPU CompletionEvidenceFormula
+                                         (quote ($connective $negated $odd $target-base-tv $others-tv $key-tv $key-formed))
+                                         (completion-given $target-prior $others-given $conditioned))
+                                      (CPU CompletionLikelihoodsFormula
+                                         (quote ($connective $negated $conditioned $others-given $read-rule-likelihoods))
+                                         $likelihood-read)
                                       (CPU CTVBayesFormula
-                                         (quote ($target-base-tv $likelihood-read)) $completion-ctv)
+                                         (quote ($target-prior $likelihood-read)) $completion-ctv)
                                       (CPU sk-observation-prior
                                          (quote ($consequent-proof $consequent-tv $stage))
                                          $consequent-prior)
                                       (CPU ObservationRatioFormula
-                                         (quote ($consequent-tv $consequent-prior $target-base-tv $completion-ctv))
+                                         (quote ($consequent-tv $consequent-prior $target-prior $completion-ctv))
                                          $consequent-obs-tv)
                                       (CPU CTVModusPonensFormula
                                          (quote ($consequent-obs-tv $completion-ctv))
@@ -846,7 +854,7 @@
                   (brand CompiledAddition
                      ($premises |-
                         (: $shape-kb
-                           ((antecedent-completion $prf $idx with cpu (prior $target-base-tv))
+                           ((antecedent-completion $prf $idx with cpu (prior $target-prior))
                             $proof-token)
                            $target $out-tv))))
                (empty))))
@@ -1362,11 +1370,13 @@
                ;; conclusion as inversion recovers the whole antecedent. Both
                ;; read the conclusion as an observation, and a derived
                ;; implication is not one.
-               (if (if $pure-connective? (if $a-odd false (if (= $prf (no_inverse $_)) false (not (implication-type? $b)))) false)
-                  (let $children (statement-children (the (List Atom) (cdr-atom $a-key)))
+               (if (if $pure-connective? (if (= $prf (no_inverse $_)) false (not (implication-type? $b))) false)
+                  (let* (($key-children (statement-children (the (List Atom) (cdr-atom $a-key))))
+                         ($children (if $a-odd (map-flat (|-> ($child) (brand Statement (Not $child))) $key-children) $key-children))
+                         ($full (if $a-odd (brand Statement (Not $a-key)) $a-key)))
                      (compile-antecedent-completion
                         $kb $shape-kb $prf $tv $truth-premises $value $params
-                        $a-key $b $children 0 $children))
+                        $full $b $children 0 $children))
                   (empty))
                (compile-implication-statement-rules $kb $b)
                (compile-inheritance-rule-lifts $kb (: $prf $Type $tv)

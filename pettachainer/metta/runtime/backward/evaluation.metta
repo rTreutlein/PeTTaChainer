@@ -378,6 +378,43 @@
                ((sk-acc $_proofs $_ev $_deps $_parts) (the TV $result))
                ($_missing (STV 0.5 0))))))))
 
+;; A connective's own evidence for the completions of its parts (#142): its
+;; key K's value without the views that depend on K's parts or on the
+;; consequence C (the rule's inversion onto K reads C), and no value when K has
+;; no such view. It is computed once and again when K changes, as K uses it
+;; (&sk_use): a change of K's producer, whose views it excludes, wakes no
+;; completion. The value carries K's evidence and dependencies, and the prior
+;; it was formed under (sk-observation-prior). A reader excluding keys it
+;; depends on gets it computed again without them. K's producer, settling and
+;; inversion rows read a part or C: K has a view apart from them only by a
+;; stored fact or a row reading neither, and is read only then, since every
+;; change of a part changes K.
+(: sk-evidence-view (-[semidet]-> Number $spec (List Number) SkeletonValue))
+(= (sk-evidence-view $hash $args $exclude)
+   (let* ((($_kb $ktype $ctype $kbctx) $args)
+          ($compound (sk-key $ktype $kbctx))
+          ($khash (index-hash $compound))
+          ($_use (sk-add-use! $compound (sk-evidence $args)))
+          ($apart (hash-set (foldr-flat (sk-part-exclusions (the KBContext $kbctx)) $exclude
+                     (sk-statement-parts (cons $ctype (the (List Atom) (cdr-atom $ktype))))))))
+      (if (if (== (sk-key-leaves $compound sk-any-filter) ())
+             (== (collapse (once (match &sk_row ($khash $stored $_rhash (sk-row $_ident $_concl $premises $_seq))
+                    (if (=alpha $stored $compound)
+                       (if (sk-excludes? $apart
+                              (deps-join (map-flat deps-key (map-semidet index-hash (fold-semidet sk-direct-key-step () $premises)))))
+                          (empty) true)
+                       (empty))))) ())
+             false)
+         sk-none
+         (case (sk-premise-value false (sk-value $compound sk-any-filter $apart)) (
+            ((sk-val ($_type $_kbctx $proof $tv) $ev $deps)
+               (case (collapse (once (sk-observation-prior (the Proof $proof) (the TV $tv) false))) (
+                  ((cons $formed ())
+                     (sk-goal-val (CPU CompoundEvidence $args (key-evidence $tv $formed))
+                        $proof $ev (deps-join (cons (deps-key $hash) (cons $deps ())))))
+                  (() sk-none))))
+            ($_none sk-none))))))
+
 ;; A compound's prior (#142), computed from the keys its goals read, once per
 ;; pattern, and recomputed when one of them changes: each is used by the key
 ;; (&sk_use), so its change checks the key, whose readers change only with its
@@ -2134,6 +2171,7 @@
                            (sk-tally-without $hash (sk-instance-tally $hash $key $kb) $left))))))
                (sk-rate-without $hash $args $exclude)))
          ((sk-prior $rate-args) (if (sk-leaves-out? $hash $key $exclude) (sk-prior-view $hash $rate-args $exclude) sk-none))
+         ((sk-evidence $evidence-args) (if (== $exclude ()) sk-none (sk-evidence-view $hash $evidence-args $exclude)))
          ($_statement
             (if (sk-rule-truth-key? $key)
                (case (collapse (once (match &sk_row ($hash $stored $rhash (sk-row $ident $concl $premises $seq))
@@ -2760,6 +2798,7 @@
       ((sk-group $group-args)
          (sk-keep-view $hash $key (sk-group-view $hash $key (the GroupedFoldSpec $group-args))))
       ((sk-prior $rate-args) (sk-keep-view $hash $key (sk-prior-view $hash $rate-args ())))
+      ((sk-evidence $evidence-args) (sk-keep-view $hash $key (sk-evidence-view $hash $evidence-args ())))
       ((sk-key $_type $_kbctx) ()))))
 
 (: sk-keep-view (-[semidet]-> Number SkeletonKey SkeletonValue (List SkeletonVersion)))
@@ -3758,6 +3797,12 @@
                (if (== $policy sk-reference-read)
                   (sk-consume-fold $state $rate-res (sk-goal-val (CPU CompoundRate $rate-args (STV 0.5 0.0)) (brand Proof cpu) (ev-set 0) 0))
                   (sk-consume-fold $state $rate-res (sk-value (sk-prior $rate-args) sk-any-filter $exclude))))
+            ;; No evidence of its own is no factor (CompletionEvidenceFormula).
+            ((CPU CompoundEvidence $evidence-args $evidence)
+               (case (if (== $policy sk-reference-read) sk-none
+                        (sk-value (sk-evidence $evidence-args) sk-any-filter $exclude)) (
+                  (sk-none (if (= $evidence (key-evidence no-evidence no-evidence)) $state sk-fail))
+                  ($value (sk-consume-fold $state $evidence $value)))))
             ((CPU GroupedFoldAllCompiled $group-args $group-res)
                (if (== $policy sk-reference-read) sk-fail
                   (sk-consume-fold $state $group-res (sk-value (sk-group $group-args) sk-any-filter $exclude))))
@@ -4097,7 +4142,7 @@
 
 (: sk-part-exclusions (-[det]-> KBContext Atom (List Number) (List Number)))
 (= (sk-part-exclusions $kbctx $part $hashes)
-   (let $key (sk-key $part $kbctx)
+   (let* ((($statement $_odd) (canon (brand Statement $part))) ($key (sk-key $statement $kbctx)))
       (append-flat (sk-unifier-hashes (index-hash $key) $key) $hashes)))
 
 ;; A compound And or Or antecedent is lowered into its parts, so what a rule
@@ -4191,22 +4236,35 @@
 ;; unfounded, so D false says A false (fuzzer seed 12000044; before, A
 ;; answered its population prior). The sibling read under M may depend on
 ;; M's hypothesis, which is no support: M's own key is not excluded there.
+;;
+;; The connective's key K can have evidence of its own (a stored compound, a
+;; rule concluding it), which the completion reads (sk-evidence-view) and is
+;; conditioned on (CompletionEvidenceFormula). The siblings read none of K's
+;; views, which carry that evidence: a projection of a stored (And G H) onto
+;; H would count it again. C may read its prediction from K: under M's prior
+;; given K's evidence, that prediction is the prior C has.
+(: sk-compound-evidence-step (-[det]-> Atom SkPattern Atom))
+(= (sk-compound-evidence-step $found $premise)
+   (case $premise (((CPU CompoundEvidence ($_kb $compound $_consequence $kbctx) $_res) (sk-key $compound $kbctx)) ($_other $found))))
+
 (: sk-completion-state
    (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey Bool SkeletonReadPolicy SkeletonRowState (List SkPattern)
        SkeletonRowState))
 (= (sk-completion-state $given $exclusions $khash $key $shared $policy $start $premises)
-   (case (fold-flat sk-last-statement-step () $premises) (
-      ((sk-key $ctype $ckbctx)
+   (case (data (fold-flat sk-last-statement-step () $premises) (fold-flat sk-compound-evidence-step () $premises)) (
+      (((sk-key $ctype $ckbctx) (sk-key $ktype $kkbctx))
          (let* (($consequence (sk-key $ctype $ckbctx))
                 ($chash (index-hash $consequence))
-                ($completed (fold-semidet (sk-completed-given-step $khash $key) () $premises)))
+                ($completed (fold-semidet (sk-completed-given-step $khash $key) () $premises))
+                ($compound (sk-key $ktype $kkbctx))
+                ($apart (hash-union (sk-unifier-hashes (index-hash $compound) $compound) $exclusions)))
             (if (fold-semidet sk-known-false-step false (sk-key-leaves $consequence sk-any-filter))
                (fold-semidet
-                  (sk-completion-premise-step () $given $exclusions $exclusions $consequence $completed $shared $policy)
+                  (sk-completion-premise-step () $given $exclusions $apart $consequence $completed $shared $policy)
                   $start $premises)
                (fold-semidet
                   (sk-completion-premise-step (sk-closed-pin $chash $ctype $ckbctx true) $given $exclusions
-                     (hash-union (sk-unifier-hashes $chash $consequence) $exclusions) $consequence $completed $shared $policy)
+                     (hash-union (sk-unifier-hashes $chash $consequence) $apart) $consequence $completed $shared $policy)
                   $start $premises)))))))
 
 ;; The condition a completion reads an unvalued sibling under: the completed
@@ -4215,9 +4273,9 @@
 (: sk-completed-given-step (-[det]-> Number SkeletonKey (List SkeletonGiven) SkPattern (List SkeletonGiven)))
 (= (sk-completed-given-step $khash $key $found $premise)
    (case $premise (
-      ((CPU CompletionLikelihoodsFormula (And $negated $_others $_rule) $_likelihood)
+      ((CPU CompletionLikelihoodsFormula (And $negated $_conditioned $_others $_rule) $_likelihood)
          (cons (sk-given $khash $key (if (== $negated true) false true)) ()))
-      ((CPU CompletionLikelihoodsFormula (Or $negated $_others $_rule) $_likelihood)
+      ((CPU CompletionLikelihoodsFormula (Or $negated $_conditioned $_others $_rule) $_likelihood)
          (cons (sk-given $khash $key (if (== $negated true) true false)) ()))
       ($_other $found))))
 
@@ -5160,6 +5218,8 @@
       ;; A compound's prior reads its inputs as its reader would read them.
       ((sk-prior $rate-args)
          (fold-semidet (sk-need! $depth) (sk-need-next $next $members) (sk-prior-inputs (compound-rate-goals $rate-args false $_rate))))
+      ;; Needing K would compute its producer's rows, whose views it excludes.
+      ((sk-evidence $_evidence-args) (sk-need-next $next $members))
       ((sk-group $group-args)
          (let $_reserve (sk-reserve-near! $depth)
             (case (sk-group-members $key $group-args) (
