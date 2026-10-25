@@ -326,6 +326,26 @@
 (= (BaseRateProductFormula (STV $s $c) (STV $rs $rc))
    (AndFormula (STV $s $c) (STV $rs $rc)))
 
+;; The base rate of a negation: the complement of its statement's rate.
+(: BaseRateNotFormula (-[det]-> OptionalSTV OptionalSTV))
+(= (BaseRateNotFormula $rate)
+   (case $rate (((STV $s $c) (STV (- 1.0 $s) $c)) ($_none no-evidence))))
+
+;; The base rate of a disjunction composed from its parts' rates, as if
+;; independent, and no evidence while a part has none.
+(: BaseRateOrFormula (-[det]-> OptionalSTV OptionalSTV OptionalSTV))
+(= (BaseRateOrFormula $left $right)
+   (case (data $left $right) (
+      (((STV $s $c) (STV $rs $rc)) (OrFormula (STV $s $c) (STV $rs $rc)))
+      ($_none no-evidence))))
+
+;; A compound's base rate: its joint rate, the fold over the compound itself,
+;; when that has evidence or a user pin, else the rate composed from its
+;; parts' (#142).
+(: CompoundRateFormula (-[det]-> OptionalSTV OptionalSTV OptionalSTV))
+(= (CompoundRateFormula $joint $composed)
+   (case $joint (((STV $s $c) (if (> $c 0.0) (STV $s $c) $composed)) ($_none $composed))))
+
 ;; PLN admits P(B|A) only within the Frechet bounds its marginals set:
 ;; max(0, P(A)+P(B)-1)/P(A) <= P(B|A) <= P(B)/P(A). Estimates of the three that
 ;; violate them are reconciled by dropping the least evidence that satisfies

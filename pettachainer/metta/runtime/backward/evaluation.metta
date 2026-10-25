@@ -318,7 +318,7 @@
 ;; Neither operation interns or walks a population-sized evidence set.
 (: sk-computed-centre (-[semidet]-> KB Statement SourceList (List Number) OptionalSTV))
 (= (sk-computed-centre $kb $pattern $sources $exclude)
-   (let* (((cons (CPU FoldAllCompiled $args $_result) ()) (base-rate-premises $kb $pattern $_rate))
+   (let* (((CPU FoldAllCompiled $args $_result) (base-rate-fold $kb $pattern $_rate))
           ((cons (fa-subscription $identity $descriptor $_triggers) ())
              (fa-premise-subscriptions (CPU FoldAllCompiled $args $_out)))
           ($id (fa-id $identity))

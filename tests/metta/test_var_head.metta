@@ -7,13 +7,14 @@
 ;; The STV rule states P(Friend(y,x) | Symmetric(Friend) and Friend(x,y)).
 ;; Its open predicate population stays generic instead of being bound to
 ;; Inheritance while computing base rates; its positive conditional is 0.9.
-;; With no complementary evidence the cold view is .81*.9 + .19*.5=.824.
-;; At this budget the generic rule's population join is still pending on the
-;; first query. Ground and open queries agree on fresh KBs; the second query
-;; benefits from the durable skeleton and completes the population estimate.
+;; Its negative branch reads the antecedent's prior: the joint fold over the
+;; conjunction has no evidence on a cold query, so the prior composes from the
+;; parts' rates (#142), and the cold query already gives the value the
+;; population estimate converges to. Ground and open queries agree, cold and
+;; warm.
 !(test
    (query 100 kb (: $prf (Friend alice bob) $tv))
-   (: (by sum_rel (conjunction tag f1)) (Friend alice bob) (STV 0.8240000000000001 0.018452857158991698)))
+   (: (by sum_rel (conjunction tag f1)) (Friend alice bob) (STV 0.8642193246799066 0.02243916988834716)))
 
 !(test
    (query 100 kb (: $prf (Friend alice $x) $tv))
@@ -25,7 +26,7 @@
 
 !(test
    (query 100 openFirstKb (: $prf (Friend alice $x) $tv))
-   (: (by sum_rel (conjunction tag f1)) (Friend alice bob) (STV 0.8240000000000001 0.018452857158991698)))
+   (: (by sum_rel (conjunction tag f1)) (Friend alice bob) (STV 0.8642193246799066 0.02243916988834716)))
 
 !(test
    (query 100 openFirstKb (: $prf (Friend alice bob) $tv))

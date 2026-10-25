@@ -353,31 +353,62 @@
 (= (conjunct-parts $conjuncts)
    (fold-flat add-ground-to-parts (fold-flat add-to-parts () $conjuncts) $conjuncts))
 
-;; The premises estimating a pattern's base rate as `$brtv`. A conjunction
-;; whose conjuncts fall into parts sharing no variables ranges over the cross
-;; product of the parts' instances, so its rate is exactly the product of
-;; theirs: each part is folded alone and AndFormula combines them, instead of
-;; folding over every combination.
+;; The premises estimating a pattern's base rate as `$brtv`, its prior,
+;; recursively over its structure (#142). A conjunction whose conjuncts fall
+;; into parts sharing no variables ranges over the cross product of the parts'
+;; instances, so its rate is exactly the product of theirs. A negation, a
+;; disjunction and a conjunction whose conjuncts share variables take their
+;; joint rate, the fold over the compound itself, when it has evidence or a
+;; user pin, and otherwise the rate composed from their parts' priors
+;; (CompoundRateFormula). Any other statement is folded.
 (: BaseRateParts Type)
 (: base-rate-parts (-[det]-> (List Goal) (List Atom) BaseRateParts))
-(: base-rate-part (-[det]-> KB Atom BaseRateParts BaseRateParts))
-(= (base-rate-part $kb $part (base-rate-parts $goals $tvs))
-   (base-rate-parts
-      (cons (base-rate-fold $kb (brand Statement (seq2expr (the (List Atom) $part))) $tv) $goals)
-      (cons $tv $tvs)))
 (: base-rate-premises (-[det]-> KB Statement $truth-value (List Goal)))
+(: part-statement (-[det]-> (List Atom) Statement))
+(= (part-statement $part) (brand Statement (seq2expr $part)))
 (= (base-rate-premises $kb $pattern $brtv)
-   (base-rate-part-premises $kb $pattern $brtv
-      (conjunct-parts (implication-side-conjuncts $pattern))))
+   (if (head-is? $pattern Not)
+      (let $inner (brand Statement (car-atom (cdr-atom $pattern)))
+         (compound-rate-premises $kb $pattern
+            (append-goals (base-rate-premises $kb $inner $rate) ((CPU BaseRateNotFormula (quote ($rate)) $composed)))
+            $composed $brtv))
+      (if (head-is? $pattern Or)
+         (compound-rate-premises $kb $pattern
+            (composed-rate-premises $kb BaseRateOrFormula (statement-children (cdr-atom $pattern)) $composed)
+            $composed $brtv)
+         (if (head-is? $pattern And)
+            (base-rate-part-premises $kb $pattern $brtv
+               (conjunct-parts (implication-side-conjuncts $pattern)))
+            (cons (base-rate-fold $kb $pattern $brtv) ())))))
 ;; The parts arrive as a parameter: the determinism checker proves the fold
 ;; over a parameter list, not over a function result.
 (: base-rate-part-premises (-[det]-> KB Statement $truth-value (List Atom) (List Goal)))
 (= (base-rate-part-premises $kb $pattern $brtv $parts)
    (if (== (cdr-atom $parts) ())
-      (cons (base-rate-fold $kb $pattern $brtv) ())
-      (case (foldr-flat (base-rate-part $kb) (base-rate-parts () ()) $parts) (
-         ((base-rate-parts $goals $tvs)
-            (case $tvs (((cons $first $more) (append-goals $goals (and-tv-goals BaseRateProductFormula $first $more $brtv ()))))))))))
+      (let $conjuncts (implication-side-conjuncts $pattern)
+         (if (== (cdr-atom $conjuncts) ())
+            (base-rate-premises $kb (brand Statement (car-atom $conjuncts)) $brtv)
+            (compound-rate-premises $kb $pattern
+               (composed-rate-premises $kb BaseRateProductFormula (statement-children $conjuncts) $composed)
+               $composed $brtv)))
+      (composed-rate-premises $kb BaseRateProductFormula (map-flat part-statement $parts) $brtv)))
+
+;; A compound's joint rate beside the goals `$composing` binding its composed
+;; rate `$composed`, and the rate CompoundRateFormula takes from the two.
+(: compound-rate-premises (-[det]-> KB Statement (List Goal) Atom $truth-value (List Goal)))
+(= (compound-rate-premises $kb $pattern $composing $composed $brtv)
+   (let $fold (base-rate-fold $kb $pattern $joint)
+      (cons $fold (append-goals $composing ((CPU CompoundRateFormula (quote ($joint $composed)) $brtv))))))
+
+;; The rate `$formula` composes from the children's priors, left to right.
+(: composed-rate-part (-[det]-> KB Statement BaseRateParts BaseRateParts))
+(= (composed-rate-part $kb $child (base-rate-parts $goals $tvs))
+   (base-rate-parts (append-goals (base-rate-premises $kb $child $tv) $goals) (cons $tv $tvs)))
+(: composed-rate-premises (-[det]-> KB Atom (List Statement) $truth-value (List Goal)))
+(= (composed-rate-premises $kb $formula $children $rate)
+   (case (foldr-flat (composed-rate-part $kb) (base-rate-parts () ()) $children) (
+      ((base-rate-parts $goals $tvs)
+         (case $tvs (((cons $first $more) (append-goals $goals (and-tv-goals $formula $first $more $rate ())))))))))
 
 ;; The conjunction of truth values, multiplied left to right by the binary
 ;; `$formula` (AndFormula, as a lowered antecedent multiplies them, or

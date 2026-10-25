@@ -116,7 +116,11 @@ class OverlayChecks:
         self.assertAlmostEqual(self.strength("(Assuming (Action t2) (Outcome t2))"),
                                expected + (1 - expected) * .5)
         local = janus.query_once("overlay_probe_local(Rows)")["Rows"]
-        history = [row for space, head, row in local if space in ("&sk_latest", "&sk_view", "&sk_merged") and head == "History"]
+        # The outcome rule's negative branch reads its antecedent's prior,
+        # composed from the History population (#142), so History(trigger),
+        # which the action reaches, is read in C; the t0..t2 history is not.
+        history = [row for space, head, row in local if space in ("&sk_latest", "&sk_view", "&sk_merged")
+                   and head == "History" and "['History',trigger]" not in str(row)]
         self.assertEqual(history, [])
         self.assertTrue(janus.query_once(
             "once('&sk_merged'(_,['sk-key',['History',t2],[Kb,'MAIN','Nil']],_,_,_))",

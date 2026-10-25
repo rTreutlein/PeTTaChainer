@@ -262,9 +262,8 @@ class TestIngestion(unittest.TestCase):
                 self.h.add_atom(f'(: notP (Not (P a)) {value})')
 
     def test_variable_head_query_order_and_population_refinement(self):
-        # The generic population needs more search than the Friend-only one.
-        # Compare independent KBs, then reverse the query order: the apparent
-        # ground/open difference in test_var_head was cold/warm refinement.
+        # A variable-headed and a concrete rule give the same value, cold or
+        # warm and in either query order: independent KBs, then reversed.
         for head in ('variable', 'concrete'):
             rule = ('(Implication (And (Symmetric $r) ($r $x $y)) ($r $y $x))'
                     if head == 'variable' else
@@ -278,11 +277,10 @@ class TestIngestion(unittest.TestCase):
                         '(: edge (Friend bob alice) (STV 0.9 0.9))',
                     ])
                     other = '(Friend alice $x)' if goal == '(Friend alice bob)' else '(Friend alice bob)'
-                    # #83 leaves the unsupported negative branch at (0.5, 0)
-                    # until the population join supplies complementary evidence.
-                    cold_tv = ((0.8240000000000001, 0.018452857158991698)
-                               if head == 'variable' else (0.8642193246799066, 0.02243916988834716))
-                    for query, (strength, confidence) in ((goal, cold_tv),
+                    # The negative branch reads the antecedent's composed prior
+                    # while its joint fold has no evidence (#142), so a cold
+                    # query already gives the converged value for both heads.
+                    for query, (strength, confidence) in ((goal, (0.8642193246799066, 0.02243916988834716)),
                                                          (other, (0.8642193246799066, 0.02243916988834716)),
                                                          (goal, (0.8642193246799066, 0.02243916988834716))):
                         answer = h.query_many_refs([f'(: $p {query} $tv)'], steps=100)[0]
