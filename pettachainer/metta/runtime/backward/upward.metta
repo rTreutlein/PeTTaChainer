@@ -41,8 +41,13 @@
                             (if (= $source (assemble-stored-runtime-fact $type $kbctx $_proof $_tv))
                                (if (existential-outer-values? $outer-vars) true (empty))
                                (empty))))
+                      ;; Match the premise as its join reads it: an STV read
+                      ;; of an implication is its judgment, never the stored
+                      ;; or assumed rule's own key.
                       ($_fact
-                         (if (= $premise (assemble-stored-runtime-fact $type $kbctx $_proof $_tv)) true (empty)))))))
+                         (if (= (contextualize-rule-premise $ccls $premise)
+                                (assemble-stored-runtime-fact $type $kbctx $_proof $_tv))
+                            true (empty)))))))
             (if (if (if (sk-context-search? $ccls) false (rule-dormant? $id)) false (chainer-acyclic-term? $ccls))
                (sk-advance! (sk-partial $ccls $id $ccls () $prems ()))
                (empty))))
