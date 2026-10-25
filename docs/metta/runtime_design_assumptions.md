@@ -1036,6 +1036,22 @@ joint with evidence, and a joint over a single member replaces a well-founded
 composed rate; shrinking the joint towards the composed rate (#69) would
 address both.
 
+Every reader reads a compound's prior through one aggregate key per pattern,
+`(sk-rate (kb pattern))`, read by a `(CPU CompoundRate ...)` premise: an STV
+rule's negative branch, inversion and completion priors, an inverse row's
+P(B), the disjunction judgment's denominator and a likelihood's computed
+centre. Its view is computed once from the goals `compound-rate-goals`
+compiles, and each key those goals read uses it (`&sk_use`), so a changed
+joint or part rate checks the key once per pass, and its readers change only
+when its value does: a part's rate moving while the joint has evidence wakes
+no reader. Inlining the composition in every reader instead cost ONA 17%.
+Like a fold premise, the key never blocks a join. The join searches the folds
+that determine it once they have evidence (a connected compound's joint, a
+negation's statement's, each disjoint part's), while need reaches every key
+it reads at its own depth. The view carries its inputs' dependencies, so no
+base rate it reads counts a member derived through the prior; a reader that
+excludes keys an input leaves out gets the view computed again without them.
+
 A KB may opt into base-rate smoothing, which reads every computed base rate
 as its n observations plus k pseudo-observations at 0.5: the strength of a
 rate over few observations then stays uncertain, while its confidence is
