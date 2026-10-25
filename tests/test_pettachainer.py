@@ -212,6 +212,13 @@ class TestPeTTaChainer(unittest.TestCase):
                     self.assertIn("population-prior", result[0])
         with self.assertRaises(Exception):
             handler.add_atoms_no_check(["(: a2 (Agent Bob ev1) (STV 1 1))"])
+        # A query sorts nothing: asking about ev3's role leaves it an
+        # aggregate, live and in a timed query's replay alike.
+        handler.add_atoms_no_check(["(: r3 (R ev3) (STV 1 1))"])
+        handler.query("(: $prf (Agent ev3 Bob) $tv)", steps=100)
+        live = handler.query("(: $prf (S ev3) $tv)", steps=500)
+        self.assertIn("inverted sw", live[0])
+        self.assertEqual(handler.query("(: $prf (S ev3) $tv)", steps=500, timeout_sec=30), live)
 
     def test_bayes_prior_count_applies_in_process_and_to_timed_queries(self):
         handler = PeTTaChainer()

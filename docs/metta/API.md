@@ -325,10 +325,12 @@ gets evidence from below only, never a forward prediction; an aggregate keeps
 PLN induction and abduction (#122, `prior_factored_merge.md`, "Stages and
 aggregates").
 
-- A constant stated at a position declared `Stage`, `Time`, `Object` or
-  `Concept` (`set-argument-sorts`), in a fact, a rule, a query or an
-  assumed fact, takes that sort; `set-constant-sort` declares one directly.
-  A `Value` position sorts nothing; `Any` is undeclared.
+- A constant takes a sort only from an ingested fact or rule
+  (`compileadd`) stating it at a position declared `Stage`, `Time`,
+  `Object` or `Concept` (`set-argument-sorts`), or from `set-constant-sort`.
+  A query never sorts anything, and neither do the facts of an `Assuming`
+  query: an assumed role fact does not make its event a stage, inside the
+  query or after it. A `Value` position sorts nothing; `Any` is undeclared.
 - A statement is a stage when one of its arguments is: at a position declared
   `Stage` or `Time`, else a constant of such a sort, else a variable the
   rule an inversion or completion comes from places at such a position. An
@@ -339,16 +341,17 @@ aggregates").
   aggregate. `Object` and `Concept` only exclude a constant from being a
   stage.
 - A constant is never both `Stage` or `Time` and `Object` or `Concept`
-  (`Object` with `Concept`, and `Stage` with `Time`, are allowed): a fact,
-  rule or query that would make it both raises
+  (`Object` with `Concept`, and `Stage` with `Time`, are allowed): a fact or
+  rule that would make it both raises
   `domain_error(sort_conflict, [Term, Old, New])` before anything of it is
-  stored or sorted, as does a rule or query placing one variable at both
-  kinds of position. Swapped role arguments, `(Agent Bob e1)` with `Agent`
+  stored or recorded, as does a rule placing one variable at both kinds of
+  position. Swapped role arguments, `(Agent Bob e1)` with `Agent`
   declared `(Stage Object)`, are caught this way.
-- Known limit (D1): a row reads the kind when it is computed. A constant first
-  sorted after a row of a statement about it was computed leaves that row's
-  answer as it was; state an event's role facts before querying its
-  properties.
+- Known limit (D1, #145): a row's kind is fixed when the row is first
+  built. A constant first sorted after a row of a statement about it was
+  built leaves that row an aggregate for good: neither its re-evaluation on
+  new evidence nor `forward-chain` reads the kind again. State an event's
+  role facts before querying its properties or forward-chaining.
 
 ```metta
 !(set-argument-sorts kb Agent (Stage Object))

@@ -269,16 +269,20 @@ statement_mask(Head, Args, Mask) :-
     forall(source_head(Statement, Head, Arity),
            ( source_head_arity(Head, KB, Arity) -> true ; assertz(source_head_arity(Head, KB, Arity)) )).
 
-% The predicate heads at a canonical source's statement positions; a symbol
-% statement is a head of arity 0. Computations and variables have none.
-source_head(Statement, Head, Arity) :-
+% The predicate statements at a canonical source's statement positions: a
+% symbol, or an atom whose head is no computation; a variable is none. A
+% symbol statement is a head of arity 0.
+source_atom(Statement, Atom) :-
     nonvar(Statement),
-    (   atom(Statement) -> Head = Statement, Arity = 0
+    (   atom(Statement) -> Atom = Statement
     ;   Statement = [H|Args], atom(H),
         (   statement_mask(H, Args, Mask)
-        ->  nth1(I, Mask, s), nth1(I, Args, Arg), source_head(Arg, Head, Arity)
-        ;   'source-computation-head?'(H, false), H \== 'CPU',
-            Head = H, length(Args, Arity) ) ).
+        ->  nth1(I, Mask, s), nth1(I, Args, Arg), source_atom(Arg, Atom)
+        ;   'source-computation-head?'(H, false), H \== 'CPU', Atom = Statement ) ).
+
+source_head(Statement, Head, Arity) :-
+    source_atom(Statement, Atom),
+    ( atom(Atom) -> Head = Atom, Arity = 0 ; Atom = [Head|Args], length(Args, Arity) ).
 
 % Declarations name a class itself (D5): after #96 no statement has the head
 % Member, so a declaration on it would silently apply to nothing.

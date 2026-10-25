@@ -252,9 +252,10 @@ evidence from below, never a forward prediction; every other statement is an
 aggregate and keeps PLN induction and abduction. A constant that would be
 both a stage or time and an object or concept, such as from swapped role
 arguments `(Agent Bob e1)`, is rejected with `domain_error(sort_conflict,
-...)`. Declare sorts and state an event's role facts before querying its
-properties: a value computed earlier keeps its kind (docs/metta/API.md,
-"Sorts").
+...)`. Only stored facts and rules sort constants, never a query or an
+assumed fact. Declare sorts and state an event's role facts before querying
+its properties: a value computed earlier keeps its kind for good
+(docs/metta/API.md, "Sorts").
 
 ## Rule Syntax
 

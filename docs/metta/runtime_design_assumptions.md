@@ -660,10 +660,13 @@ A key's value merges its stored facts and one view per row:
   `Time` position, a constant of such a sort, or a variable the rule places
   at such a position, a compound with a stage part (#139), or a ground
   statement of a predicate with `set-predicate-time`. Constants take sorts
-  only from declared positions, at ingestion, so sorts are monotone and
-  never inferred by a fixpoint; the check at a row is a few first-argument
-  lookups. An undeclared KB has no stages. A row reads the kind when it is
-  computed: a constant sorted later leaves it as it was (D1);
+  only from ingested facts and rules, at declared positions, and from
+  `set-constant-sort`, never from a query or an assumption, so an answer
+  never depends on which questions were asked; sorts are monotone and never
+  inferred by a fixpoint, and the check at a row is a few first-argument
+  lookups. An undeclared KB has no stages and skips the check. A row's kind
+  is fixed when the row is first built: a constant sorted later leaves it an
+  aggregate, through re-evaluation and forward chaining alike (D1, #145);
 - inversions and antecedent completions over one prior through different
   observations combine by Bayes' rule (a completion observes its consequence;
   a sibling it reads as certain, alone or inside the compound of the other

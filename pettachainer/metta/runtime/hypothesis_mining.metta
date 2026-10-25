@@ -107,6 +107,7 @@
 (: set-predicate-time (-[det]-> KB Atom Number Number Bool))
 (= (set-predicate-time $kb $head $position $layer)
    (let* (($_declared (declared-head! $head))
+          ($_sorted (sorted-kb! $kb))
           ($_old (remove-data-rows! &hm_time (quote ($head $kb $_position $_layer))))
           ($_row (add-atom &hm_time ($head $kb $position $layer))))
       true))
