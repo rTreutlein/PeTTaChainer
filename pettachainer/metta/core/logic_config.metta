@@ -85,7 +85,8 @@
 ;; ground against the stored facts, emitting one concrete-headed rule instance
 ;; per matching fact instead of a single rule with a variable conclusion head.
 (: set-specializing-predicate (-[det]-> $head Bool))
-(= (set-specializing-predicate $head) (add-atom &logic_config (specializing-predicate $head)))
+(= (set-specializing-predicate $head)
+   (let $_declared (declared-head! $head) (add-atom &logic_config (specializing-predicate $head))))
 
 (: specializing-predicate? (-[det]-> $head Bool))
 (= (specializing-predicate? $head)

@@ -43,7 +43,7 @@ class TestAssumingExists(unittest.TestCase):
                         witness, = binders
                         self.assertTrue(witness.startswith('$'), row)
                         concrete = ['And', ['AnnouncedBy', 'Split1', 'Apple'],
-                            ['AnnouncedOn', 'Split1', 'Date20200730'], ['Member', 'Split1', 'StockSplit'],
+                            ['AnnouncedOn', 'Split1', 'Date20200730'], ['StockSplit', 'Split1'],
                             ['Not', ['Dilutes', 'Split1']]]
                         captured = janus.query_once('assuming_exists_probe_rows(Rows)')['Rows']
                         self.assertIn([concrete, row.tv], captured)

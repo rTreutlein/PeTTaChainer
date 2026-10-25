@@ -11,13 +11,13 @@ class TestLateWorldFact(unittest.TestCase):
                        '(Implication (Implemented $e) (Not (Dilutes $e)))))')
         base = [
             '(: src_event (Member Split1 StockSplit) (STV 1 0.9))',
-            '(: src_bridge (Implication (And (StockSplit $e) (Implemented $e)) '
+            '(: src_bridge (Implication (And (Announced $e) (Implemented $e)) '
             '(Not (Dilutes $e))) (STV 1 0.9))',
         ]
         # Both a missing co-premise and a previously borrowed observation
         # must refresh; an unrelated ground query must not be required.
         for goal in (existential, conditional):
-            for initial in ([], ['(: initial (StockSplit Split1) (STV 1 0.5))']):
+            for initial in ([], ['(: initial (Announced Split1) (STV 1 0.5))']):
                 with self.subTest(goal=goal, initial=initial):
                     warm, fresh = PeTTaChainer(), PeTTaChainer()
                     warm.add_atoms_no_check(base + initial)
@@ -25,7 +25,7 @@ class TestLateWorldFact(unittest.TestCase):
                     for _ in range(2):
                         before = warm.query_many_refs([query], steps=300)[0]
                         self.assertEqual(bool(before), bool(initial), before)
-                    late = '(: src_split (StockSplit Split1) (STV 1 0.9))'
+                    late = '(: src_split (Announced Split1) (STV 1 0.9))'
                     warm.add_atoms_no_check([late])
                     fresh.add_atoms_no_check(base + initial + [late])
                     expected = fresh.query_many_refs([query], steps=300)[0]
@@ -46,9 +46,9 @@ class TestLateWorldFact(unittest.TestCase):
                     ], steps=300), [[], []])
 
     def test_one_fact_refreshes_multiple_durable_judgments(self):
-        for initial in ([], ['(: initial (StockSplit Split1) (STV 1 0.5))']):
-            for late_type in ('(StockSplit Split1)',
-                              '(And (StockSplit Split1) (Recorded R))'):
+        for initial in ([], ['(: initial (Announced Split1) (STV 1 0.5))']):
+            for late_type in ('(Announced Split1)',
+                              '(And (Announced Split1) (Recorded R))'):
                 with self.subTest(late_type=late_type, initial=initial):
                     warm, fresh = PeTTaChainer(), PeTTaChainer()
                     base = ['(: event (Member Split1 StockSplit) (STV 1 0.9))']
@@ -56,7 +56,7 @@ class TestLateWorldFact(unittest.TestCase):
                     for assumption, consequence in [('Implemented', 'Preserves'),
                                                      ('Approved', 'RecordedSplit')]:
                         base.append(f'(: bridge_{assumption} (Implication '
-                                    f'(And (StockSplit $e) ({assumption} $e)) '
+                                    f'(And (Announced $e) ({assumption} $e)) '
                                     f'({consequence} $e)) (STV 1 0.9))')
                         goals.append(f'(: $p (Exists ($e) (And (Member $e StockSplit) '
                                      f'(Implication ({assumption} $e) ({consequence} $e)))) $tv)')

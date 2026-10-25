@@ -405,8 +405,7 @@
 ;; whose rate is a marginal over the first's and over cases this one is not
 ;; (see sk-specialized), when the second reads a proper subset of those facts,
 ;; or reads a derived premise resting only on them: a generalization of the
-;; first's antecedent, such as (Member pingu Bird) derived from (Member pingu
-;; Penguin).
+;; first's antecedent, such as (Bird pingu) derived from (Penguin pingu).
 (: specialization-includes? (-[det]-> Proof Proof Bool))
 (= (specialization-includes? $specific $general)
    (case (sk-step-proof $specific) (

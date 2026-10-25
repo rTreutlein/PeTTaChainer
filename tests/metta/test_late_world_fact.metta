@@ -10,14 +10,14 @@
          (Implication (Implemented $e) (Not (Dilutes $e))))) $value)) $tv)))
 
 !(compileadd late84Warm (: event (Member Split1 StockSplit) (STV 1 0.9)))
-!(compileadd late84Warm (: bridge (Implication (And (StockSplit $e) (Implemented $e)) (Not (Dilutes $e))) (STV 1 0.9)))
+!(compileadd late84Warm (: bridge (Implication (And (Announced $e) (Implemented $e)) (Not (Dilutes $e))) (STV 1 0.9)))
 !(test (late84-values late84Warm) ())
 !(test (late84-values late84Warm) ())
-!(compileadd late84Warm (: split (StockSplit Split1) (STV 1 0.9)))
+!(compileadd late84Warm (: split (Announced Split1) (STV 1 0.9)))
 
 !(compileadd late84Fresh (: event (Member Split1 StockSplit) (STV 1 0.9)))
-!(compileadd late84Fresh (: bridge (Implication (And (StockSplit $e) (Implemented $e)) (Not (Dilutes $e))) (STV 1 0.9)))
-!(compileadd late84Fresh (: split (StockSplit Split1) (STV 1 0.9)))
+!(compileadd late84Fresh (: bridge (Implication (And (Announced $e) (Implemented $e)) (Not (Dilutes $e))) (STV 1 0.9)))
+!(compileadd late84Fresh (: split (Announced Split1) (STV 1 0.9)))
 ;; The fresh control must answer, so equality cannot pass on two empty lists.
 ;; Its confidence follows the current STV semantics (#83), not a fixed literal.
 !(test (length (late84-values late84Fresh)) 1)
@@ -28,8 +28,8 @@
 
 ;; A second observation of an already borrowed premise must refresh the
 ;; same durable rows, rather than preserving their old confidence forever.
-!(compileadd late84Warm (: second (StockSplit Split1) (STV 1 0.5)))
-!(compileadd late84Fresh (: second (StockSplit Split1) (STV 1 0.5)))
+!(compileadd late84Warm (: second (Announced Split1) (STV 1 0.5)))
+!(compileadd late84Fresh (: second (Announced Split1) (STV 1 0.5)))
 !(test (late84-values late84Warm) (late84-values late84Fresh))
 !(test (late84-values late84Warm) (late84-values late84Fresh))
 
@@ -47,8 +47,8 @@
 
 ;; A row may already be stale for another reason when the world fact lands.
 ;; Its released current-reader link must not hide the borrowing subscription.
-!(foreach-flat sk-stale-key! (sk-world-readers (StockSplit Split1) late84Warm))
-!(compileadd late84Warm (: third (StockSplit Split1) (STV 1 0.4)))
-!(compileadd late84Fresh (: third (StockSplit Split1) (STV 1 0.4)))
+!(foreach-flat sk-stale-key! (sk-world-readers (Announced Split1) late84Warm))
+!(compileadd late84Warm (: third (Announced Split1) (STV 1 0.4)))
+!(compileadd late84Fresh (: third (Announced Split1) (STV 1 0.4)))
 !(test (late84-values late84Warm) (late84-values late84Fresh))
 !(test (late84-values late84Warm) (late84-values late84Fresh))

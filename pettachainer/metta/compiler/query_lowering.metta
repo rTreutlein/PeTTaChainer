@@ -169,7 +169,7 @@
       (($member-goal (: (kbctx $kb)
           (inheritance-query-result (member-inheritance-fold cpu))
           (Inheritance $subj $concept) $member-tv))
-       ;; Build empirical samples through ordinary compiled Member queries. This
+       ;; Build empirical samples through ordinary compiled class queries. This
        ;; lets rule-derived memberships contribute while retaining their proof
        ;; identities for overlap and cycle checks before aggregation.
        ($member-sample-pattern
@@ -180,8 +180,8 @@
              $member-sample-pattern
              (STV 1.0 1.0)))
        ($member-sample-rule
-          (((: (kbctx $kb) $member-aprf (Member $member-obj $subj) $member-atv)
-            (: (kbctx $kb) $member-bprf (Member $member-obj $concept) $member-btv))
+          (((: (kbctx $kb) $member-aprf ($subj $member-obj) $member-atv)
+            (: (kbctx $kb) $member-bprf ($concept $member-obj) $member-btv))
              |- $member-sample-goal))
        ($member-rule
           (((CPU FoldAllCompiled

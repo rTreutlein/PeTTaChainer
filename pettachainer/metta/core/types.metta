@@ -73,6 +73,9 @@
 (: existential-outer-values? (-[det]-> Atom Bool))
 (: existential-source (-[det]-> Atom Statement))
 (: pattern-shape (-[det]-> Atom Atom))
+(: member-canon (-[det]-> $statement $statement))
+(: member-shape (-[det]-> Atom Atom Atom))
+(: declared-head! (-[det]-> Atom Bool))
 (: rule-truth-factor (-[det]-> Atom Number))
 ;; Hypothesis mining's term helpers (runtime/hypothesis_mining.metta).
 (: hypothesis-candidates (-[det]-> Atom Atom Atom (List (Atom Atom Atom))))

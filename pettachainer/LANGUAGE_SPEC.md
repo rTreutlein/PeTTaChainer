@@ -124,6 +124,31 @@ Example:
 - `(Inheritance subclass superclass)` says that one class or concept inherits
   from another.
 
+### Member is a unary predicate (#96)
+
+`(Member x P)` and `(P x)` are one statement: the chainer reads every
+`(Member x P)` it is given (a fact, a rule premise or conclusion, a query, an
+`Assuming` fact, a base-rate pattern) as `(P x)`, at every statement
+position, a compound's parts and an existential's body included. Predicate
+arguments are data and keep any `Member` in them.
+
+- The two forms share one key and one evidence identity: one proof name
+  stated in either form is one fact, a different value under that name is
+  rejected, and two names are two observations that revise.
+- An answer comes back in its query's form: `(Member rex $c)` answers
+  `(Member rex Dog)`, `(Dog rex)` answers `(Dog rex)`. Statements inside
+  proofs, forward-chained facts and the stored KB use the predicate form.
+- A class is a symbol or a variable; `(Member x <expression>)` raises
+  `domain_error(member_class, ...)`. A class variable makes a variable-headed
+  statement: `(Member rex $c)` reads `($c rex)`.
+- Per-predicate declarations (`set-positive-only-predicate`,
+  `set-complete-predicate`, `set-functional-predicate`,
+  `set-observed-predicate`, `set-predicate-time`,
+  `set-specializing-predicate`) name the class itself, as for any predicate;
+  one naming `Member` raises `domain_error(predicate_head, Member)`.
+- One head has one arity in a KB, so a class cannot also be a predicate of
+  more arguments (`domain_error(predicate_arity, (head arity other))`).
+
 For new knowledge, prefer `Member` for instance-to-class observations:
 
 ```metta
@@ -140,7 +165,7 @@ The concrete `Inheritance Human Mortal` assertion is compiled into ordinary
 inference views equivalent to:
 
 ```metta
-(Member $x Human)       -> (Member $x Mortal)
+(Human $x)              -> (Mortal $x)
 (Inheritance $x Human)  -> (Inheritance $x Mortal)
 ```
 
@@ -189,8 +214,8 @@ configured with:
 !(clear-concept-prior-confidence kb)
 ```
 
-Only class terms are registered as concept nodes by `Member`; the member object
-is not. Open queries such as `(Inheritance $subclass $superclass)` remain useful
+The head of every unary fact, in either form, is registered as a concept node;
+the member object is not. Open queries such as `(Inheritance $subclass $superclass)` remain useful
 for retrieving matching ordinary derivations, but variable classes cannot
 register a selective incremental member estimate.
 

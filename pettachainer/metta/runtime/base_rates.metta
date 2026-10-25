@@ -110,7 +110,7 @@
 
 (: cached-base-rate (-[nondet]-> KB Statement (List TV)))
 (= (cached-base-rate $kbid $pattern)
-   (case (base-rate-cache-entries $kbid $pattern) (
+   (case (base-rate-cache-entries $kbid (brand Statement (member-canon $pattern))) (
       (() ())
       ((cons $entry $_rest) (cons (base-rate-entry-tv $entry) ())))))
 

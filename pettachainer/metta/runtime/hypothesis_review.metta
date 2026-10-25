@@ -160,8 +160,9 @@
 ;; antecedent, whose truths are then read already. Returns one (hypothesis
 ;; name implication truth kept|dropped) per hypothesis reviewed.
 (: review-hypotheses (-[nondet]-> Number KB Atom Atom))
-(= (review-hypotheses $steps $kb $goal)
-   (let* (($live (collapse (match &hm_live ($_phash $kb $consequent $name $antecedent $born)
+(= (review-hypotheses $steps $kb $written-goal)
+   (let* (($goal (member-canon $written-goal))
+          ($live (collapse (match &hm_live ($_phash $kb $consequent $name $antecedent $born)
                     (if (hm-applies? $kb (Implication $antecedent $consequent) $goal)
                        (hm-reviewed $name $antecedent $consequent $born no-evidence)
                        (empty)))))

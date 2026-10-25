@@ -186,3 +186,90 @@ assumed_annotations(Fact) :-
     -> throw(error(domain_error(assumed_rule, Fact),
                    context(query/3, 'unsupported assumed implication')))
     ; query_annotations(Fact) ).
+
+% A class membership (Member x P) is the unary statement (P x) (#96): one
+% statement in either form, with one key and one evidence identity. Every
+% source statement (facts, rules, queries, base-rate patterns) is rewritten
+% here, at statement positions only: predicate arguments are data. Answers
+% keep the written shape. A class is a symbol or a variable: an expression
+% class would make an expression-headed key.
+'member-canon'(Term, Canon) :-
+    (   nonvar(Term), Term = [Head|Args], atom(Head)
+    ->  (   Head == 'Member'
+        ->  (   Args = [X, Class], ( var(Class) ; atom(Class) )
+            ->  Canon = [Class, X]
+            ;   throw(error(domain_error(member_class, Term),
+                            context(compileadd/2, 'a Member class must be a symbol or a variable'))) )
+        ;   statement_mask(Head, Args, Mask)
+        ->  maplist(member_canon_arg, Mask, Args, CanonArgs), Canon = [Head|CanonArgs]
+        ;   Canon = Term )
+    ;   Canon = Term ).
+
+member_canon_arg(s, Arg, Canon) :- 'member-canon'(Arg, Canon).
+member_canon_arg(d, Arg, Arg).
+
+% An answer of a written statement's canonical form, with each written
+% Member restored. The answer's own terms are kept: its binders and
+% variables are not the written ones.
+'member-shape'(Written, Answer, Shaped) :-
+    (   nonvar(Written), Written = [Head|Args], atom(Head), nonvar(Answer), Answer = [AnswerHead|AnswerArgs]
+    ->  (   Head == 'Member', AnswerArgs = [X]
+        ->  Shaped = ['Member', X, AnswerHead]
+        ;   statement_mask(Head, Args, Mask), same_length(Args, AnswerArgs)
+        ->  maplist(member_shape_arg, Mask, Args, AnswerArgs, ShapedArgs), Shaped = [AnswerHead|ShapedArgs]
+        ;   Shaped = Answer )
+    ;   Shaped = Answer ).
+
+member_shape_arg(s, Written, Answer, Shaped) :- 'member-shape'(Written, Answer, Shaped).
+member_shape_arg(d, _, Answer, Answer).
+
+% Which arguments of a source form are statements (s) and which data (d).
+statement_mask(Head, Args, Mask) :-
+    (   ( memberchk(Head, ['And','Or','Not','Implication'])
+        ; 'bidirectional-implication-form?'(Head, true)
+        ; 'compound-connective?'(Head, true) )
+    ->  same_length(Args, Mask), maplist(=(s), Mask)
+    ;   memberchk(Head-Mask, ['ForAll'-[d,s], 'Exists'-[d,s], 'WithPrior'-[s,s],
+                             'Assuming'-[s,s], ':'-[d,s,d], 'ExistentialClaim'-[s]])
+    ->  same_length(Args, Mask)
+    ;   memberchk(Head, ['FoldAll','FoldAllValue','FoldAllTruth','AverageDist'])
+    ->  Args = [_|Rest], same_length(Rest, Data), maplist(=(d), Data), Mask = [s|Data]
+    ).
+
+% One arity per head (D4): every per-predicate table is keyed by head, so a
+% head stated with two arities would share one declaration between two
+% predicates. Checked before a source is compiled, recorded once it is stored.
+:- dynamic source_head_arity/3.
+
+'source-heads-free!'(KB, Statement, true) :-
+    findall(Head-Arity, source_head(Statement, Head, Arity), Pairs),
+    sort(Pairs, Heads),
+    forall(member(Head-Arity, Heads),
+           ( ( member(Head-Other, Heads), Other \== Arity
+             ; source_head_arity(Head, KB, Other), Other \== Arity )
+           -> throw(error(domain_error(predicate_arity, [Head, Arity, Other]),
+                          context(compileadd/2, 'a predicate head takes one arity')))
+           ;  true )).
+
+'record-source-heads!'(KB, Statement, true) :-
+    forall(source_head(Statement, Head, Arity),
+           ( source_head_arity(Head, KB, Arity) -> true ; assertz(source_head_arity(Head, KB, Arity)) )).
+
+% The predicate heads at a canonical source's statement positions; a symbol
+% statement is a head of arity 0. Computations and variables have none.
+source_head(Statement, Head, Arity) :-
+    nonvar(Statement),
+    (   atom(Statement) -> Head = Statement, Arity = 0
+    ;   Statement = [H|Args], atom(H),
+        (   statement_mask(H, Args, Mask)
+        ->  nth1(I, Mask, s), nth1(I, Args, Arg), source_head(Arg, Head, Arity)
+        ;   'source-computation-head?'(H, false), H \== 'CPU',
+            Head = H, length(Args, Arity) ) ).
+
+% Declarations name a class itself (D5): after #96 no statement has the head
+% Member, so a declaration on it would silently apply to nothing.
+'declared-head!'(Head, true) :-
+    (   Head == 'Member'
+    ->  throw(error(domain_error(predicate_head, Head),
+                    context(declaration/2, 'Member is no predicate: declare each class as a head')))
+    ;   true ).

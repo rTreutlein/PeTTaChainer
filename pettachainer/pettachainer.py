@@ -531,7 +531,9 @@ class PeTTaChainer:
     def select_facts(self, terms: str | Sequence[str]) -> List[str]:
         """Return the KB facts matching one or more surface terms.
 
-        Selection belongs to inference control, not to forward chaining. All
+        A term is read as a statement is, so ``(Member x P)`` selects the
+        stored ``(P x)`` (#96). Selection belongs to inference control, not to
+        forward chaining. All
         requested terms are evaluated and selected in one PeTTa call so a
         controller can cheaply construct an initial seed set.
         """
@@ -540,7 +542,7 @@ class PeTTaChainer:
             return []
         selectors = [
             "(let* "
-            f"(($type (eval {term})) "
+            f"(($type (member-canon (eval {term}))) "
             "($matches (collapse (once (match &kb "
             f"($type ({self.kb} MAIN Nil) $prf $tv) "
             f"($type ({self.kb} MAIN Nil) $prf $tv)))))) "

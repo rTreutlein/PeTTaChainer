@@ -171,12 +171,13 @@ class TestIngestion(unittest.TestCase):
         self.assertEqual([a.statement for a in nested], [['Related', ['P', 'a'], ['Q', 'b']]])
 
     def test_rules_remain_schematic_including_parameterized_and_computed_tvs(self):
+        # One arity per head (#96 D4): the two-argument rules use P2 and Q2.
         for rule in ('(Implication ($predicate $x) (Observed $x))',
-                     '(ForAll ($cohort) (Implication (P $cohort $x) (Q $cohort $x)))',
+                     '(ForAll ($cohort) (Implication (P2 $cohort $x) (Q2 $cohort $x)))',
                      '(WithPrior (Prior $x) (Implication (P $x) (Q $x)))',
-                     '(ForAll ($c) (WithPrior (Prior $c $x) '
-                     '(Implication (P $c $x) (Q $c $x))))',
-                     '(Implication (Exists ($x) (P $x)) (Q))'):
+                     '(ForAll ($c) (WithPrior (Prior2 $c $x) '
+                     '(Implication (P2 $c $x) (Q2 $c $x))))',
+                     '(Implication (Exists ($x) (P $x)) (Q0))'):
             with self.subTest(rule=rule):
                 self.assertTrue(self.h.add_atom(f'(: r {rule} (STV 1 1))'))
         self.assertTrue(self.h.add_atom(

@@ -496,9 +496,10 @@
 
 (: set-positive-only-predicate (-[det]-> KB Atom Bool))
 (= (set-positive-only-predicate $kb $head)
-   (if (== (collapse (once (match &positive_only_predicates ($kb $head) true))) ())
-      (let $_row (add-atom &positive_only_predicates ($kb $head)) true)
-      true))
+   (let $_declared (declared-head! $head)
+      (if (== (collapse (once (match &positive_only_predicates ($kb $head) true))) ())
+         (let $_row (add-atom &positive_only_predicates ($kb $head)) true)
+         true)))
 
 ;; A pattern one of whose conjuncts (or a negated conjunct's statement) has a
 ;; positive-only predicate.
@@ -513,8 +514,9 @@
    (not (== (collapse (once (match &complete_predicates ($kb $head) true))) ())))
 (: set-complete-predicate (-[det]-> KB Atom Bool))
 (= (set-complete-predicate $kb $head)
-   (if (complete-predicate? $kb $head) true
-      (let $_row (add-atom &complete_predicates ($kb $head)) true)))
+   (let $_declared (declared-head! $head)
+      (if (complete-predicate? $kb $head) true
+         (let $_row (add-atom &complete_predicates ($kb $head)) true))))
 
 ;; The strength of a rule's negative branch that no rate determines: even odds,
 ;; but false for a complete conclusion, which only rule applications make true.
@@ -1134,14 +1136,12 @@
                    (let $ctv (inheritance-lift-ctv $tv)
                       (compile_ $kb
                          (: (no_inverse (member-inheritance-implication $prf))
-                            (Implication (Member $x $subj) (Member $x $concept))
+                            (Implication ($subj $x) ($concept $x))
                             $ctv)))))
                (empty))
             (empty))
          (compile-specialization-fact-triggers $kb $Type)
-         (if (= $Type (Member $_obj $_class))
-            (empty)
-            (compile-outputs (: $fact-kb $prf $Type $tv)))))))
+         (compile-outputs (: $fact-kb $prf $Type $tv))))))
 
 ;; Rule refinement is opt-in per KB and set before its rules are added. A
 ;; refined rule's truth is the goal (RuleTruth (Implication a b)): the stored

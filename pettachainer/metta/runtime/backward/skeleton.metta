@@ -1040,7 +1040,7 @@
       ;; spend the evaluation's allowance, and the need would walk on below
       ;; it (a history of known periods under an open node, all of it rows
       ;; of an Assuming context). An instance that reads its own conclusion,
-      ;; (HasLeg Dog 4) from (Member Dog Dog) and (HasLeg Dog 4) itself, is no
+      ;; (HasLeg Dog 4) from (Dog Dog) and (HasLeg Dog 4) itself, is no
       ;; derivation of it. An open key stands for several statements, and a
       ;; query adapter, whose open proof head passes its premise's proof
       ;; through, derives nothing.

@@ -5536,7 +5536,7 @@
 ;; pattern's canonical key: one on (Not X) is the complement's on X.
 (: set-base-rate (-[det]-> KB Statement TV (List $none)))
 (= (set-base-rate $kbid $statement $rate)
-   (let* ((($pattern $odd) (canon $statement))
+   (let* ((($pattern $odd) (canon (brand Statement (member-canon $statement))))
           ($_valid (validate-base-rate! $statement (conjunct-parts (rate-children $pattern)) $rate))
           ($tv (case (data $odd $rate) (((true (STV $s $c)) (STV (- 1.0 $s) $c)) ($_even $rate))))
           ($_input (sk-input-changed! $kbid))
@@ -5549,7 +5549,7 @@
 
 (: clear-base-rate (-[det]-> KB Statement (List $none)))
 (= (clear-base-rate $kbid $statement)
-   (let* ((($pattern $_odd) (canon $statement))
+   (let* ((($pattern $_odd) (canon (brand Statement (member-canon $statement))))
           ($_old (base-rate-cache-remove! $kbid $pattern))
           ($_input (sk-input-changed! $kbid))
           ($_gated (prior-gated-rate-changed! $kbid $pattern)))

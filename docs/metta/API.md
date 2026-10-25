@@ -36,6 +36,16 @@ with the message `a negated statement takes an STV`. Rejection publishes no comp
 facts, rules or ingestion observations for that input. Bulk Python ingestion
 keeps its successfully added prefix, including its timed-worker replay journal.
 
+`(Member x P)` is the statement `(P x)` (#96, LANGUAGE_SPEC "Member is a
+unary predicate"): every source and query statement is read so at its
+statement positions, answers keep their query's form, and the KB stores the
+predicate form. A class must be a symbol or a variable:
+`(Member x (f y))` raises `domain_error(member_class, ...)`. A head has one
+arity per KB: a statement giving a head a second arity, a class included,
+raises `domain_error(predicate_arity, (head arity other))` and publishes
+nothing. Per-predicate declarations on `Member` itself raise
+`domain_error(predicate_head, Member)`; declare each class.
+
 A proof name, with its statement and context, is one observation's identity.
 Restating it with the same value is accepted, values compared by number:
 `(STV 1 1)` restates `(STV 1.0 1.0)`, and `(Not (P a))` at 0.8 restates

@@ -7,10 +7,10 @@
    (collapse
       (once
          (match &kb
-            ((Member $obj $class) ($kb MAIN Nil) $prf $tv)
+            (($class $obj) ($kb MAIN Nil) $prf $tv)
             (let*
                (($type
-                   (brand Statement (Member $obj $class)))
+                   (brand Statement (cons $class (cons $obj ()))))
                 ($kbctx
                    (brand KBContext (quote ($kb MAIN Nil))))
                 ($proof (brand Proof $prf))
@@ -366,7 +366,7 @@
 ;; Similar and arbitrary folds are outside the supported registration shape.
 !(register-forward-aggregate-premises! false
    ((CPU FoldAllCompiled
-       (forwardMemberFoldKb (Member $x Human) extract-tv
+       (forwardMemberFoldKb (Human $x) extract-tv
           (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv)
        $result)))
 

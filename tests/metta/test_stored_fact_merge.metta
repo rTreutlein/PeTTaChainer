@@ -24,7 +24,7 @@
 !(compileadd mergeKb (: d2 (Member rex Dog) (STV 0.4 0.5)))
 !(test (case (fa-member mergeKb rex Dog) (((forward-derived ($_t $_c $_p $tv) $_ev) $tv) ($other $other)))
    (STV 0.6 0.6666666666666666))
-!(test (case (fa-seed-statement (mergeKb MAIN Nil) () (Member rex Dog)) (((cons ($_t $_c $_p $tv) ()) $tv) ($other $other)))
+!(test (case (fa-seed-statement (mergeKb MAIN Nil) () (Dog rex)) (((cons ($_t $_c $_p $tv) ()) $tv) ($other $other)))
    (STV 0.6 0.6666666666666666))
 
 ;; A rule premise read from the stored facts matches their merged value

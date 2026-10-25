@@ -49,7 +49,7 @@
         ($same-evidence (== $ev (proof-ref-evidence $pid)))
         ($_cleared (clear-temp-query-adds)))
    (test (data $same-evidence $entries) (true ((fact-ev (ev68CompoundKb MAIN Nil) src_event
-      (And (AnnouncedBy Split1 Apple) (AnnouncedOn Split1 Date20200730) (Member Split1 StockSplit)))
+      (And (AnnouncedBy Split1 Apple) (AnnouncedOn Split1 Date20200730) (StockSplit Split1)))
       (rule-ev ev68CompoundKb src_bridge)))))
 
 ;; A stated conditional and both double-negated applications are one source.

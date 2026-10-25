@@ -41,14 +41,16 @@
 ;; A query of (Not s) is a query of s, answered complemented once per written
 ;; negation: its root reads s's canonical key, so it answers wherever s does,
 ;; at budget zero from a stored or materialized value too. A query of
-;; (ForAll params rule) is the judgment of its rule (#142).
+;; (ForAll params rule) is the judgment of its rule (#142). A written
+;; (Member x P) is read as (P x) (#96).
 (: query-root (-[det]-> AnnotatedStatement AnnotatedStatement))
-(= (query-root (: $prf $type $tv))
-   (if (head-is? $type Not)
-      (let ($key $_odd) (canon $type) (: $key-proof $key $key-tv))
-      (if (head-is? $type ForAll)
-         (: $prf (brand Statement (car-atom (cdr-atom (cdr-atom $type)))) $tv)
-         (: $prf $type $tv))))
+(= (query-root (: $prf $written $tv))
+   (let $type (member-canon $written)
+      (if (head-is? $type Not)
+         (let ($key $_odd) (canon $type) (: $key-proof $key $key-tv))
+         (if (head-is? $type ForAll)
+            (: $prf (brand Statement (car-atom (cdr-atom (cdr-atom $type)))) $tv)
+            (: $prf $type $tv)))))
 
 ;; A ForAll answer is its rule's answer under the written binder.
 (: forall-result (-[semidet]-> Statement RuntimeResult RuntimeResult))
@@ -56,16 +58,28 @@
    (let (ForAll $params $rule) (copy_term $written)
       (let $rule $type (brand RuntimeResult (data (ForAll $params $rule) $kbctx $proof $tv)))))
 
+;; An answer of a written Member statement, in the written form.
+(: member-result (-[det]-> Statement RuntimeResult RuntimeResult))
+(= (member-result $written $result)
+   (case $result (
+      ((CPU $_fun $_args $_res) $result)
+      (($type $kbctx $proof $tv)
+         (brand RuntimeResult (data (member-shape $written $type) $kbctx $proof $tv))))))
+
 ;; The public answers of a written root from those of its query root: each
 ;; written negation complements the answer, negates its proof and wraps its
 ;; public statement, and the written truth-value pattern constrains the
-;; complemented value. A computation row answers no statement.
+;; complemented value; a ForAll answer is its rule's answer under the written
+;; binder; a written Member answers in its written form. A computation row
+;; answers no statement.
 (: written-results (-[semidet]-> AnnotatedStatement (List RuntimeResult) (List RuntimeResult)))
-(= (written-results (: $_prf $type $tv) $results)
-   (if (head-is? $type Not)
+(= (written-results (: $_prf $written $tv) $results)
+   (if (head-is? $written Not)
       (negated-results $tv
-         (written-results (: $_inner-proof (car-atom (cdr-atom $type)) $_inner-tv) $results))
-      (if (head-is? $type ForAll) (map-semidet (forall-result $type) $results) $results)))
+         (written-results (: $_inner-proof (car-atom (cdr-atom $written)) $_inner-tv) $results))
+      (let* (($type (member-canon $written))
+             ($answers (if (head-is? $type ForAll) (map-semidet (forall-result $type) $results) $results)))
+         (if (== $type $written) $answers (map-flat (member-result $written) $answers)))))
 
 (: negated-step (-[det]-> Atom RuntimeResult (List RuntimeResult) (List RuntimeResult)))
 (= (negated-step $tv $result $kept)

@@ -19,7 +19,8 @@
 
 (: set-observed-predicate (-[det]-> KB Atom Bool))
 (= (set-observed-predicate $kb $head)
-   (let* (($_old (remove-data-rows! &observed (quote ($kb $head))))
+   (let* (($_declared (declared-head! $head))
+          ($_old (remove-data-rows! &observed (quote ($kb $head))))
           ($_row (add-atom &observed ($kb $head))))
       true))
 

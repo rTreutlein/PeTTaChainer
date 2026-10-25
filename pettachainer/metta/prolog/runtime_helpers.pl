@@ -222,7 +222,7 @@ connective_shape(Pattern, Shape) :-
 statement_shape(Statement, Shape) :-
     (   connective_shape(Statement, Shape) -> true
     ;   nonvar(Statement), Statement = [Head|Args], atom(Head),
-        \+ memberchk(Head, ['And', 'Or', 'Not', 'Inheritance', 'Member', 'MemberInheritanceSample',
+        \+ memberchk(Head, ['And', 'Or', 'Not', 'Inheritance', 'MemberInheritanceSample',
             'ImplicationInstanceSample', 'RuleTruth', 'Implication', 'Equivalence',
             'BiImplication', 'ForAll', 'Exists', 'WithPrior', 'Evaluation', 'Similarity',
             'Compute', 'CPU', 'FoldAll', 'FoldAllValue', 'FoldAllTruth', 'MapDist', 'Map2Dist',
@@ -1372,7 +1372,7 @@ dormancy_settles([[Type, Ctx, Proof, Tv]|Rest]) :-
 % inheritance), member folds and samples. Anything else counts as supported.
 dormancy_judged(Type, [_, Context|_]) :-
     ( var(Context) ; Context == 'MAIN' ),
-    \+ ( Type = [Head|_], memberchk(Head, ['Inheritance', 'Member', 'MemberInheritanceSample',
+    \+ ( Type = [Head|_], memberchk(Head, ['Inheritance', 'MemberInheritanceSample',
         'ImplicationInstanceSample', 'RuleTruth', 'Implication', 'Equivalence', 'And', 'Or', 'Not',
         'ForAll', 'WithPrior', 'Evaluation', 'Similarity']) ).
 
@@ -2240,6 +2240,7 @@ hypothesis_confidence(['CTV', ['STV', _, C], _], C).
 % This is stronger than merely knowing an uncertain most likely value.
 :- dynamic functional_predicate/4, functional_value/3, '&kb'/4, '&sk_answer'/3, rules/4.
 'set-functional-predicate'(Kb, Head, Arity, Positions, true) :-
+    'declared-head!'(Head, true),
     ( atom(Head), integer(Arity), Arity > 1, is_list(Positions),
       Positions \== [], sort(Positions, Positions), length(Positions, N), N < Arity,
       forall(member(P, Positions), (integer(P), between(1, Arity, P)))
