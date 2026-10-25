@@ -426,11 +426,15 @@ class DeepConditioningTests(unittest.TestCase):
         query = ['(: $p (Degraded plant t4) $tv)']
         interrupted = PeTTaChainer()
         plant(interrupted, 4)
-        janus.consult("interrupt_claim", "interrupt_claim :- ( nb_current(sk_claim_state, S), S >= 0 "
-                      "-> throw(claim_interrupted) ; alarm(0.001, interrupt_claim, _, [remove(true)]) ).\n")
-        janus.query_once("alarm(0.001, interrupt_claim, _, [remove(true)])")
-        with self.assertRaises(Exception):
-            interrupted.query_many_refs(query, steps=3000)
+        # The first charge inside an open claim throws, at the same point on
+        # every run, whatever the machine load.
+        janus.query_once("wrap_predicate('sk-claim-charge!'(_,_), claim_interrupt, _Charge, "
+                         "(nb_current(sk_claim_state, _S), _S >= 0 -> throw(claim_interrupted) ; _Charge))")
+        try:
+            with self.assertRaisesRegex(janus.PrologError, 'claim_interrupted'):
+                interrupted.query_many_refs(query, steps=3000)
+        finally:
+            janus.query_once("unwrap_predicate('sk-claim-charge!'(_,_), claim_interrupt)")
         def answer(handler):
             handler.set_query_metrics(True)
             tv = handler.query_many_refs(query, steps=3000)[0][0].tv
