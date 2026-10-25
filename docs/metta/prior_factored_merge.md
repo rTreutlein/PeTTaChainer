@@ -396,9 +396,17 @@ certain it gave 0.43125 where the joint gives 0.4615.
 A negated conjunct `(Not I)` completes I, the statement its observations,
 base rate and queries are about, with the two likelihoods swapped: P(C | I) =
 v, P(C | not I) = u'. Its proof is the completion's, over I's base rate, so it
-merges with other updates of I. A conjunction with negated children is pure
-for completion (`pure-connective-antecedent?`): before, the `Not` counted as a
-computation and no conjunct of such a rule was completed.
+merges with other updates of I. A conjunction or disjunction with negated
+children is pure for completion (`computing?` reads a negation by its key):
+before, the `Not` counted as a computation, and no child of an `Or` with a
+negated child was completed (#142).
+
+A rule with a negated antecedent `(Not s)` is the rule on s with its two
+branches swapped. Its inversion concludes s with the inverted value and the
+prior complemented, which is Bayes' rule over P(s) with the swapped
+likelihoods, so its proof updates s's prior and merges with s's other
+updates. A negated connective, `(Not (And O M)) -> C`, is not completed yet;
+see `runtime_design_assumptions.md` for why and what it needs.
 
 A disjunct M of `(Or O M) -> C` is completed the same way with the
 likelihoods of a disjunction (`DisjunctLikelihoodFormula`): P(C | M) = u and

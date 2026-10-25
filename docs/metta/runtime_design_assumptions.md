@@ -813,7 +813,25 @@ Bayes' rule over the child's base rate with the other parts at their values
 (`prior_factored_merge.md`); a part with no value of its own is read where
 the child leaves the compound open, the child given false for an Or and true
 for an And, so a root in a loop of complete predicates observed only through
-the loop is updated by it (`overlap_conditioning.md`, "Completions").
+the loop is updated by it (`overlap_conditioning.md`, "Completions"). A
+negated antecedent is the rule on its canonical key with the branches
+swapped: the inversion concludes the key (`prior_factored_merge.md`).
+Inversions read the observed consequence through `lower`, so a negated or
+compound consequence is read off its key (#142).
+
+Known limits. A negated connective, `(Not (And O M)) -> C`, is not completed:
+its rule reads the connective's key K, so a completion of M would read C
+predicted from K's own evidence (a stored `(And O M)`) as an observation, and
+excluding such views alone ignores K's evidence, which screens C off from M.
+The same holds for a positive connective whose key has evidence of its own:
+with `(And G H)` stored false and C observed, the completion of G reads H's
+projection of the stored compound and gives G its prior instead of
+P(G | not (G and H)) (#142; a known failure in `test_compound_completion.py`).
+Completing either needs K's own evidence as an observation: a key read with
+its own exclusions (views depending on M, and the rule's inversion onto K
+from C) that gives no factor when K has no view, as `sk-prior` reads a prior,
+and completion likelihoods conditioned on it, M's prior replaced by
+P(M | e_K) and the sibling's value by its posterior given M and e_K.
 
 A clash that survives the fresh read is resolved by conditioning, not refused.
 The row is evaluated with the statement of a shared fact known true and again

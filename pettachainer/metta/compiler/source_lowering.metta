@@ -1084,7 +1084,3 @@
 (: rule-query-pattern (-[det]-> $term $term))
 (= (rule-query-pattern $term)
    (let (rule-query-state $pattern $_witnesses) (rule-query-walk $term ()) $pattern))
-
-(: contains-cpu? (-[det]-> Expression Bool))
-(= (contains-cpu? $term)
-   (contains-head? (== CPU) $term))

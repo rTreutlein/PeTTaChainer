@@ -2,13 +2,20 @@
 ;; derived views and specialization jobs compile new statements through
 ;; compile_, while compile_ dispatches back into both mechanisms.
 ;; Classify source computations rather than treating every CPU introduced by
-;; lowering as a reason to suppress implication inversion. A pure top-level Or
-;; lowers through a TV-formula CPU, but an inverse rule can still derive the
-;; complete disjunction and let its ordinary projection adapters recover one
-;; child. Actual source computations remain restricted to the explicitly
-;; reversible subset. Pure And and Or antecedents can be inverted as complete
-;; compounds; a child of either is recovered only by completion. A premise
-;; with an unsupported or nested source computation has no compute goals.
+;; lowering as a reason to suppress implication inversion: a connective or a
+;; negation lowers through a TV-formula CPU, but an inverse rule can still
+;; derive its canonical key. A statement computes when its canonical key does:
+;; a connective when a child does, any other statement when its head is a
+;; source computation (its arguments are terms, not statements). Actual source
+;; computations remain restricted to the explicitly reversible subset; a
+;; premise with an unsupported or nested one has no compute goals.
+(: computing? (-[det]-> Bool Atom Bool))
+(= (computing? $seen $statement)
+   (if $seen true
+      (let ($key $_odd) (canon (brand Statement $statement))
+         (if (compound-source? $key)
+            (let $children (the (List Atom) (cdr-atom $key)) (fold-flat computing? false $children))
+            (if (is-expr $key) (let $head (car-atom $key) (if (is-var $head) false (source-computation-head? $head))) false)))))
 (: source-compute-goals (-[semidet]-> (List Atom) (List Goal)))
 (= (source-compute-goals ()) ())
 (= (source-compute-goals (cons $premise $rest))
@@ -18,7 +25,7 @@
             (cons (CPU $function $args $result) (source-compute-goals $rest)))
          ((Compute $function $args $result)
             (source-compute-goals (cons (Compute $function $args -> $result) $rest)))))
-      (if (contains-head? source-computation-head? $premise) (empty) (source-compute-goals $rest))))
+      (if (computing? false $premise) (empty) (source-compute-goals $rest))))
 
 (: direct-variable-index-or-negative (-[det]-> (List Atom) Variable Number Number))
 (= (direct-variable-index-or-negative () $_variable $_index) -1)
@@ -62,12 +69,13 @@
       (empty)))
 
 (: compile-reversible-compute-plan (-[semidet]-> Statement Statement ComputeInversePlan))
+;; The plan inverting a rule onto its antecedent; an existential's is open.
 (= (compile-reversible-compute-plan $antecedent $consequent)
-   (let* (($compute-goals (source-compute-goals (implication-side-conjuncts $antecedent)))
-          ($known (list_to_set (extract-vars $consequent))))
-      (if (== $compute-goals ())
-         (if (head-is-member? $antecedent (And Or)) (inverse-compute-plan () $known) (empty))
-         (inverse-compute-goals (prepend-reversed-goals $compute-goals ()) $known))))
+   (let ($key $_odd) (canon $antecedent)
+      (if (head-is-member? $key (Exists ExistentialClaim)) (empty)
+         (inverse-compute-goals
+            (prepend-reversed-goals (source-compute-goals (implication-side-conjuncts $antecedent)) ())
+            (list_to_set (extract-vars $consequent))))))
 
 ;; The pattern a rule's base rate is taken over: a fresh copy of one of its
 ;; sides, except the variables a surrounding ForAll binds, which stay shared
@@ -633,18 +641,15 @@
 (= (opposite-instance-tv $tv) (case $tv (((CTV $pos $neg) (CTV $neg $pos)))))
 
 ;; Compile the backward use of an implication stated with an STV: derive its
-;; negative branch from the base rates of both sides, invert by the ratio
-;; P(A|B) = P(B|A) P(A) / P(B) over the reconciled base rates, and then use the
-;; observed consequent as modus-ponens evidence, a soft value entering as its
-;; likelihood ratio over the prior it was formed under (ObservationRatioFormula,
-;; sk-observation-prior). A rule stated with a CTV gives
-;; both likelihoods and is inverted by Bayes' rule over the antecedent's base
-;; rate instead (`prior-inverse-implication` with `population`), which needs no
-;; P(B): an empirical P(B) inconsistent with P(A) and the stated likelihoods
-;; would otherwise decide the inversion. This is emitted only when the main
-;; compiler has proved the antecedent is invertible. Reversible Compute goals
-;; bind antecedent variables first and validate the generated binding with the
-;; original forward computation.
+;; negative branch from the base rates of both sides and invert by the ratio
+;; P(A|B) = P(B|A) P(A) / P(B) over the reconciled base rates. A rule stated
+;; with a CTV gives both likelihoods and is inverted by Bayes' rule over the
+;; antecedent's base rate instead (`prior-inverse-implication` with
+;; `population`), which needs no P(B): an empirical P(B) inconsistent with
+;; P(A) and the stated likelihoods would otherwise decide the inversion. This
+;; is emitted only when the main compiler has proved the antecedent is
+;; invertible. Reversible Compute goals bind antecedent variables first and
+;; validate the generated binding with the original forward computation.
 (: inverse-implication
    (-[semidet]-> KB Proof (List Variable) Statement Statement Atom (List Goal) (List Goal)
        CompiledAddition))
@@ -652,32 +657,49 @@
    (let*
       (($a1 (rule-base-rate-pattern $params $a))
         ($b1 (rule-base-rate-pattern $params $b))
-        ($a-base-rates (prior-base-rate-premises $kb $a1 $raw-atv $atv))
         ($b-plan (base-rate-read-plan $kb $b1))
-        ($b-base-rates (append-goals (base-rate-premises $kb $b1 $raw-btv)
-                          ((CPU ReadRate (quote ($kb $b1 $raw-btv $b-plan false)) (rate-read $btv $_read-btv)))))
         ($ctv (CTV (the STVType $itv) (STV (unknown-branch-centre $kb $b) 0)))
-        ($rule-likelihoods (likelihood-read $ctv $ctv (negative-source (the OptionalSTV $raw-atv) (the OptionalSTV $btv) (the STVType $itv))))
-        ($formula-goals
-           (the (List Goal)
-              ((CPU ReadLikelihoodContext () $read-context)
-               (CPU rule-likelihood-read (quote ($kb $prf $a1 $b1 $rule-likelihoods $read-context)) $read-likelihoods)
-               (CPU CTVInversionFormula (quote ($atv $btv $read-likelihoods)) $iitv)
-               (CPU stage-statement? (quote ($kb $a)) $stage)
-               (CPU sk-observation-prior (quote ($prfb_wit $btv_wit $stage)) $obs-prior)
-               (CPU ObservationRatioFormula (quote ($btv_wit $obs-prior $atv $iitv)) $obs-tv)
-               (CPU CTVModusPonensFormula (quote ($obs-tv $iitv)) $mp-tv))))
-        ($premises
-           (append-goals
-              (append-goals $truth-premises
-                 (cons (: (make-kb-context $kb $ctx $vars) $prfb_wit $b $btv_wit) ()))
-              (append-goals
-                 $inverse-execs
-                 (append-goals $a-base-rates (append-goals $b-base-rates $formula-goals))))))
-      ($premises |-
-         (: (make-kb-context $kb $ctx $vars)
-              ((inverted $prf with cpu (prior $atv)) $prfb_wit)
-              $a $mp-tv))))
+        ($rule-likelihoods (likelihood-read $ctv $ctv (negative-source (the OptionalSTV $raw-atv) (the OptionalSTV $btv) (the STVType $itv)))))
+      (inversion-addition (make-kb-context $kb $ctx $vars) $prf cpu $truth-premises $a $b $inverse-execs
+         (append-goals (prior-base-rate-premises $kb $a1 $raw-atv $atv)
+            (append-goals (base-rate-premises $kb $b1 $raw-btv)
+               (the (List Goal)
+                  ((CPU ReadRate (quote ($kb $b1 $raw-btv $b-plan false)) (rate-read $btv $_read-btv))
+                   (CPU ReadLikelihoodContext () $read-context)
+                   (CPU rule-likelihood-read (quote ($kb $prf $a1 $b1 $rule-likelihoods $read-context)) $read-likelihoods)
+                   (CPU CTVInversionFormula (quote ($atv $btv $read-likelihoods)) $iitv)))))
+         $atv $iitv)))
+
+;; An inversion: the observation of b read through `lower`, the inverse
+;; computations, the goals `$estimate` binding the inversion `$iitv` over a's
+;; prior `$atv`, and b's value as its likelihood ratio over the prior it was
+;; formed under (ObservationRatioFormula). It concludes a's canonical key, so
+;; a rule on (Not s) concludes s with value and prior complemented: the rule on
+;; s with its branches swapped. The proof carries the prior, so updates of one
+;; prior merge by Bayes' rule (sk-factored-merge).
+(: inversion-addition
+   (-[semidet]-> KBContext Proof Atom (List Goal) Statement Statement (List Goal) (List Goal) Atom Atom
+       CompiledAddition))
+(= (inversion-addition $kc $prf $token $truth-premises $a $b $inverse-execs $estimate $atv $iitv)
+   (let* (((premise-bundle $b-goals $btv_wit $prfb_wit) (lower $kc $b))
+          (($kb $_ctx $_vars) $kc)
+          (($key $odd) (canon $a))
+          ($premises
+             (append-goals $truth-premises
+                (append-goals $b-goals
+                   (append-goals $inverse-execs
+                      (append-goals $estimate
+                         (the (List Goal)
+                            ((CPU stage-statement? (quote ($kb $key)) $stage)
+                             (CPU sk-observation-prior (quote ($prfb_wit $btv_wit $stage)) $obs-prior)
+                             (CPU ObservationRatioFormula (quote ($btv_wit $obs-prior $atv $iitv)) $obs-tv)
+                             (CPU CTVModusPonensFormula (quote ($obs-tv $iitv)) $mp-tv))))))))
+          (($polarity $key-tv $key-prior)
+             (if $odd (data ((CPU NotFormula ($mp-tv) $not-tv) (CPU NotFormula ($atv) $not-prior)) $not-tv $not-prior)
+                (data () $mp-tv $atv))))
+      (brand CompiledAddition
+         ((append-goals $premises (the (List Goal) $polarity))
+            |- (: $kc ((inverted $prf with $token (prior $key-prior)) $prfb_wit) $key $key-tv)))))
 
 ;; Resolve a finite likelihood once after reading its observation. Certain
 ;; CTVs are already resolved: no contextual CPU goals or centre dependency.
@@ -703,49 +725,38 @@
 ;; for the observed instance, or, with `population`, a's base rate for an
 ;; instance without one; the first's evidence contains the second's, so it
 ;; replaces that answer wherever `p` is provable. A plain rule stated with a CTV
-;; is inverted with `population` alone. The observation of b enters as its
-;; likelihood ratio, as for an STV rule. The proof carries the prior's truth
-;; value, so inversions of several observations over one prior merge by
-;; Bayes' rule (sk-factored-merge).
+;; is inverted with `population` alone.
 (: prior-inverse-implication
    (-[semidet]-> KB Proof (List Variable) Atom Statement Statement TV Atom
        (List Goal) (List Goal) CompiledAddition))
 (= (prior-inverse-implication $kb $prf $params $prior $a $b $tv $value
       $truth-premises $inverse-execs)
    (let*
-      (($a-rate-pattern (rule-base-rate-pattern $params $a))
+      (($kc (make-kb-context $kb $ctx $vars))
+       ($a-rate-pattern (rule-base-rate-pattern $params $a))
        ($b-rate-pattern (rule-base-rate-pattern $params $b))
        ($population (== $prior population))
        ($prior-goals
           (if $population
-             (prior-base-rate-premises $kb (rule-base-rate-pattern $params $a) $_raw-prior $atv)
-             (cons (: (make-kb-context $kb $ctx $vars) $prior-prf (brand Statement $prior) $raw-atv)
+             (prior-base-rate-premises $kb $a-rate-pattern $_raw-prior $atv)
+             (cons (: $kc $prior-prf (brand Statement $prior) $raw-atv)
                 ((CPU instance-prior-tv (quote ($prior-prf $raw-atv)) $atv)))))
-       ($prior-token (if $population cpu $prior-prf))
        (($ctv-execs $rule-ctv $rule-likelihoods)
           (compile-implication-ctv-execs $kb $params $a $b $tv $value true))
        (($read-goals $read-likelihoods)
           (likelihood-read-premises $kb $prf $a-rate-pattern $b-rate-pattern $tv $rule-likelihoods))
-       ($premises
-          (append-goals $truth-premises
-             (cons (: (make-kb-context $kb $ctx $vars) $prfb_wit $b $btv_wit)
-                (append-goals $inverse-execs
-                   (append-goals $prior-goals
-                      (append-goals (append-goals $ctv-execs $read-goals)
-                         (the (List Goal)
-                            ((CPU CTVBayesFormula (quote ($atv $read-likelihoods)) $iitv)
-                             (CPU stage-statement? (quote ($kb $a)) $stage)
-                             (CPU sk-observation-prior (quote ($prfb_wit $btv_wit $stage)) $obs-prior)
-                             (CPU ObservationRatioFormula (quote ($btv_wit $obs-prior $atv $iitv)) $obs-tv)
-                             (CPU CTVModusPonensFormula (quote ($obs-tv $iitv)) $mp-tv))))))))))
-      ($premises |-
-         (: (make-kb-context $kb $ctx $vars)
-            ((inverted $prf with $prior-token (prior $atv)) $prfb_wit)
-            $a $mp-tv))))
+       ($prior-token (if $population cpu $prior-prf)))
+      (inversion-addition $kc $prf $prior-token $truth-premises $a $b $inverse-execs
+         (append-goals $prior-goals
+            (append-goals (append-goals $ctv-execs $read-goals)
+               ((CPU CTVBayesFormula (quote ($atv $read-likelihoods)) $iitv))))
+         $atv $iitv)))
 
 ;; For every child M of a pure conjunction or disjunction H, compile the
 ;; completion (And O C) -> M, where O is the connective over H's other
-;; children and C is the original consequence. That is the only
+;; children and C is the original consequence. A negated connective is not
+;; completed: its key's own evidence screens C off from its parts, and a
+;; completion would have to condition on it (#142). That is the only
 ;; child-recovery operator for a pure And or Or: whole-H inversion still
 ;; proves H itself, but does not also project to each child. The completion
 ;; inverts the rule onto M over M's base rate, as a plain inversion inverts
@@ -758,23 +769,17 @@
 ;; the statement its observations and base rate are about. The proof carries
 ;; the base rate, so the completion merges with other updates of it by
 ;; Bayes' rule (sk-factored-merge).
-;; A conjunction or disjunction is pure when no child computes, a negated
-;; child counting by the statement it negates.
-(: computing-child? (-[det]-> Bool Atom Bool))
-(= (computing-child? $seen $child)
-   (if $seen true
-      (let ($statement $_odd) (canon (brand Statement $child))
-         (contains-head? source-computation-head? $statement))))
+;; A conjunction or disjunction is pure when no child computes (`computing?`).
 ;; The connective over a compound's children, or its one child.
 (: connective-statement (-[det]-> Atom (List Statement) Statement))
 (= (connective-statement $connective (cons $head $tail))
    (if (== $tail ()) $head (brand Statement (cons $connective (cons $head $tail)))))
 (: compile-antecedent-completion
-   (-[nondet]-> KB $context $variables KBContext Proof TV (List Goal) Atom (List Variable)
+   (-[nondet]-> KB KBContext Proof TV (List Goal) Atom (List Variable)
        Statement Statement (List Statement) Number (List Statement)
        CompiledAddition))
 (= (compile-antecedent-completion
-      $kb $ctx $vars $shape-kb $prf $tv $truth-premises $value $params
+      $kb $shape-kb $prf $tv $truth-premises $value $params
       $full $consequent $children $idx (cons $missing $rest))
    (superpose (
       (if (is-var $missing)
@@ -835,7 +840,7 @@
                            $target $out-tv))))
                (empty))))
       (compile-antecedent-completion
-         $kb $ctx $vars $shape-kb $prf $tv $truth-premises $value $params
+         $kb $shape-kb $prf $tv $truth-premises $value $params
          $full $consequent $children (+ $idx 1) $rest))))
 
 (: concrete-inheritance-link? (-[det]-> Atom Atom Bool))
@@ -1220,7 +1225,6 @@
             (($_evidence-reg (register-rule-evidence! $kb $prf $tv (== (extract-vars $Type) ())))
              ($shape-kb (make-kb-context $kb $ctx $vars))
              ($antecedents (antecedent-lowerings $shape-kb (brand Statement $antecedent)))
-             ((cons ($execs $_proofs $_atv) $_settled) $antecedents)
              ;; A nested conjunction is read as the flat one (#142).
              ($flat-antecedent (if (head-is? $antecedent And)
                 (cons And (implication-side-conjuncts (brand Statement $antecedent)))
@@ -1231,12 +1235,12 @@
                    (canonical-existential-side (brand Statement $consequent))
                    (brand Statement (implication-source-term $consequent))))
              ($antecedent-vars (implication-antecedent-free-vars $antecedent))
-             ($pure-connective? (if (head-is-member? $a (And Or))
-                (not (fold-flat computing-child? false (implication-side-conjuncts $a))) false))
+             (($a-key $a-odd) (canon $a))
+             ($pure-connective? (if (head-is-member? $a-key (And Or)) (not (computing? false $a-key)) false))
              ($ctv? (if (= $tv (CTV $_pos $_neg)) true false))
              ($refine? (refined-rule? $kb $prf $a $b $tv))
              ($truth-type (RuleTruth (Implication $a $b)))
-             ($a-opposite (let ($key $odd) (canon $a) (if $odd $key (brand Statement (Not $key)))))
+             ($a-opposite (if $a-odd $a-key (brand Statement (Not $a-key))))
              ($truth-premises (rule-truth-premises $refine? $kb $truth-type $truth-tv))
              ($_truth-shape
                 (if $refine?
@@ -1323,9 +1327,7 @@
                (if (if (head-is-member? $prf (no_inverse bi-forward bi-backward)) true (implication-type? $b))
                   (empty)
                   (let* (((inverse-compute-plan $inverse-execs $inverse-known)
-                            (if (contains-cpu? (execs-goal-type $execs))
-                               (compile-reversible-compute-plan $a $b)
-                               (inverse-compute-plan () (list_to_set (extract-vars $b)))))
+                            (compile-reversible-compute-plan $a $b))
                          ($na (skolemize-conclusion-vars $prf (append $params $inverse-known) $a)))
                      (superpose (
                         (if (== $prior no-prior) (empty)
@@ -1341,8 +1343,9 @@
                         (if (is-var $na) (empty)
                            (if $pure-connective?
                               (empty)
-                              (compile-outputs
-                                 (: $shape-kb ((inverted $prf $w $pa1 $pa2) $pb2) $na $natv))))
+                              (let ($na-key $_na-odd) (canon $na)
+                                 (compile-outputs
+                                    (: $shape-kb ((inverted $prf $w $pa1 $pa2) $pb2) $na-key $natv)))))
                         (if (is-var $b) (empty)
                            (let $producers (producers $shape-kb $b) (superpose $producers)))))))
                ;; No inverse rule of any kind for a rule named no_inverse:
@@ -1350,12 +1353,11 @@
                ;; conclusion as inversion recovers the whole antecedent. Both
                ;; read the conclusion as an observation, and a derived
                ;; implication is not one.
-               (if (if $pure-connective? (if (= $prf (no_inverse $_)) false (not (implication-type? $b))) false)
-                  (let $children
-                     (statement-children (the (List Atom) (cdr-atom $a)))
+               (if (if $pure-connective? (if $a-odd false (if (= $prf (no_inverse $_)) false (not (implication-type? $b)))) false)
+                  (let $children (statement-children (the (List Atom) (cdr-atom $a-key)))
                      (compile-antecedent-completion
-                        $kb $ctx $vars $shape-kb $prf $tv $truth-premises $value $params
-                        $a $b $children 0 $children))
+                        $kb $shape-kb $prf $tv $truth-premises $value $params
+                        $a-key $b $children 0 $children))
                   (empty))
                (compile-implication-statement-rules $kb $b)
                (compile-inheritance-rule-lifts $kb (: $prf $Type $tv)
