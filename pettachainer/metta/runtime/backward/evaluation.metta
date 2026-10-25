@@ -5469,10 +5469,13 @@
 
 ;; Setting or clearing a user base rate changes the folds over its pattern,
 ;; which recompute with their readers at the next evaluation, and adds or
-;; withdraws the positive-only rows reading it.
+;; withdraws the positive-only rows reading it. A rate is set on its
+;; pattern's canonical key: one on (Not X) is the complement's on X.
 (: set-base-rate (-[det]-> KB Statement TV (List $none)))
-(= (set-base-rate $kbid $pattern $tv)
-   (let* (($_valid (validate-base-rate! $pattern (conjunct-parts (implication-side-conjuncts $pattern))))
+(= (set-base-rate $kbid $statement $rate)
+   (let* ((($pattern $odd) (canon $statement))
+          ($tv (case (data $odd $rate) (((true (STV $s $c)) (STV (- 1.0 $s) $c)) ($_even $rate))))
+          ($_valid (validate-base-rate! $pattern (conjunct-parts (rate-children $pattern))))
           ($_input (sk-input-changed! $kbid))
           ($stored (copy_term $pattern))
           ($hash (base-rate-cache-hash $kbid $pattern))
@@ -5482,8 +5485,9 @@
       (base-rate-readers-changed! $kbid $pattern)))
 
 (: clear-base-rate (-[det]-> KB Statement (List $none)))
-(= (clear-base-rate $kbid $pattern)
-   (let* (($_old (base-rate-cache-remove! $kbid $pattern))
+(= (clear-base-rate $kbid $statement)
+   (let* ((($pattern $_odd) (canon $statement))
+          ($_old (base-rate-cache-remove! $kbid $pattern))
           ($_input (sk-input-changed! $kbid))
           ($_gated (prior-gated-rate-changed! $kbid $pattern)))
       (base-rate-readers-changed! $kbid $pattern)))

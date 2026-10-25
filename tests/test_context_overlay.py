@@ -6,6 +6,7 @@ negative-control runs; normal unittest discovery always uses the real runtime.
 import os
 import random
 from pathlib import Path
+import re
 import unittest
 
 import janus_swi as janus
@@ -120,7 +121,7 @@ class OverlayChecks:
         # composed from the History population (#142), so History(trigger),
         # which the action reaches, is read in C; the t0..t2 history is not.
         history = [row for space, head, row in local if space in ("&sk_latest", "&sk_view", "&sk_merged")
-                   and head == "History" and "['History',trigger]" not in str(row)]
+                   and head == "History" and not re.match(r"\[-?\d+,\['sk-key',\['History',trigger\],", row)]
         self.assertEqual(history, [])
         self.assertTrue(janus.query_once(
             "once('&sk_merged'(_,['sk-key',['History',t2],[Kb,'MAIN','Nil']],_,_,_))",

@@ -1,7 +1,7 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 !(set-bayes-prior-count 0)
 !(set-base-rate populationKb (Bird $x) (STV 0.2 1))
-;; The STV source's antecedent is Not Bird; rate caches key exact patterns.
+;; A rate on (Not (Bird $x)) is stored as its complement on (Bird $x): the same pin.
 !(set-base-rate populationKb (Not (Bird $x)) (STV 0.8 1))
 !(set-base-rate populationKb (Fly $x) (STV 0.5 1))
 !(compileadd populationKb (: nonbirds (Implication (Not (Bird $x)) (Fly $x)) (STV 0.4 1)))

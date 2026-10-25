@@ -1014,16 +1014,27 @@ members that changed. Inheritance-weighted members count at unit mass and the
 evidence is scaled by the current subject mass when the fold finishes, so a
 growing universe does not leave contributions stale.
 
-A conjunction whose conjuncts fall into parts sharing no variables ranges
-over the cross product of the parts' instances, so its base rate is exactly
-the product of the parts' rates: each part is folded on its own and the rates
+A compound's prior is composed from its parts' priors (#142). A negation's is
+the complement of its statement's: there is no fold over a negation, and a
+rate set on `(Not X)` is stored as its complement on `X`, as a negated fact is
+stored on its canonical key. A conjunction or disjunction whose children fall
+into parts sharing no variables ranges over the cross product of the parts'
+instances, so its base rate is exactly the product, or the independent
+disjunction, of the parts' rates: each part is folded on its own and the rates
 are combined, instead of folding over every combination. A separate user joint
 override on such a disconnected pattern is rejected before cache mutation;
-component rates remain configurable. Ground conjuncts
-stay with a part, since a single instance multiplies nothing. While a part
-has no counted member the product has no evidence, as one fold with no
-member has none (`BaseRateProductFormula`), so an STV rule over such an
-antecedent still applies, with the negative branch of unknown base rates.
+component rates remain configurable. Ground children stay with a part, since
+a single instance multiplies nothing. While a part has no counted member the
+combination has no evidence, as one fold with no member has none
+(`BaseRateProductFormula`, `BaseRateOrFormula`), so an STV rule over such an
+antecedent still applies, with the negative branch of unknown base rates. A
+conjunction or disjunction whose children share variables takes its joint
+rate, the fold over the compound itself, when that is set or has evidence,
+and otherwise the rate composed from its children's priors as if independent
+(`CompoundRateFormula`). Known limits: a pinned child gives way to an unpinned
+joint with evidence, and a joint over a single member replaces a well-founded
+composed rate; shrinking the joint towards the composed rate (#69) would
+address both.
 
 A KB may opt into base-rate smoothing, which reads every computed base rate
 as its n observations plus k pseudo-observations at 0.5: the strength of a

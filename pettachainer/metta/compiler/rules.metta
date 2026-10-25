@@ -353,62 +353,62 @@
 (= (conjunct-parts $conjuncts)
    (fold-flat add-ground-to-parts (fold-flat add-to-parts () $conjuncts) $conjuncts))
 
+;; A connective's children whose parts its base rate splits by: an And's
+;; conjuncts, through nested conjunctions, or an Or's children.
+(: rate-children (-[det]-> Statement (List Atom)))
+(= (rate-children $key)
+   (if (head-is? $key Or) (the (List Atom) (cdr-atom $key)) (implication-side-conjuncts $key)))
+
 ;; The premises estimating a pattern's base rate as `$brtv`, its prior,
-;; recursively over its structure (#142). A conjunction whose conjuncts fall
-;; into parts sharing no variables ranges over the cross product of the parts'
-;; instances, so its rate is exactly the product of theirs. A negation, a
-;; disjunction and a conjunction whose conjuncts share variables take their
-;; joint rate, the fold over the compound itself, when it has evidence or a
-;; user pin, and otherwise the rate composed from their parts' priors
-;; (CompoundRateFormula). Any other statement is folded.
+;; recursively over its structure (#142). A negation's prior is the complement
+;; of its canonical key's, as a rate set on (Not X) is stored on X. A
+;; connective whose children fall into parts sharing no variables ranges over
+;; the cross product of the parts' instances, so its rate is exactly the
+;; product (And) or the independent disjunction (Or) of theirs. A connective
+;; whose children share variables takes its joint rate, the fold over the
+;; compound itself, when that has evidence or a user pin, and otherwise the
+;; rate composed from its children's priors (CompoundRateFormula). Any other
+;; statement is folded.
 (: BaseRateParts Type)
 (: base-rate-parts (-[det]-> (List Goal) (List Atom) BaseRateParts))
 (: base-rate-premises (-[det]-> KB Statement $truth-value (List Goal)))
-(: part-statement (-[det]-> (List Atom) Statement))
-(= (part-statement $part) (brand Statement (seq2expr $part)))
 (= (base-rate-premises $kb $pattern $brtv)
-   (if (head-is? $pattern Not)
-      (let $inner (brand Statement (car-atom (cdr-atom $pattern)))
-         (compound-rate-premises $kb $pattern
-            (append-goals (base-rate-premises $kb $inner $rate) ((CPU BaseRateNotFormula (quote ($rate)) $composed)))
-            $composed $brtv))
-      (if (head-is? $pattern Or)
-         (compound-rate-premises $kb $pattern
-            (composed-rate-premises $kb BaseRateOrFormula (statement-children (cdr-atom $pattern)) $composed)
-            $composed $brtv)
-         (if (head-is? $pattern And)
-            (base-rate-part-premises $kb $pattern $brtv
-               (conjunct-parts (implication-side-conjuncts $pattern)))
-            (cons (base-rate-fold $kb $pattern $brtv) ())))))
+   (let ($key $odd) (canon $pattern)
+      (if $odd
+         (append-goals (base-rate-premises $kb $key $rate) ((CPU BaseRateNotFormula (quote ($rate)) $brtv)))
+         (if (head-is-member? $key (And Or))
+            (let $children (rate-children $key)
+               (base-rate-part-premises $kb $key $brtv $children (conjunct-parts $children)))
+            (cons (base-rate-fold $kb $key $brtv) ())))))
+(: child-part (-[det]-> Atom (List Atom)))
+(= (child-part $child) (cons $child ()))
 ;; The parts arrive as a parameter: the determinism checker proves the fold
-;; over a parameter list, not over a function result.
-(: base-rate-part-premises (-[det]-> KB Statement $truth-value (List Atom) (List Goal)))
-(= (base-rate-part-premises $kb $pattern $brtv $parts)
+;; over a parameter list, not over a function result. A connective of one
+;; child, as an (And X) a nested conjunction leaves, is that child.
+(: base-rate-part-premises (-[det]-> KB Statement $truth-value (List Atom) (List Atom) (List Goal)))
+(= (base-rate-part-premises $kb $key $brtv $children $parts)
    (if (== (cdr-atom $parts) ())
-      (let $conjuncts (implication-side-conjuncts $pattern)
-         (if (== (cdr-atom $conjuncts) ())
-            (base-rate-premises $kb (brand Statement (car-atom $conjuncts)) $brtv)
-            (compound-rate-premises $kb $pattern
-               (composed-rate-premises $kb BaseRateProductFormula (statement-children $conjuncts) $composed)
-               $composed $brtv)))
-      (composed-rate-premises $kb BaseRateProductFormula (map-flat part-statement $parts) $brtv)))
+      (if (== (cdr-atom $children) ())
+         (base-rate-premises $kb (brand Statement (car-atom $children)) $brtv)
+         (cons (base-rate-fold $kb $key $joint)
+            (composed-rate-premises $kb $key (map-flat child-part $children) $composed
+               ((CPU CompoundRateFormula (quote ($joint $composed)) $brtv)))))
+      (composed-rate-premises $kb $key $parts $brtv ())))
 
-;; A compound's joint rate beside the goals `$composing` binding its composed
-;; rate `$composed`, and the rate CompoundRateFormula takes from the two.
-(: compound-rate-premises (-[det]-> KB Statement (List Goal) Atom $truth-value (List Goal)))
-(= (compound-rate-premises $kb $pattern $composing $composed $brtv)
-   (let $fold (base-rate-fold $kb $pattern $joint)
-      (cons $fold (append-goals $composing ((CPU CompoundRateFormula (quote ($joint $composed)) $brtv))))))
-
-;; The rate `$formula` composes from the children's priors, left to right.
-(: composed-rate-part (-[det]-> KB Statement BaseRateParts BaseRateParts))
-(= (composed-rate-part $kb $child (base-rate-parts $goals $tvs))
-   (base-rate-parts (append-goals (base-rate-premises $kb $child $tv) $goals) (cons $tv $tvs)))
-(: composed-rate-premises (-[det]-> KB Atom (List Statement) $truth-value (List Goal)))
-(= (composed-rate-premises $kb $formula $children $rate)
-   (case (foldr-flat (composed-rate-part $kb) (base-rate-parts () ()) $children) (
+;; The rate the connective `$key` composes from its parts' priors, left to
+;; right, as a product (And) or an independent disjunction (Or), followed by
+;; the goals `$tail`.
+(: composed-rate-part (-[det]-> KB Statement (List Atom) BaseRateParts BaseRateParts))
+(= (composed-rate-part $kb $key $part (base-rate-parts $goals $tvs))
+   (let $statement (brand Statement (if (== (cdr-atom $part) ()) (car-atom $part) (cons (car-atom $key) $part)))
+      (base-rate-parts (append-goals (base-rate-premises $kb $statement $tv) $goals) (cons $tv $tvs))))
+(: composed-rate-premises (-[det]-> KB Statement (List Atom) $truth-value (List Goal) (List Goal)))
+(= (composed-rate-premises $kb $key $parts $rate $tail)
+   (case (foldr-flat (composed-rate-part $kb $key) (base-rate-parts () ()) $parts) (
       ((base-rate-parts $goals $tvs)
-         (case $tvs (((cons $first $more) (append-goals $goals (and-tv-goals $formula $first $more $rate ())))))))))
+         (case $tvs (((cons $first $more)
+            (let $formula (if (head-is? $key And) BaseRateProductFormula BaseRateOrFormula)
+               (append-goals $goals (and-tv-goals $formula $first $more $rate $tail))))))))))
 
 ;; The conjunction of truth values, multiplied left to right by the binary
 ;; `$formula` (AndFormula, as a lowered antecedent multiplies them, or
