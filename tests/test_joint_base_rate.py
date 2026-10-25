@@ -53,3 +53,12 @@ class TestJointBaseRate(unittest.TestCase):
         self.assertEqual(values[0][0], 'STV')
         self.assertAlmostEqual(values[0][1], 0.09973382001653103, places=12)
         self.assertAlmostEqual(values[1][1], values[0][1], places=12)
+        # The negation's prior is a key (#142): a pin set or cleared after a
+        # query reaches its readers through it.
+        h = PeTTaChainer()
+        h.add_atoms_no_check(facts)
+        unpinned = h.query_many_refs(['(: $p (Q e20) $tv)'], steps=200)[0][0].tv
+        h.handler.process_metta_string(f'!(set-base-rate {h.kb} (Bird $x) (STV 0.1 0.99))')
+        self.assertEqual(h.query_many_refs(['(: $p (Q e20) $tv)'], steps=200)[0][0].tv, values[0])
+        h.handler.process_metta_string(f'!(clear-base-rate {h.kb} (Bird $x))')
+        self.assertEqual(h.query_many_refs(['(: $p (Q e20) $tv)'], steps=200)[0][0].tv, unpinned)
