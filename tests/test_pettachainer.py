@@ -187,6 +187,32 @@ class TestPeTTaChainer(unittest.TestCase):
                 self.assertIn("unobserved-", result[0])
                 self.assertIn("(STV 0.0 1.0)", result[0])
 
+    def test_argument_and_constant_sorts_make_stages_and_replay(self):
+        handler = PeTTaChainer()
+        handler.set_argument_sorts("Agent", ["Stage", "Object"])
+        handler.set_constant_sort("ev2", "Stage")
+        handler.add_atoms_no_check([
+            "(: a1 (Agent ev1 Bob) (STV 1 1))",
+            "(: r1 (R ev1) (STV 1 1))",
+            "(: r2 (R ev2) (STV 1 1))",
+            "(: s3 (S x3) (STV 1 1))",
+            "(: s4 (S x4) (STV 0 1))",
+            "(: rw (Implication (R $e) (W $e)) (CTV (STV 0.9 1) (STV 0.2 1)))",
+            "(: sw (Implication (S $e) (W $e)) (CTV (STV 0.8 1) (STV 0.25 1)))",
+        ])
+        # An event, sorted by its role fact or declared, is a stage: R's
+        # prediction of W is no evidence about S, which keeps its prior, live
+        # and in the subprocess a timed query spawns, which replays the
+        # declarations.
+        for timeout_sec in (0, 30):
+            for event in ("ev1", "ev2"):
+                with self.subTest(timeout_sec=timeout_sec, event=event):
+                    result = handler.query(f"(: $prf (S {event}) $tv)", steps=500, timeout_sec=timeout_sec)
+                    self.assertEqual(len(result), 1, result)
+                    self.assertIn("population-prior", result[0])
+        with self.assertRaises(Exception):
+            handler.add_atoms_no_check(["(: a2 (Agent Bob ev1) (STV 1 1))"])
+
     def test_bayes_prior_count_applies_in_process_and_to_timed_queries(self):
         handler = PeTTaChainer()
         handler.set_bayes_prior_count(1e6)

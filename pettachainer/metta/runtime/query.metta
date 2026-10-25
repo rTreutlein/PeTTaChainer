@@ -115,6 +115,7 @@
        ((: $root-proof $written $root-tv) $materialized)
        ($canonical-type (member-canon $written))
        ($canonical (: $root-proof $canonical-type $root-tv))
+       ($_sorts (record-source-sorts! $kb $canonical))
        ($compiled (collapse (mm2compileQuery $kb (query-root $canonical))))
        ($statement-plan
           (foldr-flat merge-query-execution-plans
@@ -223,6 +224,7 @@
        ((: $root-proof $written $root-tv) $materialized)
        ($canonical-type (member-canon $written))
        ($canonical (: $root-proof $canonical-type $root-tv))
+       ($_sorts (record-source-sorts! $kb $canonical))
        ($compiled-queries (collapse (mm2compileQuery $kb (query-root $canonical))))
        ($answers
           (fold-flat append-flat ()

@@ -5,6 +5,7 @@
 :- dynamic support_identity/3, support_identity_owner/1.
 :- ensure_loaded(context_overlay).
 :- ensure_loaded(ingestion).
+:- ensure_loaded(sorts).
 
 % Rank claims by depth, cost and age, then their pending enumeration sequence.
 % Never compare the payload: its hashes include the process's random KB id.

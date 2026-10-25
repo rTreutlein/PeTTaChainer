@@ -1,0 +1,117 @@
+!(import! &self ../../pettachainer/metta/petta_chainer)
+
+;; Sorts per argument position (set-argument-sorts, set-constant-sort). A
+;; constant at a declared Stage or Time position is a stage-making constant,
+;; and every statement with one is a stage: its inversions and completions
+;; get evidence from below only (#122).
+
+;; G10: an event's role fact makes its properties stages. The collider
+;; R -> W <- S over events: R ev1 predicts W, which is no evidence about the
+;; stage S ev1, so it keeps its prior 0.4 (exact). Undeclared, S ev1 is an
+;; aggregate and abduces 0.628 from the prediction.
+!(set-bayes-prior-count 0)
+!(set-argument-sorts sortEvent Time (Stage Time))
+!(set-base-rate sortEvent (S $e) (STV 0.4 1))
+!(set-base-rate sortEvent (R $e) (STV 0.3 1))
+!(compileadd sortEvent (: t1 (Time ev1 d1) (STV 1 1)))
+!(compileadd sortEvent (: r1 (R ev1) (STV 1 1)))
+!(compileadd sortEvent (: rw (Implication (R $e) (W $e)) (CTV (STV 0.9 1) (STV 0.2 1))))
+!(compileadd sortEvent (: sw (Implication (S $e) (W $e)) (CTV (STV 0.8 1) (STV 0.25 1))))
+!(test (query 2000 sortEvent (: $p (S ev1) $tv)) (: (population-prior (S $_0)) (S ev1) (STV 0.4 1)))
+!(set-base-rate sortUndeclared (S $e) (STV 0.4 1))
+!(set-base-rate sortUndeclared (R $e) (STV 0.3 1))
+!(compileadd sortUndeclared (: t1 (Time ev1 d1) (STV 1 1)))
+!(compileadd sortUndeclared (: r1 (R ev1) (STV 1 1)))
+!(compileadd sortUndeclared (: rw (Implication (R $e) (W $e)) (CTV (STV 0.9 1) (STV 0.2 1))))
+!(compileadd sortUndeclared (: sw (Implication (S $e) (W $e)) (CTV (STV 0.8 1) (STV 0.25 1))))
+!(test (query 2000 sortUndeclared (: $p (S ev1) $tv))
+   (: ((inverted sw with cpu (prior (STV 0.4 1))) (by rw r1)) (S ev1) (STV 0.62786029706945 0.9998672046805047)))
+
+;; An assumed role fact sorts its event too.
+!(test (query 2000 sortEvent (: $p (Assuming (And (Time ev5 d5) (R ev5)) (S ev5)) $tv))
+   (: (assuming (population-prior (S $_0))) (Assuming (And (Time ev5 d5) (R ev5)) (S ev5)) (STV 0.4 1)))
+
+;; D1: a kind is read when a row is computed. S ev2, queried before its role
+;; fact, stays an aggregate; state an event's roles before querying it.
+!(compileadd sortEvent (: r2 (R ev2) (STV 1 1)))
+!(test (query 2000 sortEvent (: $p (S ev2) $tv))
+   (: ((inverted sw with cpu (prior (STV 0.4 1))) (by rw r2)) (S ev2) (STV 0.62786029706945 0.9998672046805047)))
+!(compileadd sortEvent (: t2 (Time ev2 d2) (STV 1 1)))
+!(test (query 2000 sortEvent (: $p (S ev2) $tv))
+   (: ((inverted sw with cpu (prior (STV 0.4 1))) (by rw r2)) (S ev2) (STV 0.62786029706945 0.9998672046805047)))
+
+;; The kind: a declared Stage or Time position, a stage-making constant, or a
+;; variable the rule's sorts make one; a compound with a stage part (#139).
+;; A Value position sorts nothing.
+!(set-argument-sorts sortEvent About (Stage Value))
+!(compileadd sortEvent (: c3 (About c3 d9) (STV 1 1)))
+!(test (stage-statement? sortEvent (S ev1) ()) true)
+!(test (stage-statement? sortEvent (Time $e $t) ()) true)
+!(test (stage-statement? sortEvent (S $e) ()) false)
+!(test (stage-statement? sortEvent (S $e) ((Time $e d1))) true)
+!(test (stage-statement? sortEvent (Or (S ev1) (Q x)) ()) true)
+!(test (stage-statement? sortEvent (Or (S x) (Q x)) ()) false)
+!(test (stage-statement? sortEvent (Seen c3) ()) true)
+!(test (stage-statement? sortEvent (Seen d9) ()) false)
+
+;; #139: a compound of stages is a stage. Q t1 predicts W, which is no
+;; evidence about (Or (R t1) (S t1)): no answer, where the aggregate abduced
+;; 0.846. An observed W t2 updates its prior 1 - 0.7 * 0.6 = 0.58 to
+;; 0.9 * 0.58 / (0.9 * 0.58 + 0.1 * 0.42) = 0.9255 (exact).
+!(set-predicate-time sortCompound S 1 0)
+!(set-predicate-time sortCompound R 1 0)
+!(set-base-rate sortCompound (R $t) (STV 0.3 1))
+!(set-base-rate sortCompound (S $t) (STV 0.4 1))
+!(set-base-rate sortCompound (Q $t) (STV 0.5 1))
+!(compileadd sortCompound (: qw (Implication (Q $t) (W $t)) (CTV (STV 0.9 1) (STV 0.2 1))))
+!(compileadd sortCompound (: rsw (Implication (Or (R $t) (S $t)) (W $t)) (CTV (STV 0.9 1) (STV 0.1 1))))
+!(compileadd sortCompound (: q1 (Q t1) (STV 1 1)))
+!(compileadd sortCompound (: w2 (W t2) (STV 1 1)))
+!(test (collapse (query 2000 sortCompound (: $p (Or (R t1) (S t1)) $tv))) ())
+!(test (query 2000 sortCompound (: $p (Or (R t2) (S t2)) $tv))
+   (: ((inverted rsw with cpu (prior (STV 0.58 0.9999206959442694))) w2) (Or (R t2) (S t2)) (STV 0.925531914893617 0.9999147706674222)))
+!(set-predicate-time sortConj C 1 0)
+!(set-predicate-time sortConj O 1 0)
+!(set-base-rate sortConj (C $x) (STV 0.5 1))
+!(set-base-rate sortConj (O $x) (STV 0.5 1))
+!(compileadd sortConj (: a (A q) (STV 1 1)))
+!(compileadd sortConj (: ab (Implication (A $x) (B $x)) (CTV (STV 0.8 1) (STV 0.2 1))))
+!(compileadd sortConj (: cb (Implication (And (O $x) (C $x)) (B $x)) (CTV (STV 0.9 1) (STV 0.1 1))))
+!(test (collapse (query 2000 sortConj (: $p (And (O q) (C q)) $tv))) ())
+!(set-bayes-prior-count 0.2)
+
+;; D2: a constant is never both a stage or time and an object or concept.
+;; Swapped role arguments are rejected before anything of them is stored or
+;; sorted, and a query of them is rejected too; Object with Concept
+;; (punning) and Stage with Time are allowed. A rule variable at both kinds
+;; of position is rejected.
+!(set-argument-sorts sortRoles Agent (Stage Object))
+!(compileadd sortRoles (: a1 (Agent e1 Bob) (STV 1 1)))
+!(test (let (Error $error $_context) (catch (compileadd sortRoles (: a2 (Agent Bob e1) (STV 1 1)))) (repr $error))
+   "(domain_error sort_conflict (Bob Object Stage))")
+!(test (collapse (query 100 sortRoles (: $p (Agent $e $x) $tv))) ((: a1 (Agent e1 Bob) (STV 1 1))))
+!(test (let (Error $error $_context) (catch (query 100 sortRoles (: $p (Agent Bob e1) $tv))) (repr $error))
+   "(domain_error sort_conflict (Bob Object Stage))")
+!(test (stage-statement? sortRoles (Happy Bob) ()) false)
+!(test (let (Error $error $_context) (catch (set-constant-sort sortRoles e1 Concept)) (repr $error))
+   "(domain_error sort_conflict (e1 Stage Concept))")
+!(test (set-constant-sort sortRoles Bob Concept) true)
+!(test (set-constant-sort sortRoles e1 Time) true)
+!(test (let (Error $error $_context)
+          (catch (compileadd sortRoles (: chain (Implication (Agent $e $x) (Agent $x $e)) (STV 1 1))))
+          (repr $error))
+   "(domain_error sort_conflict ($_0 Object Stage))")
+
+;; Declaration errors.
+!(test (let (Error $error $_context) (catch (set-argument-sorts sortRoles Seen (Stage Event))) (repr $error))
+   "(domain_error argument_sorts (Seen (Stage Event)))")
+!(test (let (Error $error $_context) (catch (set-argument-sorts sortRoles Seen Stage)) (repr $error))
+   "(domain_error argument_sorts (Seen Stage))")
+!(test (let (Error $error $_context) (catch (set-argument-sorts sortRoles Agent (Stage))) (repr $error))
+   "(domain_error predicate_arity (Agent 1 2))")
+!(test (let (Error $error $_context) (catch (set-argument-sorts sortRoles Member (Object Concept))) (repr $error))
+   "(domain_error predicate_head Member)")
+!(test (let (Error $error $_context) (catch (set-constant-sort sortRoles (f x) Stage)) (repr $error))
+   "(domain_error constant_sort ((f x) Stage))")
+!(test (let (Error $error $_context) (catch (set-constant-sort sortRoles x Value)) (repr $error))
+   "(domain_error constant_sort (x Value))")

@@ -300,7 +300,9 @@ for deep queries, where the per-node rule count compounds with search depth.
 | `(set-rule-refinement $kb $enabled)` | Opt `$kb` into rule refinement; set it before adding the rules. A refined rule applies with the revision of its stored truth and the fold of its instances, and is searched in proportion to what that truth can add (see LANGUAGE_SPEC, "Refining rules from their instances"; hypotheses: docs/metta/hypothesis_rules.md). Python: `PeTTaChainer.set_rule_refinement(enabled)`, which timed subprocess queries replay. |
 | `(set-rule-change-hazard $kb $hazard)` | Set the prior probability that a sample of one of `$kb`'s refined rules starts a new regime of the rule's rate; set it before adding the rules. The default, 0.0001 (one change in 10^4 samples of a branch), is on; 0 keeps one regime, every sample counting alike. Each branch of a rule's instance tally (P(B\|A), P(B\|not A)) keeps its samples as an old regime, the current one and a candidate run since a possible change, and its truth is the posterior mixture over where the rate changed: the posterior mean strength on the posterior mean evidence. On samples of one rate the no-change hypothesis takes the posterior and the truth is the one in one regime; after a change the new samples take over as their evidence grows; an old regime that returns is merged with its earlier samples, so they count at once. Nothing is cut: a regime is dropped only when a third distinct one needs its place. Constant cost per sample; the order is the order samples' values arrive (docs/metta/hypothesis_rules.md, "Regimes"). Python: `PeTTaChainer.set_rule_change_hazard(hazard)`, which timed subprocess queries replay. |
 | `(set-hypothesis-mining $kb $max-new $max-live)` | Opt `$kb` into proposing its own hypotheses (`$max-new` 0, the default, turns it off; off, an added fact costs one lookup). Only predicates with a declared place in time (`set-predicate-time`) are mined. Each true fact of one added afterwards (strength above 0.5) is related to the recent true facts sharing a constant with it at its time point and at the adjacent ones (`set-time-link`), whichever arrived first: the fact at the earlier time point, or at one time point of the lower layer, is the antecedent, and equal layers are not related. It may propose refined rules with a weak prior (STV, or CTV when no conjunct is a positive-only predicate, at strength 0.5 with the evidence of 0.01 observations): from a pair of a time point's facts at once (a pair whose two facts share another constant also in its relational form), from one fact, across a link with the link as a conjunct, once it recurs at another instance with other companions. A false fact is concluded the same way where no live hypothesis concluded the candidate's consequent before it (singles recurring among failures), so a statement that never holds learns its failure, and where a live hypothesis predicted it, by the pairs of its context containing a fact the prediction read. Nothing concludes a positive-only predicate. At most `$max-new` per fact; a consequent pattern keeps at most `$max-live` live hypotheses, and screened candidates become eligible for ordinary proposal again when their current instance fold distinguishes them from their recorded screening rule by more than two current standard errors (or that screening rule is withdrawn), reconsidered only on that key’s change at a subsequent review. Other drops remain final. Turns rule refinement on (docs/metta/hypothesis_rules.md, "Mining hypotheses"). Python: `PeTTaChainer.set_hypothesis_mining(max_new, max_live)`, which timed subprocess queries replay (not the reviews). |
-| `(set-predicate-time $kb $head $position $layer)` | Declare where predicate `$head` sits in time for hypothesis mining: its facts refer to the time point at argument `$position` (counted from 1), and within one time point a fact of a lower `$layer` may be an antecedent of one of a higher layer, never the reverse. Mined facts are grouped and ordered by these, never by arrival. It also marks the predicate's ground statements as stages: their inversions and completions get evidence from below only, never a forward prediction (#122, `prior_factored_merge.md`, "Stages and aggregates"). Declare before querying: an answer computed before the declaration stays cached. Python: `PeTTaChainer.set_predicate_time(head, position, layer)`, which timed subprocess queries replay. |
+| `(set-argument-sorts $kb $head ($sort ...))` | Declare the sort of each argument position of predicate `$head`: `Stage`, `Time`, `Object`, `Concept`, `Value` or `Any` (see [Sorts](#sorts)). The list's length is the head's one arity; a fact of another arity, or a declaration of another arity after its facts, raises `domain_error(predicate_arity, ...)`. Another declaration of the head replaces this one, but constants already sorted keep their sorts: declare before adding knowledge. An unknown sort or a non-list raises `domain_error(argument_sorts, ...)`; a declaration on `Member` raises `domain_error(predicate_head, Member)`. Python: `PeTTaChainer.set_argument_sorts(head, sorts)`, which timed subprocess queries replay. |
+| `(set-constant-sort $kb $constant $sort)` | Give a symbol no declared position sorts the sort `Stage`, `Time`, `Object` or `Concept` (see [Sorts](#sorts)); another argument raises `domain_error(constant_sort, ...)`, and a conflict with the constant's sorts `domain_error(sort_conflict, ...)`. Python: `PeTTaChainer.set_constant_sort(constant, sort)`, which timed subprocess queries replay. |
+| `(set-predicate-time $kb $head $position $layer)` | Declare where predicate `$head` sits in time for hypothesis mining: its facts refer to the time point at argument `$position` (counted from 1), and within one time point a fact of a lower `$layer` may be an antecedent of one of a higher layer, never the reverse. Mined facts are grouped and ordered by these, never by arrival. It also marks the predicate's ground statements as stages (see [Sorts](#sorts)). Declare before querying: an answer computed before the declaration stays cached. Python: `PeTTaChainer.set_predicate_time(head, position, layer)`, which timed subprocess queries replay. |
 | `(set-time-link $kb $link)` | Declare that `($link $earlier $later)` facts make time point `$earlier` the one before `$later`. Hypothesis mining then relates facts of adjacent time points that share a constant, the earlier as the antecedent with the link as a conjunct and only the time points as variables: `(And (NextPeriod $q $p) (Storm north $q)) → (Storm north $p)`. Such a candidate is not proposed once a live hypothesis concludes its consequent from its own time point. Link facts are not mined themselves. Python: `PeTTaChainer.set_time_link(head)`, which timed subprocess queries replay. |
 | `(set-observed-predicate $kb $head)` | Declare that the statements of predicate `$head` in `$kb` are observed: once a true `($link earlier later)` fact (`set-time-link`) reaches a time point, each ground statement of `$head` at it that a rule of `$kb` concludes (the rule's conclusion with the time argument of `set-predicate-time` a variable and the rest ground) and that has no stored fact is stored false, `(: unobserved-<hash> S (STV 0.0 1.0))`. So a rule whose predicted event did not come gets a negative sample (ONA's anticipation). The client states a time point's observations before the link into it; a fact stated after it is not reconciled. Declare before adding knowledge (docs/metta/observed_predicates.md). Python: `PeTTaChainer.set_observed_predicate(head)`, which timed subprocess queries replay. |
 | `(review-hypotheses $steps $kb $goal)` | Review the live mined hypotheses that apply to `$goal` (for a ground goal, those whose consequent unifies with it and whose antecedent then holds of stored facts; a variable reviews all): one query reads their truths, with `$steps` for each hypothesis no review has read yet (its first read folds its instances) and no budget otherwise, since the chainer keeps the truths current. A hypothesis whose truth rests on enough samples is dropped when its strength does not differ, by two standard errors, from the consequent's probability without its antecedent (a CTV's learned negative branch; without one this test is skipped) or from a more general live hypothesis's strength (the SE variance floor never shifts the reference strength); one whose consequent was observed 32 times without enough samples of its own is dropped too. A dropped hypothesis's rules leave the rule indexes, so no later search applies them. Yields `(hypothesis name implication truth kept\|dropped)` per hypothesis. Python: `PeTTaChainer.review_hypotheses(goal, steps)`. |
@@ -313,6 +315,46 @@ for deep queries, where the per-node rule count compounds with search depth.
 | `(set-bounded-agenda-pruning $enabled)` | Toggle forward-agenda pruning. Skeleton backward search is bounded by its expansion and row budgets. |
 | `(ParticleSetBudget $n)` / `(ParticleGetBudget)` | Set / read the maximum particle support. Over-budget structured numeric samples are condensed as complete vectors; bare numeric or symbolic samples use deterministic systematic resampling. |
 | `(ParticleStoreClear)` / `(ParticleStorePruneKB)` | Clear the particle store / garbage-collect particles no longer referenced by the KB. |
+
+### Sorts
+
+A statement is a *stage*, a state of an entity at one point in space-time
+such as an event's property, or an *aggregate*, a rate-like statement about
+an entity or a concept. An inversion or antecedent completion of a stage
+gets evidence from below only, never a forward prediction; an aggregate keeps
+PLN induction and abduction (#122, `prior_factored_merge.md`, "Stages and
+aggregates").
+
+- A constant stated at a position declared `Stage`, `Time`, `Object` or
+  `Concept` (`set-argument-sorts`), in a fact, a rule, a query or an
+  assumed fact, takes that sort; `set-constant-sort` declares one directly.
+  A `Value` position sorts nothing; `Any` is undeclared.
+- A statement is a stage when one of its arguments is: at a position declared
+  `Stage` or `Time`, else a constant of such a sort, else a variable the
+  rule an inversion or completion comes from places at such a position. An
+  `And`, `Or`, `Not` or existential claim is a stage when one of its parts is
+  (#139). A ground statement of a predicate with `set-predicate-time` is a
+  stage too.
+- Everything else, every statement of an undeclared KB included, is an
+  aggregate. `Object` and `Concept` only exclude a constant from being a
+  stage.
+- A constant is never both `Stage` or `Time` and `Object` or `Concept`
+  (`Object` with `Concept`, and `Stage` with `Time`, are allowed): a fact,
+  rule or query that would make it both raises
+  `domain_error(sort_conflict, [Term, Old, New])` before anything of it is
+  stored or sorted, as does a rule or query placing one variable at both
+  kinds of position. Swapped role arguments, `(Agent Bob e1)` with `Agent`
+  declared `(Stage Object)`, are caught this way.
+- Known limit (D1): a row reads the kind when it is computed. A constant first
+  sorted after a row of a statement about it was computed leaves that row's
+  answer as it was; state an event's role facts before querying its
+  properties.
+
+```metta
+!(set-argument-sorts kb Agent (Stage Object))
+!(set-argument-sorts kb Time (Stage Time))
+!(compileadd kb (: a (Agent e1 Bob) (STV 1 1)))   ; e1 is a stage, Bob an object
+```
 
 ### Python compact query diagnostics
 

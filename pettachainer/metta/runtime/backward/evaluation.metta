@@ -288,9 +288,9 @@
 ;; - an unfounded value is a closed read's pin, the reading conclusion taken
 ;;   false to cut its circular support (docs/metta/complete_predicates.md): a
 ;;   hypothesis, not an observation, so nothing is inferred from it;
-;; - a stage (stage-statement?) gets evidence from below only (#122): its
-;;   consequence's reports and assumptions count, a forward prediction does
-;;   not. An aggregate keeps PLN induction and abduction.
+;; - a stage (stage-statement?, prolog/sorts.pl) gets evidence from below
+;;   only (#122): its consequence's reports and assumptions count, a forward
+;;   prediction does not. An aggregate keeps PLN induction and abduction.
 (: sk-observation-prior (-[semidet]-> Proof TV Bool TV))
 (= (sk-observation-prior $proof $tv $stage)
    (if (== (sk-step-proof $proof) unfounded) (empty)

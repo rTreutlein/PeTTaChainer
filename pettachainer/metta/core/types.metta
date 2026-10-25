@@ -77,6 +77,7 @@
 (: member-shape (-[semidet]-> Atom Atom Atom))
 (: reserved-head? (-[det]-> Atom Bool))
 (: declared-head! (-[det]-> Atom Bool))
+(: stage-statement? (-[det]-> KB Atom Atom Bool))
 (: rule-truth-factor (-[det]-> Atom Number))
 ;; Hypothesis mining's term helpers (runtime/hypothesis_mining.metta).
 (: hypothesis-candidates (-[det]-> Atom Atom Atom (List (Atom Atom Atom))))

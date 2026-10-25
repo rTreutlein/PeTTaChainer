@@ -102,23 +102,14 @@
       $on))
 
 ;; Predicate `$head`'s facts refer to the time point at argument `$position`
-;; (counted from 1) and have layer `$layer` within it.
+;; (counted from 1) and have layer `$layer` within it. Its ground statements
+;; are stages (stage-statement?, prolog/sorts.pl).
 (: set-predicate-time (-[det]-> KB Atom Number Number Bool))
 (= (set-predicate-time $kb $head $position $layer)
    (let* (($_declared (declared-head! $head))
           ($_old (remove-data-rows! &hm_time (quote ($head $kb $_position $_layer))))
           ($_row (add-atom &hm_time ($head $kb $position $layer))))
       true))
-
-;; A stage: a ground statement of a predicate with a time declaration. Its
-;; inversions and completions get evidence from below only
-;; (sk-observation-prior, #122); every other statement is an aggregate.
-(: stage-statement? (-[det]-> KB Atom Bool))
-(= (stage-statement? $kb $statement)
-   (if (== (extract-vars $statement) ())
-      (let $head (car-atom $statement)
-         (not (== (collapse (once (match &hm_time ($head $kb $_position $_layer) true))) ())))
-      false))
 
 ;; `($link $earlier $later)` facts say that time point $earlier immediately
 ;; precedes $later.

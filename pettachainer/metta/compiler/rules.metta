@@ -672,6 +672,15 @@
                    (CPU CTVInversionFormula (quote ($atv $btv $read-likelihoods)) $iitv)))))
          $atv $iitv)))
 
+;; Whether an inversion or completion target is a stage (prolog/sorts.pl):
+;; one the rule's own sorts make a stage is one in every instance, so `$stage`
+;; is `true` at compile time; otherwise its instance is checked when read.
+(: stage-goals (-[det]-> KB Atom Atom Atom (List Goal)))
+(= (stage-goals $kb $target $sides $stage)
+   (if (stage-statement? $kb $target $sides)
+      (let $stage true (the (List Goal) ()))
+      (the (List Goal) ((CPU stage-statement? (quote ($kb $target ())) $stage)))))
+
 ;; An inversion: the observation of b read through `lower`, the inverse
 ;; computations, the goals `$estimate` binding the inversion `$iitv` over a's
 ;; prior `$atv`, and b's value as its likelihood ratio over the prior it was
@@ -691,11 +700,11 @@
                 (append-goals $b-goals
                    (append-goals $inverse-execs
                       (append-goals $estimate
-                         (the (List Goal)
-                            ((CPU stage-statement? (quote ($kb $key)) $stage)
-                             (CPU sk-observation-prior (quote ($prfb_wit $btv_wit $stage)) $obs-prior)
-                             (CPU ObservationRatioFormula (quote ($btv_wit $obs-prior $atv $iitv)) $obs-tv)
-                             (CPU CTVModusPonensFormula (quote ($obs-tv $iitv)) $mp-tv))))))))
+                         (append-goals (stage-goals $kb $key ($a $b) $stage)
+                            (the (List Goal)
+                               ((CPU sk-observation-prior (quote ($prfb_wit $btv_wit $stage)) $obs-prior)
+                                (CPU ObservationRatioFormula (quote ($btv_wit $obs-prior $atv $iitv)) $obs-tv)
+                                (CPU CTVModusPonensFormula (quote ($obs-tv $iitv)) $mp-tv)))))))))
           (($polarity $key-tv $key-prior)
              (if $odd (data ((CPU NotFormula ($mp-tv) $not-tv) (CPU NotFormula ($atv) $not-prior)) $not-tv $not-prior)
                 (data () $mp-tv $atv))))
@@ -819,12 +828,12 @@
                                (append-goals
                                   (prior-base-rate-premises $kb
                                      (rule-base-rate-pattern $params $target) $_raw-target $target-base-tv)
+                                  (append-goals (stage-goals $kb $target ($full $consequent) $stage)
                                   (the (List Goal)
                                      ((CPU CompletionLikelihoodsFormula
                                          (quote ($connective $negated $others-tv $read-rule-likelihoods)) $likelihood-read)
                                       (CPU CTVBayesFormula
                                          (quote ($target-base-tv $likelihood-read)) $completion-ctv)
-                                      (CPU stage-statement? (quote ($kb $target)) $stage)
                                       (CPU sk-observation-prior
                                          (quote ($consequent-proof $consequent-tv $stage))
                                          $consequent-prior)
@@ -833,7 +842,7 @@
                                          $consequent-obs-tv)
                                       (CPU CTVModusPonensFormula
                                          (quote ($consequent-obs-tv $completion-ctv))
-                                         $out-tv))))))))))
+                                         $out-tv)))))))))))
                   (brand CompiledAddition
                      ($premises |-
                         (: $shape-kb

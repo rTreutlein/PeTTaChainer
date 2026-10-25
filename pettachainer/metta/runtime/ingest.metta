@@ -43,6 +43,7 @@
         ($_functional (functional-check-additions! $kb $iatoms))
         ($_identities (proof-identities-free! $iatoms))
         ($_recorded-heads (record-source-heads! $kb $source))
+        ($_sorts (record-source-sorts! $kb $source))
         ($eatoms (the (List CompiledAddition) (map-flat externalize-proof-structure $iatoms)))
         ($_recorded (collapse (foreach-flat record-compiled-inheritance! $eatoms)))
         ($_ (collapse (foreach-flat add-to-kb $iatoms)))

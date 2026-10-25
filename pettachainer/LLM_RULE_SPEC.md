@@ -301,8 +301,9 @@ source `Compute`, bare-variable children, or children whose variables do not
 all occur in the rest of the rule, nor for a rule named `no_inverse`.
 Derived consequents support completion as they support inversion (PLN
 induction); dependency sets exclude circular self-support, and closed-read
-unfounded pins are refused. A predicate with a time declaration
-(`set-predicate-time`) has stages: its statements are updated only by evidence
+unfounded pins are refused. A stage (a statement about an event or time
+point, by the sorts of `set-argument-sorts`, or of a predicate with a time
+declaration, `set-predicate-time`) is updated only by evidence
 from below (observations of the consequent and what follows from them), never
 by a forward prediction from another cause. Do not declare time on a predicate
 whose values come from claim rules pointing from a source to the claimed

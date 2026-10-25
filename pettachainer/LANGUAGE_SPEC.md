@@ -229,6 +229,33 @@ Legacy programs in this repository sometimes encode instance membership as
 compatibility and participates in inheritance-only reasoning. It is not an
 alias for `Member`: adding both forms records two distinct propositions.
 
+## Sorts: stages and aggregates
+
+Argument positions may be declared with sorts, and constants take the sort of
+the declared positions they are stated at:
+
+```metta
+!(set-argument-sorts kb Agent (Stage Object))
+!(set-argument-sorts kb Time (Stage Time))
+!(set-argument-sorts kb About (Stage Value))
+!(set-constant-sort kb d2026_10_25 Time)
+```
+
+The sorts are `Stage` (an event, claim or observation), `Time` (a time point
+or period), `Object` (an entity), `Concept` (a class), `Value` (data, such as
+a number or a quoted statement, which sorts nothing) and `Any` (undeclared).
+A statement with a `Stage` or `Time` argument is a *stage*: after
+`(Agent e1 Bob)`, `(Late e1)` is one. So is an `And`, `Or`, `Not` or
+existential claim with a stage part, and a ground statement of a predicate
+with `set-predicate-time`. An inversion or completion of a stage reads only
+evidence from below, never a forward prediction; every other statement is an
+aggregate and keeps PLN induction and abduction. A constant that would be
+both a stage or time and an object or concept, such as from swapped role
+arguments `(Agent Bob e1)`, is rejected with `domain_error(sort_conflict,
+...)`. Declare sorts and state an event's role facts before querying its
+properties: a value computed earlier keeps its kind (docs/metta/API.md,
+"Sorts").
+
 ## Rule Syntax
 
 An implication has exactly two expression arguments: its antecedent and its

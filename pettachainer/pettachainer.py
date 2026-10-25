@@ -54,6 +54,10 @@ def _query_worker(state: dict, fn: str, source: str, conn):
             handler.set_positive_only_predicate(head)
         if state["_hypothesis_mining"]:
             handler.set_hypothesis_mining(*state["_hypothesis_mining"])
+        for head, sorts in state["_argument_sorts"].items():
+            handler.set_argument_sorts(head, sorts)
+        for constant, sort in state["_constant_sorts"]:
+            handler.set_constant_sort(constant, sort)
         for head, (position, layer) in state["_predicate_times"].items():
             handler.set_predicate_time(head, position, layer)
         if state["_time_link"]:
@@ -127,6 +131,8 @@ class PeTTaChainer:
         self.kb = f"kb{uuid.uuid4().hex}"
         self._added_atoms: List[str] = []
         self._hypothesis_mining: Optional[Tuple[int, int]] = None
+        self._argument_sorts: dict[str, Tuple[str, ...]] = {}
+        self._constant_sorts: List[Tuple[str, str]] = []
         self._predicate_times: dict[str, Tuple[int, int]] = {}
         self._time_link: Optional[str] = None
         self._evidence_confidence_k = 800.0
@@ -462,6 +468,26 @@ class PeTTaChainer:
         self._hypothesis_mining = (int(max_new), int(max_live)) if max_new > 0 else None
         if max_new > 0:
             self._rule_refinement = True
+
+    def set_argument_sorts(self, head: str, sorts: Sequence[str]) -> None:
+        """Declare the sort of each argument position of predicate ``head``:
+        ``Stage``, ``Time``, ``Object``, ``Concept``, ``Value`` or ``Any``. A
+        constant stated at a Stage or Time position makes every statement it
+        appears in a stage, whose inversions and completions get evidence
+        from below only; a constant is never both a stage or time and an
+        object or concept (docs/metta/API.md, "Sorts"). Declare before adding
+        knowledge. Timed subprocess queries replay the declaration.
+        """
+        self.handler.process_metta_string(f"!(set-argument-sorts {self.kb} {head} ({' '.join(sorts)}))")
+        self._argument_sorts[head] = tuple(sorts)
+
+    def set_constant_sort(self, constant: str, sort: str) -> None:
+        """Declare the sort of a constant no declared position sorts:
+        ``Stage``, ``Time``, ``Object`` or ``Concept`` (docs/metta/API.md,
+        "Sorts"). Timed subprocess queries replay the declaration.
+        """
+        self.handler.process_metta_string(f"!(set-constant-sort {self.kb} {constant} {sort})")
+        self._constant_sorts.append((constant, sort))
 
     def set_predicate_time(self, head: str, position: int, layer: int) -> None:
         """Declare where predicate ``head`` sits in time for hypothesis
