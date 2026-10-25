@@ -69,7 +69,9 @@ identities and evidence identities; opening C copies none of them.
 - **Consistent evidence.** A premise borrowed from MAIN retains its original
   key, evidence and dependency identity. Conditioning and self-support exclusion
   use those same identities when it meets a C-derived premise. A borrowed
-  scalar is never turned into independent evidence.
+  scalar is never turned into independent evidence. An assumed fact is
+  evidence of its own, as it would be stored: two views reading it are not
+  independent.
 - **Folds and priors.** Folds share their MAIN member nodes and keys. Changed
   contributions, tallies, compatibility reads and merged views live in C.
   Unchanged aggregates are borrowed. MAIN's explicit user priors remain

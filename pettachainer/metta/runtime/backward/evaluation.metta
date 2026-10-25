@@ -91,7 +91,6 @@
 ;; --- Leaves -----------------------------------------------------------------
 
 ;; A borrowed observation retains its MAIN evidence and dependency identity.
-;; Assumptions themselves remain private and carry no empirical evidence.
 (: sk-leaf-source (-[det]-> SkFact SkFact))
 (= (sk-leaf-source ($type ($kbid $ctx $vars) $proof $tv))
    (let* (($kb (make-kb-context (brand KB $kbid) $ctx $vars))
@@ -100,11 +99,21 @@
                       (if (kb-fact-present? (data $type $main $proof $tv)) $main $kb))))
       (data $type $source $proof $tv)))
 
+;; A hypothetical context's assumptions carry no empirical evidence. An Assuming
+;; fact, the value of a MAIN key in the query's world `(ctx proof C ...)`, is
+;; the fact the overlay stores in C: evidence with an identity of its own, as
+;; the same fact stored in the knowledge base would be, so views reading it
+;; are not independent (#143).
 (: leaf-evidence-for-result (-[det]-> SkFact EvidenceSet))
-(= (leaf-evidence-for-result $fact)
-   (let ($type $kb $proof $_tv) (sk-leaf-source $fact)
-      (if (assumption-proof? $proof) (ev-set 0)
-         (evidence-set (cons (fact-evidence-entry $kb $proof $type) ())))))
+(= (leaf-evidence-for-result ($type ($kbid $ctx $vars) $proof $tv))
+   (if (assumption-proof? $proof)
+      (if (== $ctx MAIN)
+         (evidence-set (cons (fact-evidence-entry
+            (make-kb-context (brand KB $kbid) (car-atom (cdr-atom (cdr-atom $proof))) $vars) $proof $type) ()))
+         (ev-set 0))
+      (let ($source-type $source-kb $source-proof $_source-tv)
+         (sk-leaf-source (data $type (make-kb-context (brand KB $kbid) $ctx $vars) $proof $tv))
+         (evidence-set (cons (fact-evidence-entry $source-kb $source-proof $source-type) ())))))
 
 (: sk-leaf-deps (-[det]-> Number SkFact Number))
 (= (sk-leaf-deps $hash $fact)

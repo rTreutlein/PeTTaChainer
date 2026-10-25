@@ -43,6 +43,16 @@
    (query 400 priorKb (: $p (SealLeak z) $tv))
    (: ((inverted sensor with cpu (prior (STV 0.4457711656915964 0.006210613865370718))) az) (SealLeak z) (STV 0.7835211962010412 0.00958084160041277)))
 
+;; An assumed observation updates the instance's prior as a stored one does:
+;; the population inversion's evidence lies within the instance inversion's,
+;; which stands alone, rather than applying the alarm's likelihood twice
+;; (0.9 * 0.1 / (0.9 * 0.1 + 0.2 * 0.9), as for m).
+!(compileadd priorKb (: pq (LeakPredicted q) (STV 0.1 1.0)))
+!(test
+   (query 400 priorKb (: $p (Assuming (Alarm q) (SealLeak q)) $tv))
+   (: (assuming ((inverted sensor with pq (prior (STV 0.1 1.0))) (ctx proof 0)))
+      (Assuming (Alarm q) (SealLeak q)) (STV 0.33333333333333337 0.9996618426374195)))
+
 ;; --- A filter over time --------------------------------------------------------
 ;; A leak persists and a sound seal starts leaking with hazard 0.05. Shift 1's
 ;; posterior predicts shift 2, whose alarm updates the prediction.

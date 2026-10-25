@@ -327,6 +327,11 @@ input value; this includes all cache, conditioning and aggregate maintenance
 performed by that read. It is not a possible-reachability test.
 
 C owns only assumption-dependent evaluation entries and its assumed facts.
+An assumed fact is evidence in C with an identity of its own, as the same fact
+stored in the knowledge base would be, so views reading it are compared by it:
+an instance-prior inversion over an assumed observation contains the population
+inversion over it, rather than applying its likelihood twice (#143). The
+assumptions of a hypothetical judgment context carry no evidence.
 A local row view replaces that row's borrowed MAIN view in C; no borrowed key
 or evidence item acquires a new identity. Merged caches, conditioned reads,
 aggregate contributions, instance regimes and propagation bookkeeping follow the
