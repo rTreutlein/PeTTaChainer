@@ -128,9 +128,10 @@ Example:
 
 `(Member x P)` and `(P x)` are one statement: the chainer reads every
 `(Member x P)` it is given (a fact, a rule premise or conclusion, a query, an
-`Assuming` fact, a base-rate pattern) as `(P x)`, at every statement
-position, a compound's parts and an existential's body included. Predicate
-arguments are data and keep any `Member` in them.
+`Assuming` fact, a base-rate pattern) as `(P x)`, wherever it occurs: a
+compound's parts, an existential's body, a `RuleTruth` goal, and a statement
+quoted as a predicate argument, as in `(Claims bob (Member rex Dog))`, which a
+rule `(Implication (Claims $p $s) $s)` may conclude.
 
 - The two forms share one key and one evidence identity: one proof name
   stated in either form is one fact, a different value under that name is
@@ -138,9 +139,13 @@ arguments are data and keep any `Member` in them.
 - An answer comes back in its query's form: `(Member rex $c)` answers
   `(Member rex Dog)`, `(Dog rex)` answers `(Dog rex)`. Statements inside
   proofs, forward-chained facts and the stored KB use the predicate form.
-- A class is a symbol or a variable; `(Member x <expression>)` raises
-  `domain_error(member_class, ...)`. A class variable makes a variable-headed
-  statement: `(Member rex $c)` reads `($c rex)`.
+- A class is a symbol or a variable. `(Member x <expression>)` raises
+  `domain_error(member_class, ...)`, and so does a class naming a connective,
+  binder, computation or internal key (`Not`, `And`, `Implication`, `Exists`,
+  `Compute`, `FoldAll`, `RuleTruth`, ...), which would otherwise make the
+  statement that connective. A class variable makes a variable-headed
+  statement: `(Member rex $c)` reads `($c rex)`, and its answers never bind
+  `$c` to an internal key.
 - Per-predicate declarations (`set-positive-only-predicate`,
   `set-complete-predicate`, `set-functional-predicate`,
   `set-observed-predicate`, `set-predicate-time`,

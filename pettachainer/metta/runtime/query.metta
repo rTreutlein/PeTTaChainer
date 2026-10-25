@@ -20,11 +20,12 @@
    (append-flat (collapse (pretty $result)) (pretty-results $rest)))
 
 ;; One plan is one execution group. The root list preserves source identity,
-;; the written statement, compiler-alternative order, and duplicates; additions
+;; the written statement and its canonical form (`member-canon`),
+;; compiler-alternative order, and duplicates; additions
 ;; are already in their final installation order for that group.
 (: QueryExecutionPlan Type)
 (: query-execution-plan
-   (-[det]-> (List (Number AnnotatedStatement CompiledQueryGoal)) (List RuntimeAddition) QueryExecutionPlan))
+   (-[det]-> (List (Number Statement AnnotatedStatement CompiledQueryGoal)) (List RuntimeAddition) QueryExecutionPlan))
 
 (: merge-query-execution-plans (-[det]-> QueryExecutionPlan QueryExecutionPlan QueryExecutionPlan))
 (= (merge-query-execution-plans
@@ -34,23 +35,22 @@
       (append-flat $left-roots $right-roots)
       (append-flat $left-adds $right-adds)))
 
-(: compiled-query-execution-plan (-[nondet]-> Number AnnotatedStatement CompiledQuery QueryExecutionPlan))
-(= (compiled-query-execution-plan $key $written (compiled-query $goal $adds))
-   (if (or (is-var $goal) (is-var $adds)) (empty) (query-execution-plan (($key $written $goal)) $adds)))
+(: compiled-query-execution-plan (-[nondet]-> Number Statement AnnotatedStatement CompiledQuery QueryExecutionPlan))
+(= (compiled-query-execution-plan $key $written $canonical (compiled-query $goal $adds))
+   (if (or (is-var $goal) (is-var $adds)) (empty) (query-execution-plan (($key $written $canonical $goal)) $adds)))
 
 ;; A query of (Not s) is a query of s, answered complemented once per written
 ;; negation: its root reads s's canonical key, so it answers wherever s does,
 ;; at budget zero from a stored or materialized value too. A query of
-;; (ForAll params rule) is the judgment of its rule (#142). A written
-;; (Member x P) is read as (P x) (#96).
+;; (ForAll params rule) is the judgment of its rule (#142). The root is of
+;; the canonical statement, a written (Member x P) read as (P x) (#96).
 (: query-root (-[det]-> AnnotatedStatement AnnotatedStatement))
-(= (query-root (: $prf $written $tv))
-   (let $type (member-canon $written)
-      (if (head-is? $type Not)
-         (let ($key $_odd) (canon $type) (: $key-proof $key $key-tv))
-         (if (head-is? $type ForAll)
-            (: $prf (brand Statement (car-atom (cdr-atom (cdr-atom $type)))) $tv)
-            (: $prf $type $tv)))))
+(= (query-root (: $prf $type $tv))
+   (if (head-is? $type Not)
+      (let ($key $_odd) (canon $type) (: $key-proof $key $key-tv))
+      (if (head-is? $type ForAll)
+         (: $prf (brand Statement (car-atom (cdr-atom (cdr-atom $type)))) $tv)
+         (: $prf $type $tv))))
 
 ;; A ForAll answer is its rule's answer under the written binder.
 (: forall-result (-[semidet]-> Statement RuntimeResult RuntimeResult))
@@ -58,28 +58,34 @@
    (let (ForAll $params $rule) (copy_term $written)
       (let $rule $type (brand RuntimeResult (data (ForAll $params $rule) $kbctx $proof $tv)))))
 
-;; An answer of a written Member statement, in the written form.
-(: member-result (-[det]-> Statement RuntimeResult RuntimeResult))
-(= (member-result $written $result)
+;; An answer of a written Member statement, in the written form; an open
+;; class bound to an internal key answers nothing (member-shape).
+(: member-step (-[det]-> Statement RuntimeResult (List RuntimeResult) (List RuntimeResult)))
+(= (member-step $written $result $kept)
    (case $result (
-      ((CPU $_fun $_args $_res) $result)
+      ((CPU $_fun $_args $_res) (cons $result $kept))
       (($type $kbctx $proof $tv)
-         (brand RuntimeResult (data (member-shape $written $type) $kbctx $proof $tv))))))
+         (case (collapse (member-shape $written $type)) (
+            (() $kept)
+            ((cons $shape $_none) (cons (brand RuntimeResult (data $shape $kbctx $proof $tv)) $kept))))))))
 
-;; The public answers of a written root from those of its query root: each
-;; written negation complements the answer, negates its proof and wraps its
-;; public statement, and the written truth-value pattern constrains the
-;; complemented value; a ForAll answer is its rule's answer under the written
-;; binder; a written Member answers in its written form. A computation row
-;; answers no statement.
-(: written-results (-[semidet]-> AnnotatedStatement (List RuntimeResult) (List RuntimeResult)))
-(= (written-results (: $_prf $written $tv) $results)
-   (if (head-is? $written Not)
+;; The public answers of a canonical root from those of its query root: each
+;; negation complements the answer, negates its proof and wraps its public
+;; statement, and the written truth-value pattern constrains the complemented
+;; value; a ForAll answer is its rule's answer under the written binder. A
+;; computation row answers no statement.
+(: canonical-results (-[semidet]-> AnnotatedStatement (List RuntimeResult) (List RuntimeResult)))
+(= (canonical-results (: $_prf $type $tv) $results)
+   (if (head-is? $type Not)
       (negated-results $tv
-         (written-results (: $_inner-proof (car-atom (cdr-atom $written)) $_inner-tv) $results))
-      (let* (($type (member-canon $written))
-             ($answers (if (head-is? $type ForAll) (map-semidet (forall-result $type) $results) $results)))
-         (if (== $type $written) $answers (map-flat (member-result $written) $answers)))))
+         (canonical-results (: $_inner-proof (car-atom (cdr-atom $type)) $_inner-tv) $results))
+      (if (head-is? $type ForAll) (map-semidet (forall-result $type) $results) $results)))
+
+;; A written Member answers in its written form.
+(: written-results (-[semidet]-> Statement AnnotatedStatement (List RuntimeResult) (List RuntimeResult)))
+(= (written-results $written (: $prf $type $tv) $results)
+   (let $answers (canonical-results (: $prf $type $tv) $results)
+      (if (== $type $written) $answers (foldr-flat (member-step $written) () $answers))))
 
 (: negated-step (-[det]-> Atom RuntimeResult (List RuntimeResult) (List RuntimeResult)))
 (= (negated-step $tv $result $kept)
@@ -106,11 +112,14 @@
       (($statement-copy (copy_term $statement))
        ($materialized (the AnnotatedStatement (materialize-stmt-lambdas $statement-copy)))
        ($_annotations (check-query-annotations! $materialized))
-       ($compiled (collapse (mm2compileQuery $kb (query-root $materialized))))
+       ((: $root-proof $written $root-tv) $materialized)
+       ($canonical-type (member-canon $written))
+       ($canonical (: $root-proof $canonical-type $root-tv))
+       ($compiled (collapse (mm2compileQuery $kb (query-root $canonical))))
        ($statement-plan
           (foldr-flat merge-query-execution-plans
              (query-execution-plan () ())
-             (map-flat (compiled-query-execution-plan $key $materialized) $compiled)))
+             (map-flat (compiled-query-execution-plan $key $written $canonical) $compiled)))
        ($rest-plan (prepare-query-many-plan (+ $key 1) $kb $rest)))
       (merge-query-execution-plans $statement-plan $rest-plan)))
 
@@ -165,23 +174,23 @@
                   $kbctx (public-query-proof (brand Proof $proof)) $answer-tv)))))))
 
 (: present-query-plan-results
-   (-[nondet]-> Bool (List (Number AnnotatedStatement CompiledQueryGoal))
+   (-[nondet]-> Bool (List (Number Statement AnnotatedStatement CompiledQueryGoal))
        (List (List RuntimeResult))
        (List (Number AnnotatedStatement))))
 (= (present-query-plan-results $_expand? () ()) ())
-(= (present-query-plan-results $expand? (cons ($key $written $_goal) $roots) (cons $results $rest-results))
+(= (present-query-plan-results $expand? (cons ($key $written $canonical $_goal) $roots) (cons $results $rest-results))
    (append-flat
       (map-flat (|-> ($answer) (data $key $answer))
          (pretty-results
             (map-flat externalize-proof-structure
-               (written-results $written
+               (written-results $written $canonical
                   (map-flat public-query-result
                      (if $expand? (map-flat expand-result $results) $results))))))
       (present-query-plan-results $expand? $roots $rest-results)))
 
 (: query-plan-runtime-goal
-   (-[nondet]-> (Number AnnotatedStatement CompiledQueryGoal) (| Goal (Statement KBContext Proof TV))))
-(= (query-plan-runtime-goal ($_key $_written $goal)) (typed-runtime-premise $goal))
+   (-[nondet]-> (Number Statement AnnotatedStatement CompiledQueryGoal) (| Goal (Statement KBContext Proof TV))))
+(= (query-plan-runtime-goal ($_key $_written $_canonical $goal)) (typed-runtime-premise $goal))
 
 ;; Temporary additions and Assuming contexts stay installed through proof
 ;; externalization and pretty printing. Direct chainer entrypoints
@@ -211,7 +220,10 @@
    (let*
       (($materialized (the AnnotatedStatement (materialize-stmt-lambdas $statement)))
        ($_annotations (check-query-annotations! $materialized))
-       ($compiled-queries (collapse (mm2compileQuery $kb (query-root $materialized))))
+       ((: $root-proof $written $root-tv) $materialized)
+       ($canonical-type (member-canon $written))
+       ($canonical (: $root-proof $canonical-type $root-tv))
+       ($compiled-queries (collapse (mm2compileQuery $kb (query-root $canonical))))
        ($answers
           (fold-flat append-flat ()
              (map-flat
@@ -219,7 +231,7 @@
                    (map-flat snd
                       (run-query-execution-plan
                          $steps
-                         (compiled-query-execution-plan 0 $materialized $compiled-query)
+                         (compiled-query-execution-plan 0 $written $canonical $compiled-query)
                          $materialize? true)))
                 $compiled-queries))))
       (superpose $answers)))

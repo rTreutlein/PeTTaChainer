@@ -190,38 +190,50 @@ assumed_annotations(Fact) :-
 % A class membership (Member x P) is the unary statement (P x) (#96): one
 % statement in either form, with one key and one evidence identity. Every
 % source statement (facts, rules, queries, base-rate patterns) is rewritten
-% here, at statement positions only: predicate arguments are data. Answers
-% keep the written shape. A class is a symbol or a variable: an expression
-% class would make an expression-headed key.
+% here, at every subterm: a statement quoted as a predicate argument is the
+% same proposition, which a rule may conclude. Answers keep the written
+% shape. A class is a symbol or a variable that names no reserved head: an
+% expression class would make an expression-headed key, and a connective or
+% computation class would make the statement that connective.
 'member-canon'(Term, Canon) :-
-    (   nonvar(Term), Term = [Head|Args], atom(Head)
+    (   nonvar(Term), Term = [Head|Args]
     ->  (   Head == 'Member'
-        ->  (   Args = [X, Class], ( var(Class) ; atom(Class) )
-            ->  Canon = [Class, X]
+        ->  (   Args = [X, Class], ( var(Class) ; atom(Class), \+ reserved_head(Class) )
+            ->  'member-canon'(X, CanonX), Canon = [Class, CanonX]
             ;   throw(error(domain_error(member_class, Term),
-                            context(compileadd/2, 'a Member class must be a symbol or a variable'))) )
-        ;   statement_mask(Head, Args, Mask)
-        ->  maplist(member_canon_arg, Mask, Args, CanonArgs), Canon = [Head|CanonArgs]
-        ;   Canon = Term )
+                            context(compileadd/2, 'a Member class must be a symbol naming no connective, computation or internal head, or a variable'))) )
+        ;   maplist('member-canon', Term, Canon) )
     ;   Canon = Term ).
-
-member_canon_arg(s, Arg, Canon) :- 'member-canon'(Arg, Canon).
-member_canon_arg(d, Arg, Arg).
 
 % An answer of a written statement's canonical form, with each written
 % Member restored. The answer's own terms are kept: its binders and
-% variables are not the written ones.
+% variables are not the written ones. An open class never answers with a
+% reserved head, such as an existential claim key.
 'member-shape'(Written, Answer, Shaped) :-
-    (   nonvar(Written), Written = [Head|Args], atom(Head), nonvar(Answer), Answer = [AnswerHead|AnswerArgs]
+    (   nonvar(Written), Written = [Head|Args], nonvar(Answer), Answer = [AnswerHead|AnswerArgs]
     ->  (   Head == 'Member', AnswerArgs = [X]
-        ->  Shaped = ['Member', X, AnswerHead]
-        ;   statement_mask(Head, Args, Mask), same_length(Args, AnswerArgs)
-        ->  maplist(member_shape_arg, Mask, Args, AnswerArgs, ShapedArgs), Shaped = [AnswerHead|ShapedArgs]
+        ->  \+ reserved_head(AnswerHead), Args = [WrittenX, _],
+            'member-shape'(WrittenX, X, ShapedX), Shaped = ['Member', ShapedX, AnswerHead]
+        ;   same_length(Written, Answer)
+        ->  maplist('member-shape', Written, Answer, Shaped)
         ;   Shaped = Answer )
     ;   Shaped = Answer ).
 
-member_shape_arg(s, Written, Answer, Shaped) :- 'member-shape'(Written, Answer, Shaped).
-member_shape_arg(d, _, Answer, Answer).
+% Heads the chainer reads as syntax or keeps for itself: connectives,
+% binders, computations and internal keys. No class may name one, and no
+% unary fact under one is a class.
+reserved_head(Head) :-
+    atom(Head),
+    (   memberchk(Head, ['Member','And','Or','Not','Implication','ForAll','Exists','WithPrior',
+                         'Assuming',':','CPU','RuleTruth','ExistentialClaim','ExistsJudgment',
+                         'QuantifiedRule','ExistentialAlternatives','MemberInheritanceSample',
+                         'ImplicationInstanceSample'])
+    ;   'bidirectional-implication-form?'(Head, true)
+    ;   'compound-connective?'(Head, true)
+    ;   'source-computation-head?'(Head, true)
+    ), !.
+
+'reserved-head?'(Head, Result) :- ( reserved_head(Head) -> Result = true ; Result = false ).
 
 % Which arguments of a source form are statements (s) and which data (d).
 statement_mask(Head, Args, Mask) :-
@@ -230,7 +242,9 @@ statement_mask(Head, Args, Mask) :-
         ; 'compound-connective?'(Head, true) )
     ->  same_length(Args, Mask), maplist(=(s), Mask)
     ;   memberchk(Head-Mask, ['ForAll'-[d,s], 'Exists'-[d,s], 'WithPrior'-[s,s],
-                             'Assuming'-[s,s], ':'-[d,s,d], 'ExistentialClaim'-[s]])
+                             'Assuming'-[s,s], ':'-[d,s,d], 'ExistentialClaim'-[s],
+                             'KnownExistential'-[d,s], 'ExistentialResidual'-[d,s],
+                             'RuleTruth'-[s], 'MapDist'-[d,s,d,d,d], 'Map2Dist'-[d,s,d,s,d,d,d]])
     ->  same_length(Args, Mask)
     ;   memberchk(Head, ['FoldAll','FoldAllValue','FoldAllTruth','AverageDist'])
     ->  Args = [_|Rest], same_length(Rest, Data), maplist(=(d), Data), Mask = [s|Data]

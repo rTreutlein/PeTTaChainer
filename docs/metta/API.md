@@ -39,8 +39,11 @@ keeps its successfully added prefix, including its timed-worker replay journal.
 `(Member x P)` is the statement `(P x)` (#96, LANGUAGE_SPEC "Member is a
 unary predicate"): every source and query statement is read so at its
 statement positions, answers keep their query's form, and the KB stores the
-predicate form. A class must be a symbol or a variable:
-`(Member x (f y))` raises `domain_error(member_class, ...)`. A head has one
+predicate form. A class must be a symbol or a variable naming no
+connective, computation or internal key: `(Member x (f y))` and
+`(Member x Not)` raise `domain_error(member_class, ...)`. The compiler
+entry points `compileQuery` and `mm2compileQuery` called directly take the
+canonical form and do not rewrite `Member`. A head has one
 arity per KB: a statement giving a head a second arity, a class included,
 raises `domain_error(predicate_arity, (head arity other))` and publishes
 nothing. Per-predicate declarations on `Member` itself raise

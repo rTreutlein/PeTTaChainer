@@ -74,7 +74,8 @@
 (: existential-source (-[det]-> Atom Statement))
 (: pattern-shape (-[det]-> Atom Atom))
 (: member-canon (-[det]-> $statement $statement))
-(: member-shape (-[det]-> Atom Atom Atom))
+(: member-shape (-[semidet]-> Atom Atom Atom))
+(: reserved-head? (-[det]-> Atom Bool))
 (: declared-head! (-[det]-> Atom Bool))
 (: rule-truth-factor (-[det]-> Atom Number))
 ;; Hypothesis mining's term helpers (runtime/hypothesis_mining.metta).

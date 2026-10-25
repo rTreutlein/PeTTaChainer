@@ -16,10 +16,11 @@
              ($typed-subj (brand Statement $subj))
              ($_subject (record-kb-node! &inheritance_subject subject-node $typed-kbid $typed-subj)))
             (record-inheritance-nodes! $typed-kbid $typed-subj (brand Statement $concept))))
-      ((: $_kbctx $_eprf (ExistentialClaim $_body) $_etv) ())
-      ;; A class is the head of a unary fact, in either written form (#96).
+      ;; A class is the head of a unary fact, in either written form (#96);
+      ;; an internal key such as an existential claim is no class.
       ((: ($ckbid $_cctx $_cvars) $_cprf ($class $_obj) $_ctv)
-         (record-kb-node! &concept_node concept-node (brand KB $ckbid) (brand Statement $class)))
+         (if (reserved-head? $class) ()
+            (record-kb-node! &concept_node concept-node (brand KB $ckbid) (brand Statement $class))))
       ($_other ()))))
 
 (: materialize-stmt-lambdas (-[nondet]-> $term  $term))

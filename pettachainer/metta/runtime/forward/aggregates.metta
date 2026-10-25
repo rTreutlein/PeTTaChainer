@@ -206,7 +206,7 @@
 (: finish-aggregate (-[semidet]-> KB Expression Expression Atom))
 (= (finish-aggregate $kb $a $b)(let $tv (case $a ( (identity $b)(dist-average (the Distribution (once (reduce (reduce (DistAverageFromSumCount (fa-dist-acc $b)))))))(base-rate (BaseRateTv (fa-ev-acc $b)))(weighted-base-rate (WeightedCountBaseRateTv (fa-ev-acc $b)))(weighted-base-rate-with-prior (let (BaseRateEvidenceWithPrior $f $d)(fa-prior-acc $b)(BaseRateWithPriorFormula (resolve-base-rate-prior $f)(WeightedCountBaseRateTv $d))))((member-inheritance $c)(member-inheritance-tv $c (fa-ev-acc $b)))(implication-instance (case (fa-instance-acc $b) (((InstanceEvidence $pos $_neg) (WeightedCountBaseRateTv $pos)))))(implication-instance-ctv (ImplicationInstanceTv (fa-instance-acc $b)))((weighted-base-rate-in-universe $c)(member-inheritance-tv $c (fa-ev-acc $b)))((weighted-base-rate-with-prior-in-universe $c)(let (BaseRateEvidenceWithPrior $f $d)(fa-prior-acc $b)(BaseRateWithPriorFormula (resolve-base-rate-prior $f)(member-inheritance-tv $c $d))))(uniform-prior (UniformPriorTv (fa-list-acc $b)))(uniform-prior-known (UniformPriorKnownTv (fa-list-acc $b))))) (if (base-rate-finish? $a)(smoothed-base-rate-tv $kb $tv) $tv)))
 (: fa-member (-[det]-> KB Term Term (| ForwardDerived NoForwardOutputCandidate)))
-(= (fa-member $a $b $c)(stored-statement-candidate (brand Statement ($c $b)) (make-kb-context $a MAIN Nil) true))
+(= (fa-member $a $b $c)(stored-statement-candidate (brand Statement (cons $c (cons $b ()))) (make-kb-context $a MAIN Nil) true))
 (: fa-publish-cache! (-[det]-> KB Statement TV $a (List $b)))
 (= (fa-publish-cache! $a $b $c $d)
    (case (base-rate-cache-entries-for-mode $a $b $d) (

@@ -37,8 +37,8 @@ Consequences:
   opaque provenance, not a new proof source. Its handle is traced by the
   existing proof/evidence collector; public proof output omits the wrapper.
   A class membership `(Member x P)` is the unary statement `(P x)` (#96):
-  every source and query statement is rewritten so at its statement
-  positions on entry (`member-canon`), so no key, rule, fold, base rate or
+  every source and query statement is rewritten so at every subterm on
+  entry (`member-canon`), so no key, rule, fold, base rate or
   declaration inside the chainer ever has the head `Member`, and both forms
   share one key and one evidence identity. Answers are given back in the
   written form (`member-shape`). Each head has one arity per KB (checked at
