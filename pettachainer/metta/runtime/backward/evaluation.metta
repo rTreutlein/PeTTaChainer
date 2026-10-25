@@ -381,30 +381,40 @@
 ;; A connective's own evidence for the completions of its parts (#142): its
 ;; key K's value without the views that depend on K's parts or on the
 ;; consequence C (the rule's inversion onto K reads C), and no value when K has
-;; no such view. It is computed once and again when K changes, as K uses it
-;; (&sk_use): a change of K's producer, whose views it excludes, wakes no
-;; completion. The value carries K's evidence and dependencies, and the prior
-;; it was formed under (sk-observation-prior). A reader excluding keys it
-;; depends on gets it computed again without them. K's producer, settling and
-;; inversion rows read a part or C: K has a view apart from them only by a
-;; stored fact or a row reading neither, and is read only then, since every
+;; no such view, which is a value too: K uses the key (&sk_use), so each change
+;; of K checks it again, and its readers change only with it (a change of K's
+;; producer, whose views it excludes, wakes no completion). The value carries
+;; K's evidence and dependencies, and the prior it was formed under
+;; (sk-observation-prior). A reader excluding keys it depends on gets it
+;; computed again without them.
+;;
+;; K's producer, settling and inversion rows read a part or C. K has a view
+;; apart from them only by a stored fact or one of the rows reading neither,
+;; which the key needs (sk-need-below!) and is read only then, since every
 ;; change of a part changes K.
+(: sk-evidence-rows (-[semidet]-> $spec (List SkeletonItem)))
+(= (sk-evidence-rows $args)
+   (let* ((($_kb $ktype $ctype $kbctx) $args)
+          ($compound (sk-key $ktype $kbctx))
+          ($khash (index-hash $compound))
+          ($apart (hash-set (foldr-flat (sk-part-exclusions (the KBContext $kbctx)) ()
+                     (sk-statement-parts (cons $ctype (the (List Atom) (cdr-atom $ktype))))))))
+      (collapse (match &sk_row ($khash $stored $rhash (sk-row $ident $concl $premises $seq))
+         (if (=alpha $stored $compound)
+            (if (sk-excludes? $apart
+                   (deps-join (map-flat deps-key (map-semidet index-hash (fold-semidet sk-direct-key-step () $premises)))))
+               (empty)
+               (sk-row-item $seq $khash $stored $rhash (sk-row $ident $concl $premises $seq)))
+            (empty))))))
+
 (: sk-evidence-view (-[semidet]-> Number $spec (List Number) SkeletonValue))
 (= (sk-evidence-view $hash $args $exclude)
    (let* ((($_kb $ktype $ctype $kbctx) $args)
           ($compound (sk-key $ktype $kbctx))
-          ($khash (index-hash $compound))
           ($_use (sk-add-use! $compound (sk-evidence $args)))
           ($apart (hash-set (foldr-flat (sk-part-exclusions (the KBContext $kbctx)) $exclude
                      (sk-statement-parts (cons $ctype (the (List Atom) (cdr-atom $ktype))))))))
-      (if (if (== (sk-key-leaves $compound sk-any-filter) ())
-             (== (collapse (once (match &sk_row ($khash $stored $_rhash (sk-row $_ident $_concl $premises $_seq))
-                    (if (=alpha $stored $compound)
-                       (if (sk-excludes? $apart
-                              (deps-join (map-flat deps-key (map-semidet index-hash (fold-semidet sk-direct-key-step () $premises)))))
-                          (empty) true)
-                       (empty))))) ())
-             false)
+      (if (if (== (sk-key-leaves $compound sk-any-filter) ()) (== (sk-evidence-rows $args) ()) false)
          sk-none
          (case (sk-premise-value false (sk-value $compound sk-any-filter $apart)) (
             ((sk-val ($_type $_kbctx $proof $tv) $ev $deps)
@@ -4657,11 +4667,14 @@
 (: sk-check-seq (-[det]-> Number))
 (= (sk-check-seq) 1000000000000000000000000)
 
-;; An empty existential fold has been read but has no value. Its members
-;; must still wake its readers when they obtain evidence.
+;; An empty existential fold, or a connective's evidence with no view, has
+;; been read but has no value. Its inputs must still wake its readers when
+;; they obtain evidence.
+(: sk-empty-read? (-[det]-> SkeletonKey Bool))
+(= (sk-empty-read? $fold) (if (sk-existential-fold? $fold) true (head-is? $fold sk-evidence)))
 (: sk-fold-read? (-[det]-> Number SkeletonKey Bool))
 (= (sk-fold-read? $hash $fold)
-   (if (sk-existential-fold? $fold)
+   (if (sk-empty-read? $fold)
       (not (== (collapse (once (match &ctx_sk_latest ($hash $stored (sk-version $_seq 0 $_value))
          (if (=alpha $stored $fold) true (empty))))) ()))
       (not (== (sk-latest-view $hash $fold 0) sk-none))))
@@ -4767,7 +4780,7 @@
    (let* (($causes (list_to_set (collapse (match &ctx_sk_fold_pending ($hash $member) $member))))
           ($_taken (remove-data-rows! &sk_fold_pending (quote ($hash $member))))
           ($old (sk-latest-view $hash $fold 0)))
-      (if (if (== $causes ()) true (if (sk-existential-fold? $fold) false (== $old sk-none))) $work
+      (if (if (== $causes ()) true (if (sk-empty-read? $fold) false (== $old sk-none))) $work
          (let* (($_merged (sk-drop-merged! $fold)))
             (case (sk-fold-views $hash $fold) (
                ((cons (sk-version $_seq $_rhash $new) $_rest)
@@ -5218,8 +5231,9 @@
       ;; A compound's prior reads its inputs as its reader would read them.
       ((sk-prior $rate-args)
          (fold-semidet (sk-need! $depth) (sk-need-next $next $members) (sk-prior-inputs (compound-rate-goals $rate-args false $_rate))))
-      ;; Needing K would compute its producer's rows, whose views it excludes.
-      ((sk-evidence $_evidence-args) (sk-need-next $next $members))
+      ;; Not K's producer's rows, whose views it excludes.
+      ((sk-evidence $evidence-args)
+         (fold-semidet (sk-need-row! (+ $depth 1)) (sk-need-next $next $members) (sk-evidence-rows $evidence-args)))
       ((sk-group $group-args)
          (let $_reserve (sk-reserve-near! $depth)
             (case (sk-group-members $key $group-args) (

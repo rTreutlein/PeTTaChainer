@@ -443,16 +443,26 @@ for Or), K is O, so
     P(M | e_K) ∝ P(M) w1   against   (1 − P(M)) (s_O w1 + (1 − s_O) w0)     (Or)
     s_O' = s_O w1 / (s_O w1 + (1 − s_O) w0)
 
-and the completion is the one above over P(M | e_K) with s_O' for s_O, its
-proof's prior P(M | e_K). A sibling e_K decides (s_O' certainly at the
+and the completion is the one above over P(M | e_K) with s_O' for s_O. Its
+proof is `((antecedent-completion R idx with <e_K's proof> (prior <P(M |
+e_K)>)) ...)`: the prior it updates is based on e_K, not the population's
+`cpu`. So the completion holds e_K's evidence on every route, a negated
+one's proof walk included, and contains K's projection onto M, and
+completions through different consequences conditioned on one e_K combine
+over that prior by Bayes' rule. A sibling e_K decides (s_O' certainly at the
 connective's absorbing value) leaves C uninformative: the likelihoods are
-then equal and the completion is P(M | e_K), rather than no view. C itself
-may read its prediction from K: under P(M | e_K) the prediction is the prior
-C has, so its ratio is one. A negated connective's e_K is K's complemented;
-a negated part is conditioned as its statement's complement. The
-confidence is the least of P(M)'s, s_O's and e_K's, a heuristic. With
-`(Or G H)` stored true, the completions of `(Not (Or G H)) -> Y` give G
-0.6 / 0.84 (`test_compound_completion.py`).
+then equal and the completion is P(M | e_K), rather than no view. An e_K
+that decides M itself leaves the completion no view: K's projection onto M
+is the value, at its own confidence. C itself may read its prediction from
+K: under P(M | e_K) the prediction is the prior C has, so its ratio is one.
+A negated connective's e_K is K's complemented; a negated part is
+conditioned as its statement's complement. The confidence is the least of
+P(M)'s, s_O's and e_K's, a heuristic. With `(Or G H)` stored true, the
+completions of `(Not (Or G H)) -> Y` give G 0.6 / 0.84
+(`test_compound_completion.py`). Limit: two completions through one compound
+each read the sibling at its prior, apart from the other's consequence, so
+their combination is not the joint posterior over the sibling (C6S: 0.97695
+against an exact 0.97845; without e_K master gives 0.9029 against 0.9194).
 
 For an STV rule, v is recovered from the base rates of `(And O M)` and C, as
 for a plain inversion. The proof is `((antecedent-completion R idx with cpu

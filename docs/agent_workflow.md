@@ -255,6 +255,12 @@ Each of these has cost a debugging session. Most fail silently.
   `runtime/backward/skeleton.metta`. The checker also proves a fold over a
   parameter list, not over a function result. Bind the list first and pass it
   in as a parameter.
+- **`(data a b c)` is a bare tuple**, so a three-element result unifies with
+  `(STV $s $c)` and `(CTV $p $n)` patterns. Rule scoring's
+  `tv-confidence` cases on a CPU goal's result at rule store time: a
+  formula returning `(data $prior $sibling $flag)` bound `$prior` to `STV`
+  there and moved the rule's score, and with it search order. Give a
+  structured result a head of its own, such as `(completion-given ...)`.
 - **`superpose` takes a literal tuple.** `(superpose (f $x))` superposes the
   atoms `f` and `$x`. Bind the list first.
 - A plain `petta file.metta` run skips the strict checks.

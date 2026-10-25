@@ -844,18 +844,26 @@ consequence is read off its key (#142).
 
 A connective's key K can have evidence of its own (a stored compound, a rule
 concluding it), which screens the consequence C off from its parts. A
-completion of a part M is conditioned on it (#142): the row reads K's value
-without the views that depend on K's parts or on C (`CompoundEvidence`, a
-contextual premise whose key K is a direct input of the row, so it reads and
-needs K), and none, no factor, when K has no such view; M's prior becomes
-P(M | e_K), the sibling's value its posterior given e_K where M leaves K
-open, and the siblings read none of K's views (`prior_factored_merge.md`,
-"The connective's own evidence"). Known limits: a part is conditioned on its
-connective's evidence only through a completion, so a stored `(And G H)` with
-no rule over it still leaves G a PLN projection (`AndProjection`,
-`AndMarginalProjection`: K's strength read as the joint marginal), and a
-completion merged with such a projection of an uncertain compound gives the
-projection's value; an assumed compound's parts read MAIN without it (#143).
+completion of a part M is conditioned on it (#142): the row reads, through
+one aggregate key `(sk-evidence (kb K C kbctx))` (`CompoundEvidence`), K's
+value without the views that depend on K's parts or on C, and none, no
+factor, when K has no such view. No view is a value too: K uses the key, so
+every change of K checks it again, and a change that leaves it the same (as
+K's producer's) wakes no completion. Its need reaches K's rows that read
+neither a part nor C, not the producer's, whose views it excludes; it is no
+mandatory input of the row. M's prior becomes P(M | e_K), the base of the
+completion's proof e_K's proof, the sibling's value its posterior given e_K
+where M leaves K open, and the siblings read none of K's views
+(`prior_factored_merge.md`, "The connective's own evidence"). Known limits: a
+part is conditioned on its connective's evidence only through a completion,
+so a stored `(And G H)` with no rule over it still leaves G a PLN projection
+(`AndProjection`, `AndMarginalProjection`: K's strength read as the joint
+marginal), and the projection still wins where K's own value holds its
+inversion from C; two completions through one compound combine as if each
+alone moved the sibling; an uncertain e_K is lost once M has independent
+evidence of its own, which the completion's update merges with as if e_K were
+not in its prior (Q1: 0.94 against an exact 0.979, as on master); an assumed
+compound's parts read MAIN without it (#143).
 
 A clash that survives the fresh read is resolved by conditioning, not refused.
 The row is evaluated with the statement of a shared fact known true and again

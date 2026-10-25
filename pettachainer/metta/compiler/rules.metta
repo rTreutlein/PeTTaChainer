@@ -781,7 +781,11 @@
 ;; Bayes' rule (sk-factored-merge). H's key K can have evidence of its own (a
 ;; stored compound), which screens C off from M: the completion reads it
 ;; apart from K's parts and C (CompoundEvidence, sk-evidence-view) and is
-;; conditioned on it (CompletionEvidenceFormula), its prior then P(M | e_K).
+;; conditioned on it (CompletionEvidenceFormula), its prior then P(M | e_K)
+;; and its proof's base e_K's proof instead of the population's `cpu`: the
+;; first goal read, its proof takes the first `cpu` token (replace-token). So
+;; completions conditioned on one e_K combine over that prior, and the
+;; completion holds e_K's evidence.
 ;; A conjunction or disjunction is pure when no child computes (`computing?`).
 ;; The connective over a compound's children, or its one child.
 (: connective-statement (-[det]-> Atom (List Statement) Statement))
@@ -827,14 +831,14 @@
                       (append-goals $truth-premises
                          (append-goals $others-execs
                             (append-goals $consequent-execs
+                            (cons (CPU CompoundEvidence (quote ($kb $key $consequent $shape-kb)) (key-evidence $key-tv $key-formed))
                             (append-goals (append-goals $rule-execs $read-goals)
                                (append-goals
                                   (prior-base-rate-premises $kb
                                      (rule-base-rate-pattern $params $target) $_raw-target $target-base-tv)
                                   (append-goals (stage-goals $kb $target ($full $consequent) $stage)
                                   (the (List Goal)
-                                     ((CPU CompoundEvidence (quote ($kb $key $consequent $shape-kb)) (key-evidence $key-tv $key-formed))
-                                      (CPU CompletionEvidenceFormula
+                                     ((CPU CompletionEvidenceFormula
                                          (quote ($connective $negated $odd $target-base-tv $others-tv $key-tv $key-formed))
                                          (completion-given $target-prior $others-given $conditioned))
                                       (CPU CompletionLikelihoodsFormula
@@ -850,7 +854,7 @@
                                          $consequent-obs-tv)
                                       (CPU CTVModusPonensFormula
                                          (quote ($consequent-obs-tv $completion-ctv))
-                                         $out-tv)))))))))))
+                                         $out-tv))))))))))))
                   (brand CompiledAddition
                      ($premises |-
                         (: $shape-kb

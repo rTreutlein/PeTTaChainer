@@ -168,6 +168,12 @@
          (evidence-union
             (proof-term-evidence $mode (brand Proof $source))
             (proof-term-evidence $mode (brand Proof $siblings))))
+      ;; A completion conditioned on its connective's own evidence updates a
+      ;; prior based on that evidence, which it holds (#142).
+      (((antecedent-completion $_rule $_idx with $base $_prior) $witness)
+         (evidence-union
+            (proof-term-evidence $mode (brand Proof $base))
+            (proof-term-evidence $mode (brand Proof $witness))))
       ;; The population base rate an inversion or completion updates is no
       ;; evidence about the instance, nor is the prior of one more member read
       ;; from it.

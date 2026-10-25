@@ -215,8 +215,6 @@
    (query 100 compoundReadCtx (: $q (Implication (Not (And (G) (H))) (Z)) $tv)) (<= (abs-math (- $s 0.9)) 1e-12)) true)
 
 ;; Negated compound assumptions override a certain true joint in the world.
-;; rn's completion of (G) in the world, conditioned on the joint, gives it one
-;; instance of unknown prior, which moves the judgment by 2e-10 only.
 !(compileadd compoundNegReadCtx (: g (And (G) (H)) (STV 1 1)))
 !(compileadd compoundNegReadCtx (: rn
    (Implication (Not (And (G) (H))) (Y))
@@ -225,7 +223,7 @@
    (Implication (Y) (Z)) (CTV (STV 1 1) (STV 0 1))))
 !(test (let (: $p $type (STV $s $c))
    (query 100 compoundNegReadCtx (: $q (Implication (Not (And (G) (H))) (Z)) $tv))
-   (<= (abs-math (- $s 0.9)) 1e-6)) true)
+   (<= (abs-math (- $s 0.9)) 1e-12)) true)
 
 ;; An open premise reader also consumes the ground assumption when its
 ;; individual is absent from the consequent. The bridge prevents a direct
