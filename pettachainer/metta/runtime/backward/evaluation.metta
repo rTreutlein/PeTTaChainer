@@ -5963,6 +5963,7 @@
           ($_walk (change-state! sk_walk_budget (* (sk-walk-per-step) $steps)))
           ($_pushes (change-state! sk_push_seq 0))
           ($_context-start (context-start!))
+          ($_inversions (fold-semidet sk-root-reader-step () $goals))
           ($_search (sk-walk! $goals))
           ($_world-invalidated (sk-invalidate-world!))
           ($_unneeded (remove-data-rows! &sk_needed (quote ($hash $key $depth))))

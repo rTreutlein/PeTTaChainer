@@ -1269,7 +1269,23 @@ A node no rule can conclude (other than an implication or inheritance link,
 whose expansion installs rules) is expanded without a step when the walk
 reaches it: its expansion only reads its stored facts. It keeps its place in the walk, so its facts extend joins
 when its priority says so (reading them at once filled the row budget early:
-StationOps Brier 0.0652 against 0.0607 at the smallest budgets). Before any state is created, a rule
+StationOps Brier 0.0652 against 0.0607 at the smallest budgets). A
+compound key a rule application's join waits on is expanded without a step
+too: its producers are how that rule reads the compound's parts, so reading a
+compound antecedent through its key costs the search what reading its parts
+did (#142; SupplyNet stage 3 timed b25 s3, error 0.0045 with it, 0.0106
+without). A compound no rule reads as a premise, such as a rule's whole
+conjunctive antecedent, still costs a step: expanding it for free gave an open
+query a joint-fold member a cold query did not have (`test_var_head`). Below a
+root, expanding a compound starts a rule's inversion into it only once
+something besides that rule's joins reads it (another rule's join, a query
+root): the inversion reads the rule's own conclusion as its observation, so
+its views are nothing to that rule's joins, which exclude what depends on
+their conclusion. Until then it waits in `&sk_deferred_inversion`; starting
+those inversions for compounds of every past individual took the evaluation
+allowance (SupplyNet stage 3 untimed b50: 182 rows unpaid against master's 57,
+81 deferred) and set off conditioning over them (fuzz s22: two KBs flagged,
+three times master's rows). Before any state is created, a rule
 whose ground computation cannot succeed is pruned. A ground fact premise
 without a fact or concluding rule still keeps its waiter: that input can
 arrive later, and the node will not be expanded again. New

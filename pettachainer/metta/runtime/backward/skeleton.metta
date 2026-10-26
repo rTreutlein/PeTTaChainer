@@ -15,6 +15,16 @@
 (: SkeletonRuleDef Type)
 (: sk-rule-def (-[det]-> SkFact (List SkPattern) SkeletonRuleDef))
 
+;; A rule's inversion into a compound reads the rule's own conclusion as its
+;; observation, so its views are nothing to that rule's joins reading the
+;; compound as their premise: they exclude what depends on their conclusion.
+;; Below a root, expanding a compound node starts the inversion of a rule only
+;; once something besides that rule's joins reads the node; until then it
+;; waits here (node hash, inverted rule, node, match), and a later reader, a
+;; join of another rule (sk-wait-on!) or a query root, starts it (#142).
+(: &sk_deferred_inversion (SpaceOf (Number Atom SkPattern SkeletonMatch)))
+!(bind! &sk_deferred_inversion (new-space))
+
 (: sk-cons-step (-[semidet]-> (List $item) $item (List $item)))
 (= (sk-cons-step $items $item) (cons $item $items))
 
@@ -823,6 +833,7 @@
           ($child (copy_term $premise))
           ($digest (link-digest (sk-child-link $owner $child)))
           ($_wait (if $known () (sk-store-wait! $digest $hash $premise $waiter)))
+          ($_inversions (sk-start-deferred! $hash $rule))
           ($subscription (sk-functional-subscription $waiter))
           ;; A durable join cannot depend on a query-local judgment producer.
           ;; Install its exact scaffold with the join's lifetime, even if a
@@ -1730,11 +1741,66 @@
                   (()
                      (let* (($goal (assemble-stored-runtime-fact $rule-type $rule-kbctx $_rule-proof $_rule-tv))
                             ($matches (collapse (sk-rule-match $goal)))
-                            ($_rules (fold-semidet (sk-start-rule-step $owner) () $matches))
+                            ($started
+                               (if (if (> $depth 0) (compound-source? (brand Statement $type)) false)
+                                  (fold-semidet (sk-start-now-step $hash $owner (sk-reader-names $hash)) () $matches)
+                                  $matches))
+                            ($_rules (fold-semidet (sk-start-rule-step $owner) () $started))
                             ($_open
                                (if (== (extract-vars $type) ()) ()
                                   (let $prefix (sk-node-prefix $type) (add-atom &sk_open_node ($prefix $hash $owner))))))
                         (if (== $leaf-facts ()) (sk-start-prior! $owner $type $kbctx $matches) ()))))))))))))
+
+;; The rule an inversion match inverts, or none.
+(: sk-inverted-rule (-[det]-> SkeletonMatch Atom))
+(= (sk-inverted-rule (sk-match $_id $_premises ($_type $_kbctx $proof $_tv)))
+   (if (is-expr $proof)
+      (let $head (car-atom $proof) (if (head-is? $head inverted) (car-atom (cdr-atom $head)) none))
+      none))
+
+;; The name of the rule a join applies, none for a producer or an adapter.
+(: sk-rule-name (-[det]-> Number Atom))
+(= (sk-rule-name $id)
+   (case (collapse (once (match rules (runtime-rule-row $id ($_t $_c $proof $_v) $_ps) $proof))) (
+      ((cons $proof $_none) (if (head-is? $proof by) (car-atom (cdr-atom $proof)) none))
+      (() none))))
+
+;; The rules whose joins wait on a node.
+(: sk-reader-names (-[det]-> Number (List Atom)))
+(= (sk-reader-names $hash)
+   (let $rules (collapse (match &sk_wait ($hash $_premise (sk-partial $_owner $rule $_c $_d $_r $_k)) $rule))
+      (map-flat sk-rule-name $rules)))
+
+;; Whether a reader other than `$rule` is among the readers.
+(: sk-other-reader? (-[det]-> Atom (List Atom) Bool))
+(= (sk-other-reader? $_rule ()) false)
+(= (sk-other-reader? $rule (cons $reader $rest)) (if (== $reader $rule) (sk-other-reader? $rule $rest) true))
+
+;; A compound node's matches in source order, an inversion left waiting while
+;; the inverted rule's joins alone read the node (&sk_deferred_inversion).
+(: sk-start-now-step
+   (-[semidet]-> Number SkPattern (List Atom) (List SkeletonMatch) SkeletonMatch (List SkeletonMatch)))
+(= (sk-start-now-step $hash $owner $readers $kept $match)
+   (let $rule (sk-inverted-rule $match)
+      (if (if (== $rule none) false
+             (if (== $readers ()) false (not (sk-other-reader? $rule $readers))))
+         (let $_deferred (add-atom &sk_deferred_inversion ($hash $rule $owner $match)) $kept)
+         (append-flat $kept (cons $match ())))))
+
+;; A reader of a node, a join of rule `$reader` or a query root (-1), starts
+;; the inversions waiting there of every other rule.
+(: sk-start-deferred! (-[semidet]-> Number Number Atom))
+(= (sk-start-deferred! $hash $reader-id)
+   (if (== (collapse (once (match &sk_deferred_inversion ($hash $_r $_o $_m) true))) ()) ()
+      (let* (($reader (if (< $reader-id 0) none (sk-rule-name $reader-id)))
+             ($_started (collapse (match &sk_deferred_inversion ($hash $rule $owner $match)
+                (if (== $rule $reader) (empty)
+                   (let $_taken (remove-variant-row! &sk_deferred_inversion (quote ($hash $rule $owner $match)))
+                      (sk-start-rule-step $owner () $match)))))))
+         ())))
+
+(: sk-root-reader-step (-[semidet]-> Atom SkPattern Atom))
+(= (sk-root-reader-step $_acc $root) (sk-start-deferred! (sk-node-hash $root) -1))
 
 ;; Subsumption: an open node below a root whose statement grows a term of an
 ;; open node whose rules were already started (grows-from?, as (Num (succ $x))
@@ -2057,17 +2123,23 @@
             ($fresh (sk-search! (fold-semidet (sk-push 1) $heap $fresh)))))
          (sk-search-pop! (heap_pop $heap)))))
 
-;; A node no rule can conclude is expanded without a step when the walk
-;; reaches it: its expansion only reads its stored facts. Implications and
-;; inheritance links are not, since expanding them installs rules.
-(: sk-extensional? (-[semidet]-> SkPattern Bool))
-(= (sk-extensional? $node)
+;; A node expanded without a step when the walk reaches it: one no rule can
+;; conclude, whose expansion only reads its stored facts, and a compound key a
+;; rule application reads as its premise, whose producers are how that rule
+;; reads the compound's parts, so reading it through its key costs the search
+;; what reading the parts did (#142). Any other compound node, such as a rule's
+;; whole conjunctive antecedent, which no rule reads, costs a step.
+;; Implications and inheritance links are not free, since expanding them
+;; installs rules.
+(: sk-free-expansion? (-[semidet]-> Number SkPattern Bool))
+(= (sk-free-expansion? $hash $node)
    (case $node (
       ((CPU $_fun $_args $_res) false)
       (($type $kbctx $_proof $_tv)
-         (if (implication-type? $type) false
-            (if (head-is? $type Inheritance) false
-               (== (collapse (once (sk-rule-match (assemble-stored-runtime-fact $type $kbctx $_rp $_rt)))) ())))))))
+         (if (compound-source? (brand Statement $type)) (sk-other-reader? none (sk-reader-names $hash))
+            (if (implication-type? $type) false
+               (if (head-is? $type Inheritance) false
+                  (== (collapse (once (sk-rule-match (assemble-stored-runtime-fact $type $kbctx $_rp $_rt)))) ()))))))))
 
 (: sk-search-pop! (-[semidet]-> (Number SkeletonFrontier (Heap SkeletonFrontier)) Atom))
 (= (sk-search-pop! ($_priority (sk-frontier $node $depth $hash) $rest))
@@ -2081,7 +2153,7 @@
          (sk-search! $rest))
       (if (sk-seen! $hash $node)
          (sk-search! $rest)
-         (if (if (sk-extensional? $node) true (sk-take! sk_budget (case $node (((CPU $_f $_a $_r) 1) (($type $_c $_p $_t) (term-cost $type))))))
+         (if (if (sk-free-expansion? $hash $node) true (sk-take! sk_budget (case $node (((CPU $_f $_a $_r) 1) (($type $_c $_p $_t) (term-cost $type))))))
             (let $_expand (sk-expand! $node $depth $hash) (sk-search! (sk-push-children $depth $hash $node $rest)))
             (sk-search! $rest)))))
 
