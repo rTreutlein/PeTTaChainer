@@ -2128,11 +2128,11 @@ generalize_argument(Subst, Arg, General) :-
 
 % Observed predicates (runtime/observed_predicates.metta): the ground
 % statements of Head at time point Time that a rule of KB concludes (its
-% conclusion with the time argument at Position, counted from 1, a variable
-% and every other argument ground) and that KB stores no fact of, each as a
-% false fact named by its hash.
-'closed-world-gaps'(KB, Head, Position, Time, Facts) :-
-    (   current_predicate(ccls_index/3)
+% conclusion with the argument at Head's Time position a variable and every
+% other argument ground) and that KB stores no fact of, each as a false fact
+% named by its hash.
+'closed-world-gaps'(KB, Head, Time, Facts) :-
+    (   current_predicate(ccls_index/3), argument_sort(Head, KB, Position, 'Time')
     ->  findall(S, ( ccls_index([T, [KB|_], _, _], _, _), T = [Head|_], copy_term(T, S),
                      nth0(Position, S, V), var(V), V = Time, ground(S) ), Found),
         sort(Found, Statements)
@@ -2142,11 +2142,14 @@ generalize_argument(Subst, Arg, General) :-
               term_hash(S, H), atom_concat('unobserved-', H, Name) ),
             Facts).
 
-% A statement's place in time, [Time, Layer], from its predicate's declared
-% [Position, Layer], where Time is the constant at argument Position; []
-% when there is none.
-'hypothesis-place'(Statement, [Position, Layer], Place) :-
-    ( nth0(Position, Statement, Time), atomic(Time), Time \== [] -> Place = [Time, Layer] ; Place = [] ).
+% A ground statement's place in time, [Time, Layer]: the constant at its
+% predicate's Time position and the predicate's layer (set-predicate-time);
+% [] when there is none.
+'hypothesis-place'(KB, Statement, Place) :-
+    (   is_list(Statement), ground(Statement), Statement = [Head|Args],
+        time_layer(Head, KB, Layer), argument_sort(Head, KB, Position, 'Time'),
+        nth1(Position, Args, Time), atomic(Time), Time \== []
+    ->  Place = [Time, Layer] ; Place = [] ).
 
 % A statement's distinct constant arguments, the values it can join on.
 'hypothesis-constants'([_|Args], Constants) :-
@@ -2228,7 +2231,7 @@ hypothesis_confidence(['CTV', ['STV', _, C], _], C).
 % (set-predicate-time), lowest first.
 'hypothesis-layers'(KB, Live, Groups) :-
     findall(Layer-Reviewed, ( member(Reviewed, Live), Reviewed = ['hm-reviewed', _, _, [Head|_], _, _],
-                              '&hm_time'(Head, KB, _, Layer) ), Keyed),
+                              time_layer(Head, KB, Layer) ), Keyed),
     keysort(Keyed, Sorted), group_pairs_by_key(Sorted, ByLayer), pairs_values(ByLayer, Groups).
 
 % How many of the live hypotheses under review no review had read, which

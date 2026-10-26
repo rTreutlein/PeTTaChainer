@@ -103,6 +103,29 @@
 !(compileadd sortConj (: ab (Implication (A $x) (B $x)) (CTV (STV 0.8 1) (STV 0.2 1))))
 !(compileadd sortConj (: cb (Implication (And (O $x) (C $x)) (B $x)) (CTV (STV 0.9 1) (STV 0.1 1))))
 !(test (collapse (query 2000 sortConj (: $p (And (O q) (C q)) $tv))) ())
+
+;; set-predicate-time declares its position Time, so the constants stated
+;; there are time points and every statement mentioning one is a stage (D3).
+;; Storm's facts make t1 and t2 time points: Q t1 predicts W, which is no
+;; evidence about L t1, which keeps its prior 0.4 (the aggregate abduced
+;; 0.778); an observed W t2 updates it to 0.9 * 0.4 / (0.9 * 0.4 + 0.1 *
+;; 0.6) = 0.857 (exact). t3 is no time point, and L t3 stays an aggregate.
+!(set-predicate-time sortTime Storm 2 0)
+!(set-base-rate sortTime (L $t) (STV 0.4 1))
+!(set-base-rate sortTime (Q $t) (STV 0.5 1))
+!(compileadd sortTime (: qw (Implication (Q $t) (W $t)) (CTV (STV 0.9 1) (STV 0.2 1))))
+!(compileadd sortTime (: lw (Implication (L $t) (W $t)) (CTV (STV 0.9 1) (STV 0.1 1))))
+!(compileadd sortTime (: s1 (Storm north t1) (STV 1 1)))
+!(compileadd sortTime (: s2 (Storm north t2) (STV 1 1)))
+!(compileadd sortTime (: q1 (Q t1) (STV 1 1)))
+!(compileadd sortTime (: q3 (Q t3) (STV 1 1)))
+!(compileadd sortTime (: w2 (W t2) (STV 1 1)))
+!(test (query 2000 sortTime (: $p (L t1) $tv))
+   (: (population-prior (L $_0)) (L t1) (STV 0.4 1)))
+!(test (query 2000 sortTime (: $p (L t2) $tv))
+   (: ((inverted lw with cpu (prior (STV 0.4 1))) w2) (L t2) (STV 0.8571428571428572 0.9998374408757003)))
+!(test (query 2000 sortTime (: $p (L t3) $tv))
+   (: ((inverted lw with cpu (prior (STV 0.4 1))) (by qw q3)) (L t3) (STV 0.7783251231527094 0.9998738296388164)))
 !(set-bayes-prior-count 0.2)
 
 ;; D2: a constant is never both a stage or time and an object or concept.

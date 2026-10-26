@@ -568,9 +568,9 @@ A completion reads its consequent exactly as plain inversion does, through
 with a `Stage` or `Time` argument a stage, such as an event's property
 `(Late e1)` once `(Time e1 d1)` is stated with `Time` declared
 `(Stage Time)`, and a compound with a stage part (#139). A time declaration
-(`set-predicate-time`) marks a predicate's ground statements as stages, such
-as `(Blocked r1 t4)`; for a wrapper such as `(AtTime (Event x) t)` the
-wrapper carries the declaration. A stage gets evidence from below only. A
+(`set-predicate-time`) declares a position `Time`, so `(Blocked r1 t4)` makes
+`t4` a time point and every statement about it a stage; for a wrapper such
+as `(AtTime (Event x) t)` the wrapper carries the declaration. A stage gets evidence from below only. A
 consequent's value has two parts: what was observed of it or of what follows
 from it, and what was computed forward from its causes. An inversion or
 completion of a stage reads the first, B's λ message in belief propagation,

@@ -658,8 +658,8 @@ A key's value merges its stored facts and one view per row:
   aggregates"). The kind comes from sorts (API.md, "Sorts";
   `prolog/sorts.pl`): a statement with an argument at a declared `Stage` or
   `Time` position, a constant of such a sort, or a variable the rule places
-  at such a position, a compound with a stage part (#139), or a ground
-  statement of a predicate with `set-predicate-time`. Constants take sorts
+  at such a position, or a compound with a stage part (#139);
+  `set-predicate-time` declares its position `Time`. Constants take sorts
   only from ingested facts and rules, at declared positions, and from
   `set-constant-sort`, never from a query or an assumption, so an answer
   never depends on which questions were asked; sorts are monotone and never

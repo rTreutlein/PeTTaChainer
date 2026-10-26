@@ -32,6 +32,16 @@
     ;   throw(error(domain_error(constant_sort, [Constant, Sort]),
                     context(declaration/2, 'a constant sort names a symbol and one of Stage, Time, Object or Concept'))) ).
 
+% Head's facts refer to the time point at argument Position, which is
+% declared Time, and have layer Layer within it (hypothesis mining).
+'set-predicate-time'(KB, Head, Position, Layer, true) :-
+    'declared-head!'(Head, true),
+    'sorted-kb!'(KB, true),
+    retractall(argument_sort(Head, KB, Position, _)),
+    assertz(argument_sort(Head, KB, Position, 'Time')),
+    retractall(time_layer(Head, KB, _)),
+    assertz(time_layer(Head, KB, Layer)).
+
 % A source's constants take the sorts of their declared positions. A term
 % that would be both a stage or time and an object or concept, across the
 % source or against a constant's recorded sort, rejects the source before
@@ -70,8 +80,7 @@ source_sort(KB, Statement, Term-Sort) :-
 % stage part (#139), or an atom with a Stage or Time argument, by its
 % position's declared sort, else by its constant's sort, else, for a
 % variable, by its sort in `Sides`, the rule an inversion or completion
-% instance comes from. A ground statement of a predicate with a declared
-% time is one too.
+% instance comes from.
 'stage-statement?'(KB, Statement, Sides, Stage) :-
     ( sorted_kb(KB), stage_statement(KB, Statement, Sides) -> Stage = true ; Stage = false ).
 
@@ -79,8 +88,6 @@ stage_statement(KB, Statement, Sides) :-
     nonvar(Statement), Statement = [Head|Args], atom(Head),
     (   ( memberchk(Head, ['And','Or','Not','ExistentialClaim']) ; 'compound-connective?'(Head, true) )
     ->  member(Part, Args), stage_statement(KB, Part, Sides)
-    ;   ground(Statement), current_predicate('&hm_time'/4), '&hm_time'(Head, KB, _, _)
-    ->  true
     ;   nth1(Position, Args, Arg),
         (   argument_sort(Head, KB, Position, Sort) -> true
         ;   atom(Arg) -> constant_sort(Arg, KB, Sort)

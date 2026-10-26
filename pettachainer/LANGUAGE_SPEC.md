@@ -246,13 +246,13 @@ or period), `Object` (an entity), `Concept` (a class), `Value` (data, such as
 a number or a quoted statement, which sorts nothing) and `Any` (undeclared).
 A statement with a `Stage` or `Time` argument is a *stage*: after
 `(Agent e1 Bob)`, `(Late e1)` is one. So is an `And`, `Or`, `Not` or
-existential claim with a stage part, and a ground statement of a predicate
-with `set-predicate-time`. An inversion or completion of a stage reads only
-evidence from below, never a forward prediction; every other statement is an
-aggregate and keeps PLN induction and abduction. A constant that would be
-both a stage or time and an object or concept, such as from swapped role
-arguments `(Agent Bob e1)`, is rejected with `domain_error(sort_conflict,
-...)`. Only stored facts and rules sort constants, never a query or an
+existential claim with a stage part. `set-predicate-time` declares its
+position `Time`, so its time points make stages too. An inversion or
+completion of a stage reads only evidence from below, never a forward
+prediction; every other statement is an aggregate and keeps PLN induction and
+abduction. A constant that would be both a stage or time and an object or
+concept, such as from swapped role arguments `(Agent Bob e1)`, is rejected
+with `domain_error(sort_conflict, ...)`. Only stored facts and rules sort constants, never a query or an
 assumed fact. Declare sorts and state an event's role facts before querying
 its properties: a value computed earlier keeps its kind for good
 (docs/metta/API.md, "Sorts").

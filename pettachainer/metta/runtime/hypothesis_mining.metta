@@ -18,11 +18,6 @@
 (: &hypothesis_mining (SpaceOf (KB Number Number)))
 !(bind! &hypothesis_mining (new-space))
 
-;; Predicate -> kb, the position of its time argument, its layer within a
-;; time point.
-(: &hm_time (SpaceOf (Atom KB Number Number)))
-!(bind! &hm_time (new-space))
-
 ;; kb -> the predicate of its link facts, (link earlier later).
 (: &hm_link (SpaceOf (KB Atom)))
 !(bind! &hm_link (new-space))
@@ -100,17 +95,6 @@
           ($on (> $max-new 0))
           ($_set (if $on (let $_row (add-atom &hypothesis_mining ($kb $max-new $max-live)) (set-rule-refinement $kb true)) false)))
       $on))
-
-;; Predicate `$head`'s facts refer to the time point at argument `$position`
-;; (counted from 1) and have layer `$layer` within it. Its ground statements
-;; are stages (stage-statement?, prolog/sorts.pl).
-(: set-predicate-time (-[det]-> KB Atom Number Number Bool))
-(= (set-predicate-time $kb $head $position $layer)
-   (let* (($_declared (declared-head! $head))
-          ($_sorted (sorted-kb! $kb))
-          ($_old (remove-data-rows! &hm_time (quote ($head $kb $_position $_layer))))
-          ($_row (add-atom &hm_time ($head $kb $position $layer))))
-      true))
 
 ;; `($link $earlier $later)` facts say that time point $earlier immediately
 ;; precedes $later.
@@ -242,19 +226,6 @@
 (= (hm-propose! $kb $max-new $max-live $state $candidates)
    (fold-flat (hm-consider! $kb $max-new $max-live) $state $candidates))
 
-;; A ground statement's time point and layer, when its predicate's place in
-;; time is declared and the argument there is a constant; () otherwise.
-(: hm-place (-[det]-> KB Atom Atom))
-(= (hm-place $kb $type)
-   (if (is-expr $type)
-      (if (== (extract-vars $type) ())
-         (let $head (car-atom $type)
-            (case (collapse (once (match &hm_time ($head $kb $position $layer) ($position $layer)))) (
-               (() ())
-               ((cons $declared $_rest) (hypothesis-place $type $declared)))))
-         ())
-      ()))
-
 ;; The fact is counted in the outcomes of the consequent patterns it is an
 ;; instance of. Its features are the recent true facts sharing a constant
 ;; with it at its time point and at the ones its links make the previous and
@@ -332,7 +303,7 @@
       ((cons $setting $_rest)
          (case $stmt (
             ((: $_prf $type (STV $s $_c))
-               (case (hm-place $kb $type) (
+               (case (hypothesis-place $kb $type) (
                   (($time $layer) (hm-mine! $kb $type $s $time $layer $setting))
                   (() (case $type (
                      (($link $earlier $later)
