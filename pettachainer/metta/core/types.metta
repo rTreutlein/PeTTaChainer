@@ -78,6 +78,8 @@
 (: reserved-head? (-[det]-> Atom Bool))
 (: declared-head! (-[det]-> Atom Bool))
 (: stage-statement? (-[det]-> KB Atom Atom Bool))
+(: stationary-rule? (-[det]-> KB Atom Atom Bool))
+(: class-link? (-[det]-> Atom Atom Bool))
 (: set-predicate-time (-[det]-> KB Atom Number Number Bool))
 (: rule-truth-factor (-[det]-> Atom Number))
 ;; Hypothesis mining's term helpers (runtime/hypothesis_mining.metta).
@@ -294,9 +296,6 @@
 (: ExtractValue Type)
 (: extract-value (-[det]-> Statement $value ExtractValue))
 (: extract-with-truth (-[det]-> Statement Atom $value ExtractValue))
-(: ExtractInheritanceTV Type)
-(: extract-inheritance-tv
-   (-[det]-> KB Statement ExtractInheritanceTV))
 
 (: NilType Type)
 (: Nil NilType)
@@ -328,8 +327,6 @@
 (: user BaseRateSource)
 (: computed BaseRateSource)
 
-(: BaseRatePrior (Newtype Atom))
-
 (: BaseRateEntry Type)
 (: base-rate
    (-[det]-> KB Statement TV BaseRateSource $mode BaseRateEntry))
@@ -343,46 +340,15 @@
 (: dist-average DistAverageFinish)
 (: BaseRateFinish Type)
 (: base-rate BaseRateFinish)
-(: WeightedBaseRateFinish Type)
-(: weighted-base-rate WeightedBaseRateFinish)
-(: WeightedBaseRateWithPriorFinish Type)
-(: weighted-base-rate-with-prior WeightedBaseRateWithPriorFinish)
-(: MemberInheritanceFinish Type)
-(: member-inheritance (-[det]-> KB MemberInheritanceFinish))
 (: ImplicationInstanceFinish Type)
 (: implication-instance ImplicationInstanceFinish)
 (: implication-instance-ctv ImplicationInstanceFinish)
-(: WeightedBaseRateInUniverseFinish Type)
-(: weighted-base-rate-in-universe
-   (-[det]-> KB WeightedBaseRateInUniverseFinish))
-(: WeightedBaseRateWithPriorInUniverseFinish Type)
-(: weighted-base-rate-with-prior-in-universe
-   (-[det]-> KB WeightedBaseRateWithPriorInUniverseFinish))
-(: UniformPriorFinish Type)
-(: uniform-prior UniformPriorFinish)
-(: UniformPriorKnownFinish Type)
-(: uniform-prior-known UniformPriorKnownFinish)
 (: AggregateFinish
    (Alias
       (| IdentityFinish
          DistAverageFinish
          BaseRateFinish
-         WeightedBaseRateFinish
-         WeightedBaseRateWithPriorFinish
-         MemberInheritanceFinish
-         ImplicationInstanceFinish
-         WeightedBaseRateInUniverseFinish
-         WeightedBaseRateWithPriorInUniverseFinish
-         UniformPriorFinish
-         UniformPriorKnownFinish)))
-
-(: ConceptPriorConfidence Type)
-(: concept-prior-confidence
-   (-[det]-> KB Number ConceptPriorConfidence))
-
-(: ConceptNodePriorRuntime Type)
-(: ConceptNodePriorRuntime
-   (-[det]-> KB Statement ConceptNodePriorRuntime))
+         ImplicationInstanceFinish)))
 
 ;; Withdrawal provenance is independent of truth-value evidence.
 (: withdraw-rule! (-[det]-> Number Bool))

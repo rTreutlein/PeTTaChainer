@@ -9,11 +9,6 @@
 (: WeightedTV Type)
 (: WeightedTv (-[det]-> TV TV WeightedTV))
 
-(: BaseRateEvidenceWithPriorState Type)
-(: BaseRateEvidenceWithPrior
-   (-[det]-> BaseRatePrior BaseRateEvidenceState
-       BaseRateEvidenceWithPriorState))
-
 (: ideal-clip (-[det]-> Number Number))
 (= (ideal-clip $s) (max 0.000001 (min 0.999999 $s)))
 
@@ -255,15 +250,6 @@
    (if (<= $csum 0.0) no-evidence
       (STV (/ $wsum $csum) (count-confidence $csum))))
 
-(: WeightedBaseRateAcc
-   (-[semidet]-> BaseRateEvidenceState (| TV WeightedTV)
-       BaseRateEvidenceState))
-(= (WeightedBaseRateAcc (BaseRateEvidence $wsum $msum) (WeightedTv (STV $m $mc) (STV $s $c)))
-   (let $mass (* (* $m $mc) $c)
-      (BaseRateEvidence (+ $wsum (* $s $mass)) (+ $msum $mass))))
-(= (WeightedBaseRateAcc $acc (WeightedTv $mass-tv (CTV $pos $_neg)))
-   (WeightedBaseRateAcc $acc (WeightedTv $mass-tv $pos)))
-(= (WeightedBaseRateAcc $acc no-evidence) $acc)
 (: WeightedCountBaseRateTv
    (-[det]-> BaseRateEvidenceState OptionalSTV))
 (= (WeightedCountBaseRateTv (BaseRateEvidence $wsum $msum))
@@ -300,27 +286,6 @@
       (((STV $ps $pc) $_none) (STV $ps $pc))
       ((no-evidence (STV $ns $nc)) (CTV (STV 0.5 0.0) (STV $ns $nc)))
       ($_nothing no-evidence))))
-(: WeightedUniverseBaseRateTv
-   (-[det]-> Number BaseRateEvidenceState OptionalSTV))
-(= (WeightedUniverseBaseRateTv $universe-size (BaseRateEvidence $wsum $msum))
-   (if (or (<= $msum 0.0) (<= $universe-size 0.0)) no-evidence
-      (STV (/ $wsum $msum) (min 1.0 (/ $msum $universe-size)))))
-
-(: WeightedBaseRateWithPriorAcc
-   (-[semidet]-> BaseRateEvidenceWithPriorState (| TV WeightedTV)
-       BaseRateEvidenceWithPriorState))
-(= (WeightedBaseRateWithPriorAcc (BaseRateEvidenceWithPrior $prior $ev) $tv)
-   (BaseRateEvidenceWithPrior $prior (WeightedBaseRateAcc $ev $tv)))
-
-(: BaseRateWithPriorFormula
-   (-[det]-> OptionalSTV OptionalSTV OptionalSTV))
-(= (BaseRateWithPriorFormula no-evidence $evidence) $evidence)
-(= (BaseRateWithPriorFormula (STV $s $c) no-evidence)
-   (STV $s $c))
-(= (BaseRateWithPriorFormula
-      (STV $ps $pc) (STV $es $ec))
-   (mergetvs (STV $ps $pc) (STV $es $ec)))
-
 ;; The base rate of a conjunction whose parts share no variables: the product
 ;; of the parts' rates, and no evidence while a part has none.
 (: BaseRateProductFormula
@@ -497,31 +462,9 @@
                      (CTV $positive (STV $read $confidence))
                      (inferred-negative $atv $btv $itv (STV 0.5 1)))))))))))
 
-; Uniform 1/N node prior for individuals, where N is the number of distinct
-; subjects observed. The fold collects each matched subject; UniformPriorTv
-; dedups them and returns 1/N at a confidence reflecting how many objects we
-; have observed. Used for the base rate of an individual (a singleton concept),
-; which cannot be folded extensionally because nothing inherits an individual.
 (: list-len (-[det]-> (List $a) Number))
 (= (list-len ()) 0)
 (= (list-len (cons $_ $rest)) (+ 1 (list-len $rest)))
-
-(: CollectSubject (-[det]-> (List $subject) $subject (List $subject)))
-(= (CollectSubject $acc $subj) (cons $subj $acc))
-
-(: UniformPriorTv
-   (-[det]-> (List $subject) OptionalSTV))
-(= (UniformPriorTv $subjects)
-   (let $n (list-len (list_to_set $subjects))
-      (if (<= $n 0) no-evidence
-         (STV (/ 1.0 $n) (count-confidence $n)))))
-
-(: UniformPriorKnownTv
-   (-[det]-> (List $subject) OptionalSTV))
-(= (UniformPriorKnownTv $subjects)
-   (let $n (list-len (list_to_set $subjects))
-      (if (<= $n 0) no-evidence
-         (STV (/ 1.0 $n) 1.0))))
 
 (: CTVInversionFormula (-[semidet]-> TV TV LikelihoodRead TV))
 (= (CTVInversionFormula no-evidence $_btv $_itv) (empty))

@@ -190,18 +190,14 @@ def run_forward_population_benchmark(
         handler.forward_chain(selected, steps=forward_steps)
         forward_seconds += time.perf_counter() - started
 
-    # Check forward maintenance before a backward query can fill missing work.
+    # Check forward maintenance before a search can fill missing work: a
+    # one-step query expands the link and reads its instance fold, which the
+    # class facts kept current.
     started = time.perf_counter()
-    cached = handler.handler.process_metta_string(
-        "!(let ((STV $strength $confidence)) "
-        f"(cached-base-rate {handler.kb} "
-        "(MemberInheritanceSample $obj MemberBenchSubject MemberBenchConcept $atv $btv)) "
-        "(: forward-cache (Inheritance MemberBenchSubject MemberBenchConcept) "
-        "(STV $strength $confidence)))"
-    )
-    cache_read_seconds = time.perf_counter() - started
-    cached_strength, cached_confidence = validate_truth_value(
-        cached, expected_strength=member_strength,
+    maintained = handler.query(INHERITANCE_QUERY, steps=1, timeout_sec=0)
+    one_step_seconds = time.perf_counter() - started
+    maintained_strength, maintained_confidence = validate_truth_value(
+        maintained, expected_strength=member_strength,
         expected_confidence=count_confidence(members),
     )
 
@@ -222,15 +218,15 @@ def run_forward_population_benchmark(
         "member_population_select_seconds": select_seconds,
         "member_population_forward_seconds": forward_seconds,
         "member_population_build_seconds": build_seconds,
-        "member_population_cache_read_seconds": cache_read_seconds,
+        "member_population_one_step_seconds": one_step_seconds,
         "member_population_query_seconds": final_query_seconds,
         "member_population_total_seconds": (
             setup_seconds + registration_seconds + build_seconds
-            + cache_read_seconds + final_query_seconds
+            + one_step_seconds + final_query_seconds
         ),
         "member_population_expected_tv_present": 1.0,
-        "member_population_cached_strength": cached_strength,
-        "member_population_cached_confidence": cached_confidence,
+        "member_population_one_step_strength": maintained_strength,
+        "member_population_one_step_confidence": maintained_confidence,
         "member_population_final_strength": final_strength,
         "member_population_final_confidence": final_confidence,
         "member_population_final_result_count": float(len(answers)),
@@ -245,7 +241,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Measure incremental Member-to-Inheritance maintenance or build a "
-            "forward-populated Member inheritance cache"
+            "forward-populated class link"
         )
     )
     parser.add_argument("--candidate-repo", type=Path, default=REPO_ROOT)

@@ -37,16 +37,14 @@
 
 ;; What a fold premise asks the forward chainer to maintain: its aggregate
 ;; identity and descriptor, and the trigger keys whose facts update it, in
-;; order (two only for member inheritance between two distinct concepts).
+;; order (two only for a class link between two distinct classes).
 (: ForwardAggregateSubscription Type)
 (: fa-subscription
    (-[det]-> ForwardAggregateIdentityKey ForwardAggregateDescriptor (List ForwardTriggerKey)
        ForwardAggregateSubscription))
 
 (: fa-rate-subscription
-   (-[det]-> KB Statement (| ExtractTV ExtractInheritanceTV)
-       (| BaseRateEvidenceState BaseRateEvidenceWithPriorState) (-[semidet]-> $a $b $a)
-       (| BaseRateFinish WeightedBaseRateInUniverseFinish WeightedBaseRateWithPriorInUniverseFinish)
+   (-[det]-> KB Statement ExtractTV BaseRateEvidenceState (-[semidet]-> $a $b $a) BaseRateFinish
        ForwardAggregateSubscription))
 (= (fa-rate-subscription $kb $pattern $extractor $init $step $finish)
    (fa-subscription
@@ -54,8 +52,8 @@
       (forward-base-rate-descriptor $kb $pattern $extractor $init $step $finish)
       (cons (forward-type-trigger-key $kb $pattern) ())))
 
-;; The fold premises the forward chainer can maintain: plain and inheritance
-;; base rates, and member inheritance between two ground concepts.
+;; The fold premises the forward chainer can maintain: plain base rates, and
+;; the instance fold of a class link (A $x) -> (B $x) between two classes.
 (: fa-premise-subscriptions
    (-[det]-> (| Goal (Statement KBContext Proof TV)) (List ForwardAggregateSubscription)))
 (= (fa-premise-subscriptions $premise)
@@ -64,47 +62,30 @@
          (cons (fa-rate-subscription (brand KB $kb) (brand Statement $pattern) extract-tv
                   (BaseRateEvidence $e $f) BaseRateAcc base-rate)
             ()))
-      ((CPU FoldAllCompiled
-          ($kb $pattern (extract-inheritance-tv $ekb $estmt) (BaseRateEvidence $e $f) WeightedBaseRateAcc
-             (weighted-base-rate-in-universe $ukb) result-tv) $_r)
-         (cons (fa-rate-subscription (brand KB $kb) (brand Statement $pattern)
-                  (extract-inheritance-tv (brand KB $ekb) (brand Statement $estmt))
-                  (BaseRateEvidence $e $f) WeightedBaseRateAcc (weighted-base-rate-in-universe (brand KB $ukb)))
-            ()))
-      ((CPU FoldAllCompiled
-          ($kb $pattern (extract-inheritance-tv $ekb $estmt) (BaseRateEvidenceWithPrior $prior (BaseRateEvidence $e $f))
-             WeightedBaseRateWithPriorAcc (weighted-base-rate-with-prior-in-universe $ukb) result-tv) $_r)
-         (cons (fa-rate-subscription (brand KB $kb) (brand Statement $pattern)
-                  (extract-inheritance-tv (brand KB $ekb) (brand Statement $estmt))
-                  (BaseRateEvidenceWithPrior (brand BaseRatePrior $prior) (BaseRateEvidence $e $f))
-                  WeightedBaseRateWithPriorAcc (weighted-base-rate-with-prior-in-universe (brand KB $ukb)))
-            ()))
-      ((CPU FoldAllCompiled
-          ($kb (MemberInheritanceSample $x $sub $super $s $c)
-             (extract-value (MemberInheritanceSample $x $sub $super $s $c) (WeightedTv $s $c))
-             (BaseRateEvidence 0.0 0.0) WeightedBaseRateAcc (member-inheritance $kb) result-tv) $_r)
-         (if (== (extract-vars $sub) ())
-            (if (== (extract-vars $super) ())
-               (let* (($k (brand KB $kb)) ($j (brand Term $sub)) ($i (brand Term $super)))
-                  (cons (fa-subscription (forward-member-inheritance-identity $k $j $i)
-                           (forward-member-inheritance-descriptor $k $j $i
-                              (brand Statement (MemberInheritanceSample $x $sub $super $s $c)))
-                           (cons (fwd_member $k $j) (if (== $j $i) () (cons (fwd_member $k $i) ()))))
-                     ()))
-               ())
+      ((CPU FoldAllCompiled ($kb (ImplicationInstanceSample $a $b $atv $btv) $extract $init $step $finish $mode) $_r)
+         (if (class-link? $a $b)
+            (let* (($k (brand KB $kb)) ($j (brand Term (car-atom $a))) ($i (brand Term (car-atom $b))))
+               (cons (fa-subscription (forward-class-link-identity $k $j $i)
+                        (forward-class-link-descriptor $k $j $i
+                           (sk-fold (quote ($kb (ImplicationInstanceSample $a $b $atv $btv) $extract $init $step $finish $mode))))
+                        (cons (fwd_member $k $j) (if (== $j $i) () (cons (fwd_member $k $i) ()))))
+                  ()))
             ()))
       ($_other ()))))
 
 ;; A rule's fold premises register when the rule is stored. Query-local rules
-;; register only member inheritance; their base rates wait for a reader.
+;; register only class links, whose subjects are seeded from the stored facts
+;; when they first register; their base rates wait for a reader.
 (: fa-register-subscription! (-[det]-> Bool (List $a) ForwardAggregateSubscription (List $a)))
 (= (fa-register-subscription! $live $acc (fa-subscription $identity $descriptor $triggers))
-   (if (if $live true
-          (case $descriptor (
-             ((forward-member-inheritance-descriptor $_kb $_sub $_super $_stmt) true)
-             ($_rate false))))
-      (fa-register! $identity $descriptor $triggers)
-      $acc))
+   (case $descriptor (
+      ((forward-class-link-descriptor $kb $sub $super $fold)
+         (if (== (collapse (once (fa-id $identity))) ())
+            (let* (($_registered (fa-register! $identity $descriptor $triggers))
+                   ($_seeded (fold-flat (fa-seed-class-link! $kb $sub $super $fold) () (the (List ForwardTriggerKey) $triggers))))
+               $acc)
+            $acc))
+      ($_rate (if $live (fa-register! $identity $descriptor $triggers) $acc)))))
 
 (: fa-register-premise-step! (-[det]-> Bool (List $a) (| Goal (Statement KBContext Proof TV)) (List $a)))
 (= (fa-register-premise-step! $live $acc $premise)
@@ -116,14 +97,8 @@
 
 (: fa-positive-ev (-[det]-> TV BaseRateEvidenceState))
 (= (fa-positive-ev $a)(case $a ( ((STV $b $c)(BaseRateEvidence (* $b $c) $c))((CTV $d $e)(fa-positive-ev $d))($f (BaseRateEvidence 0.0 0.0)))))
-(: forward-weighted-base-rate-contribution (-[det]-> TV TV BaseRateEvidenceState))
-(= (forward-weighted-base-rate-contribution $a $b)(case $a ( ((STV $c $d)(case $b ( ((STV $e $f)(let $g (* (* $c $d) $f)(BaseRateEvidence (* $e $g) $g)))((CTV $h $i)(forward-weighted-base-rate-contribution $a $h))($j (BaseRateEvidence 0.0 0.0)))))($k (BaseRateEvidence 0.0 0.0)))))
-(: fa-mass-scale (-[det]-> KB Number))
-(= (fa-mass-scale $a)(let $c (kb-node-count $a subject-node)(if (<= $c 0) 0.0 (/ 1.0 $c))))
-(: fa-acc (-[det]-> KB (| ExtractTV ExtractInheritanceTV)(| BaseRateEvidenceState BaseRateEvidenceWithPriorState)(-[semidet]-> $a $b $a) Number Number (| BaseRateEvidenceState BaseRateEvidenceWithPriorState)))
+(: fa-acc (-[det]-> KB ExtractTV BaseRateEvidenceState (-[semidet]-> $a $b $a) Number Number BaseRateEvidenceState))
 (= (fa-acc $a $b (BaseRateEvidence $c $d) BaseRateAcc $e $f)(BaseRateEvidence $e $f))
-(= (fa-acc $a (extract-inheritance-tv $b $c)(BaseRateEvidence $d $e) WeightedBaseRateAcc $f $g)(let $h (fa-mass-scale $a)(BaseRateEvidence (* $h $f)(* $h $g))))
-(= (fa-acc $a (extract-inheritance-tv $b $c)(BaseRateEvidenceWithPrior $d (BaseRateEvidence $e $f)) WeightedBaseRateWithPriorAcc $g $h)(let $i (fa-mass-scale $a)(BaseRateEvidenceWithPrior $d (BaseRateEvidence (* $i $g)(* $i $h)))))
 (: fa-state (-[semidet]-> Number ForwardAggregateState))
 (= (fa-state $id)
    (once (match &ctx_forward_aggregate_state ($id $sum $mass $members)
@@ -135,14 +110,6 @@
    (if (is-expr $proof)
       (observation-sources (proof-term-evidence proof-walk-in-kb $proof))
       (observation-sources (fact-evidence-entry $ctx $proof $type))))
-
-(: fa-observation-sources (-[semidet]-> SkFact ForwardAggregateObservationValue SourceList))
-(= (fa-observation-sources $fact $value)
-   (case $value (
-      ((forward-member-inheritance-observation-value
-           (forward-derived $left $_left-known) (forward-derived $right $_right-known))
-         (source-list-union (fa-physical-sources $left) (fa-physical-sources $right)))
-      ($_other (fa-physical-sources $fact)))))
 
 (: fa-read-step (-[det]-> Number (List ForwardAggregateObservationKey) Number (List ForwardAggregateObservationKey)))
 (= (fa-read-step $id $keys $read) (append-flat (aggregate-readers $id $read) $keys))
@@ -158,9 +125,6 @@
 (= (fa-result (forward-base-rate-descriptor $kb $_pattern $extractor $init $step $finish)
       (forward-aggregate-state $_id $sum $mass $_members))
    (the TV (finish-aggregate $kb $finish (fa-acc $kb $extractor $init $step $sum $mass))))
-(= (fa-result (forward-member-inheritance-descriptor $kb $_sub $_super $_statement)
-      (forward-aggregate-state $_id $sum $mass $_members))
-   (the TV (finish-aggregate $kb (member-inheritance $kb) (BaseRateEvidence $sum $mass))))
 
 (: fa-subtract-step (-[det]-> ForwardAggregateState ForwardAggregateObservation ForwardAggregateState))
 (= (fa-subtract-step (forward-aggregate-state $id $sum $mass $members)
@@ -197,16 +161,10 @@
 (= (fa-ev-acc $a)(the BaseRateEvidenceState $a))
 (: fa-instance-acc (-[det]-> $a InstanceEvidenceState))
 (= (fa-instance-acc $a)(the InstanceEvidenceState $a))
-(: fa-prior-acc (-[det]-> $a BaseRateEvidenceWithPriorState))
-(= (fa-prior-acc $a)(the BaseRateEvidenceWithPriorState $a))
-(: fa-list-acc (-[det]-> $a (List Atom)))
-(= (fa-list-acc $a)(the (List Atom) $a))
 ;; A base-rate finish is read as the KB reads base rates (see
 ;; `smoothed-base-rate-tv`).
 (: finish-aggregate (-[semidet]-> KB Expression Expression Atom))
-(= (finish-aggregate $kb $a $b)(let $tv (case $a ( (identity $b)(dist-average (the Distribution (once (reduce (reduce (DistAverageFromSumCount (fa-dist-acc $b)))))))(base-rate (BaseRateTv (fa-ev-acc $b)))(weighted-base-rate (WeightedCountBaseRateTv (fa-ev-acc $b)))(weighted-base-rate-with-prior (let (BaseRateEvidenceWithPrior $f $d)(fa-prior-acc $b)(BaseRateWithPriorFormula (resolve-base-rate-prior $f)(WeightedCountBaseRateTv $d))))((member-inheritance $c)(member-inheritance-tv $c (fa-ev-acc $b)))(implication-instance (case (fa-instance-acc $b) (((InstanceEvidence $pos $_neg) (WeightedCountBaseRateTv $pos)))))(implication-instance-ctv (ImplicationInstanceTv (fa-instance-acc $b)))((weighted-base-rate-in-universe $c)(member-inheritance-tv $c (fa-ev-acc $b)))((weighted-base-rate-with-prior-in-universe $c)(let (BaseRateEvidenceWithPrior $f $d)(fa-prior-acc $b)(BaseRateWithPriorFormula (resolve-base-rate-prior $f)(member-inheritance-tv $c $d))))(uniform-prior (UniformPriorTv (fa-list-acc $b)))(uniform-prior-known (UniformPriorKnownTv (fa-list-acc $b))))) (if (base-rate-finish? $a)(smoothed-base-rate-tv $kb $tv) $tv)))
-(: fa-member (-[det]-> KB Term Term (| ForwardDerived NoForwardOutputCandidate)))
-(= (fa-member $a $b $c)(stored-statement-candidate (brand Statement (cons $c (cons $b ()))) (make-kb-context $a MAIN Nil) true))
+(= (finish-aggregate $kb $a $b)(let $tv (case $a ( (identity $b)(dist-average (the Distribution (once (reduce (reduce (DistAverageFromSumCount (fa-dist-acc $b)))))))(base-rate (BaseRateTv (fa-ev-acc $b)))(implication-instance (case (fa-instance-acc $b) (((InstanceEvidence $pos $_neg) (WeightedCountBaseRateTv $pos)))))(implication-instance-ctv (ImplicationInstanceTv (fa-instance-acc $b))))) (if (base-rate-finish? $a)(smoothed-base-rate-tv $kb $tv) $tv)))
 (: fa-publish-cache! (-[det]-> KB Statement TV $a (List $b)))
 (= (fa-publish-cache! $a $b $c $d)
    (case (base-rate-cache-entries-for-mode $a $b $d) (
@@ -216,48 +174,22 @@
 (: fa-sample (-[det]-> Atom ForwardAggregateObservationValue Number Number Bool FAggSample))
 (: fa-sample-for (-[semidet]-> (Statement KBContext Proof TV) ForwardAggregateDescriptor Atom))
 (= (fa-sample-for $a (forward-base-rate-descriptor $b $c $d $e $f $g))(let* ((($h ($i $j $k) $l $m)(copy_term $a))($n (let $c $h ok))((BaseRateEvidence $o $p)(fa-positive-ev $m)))(fa-sample (forward-fact-key $a)(forward-base-rate-observation-value $a) $o $p true)))
-;; An object's membership in a concept: the class fact the maintenance reports
-;; when it is that membership and a forward run's value, which the run stores
-;; only when it ends; otherwise what the KB holds for it, forward copies
-;; included. A stored fact is proved by its name, so a reported fact with a
-;; name for a proof is a stored one, or one just removed, and the KB says what
-;; remains.
-(: fa-membership (-[det]-> (Statement KBContext Proof TV) KB Term Term (| ForwardDerived NoForwardOutputCandidate)))
-(= (fa-membership $fact $kb $obj $concept)
-   (case (copy_term $fact) (
-      ((($g $f) $_kbctx $proof $_tv)
-         (if (if (== $f $obj) (if (== $g $concept) (is-expr $proof) false) false)
-            (if (kb-fact-present? $fact) (fa-member $kb $obj $concept)
-               (stored-candidate-step no-forward-output-candidate $fact))
-            (fa-member $kb $obj $concept)))
-      ($_other (fa-member $kb $obj $concept)))))
-;; A class fact counts for its subject with its membership in both concepts;
-;; a member-inheritance fold sample counts for its subject too, so the two
-;; replace each other.
-(= (fa-sample-for $a (forward-member-inheritance-descriptor $b $c $d $e))
-   (case (copy_term $a) (
-      (((MemberInheritanceSample $sx $_ssub $_ssuper $smass $struth) $_skbctx $_sproof $_stv)
-         (case (WeightedBaseRateAcc (BaseRateEvidence 0.0 0.0) (WeightedTv $smass $struth)) (
-            ((BaseRateEvidence $sw $sm) (fa-sample (brand Term $sx) no-forward-aggregate-observation-value $sw $sm true)))))
-      ($_member_fact(let* (((($g $f)($h MAIN Nil) $i $j)(copy_term $a))($k (brand Term $f))($l (fa-membership $a $b $k $c))($m (fa-membership $a $b $k $d)))(case $l ( ((forward-derived $n $o)(case $m ( ((forward-derived $p $q)(let* ((($r $s $t $u) $n)(($v $w $x $y) $p)((BaseRateEvidence $z $v26)(forward-weighted-base-rate-contribution $u $y)))(fa-sample $k (forward-member-inheritance-observation-value $l $m) $z $v26 true)))(no-forward-output-candidate (fa-sample $k no-forward-aggregate-observation-value 0.0 0.0 false)))))(no-forward-output-candidate (fa-sample $k no-forward-aggregate-observation-value 0.0 0.0 false)))))))))
 (: fa-store-cache! (-[semidet]-> ForwardAggregateMaintenance Number ForwardAggregateDescriptor Number Number (List $a)))
 (= (fa-store-cache! $a $b (forward-base-rate-descriptor $c $d $e $f $g $h) $i $j)(if (and (== $a aggregate-remove)(<= $j 0.0))(remove-produced-base-rate! $c $d $h)(let* (($k (fa-acc $c $e $f $g $i $j))($l (the TV (finish-aggregate $c $h $k))))(fa-publish-cache! $c $d $l $h))))
-(= (fa-store-cache! $a $b (forward-member-inheritance-descriptor $c $d $e $f) $g $h)(if (<= $h 0.0)(remove-produced-base-rate! $c $f (member-inheritance $c))(fa-publish-cache! $c $f (the TV (finish-aggregate $c (member-inheritance $c) (BaseRateEvidence $g $h))) (member-inheritance $c))))
 (: fa-update! (-[semidet]-> (Statement KBContext Proof TV) Number ForwardAggregateDescriptor (List $a)))
 (= (fa-update! $fact $id $descriptor)
    (let* (($publish-descriptor (copy_term $descriptor))
           ((fa-sample $member $value $sum $mass $keep) (fa-sample-for $fact $descriptor))
           ($key (brand ForwardAggregateObservationKey (quote ($id $member))))
-          ($sources (if (if $keep (> $mass 0) false) (fa-observation-sources $fact $value) (source-list ())))
+          ($sources (if (if $keep (> $mass 0) false) (fa-physical-sources $fact) (source-list ())))
           ((forward-aggregate-state $_id $total $weight $_members)
              (fa-swap! $id (fa-obs $key) (forward-aggregate-observation $key $value $sum $mass) $keep $sources))
           ($_published (fa-store-cache! aggregate-update $id $publish-descriptor $total $weight))) ()))
 
 (: fa-item (-[semidet]-> (Statement KBContext Proof TV) ForwardAggregateDescriptor Atom))
 (= (fa-item $a (forward-base-rate-descriptor $b $c $d $e $f $g))(forward-fact-key $a))
-(= (fa-item $a (forward-member-inheritance-descriptor $b $c $d $e))(let (($g $f)($h MAIN Nil) $i $j)(copy_term $a)(brand Term $f)))
 (: fa-remove! (-[semidet]-> (Statement KBContext Proof TV) Number ForwardAggregateDescriptor (List $a)))
-(= (fa-remove! $a $b $c)(let* (($d (copy_term $c))($e (fa-item $a $c))($f (brand ForwardAggregateObservationKey (quote ($b $e))))($g (fa-obs $f)))(if (== $g ())(case $d ( ((forward-member-inheritance-descriptor $h $i $j $k)(let (forward-aggregate-state $l $m $n $_members)(fa-state $b)(if (<= $n 0.0)()(fa-store-cache! aggregate-update $b $d $m $n))))($o ())))(let* (((forward-aggregate-state $l $m $n $_members)(fa-swap! $b $g (forward-aggregate-observation $f no-forward-aggregate-observation-value 0.0 0.0) false (source-list ())))($p (fa-store-cache! aggregate-remove $b $d $m $n)))(case $d ( ((forward-member-inheritance-descriptor $h $i $j $k)(progn (fa-update! $a $b $d)()))($o ())))))))
+(= (fa-remove! $a $b $c)(let* (($d (copy_term $c))($e (fa-item $a $c))($f (brand ForwardAggregateObservationKey (quote ($b $e))))($g (fa-obs $f)))(if (== $g ()) () (let (forward-aggregate-state $l $m $n $_members)(fa-swap! $b $g (forward-aggregate-observation $f no-forward-aggregate-observation-value 0.0 0.0) false (source-list ()))(fa-store-cache! aggregate-remove $b $d $m $n)))))
 
 ;; The trigger directory answers a miss in one row. Reading the interests
 ;; directly is a scan once most of them share one trigger, as every rule's
@@ -269,11 +201,73 @@
       (if (space-row-present? &ctx_forward_aggregate_triggers ($hash $trigger))
          (match &ctx_forward_aggregate_interest_by_trigger ($hash (forward-aggregate-interest $stored $id $descriptor))
          (if (== $stored $trigger)
-            (case $action (
-               (aggregate-update (fa-update! $fact $id (copy_term $descriptor)))
-               (aggregate-remove (fa-remove! $fact $id (copy_term $descriptor)))))
+            (case (copy_term $descriptor) (
+               ((forward-class-link-descriptor $kb $sub $super $fold)
+                  (let $_marked (fa-class-link-dirty! $kb $sub $super $fold () (the Statement (car-atom $fact))) ()))
+               ($rate
+                  (case $action (
+                     (aggregate-update (fa-update! $fact $id $rate))
+                     (aggregate-remove (fa-remove! $fact $id $rate)))))))
             (empty)))
          (empty))))
+
+;; Base rates and implication instance folds follow their members
+;; incrementally, as a tally of each member's contribution (see sk-fold-view).
+(: sk-instance-fold? (-[det]-> Atom Bool))
+(= (sk-instance-fold? ($_kb $_pattern $_extractor $_init $_function $finish $_mode))
+   (stored-list-member? $finish (implication-instance implication-instance-ctv)))
+
+(: sk-instance-fold-key? (-[det]-> SkeletonKey Bool))
+(= (sk-instance-fold-key? $key)
+   (case $key (((sk-fold $args) (sk-instance-fold? $args)) ($_other false))))
+
+(: sk-rate-fold? (-[det]-> SkeletonKey Bool))
+(= (sk-rate-fold? $key)
+   (if (sk-instance-fold-key? $key) true
+      (case $key (
+         ((sk-fold ($_kb $_pattern $_extractor $_init $_function $finish $_mode)) (base-rate-finish? $finish))
+         ($_other false)))))
+
+;; A member that joined a tally fold, or whose value changed, is taken into it
+;; when a query next needs the fold or it is next read; an implication
+;; instance fold is also brought current by the evaluation (see
+;; sk-instance-checks!).
+(: sk-rate-dirty! (-[det]-> SkeletonKey SkeletonKey Atom))
+(= (sk-rate-dirty! $fold $member)
+   (if (sk-rate-fold? $fold)
+      (let* (($hash (index-hash $fold)) ($mhash (index-hash $member)))
+         (if (== (collapse (once (match &ctx_sk_rate_dirty ($hash $mhash $stored-fold $stored)
+                    (if (=alpha $stored $member) (if (=alpha $stored-fold $fold) true (empty)) (empty)))))
+                 ())
+            (let* (($_row (context-add! &sk_rate_dirty ($hash $mhash $fold $member)))
+                   ($_changed
+                      (if (if (sk-instance-fold-key? $fold) (not (space-row-present? &ctx_sk_instance_changed ($hash $_stored))) false)
+                         (context-add! &sk_instance_changed ($hash $fold))
+                         ())))
+               ())
+            ()))
+      ()))
+
+;; A class fact (C x) changes the sample of x in each class link over C: it
+;; marks that sample changed, and the link's instance fold takes it when next
+;; read (sk-instance-take-step), so a fact costs one mark per link.
+(: fa-class-link-dirty! (-[det]-> KB Term Term SkeletonKey Atom Statement Atom))
+(= (fa-class-link-dirty! $kb $sub $super $fold $_acc $type)
+   (let $obj (car-atom (cdr-atom $type))
+      (sk-rate-dirty! $fold
+         (sk-key (ImplicationInstanceSample (cons $sub (cons $obj ())) (cons $super (cons $obj ())) $atv $btv)
+            (make-kb-context $kb MAIN Nil)))))
+
+;; A class link that registers marks the samples of the subjects its classes'
+;; stored facts name, as a base rate counts the facts already stored.
+(: fa-seed-class-link! (-[det]-> KB Term Term SkeletonKey Atom ForwardTriggerKey Atom))
+(= (fa-seed-class-link! $kb $sub $super $fold $acc $trigger)
+   (case $trigger (
+      ((fwd_member $_kb $class)
+         (fold-flat (fa-class-link-dirty! $kb $sub $super $fold) $acc
+            (let $member (brand Statement (cons $class (cons $_obj ())))
+               (list_to_set (collapse (match &kb ($member ($kb MAIN Nil) $_proof $_tv) (brand Statement $member)))))))
+      ($_other $acc))))
 
 ;; The base-rate folds a fact counts in: those of the aggregates interested in
 ;; its triggers whose pattern the fact's statement matches, as the aggregate's
@@ -313,39 +307,22 @@
 ;; the forward chainer already fed counts nothing twice. From then on forward
 ;; chaining keeps the estimate current as it processes facts. Only fold
 ;; premises with a forward subscription (at most one each) can be seeded.
-(: fa-seed-facts
-   (-[det]-> ForwardAggregateDescriptor ForwardTriggerKey (List (Statement KBContext Proof TV))))
-(= (fa-seed-facts (forward-base-rate-descriptor $kb $pattern $_extractor $_init $_step $_finish) $_trigger)
-   (let* (($kbctx (make-kb-context $kb MAIN Nil)) ($type (copy_term $pattern)))
-      (fold-flat (fa-seed-statement $kbctx) ()
-         (list_to_set (collapse (match &kb ($type $kbctx $_proof $_tv) (brand Statement $type)))))))
-(= (fa-seed-facts (forward-member-inheritance-descriptor $kb $_sub $_super $_stmt) $trigger)
-   (case $trigger (
-      ((fwd_member $_kb $concept)
-         (let* (($kbctx (make-kb-context $kb MAIN Nil))
-                ($member (brand Statement (cons $concept (cons $_x ())))))
-            (collapse (match &kb ($member $kbctx $proof $tv) (data $member $kbctx $proof $tv)))))
-      ($_other ()))))
-
-(: fa-seed-trigger! (-[det]-> Number ForwardAggregateDescriptor Atom ForwardTriggerKey Atom))
-(= (fa-seed-trigger! $id $descriptor $_acc $trigger)
-   (let* (($facts (fa-seed-facts $descriptor $trigger))
-          ($_counted (collapse (let $fact (superpose $facts) (fa-update! $fact $id (copy_term $descriptor))))))
-      ()))
-
-(: fa-seed! (-[det]-> ForwardAggregateSubscription Atom))
-(= (fa-seed! (fa-subscription $identity $descriptor $triggers))
-   (let $_registered (fa-register! $identity $descriptor $triggers)
-      (case (collapse (fa-id $identity)) (
-         ((cons $id $_rest)
-            (fold-flat (fa-seed-trigger! $id $descriptor) () (the (List ForwardTriggerKey) $triggers)))
-         (() ())))))
-
 (: forward-seed-fold! (-[semidet]-> (| Goal (Statement KBContext Proof TV)) Bool))
 (= (forward-seed-fold! $premise)
    (case (fa-premise-subscriptions $premise) (
-      (() false)
-      ((cons $subscription $_none) (let $_seeded (fa-seed! $subscription) true)))))
+      ((cons (fa-subscription $identity (forward-base-rate-descriptor $kb $pattern $extractor $init $step $finish) $triggers) $_none)
+         (let* (($descriptor (forward-base-rate-descriptor $kb $pattern $extractor $init $step $finish))
+                ($_registered (fa-register! $identity $descriptor $triggers))
+                ($kbctx (make-kb-context $kb MAIN Nil))
+                ($type (copy_term $pattern))
+                ($facts (fold-flat (fa-seed-statement $kbctx) ()
+                   (list_to_set (collapse (match &kb ($type $kbctx $_proof $_tv) (brand Statement $type))))))
+                ($_counted
+                   (case (collapse (fa-id $identity)) (
+                      ((cons $id $_rest) (collapse (let $fact (superpose $facts) (fa-update! $fact $id (copy_term $descriptor)))))
+                      (() ())))))
+            true))
+      ($_other false))))
 
 (: forward-maintain-member-aggregates! (-[det]-> ForwardAggregateMaintenance (Statement KBContext Proof TV)(List $a)))
 (= (forward-maintain-member-aggregates! $maintenance $fact)

@@ -732,8 +732,8 @@ query). Each hypothesis is then judged:
   blocked) 0.85 over 7 samples were dropped.
 
 A dropped hypothesis leaves the live set, freeing its slot, and its rules
-leave the rule indexes (`withdraw-named-rules!`), with its specialization templates
-and Inheritance lifts, so no later fact or query grounds it again (#114).
+leave the rule indexes (`withdraw-named-rules!`), with its specialization templates,
+so no later fact grounds it again (#114).
 Re-adding a withdrawn rule exactly as it was (its name, statement and value)
 is accepted (#113) and installs it again: it derives once more, its
 specialization included. Another value under its name is rejected.

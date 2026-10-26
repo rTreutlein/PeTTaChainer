@@ -160,45 +160,6 @@
          $pos-shape-kb $neg-shape-kb $pos-read $neg-read
          (union-compiled-additions $pos-adds $neg-adds))))
 
-;; Build the empirical Member producer independently from the rest of a root
-;; Inheritance query. Backward subgoals can install this same producer without
-;; also introducing the root-only total-implication scaffold.
-(: compile-member-inheritance-query-adds (-[det]-> KB Term Term (List CompiledAddition)))
-(= (compile-member-inheritance-query-adds $kb $subj $concept)
-   (let*
-      (($member-goal (: (kbctx $kb)
-          (inheritance-query-result (member-inheritance-fold cpu))
-          (Inheritance $subj $concept) $member-tv))
-       ;; Build empirical samples through ordinary compiled class queries. This
-       ;; lets rule-derived memberships contribute while retaining their proof
-       ;; identities for overlap and cycle checks before aggregation.
-       ($member-sample-pattern
-          (MemberInheritanceSample $member-obj $subj $concept $member-atv $member-btv))
-       ($member-sample-goal
-          (: (kbctx $kb)
-             (member-inheritance-sample $member-aprf $member-bprf)
-             $member-sample-pattern
-             (STV 1.0 1.0)))
-       ($member-sample-rule
-          (((: (kbctx $kb) $member-aprf ($subj $member-obj) $member-atv)
-            (: (kbctx $kb) $member-bprf ($concept $member-obj) $member-btv))
-             |- $member-sample-goal))
-       ($member-rule
-          (((CPU FoldAllCompiled
-                 (quote
-                    ($kb
-                       $member-sample-pattern
-                       (extract-value $member-sample-pattern (WeightedTv $member-atv $member-btv))
-                       (BaseRateEvidence 0.0 0.0)
-                       WeightedBaseRateAcc
-                       (member-inheritance $kb)
-                       result-tv))
-                 $member-fold-tv)
-            (CPU MemberInheritanceEvidenceFormula ($member-fold-tv) $member-tv))
-             |- $member-goal)))
-      (cons (brand CompiledAddition $member-sample-rule)
-         (cons (brand CompiledAddition $member-rule) ()))))
-
 ;; Under rule refinement a rule's instance fold proves its rule-truth goal
 ;; (see `set-rule-refinement`), so an implication query of that shape reads
 ;; goal's positive branch instead of folding the instances again.
@@ -220,36 +181,6 @@
 ;; Storage keeps both rule branches; public statement judgments use the positive one.
 (: query-positive-tv (-[semidet]-> TV STVType))
 (= (query-positive-tv $tv) (case $tv (((CTV $pos $_neg) $pos) ((STV $s $c) (STV $s $c)))))
-
-(: compile-inheritance-query (-[semidet]-> KB Term Term CompilationPlan))
-(= (compile-inheritance-query $kb $subj $concept)
-   (let*
-      (;; Constrain the root proof so ordinary public Inheritance rules cannot
-       ;; answer beside the total-implication producer. The wrapper is removed
-       ;; when results are externalized; it is selection state, not evidence.
-       ($goal (: (kbctx $kb) (inheritance-query-result $proof) (Inheritance $subj $concept) $tv))
-       ($antecedent (Inheritance $x $subj))
-       ($consequent (Inheritance $x $concept))
-       ($mvars (cons (brand Variable $x) ()))
-       (($pos-shape-kb $neg-shape-kb (premise-bundle $pos-goals $induction-tv $pos-prf)
-          (premise-bundle $neg-goals $_negative-tv $neg-prf) $all-adds)
-          (query-pos-neg-scaffold $kb $mvars
-             (brand Statement $antecedent)
-             (brand Statement $consequent)))
-       ($pos-lift-adds (collect-inheritance-lifts-for-context $kb $pos-shape-kb))
-       ($neg-lift-adds (collect-inheritance-lifts-for-context $kb $neg-shape-kb))
-      ($induction-goal (: (kbctx $kb) (inheritance-query-result
-         (total-implication-frontier
-            (inheritance-implication-fold (total-implication $pos-prf $neg-prf))))
-         (Inheritance $subj $concept) $induction-tv))
-      ($induction-rule
-         (brand CompiledAddition ((append-goals $pos-goals $neg-goals) |- $induction-goal)))
-      ($query-adds
-         (list_to_set
-            (append-compiled-additions $all-adds
-               (append-compiled-additions $pos-lift-adds
-                  (append-compiled-additions $neg-lift-adds (cons $induction-rule ())))))))
-      (compilation-plan $goal $query-adds)))
 
 (: statement-query-tv (-[semidet]-> TV STVType))
 (= (statement-query-tv $tv)
@@ -351,11 +282,7 @@
 
 ;; Compile a public query into one goal rule plus temporary additions.
 ;; Implication queries return the STV proved in the positive assumption context;
-;; bidirectional queries require one context per direction. A concrete
-;; Inheritance query accepts only the total-implication producer plus the
-;; Member producer, which the chainer installs as ordinary rules when it
-;; expands the link; ordinary direct proofs cannot answer its constrained root
-;; goal.
+;; bidirectional queries require one context per direction.
 ;; A conjunction compiles implication children as ordinary STV statements;
 ;; other ordinary queries need only their source adapters.
 (: compile-existential-query (-[nondet]-> KB AnnotatedStatement CompilationPlan))
@@ -414,6 +341,17 @@
          (lower-query-assumption-premise $kb $ctx Nil (brand Statement $premise))
          (prepend-reversed-goals $execs $reversed))))
 
+;; A class link's instance estimate depends only on the link, so its sample
+;; and fold rules are permanent backward rules, installed once when a root of
+;; the link is scored (install-class-link-rules!): their rows outlive the
+;; query, and a later query reads the tally instead of sampling the population
+;; again. A ground link query leaves them out of its own additions.
+(: class-link-query-adds (-[nondet]-> KB KBContext Statement (List CompiledAddition)))
+(= (class-link-query-adds $kb $query-ctx $type)
+   (let* ((($antecedent $consequent) (implication-query-sides $type))
+          ($adds (compile-implication-instance-adds true $kb $type $antecedent $consequent)))
+      (map-flat (positive-implication-producer $query-ctx $type) $adds)))
+
 (: compileQuery (-[nondet]-> KB AnnotatedStatement CompilationPlan))
 (= (compileQuery $kb (: $prf $Type $tv))
    (if (head-is? $Type ExistentialAlternatives)
@@ -471,8 +409,9 @@
                         (map-flat (positive-implication-producer $query-ctx (brand Statement $Type))
                            (if (rule-truth-installed? $kb $Type)
                               (rule-truth-query-adds $kb $Type $antecedent $consequent)
-                              (compile-implication-instance-adds true $kb
-                                 (brand Statement $Type) $antecedent $consequent)))
+                              (if (class-link? $antecedent $consequent) (the (List CompiledAddition) ())
+                                 (compile-implication-instance-adds true $kb
+                                    (brand Statement $Type) $antecedent $consequent))))
                         $pos-adds)))))
          (if (implication-type? $Type) (empty)
          (if (bidirectional-implication-type? $Type)
@@ -496,14 +435,11 @@
                             (append-goals $right-goals ((CPU AndFormula ($left-tv $right-tv) $tv))))
                            |- $goal))
                      (union-compiled-additions $left-adds $right-adds))))
-            (if (if (head-is? $Type Inheritance)
-                   (if (= $Type (Inheritance $subj $concept)) (concrete-inheritance-link? $subj $concept) false) false)
-               (compile-inheritance-query $kb (brand Term $subj) (brand Term $concept))
-               (let $query-tv (if (head-is? $Type And) (statement-query-tv $tv) $tv)
-                  (compilation-plan
-                     (: (kbctx $kb) $prf $Type $query-tv)
-                     (collapse (root-adapters
-                        (: (kbctx $kb) $prf $Type $query-tv))))))))))))))
+            (let $query-tv (if (head-is? $Type And) (statement-query-tv $tv) $tv)
+               (compilation-plan
+                  (: (kbctx $kb) $prf $Type $query-tv)
+                  (collapse (root-adapters
+                     (: (kbctx $kb) $prf $Type $query-tv)))))))))))))
 
 ;; Query assumptions with no caller-supplied TV are treated as certain. An
 ;; implication needs a CTV-shaped default because its positive and negative

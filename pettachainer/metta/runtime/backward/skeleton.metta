@@ -591,12 +591,6 @@
       (sk-dirty! $key)
       ()))
 
-;; Base rates and implication instance folds follow their members
-;; incrementally, as a tally of each member's contribution (see sk-fold-view).
-(: sk-instance-fold? (-[det]-> Atom Bool))
-(= (sk-instance-fold? ($_kb $_pattern $_extractor $_init $_function $finish $_mode))
-   (stored-list-member? $finish (implication-instance implication-instance-ctv)))
-
 (: sk-existential-fold? (-[det]-> Atom Bool))
 (= (sk-existential-fold? $fold)
    (let* (($args (case $fold (
@@ -609,37 +603,6 @@
                         (($_kb2 $_body2 $_group $_extract2 $_initial2 $g $_finish2 $_mode2) $g)
                         ($_other-args none)))))
       (if (== $function OrFormula) true (== $function ExistentialFloor))))
-
-(: sk-instance-fold-key? (-[det]-> SkeletonKey Bool))
-(= (sk-instance-fold-key? $key)
-   (case $key (((sk-fold $args) (sk-instance-fold? $args)) ($_other false))))
-
-(: sk-rate-fold? (-[det]-> SkeletonKey Bool))
-(= (sk-rate-fold? $key)
-   (if (sk-instance-fold-key? $key) true
-      (case $key (
-         ((sk-fold ($_kb $_pattern $_extractor $_init $_function $finish $_mode)) (base-rate-finish? $finish))
-         ($_other false)))))
-
-;; A member that joined a tally fold, or whose value changed, is taken into it
-;; when a query next needs the fold or it is next read; an implication
-;; instance fold is also brought current by the evaluation (see
-;; sk-instance-checks!).
-(: sk-rate-dirty! (-[det]-> SkeletonKey SkeletonKey Atom))
-(= (sk-rate-dirty! $fold $member)
-   (if (sk-rate-fold? $fold)
-      (let* (($hash (index-hash $fold)) ($mhash (index-hash $member)))
-         (if (== (collapse (once (match &ctx_sk_rate_dirty ($hash $mhash $stored-fold $stored)
-                    (if (=alpha $stored $member) (if (=alpha $stored-fold $fold) true (empty)) (empty)))))
-                 ())
-            (let* (($_row (context-add! &sk_rate_dirty ($hash $mhash $fold $member)))
-                   ($_changed
-                      (if (if (sk-instance-fold-key? $fold) (not (space-row-present? &ctx_sk_instance_changed ($hash $_stored))) false)
-                         (context-add! &sk_instance_changed ($hash $fold))
-                         ())))
-               ())
-            ()))
-      ()))
 
 ;; A new member answer changes the value of every fold over its node; a group
 ;; fold additionally gains the answer's group as one of its own answers. An
@@ -1616,31 +1579,23 @@
                      (map-flat mm2stmt (fold-flat (fresh-producer-step $backend) () $adds))))
          ())))
 
-;; The empirical Member producer of a concrete Inheritance link depends only on
-;; the link, so it is installed once as permanent backward rules: its rows
-;; survive the query, and a later zero-budget read still has them. Forward
-;; chaining keeps member inheritance through its own aggregate.
-(: install-member-inheritance-rules! (-[semidet]-> Statement KBContext Atom))
-(= (install-member-inheritance-rules! $type $kbctx)
-   (case $kbctx (
-      (($kbid MAIN Nil)
-         (if (head-is? $type Inheritance)
-            (let (Inheritance $subj $concept) $type
-               (if (concrete-inheritance-link? $subj $concept)
-                  (let* (($link (quote ($kbid $subj $concept))) ($hash (index-hash $link)))
-                     (if (== (collapse (once (match &sk_member_rules ($hash $stored)
-                                (if (=alpha $stored $link) true (empty))))) ())
-                        (let* (($_row (add-atom &sk_member_rules ($hash $link)))
-                               ($_rules
-                                  (once (foreach-flat (kb-add-expr backward)
-                                     (map-flat mm2stmt
-                                        (compile-member-inheritance-query-adds
-                                           (brand KB $kbid) (brand Term $subj) (brand Term $concept)))))))
-                           ())
-                        ()))
-                  ()))
+;; A class link's sample and fold rules (class-link-query-adds) are permanent
+;; backward rules, installed once per link up to renaming: their rows survive
+;; the query, so a later query reads the link's tally at the cost of the
+;; samples that changed.
+(: install-class-link-rules! (-[semidet]-> Statement KBContext Atom))
+(= (install-class-link-rules! $type ($kbid $ctx $vars))
+   (if (if (head-is? $kbid implication-query) (head-is? $type Implication) false)
+      (let (Implication $a $b) $type
+         (if (class-link? $a $b)
+            (let* (($kb (statement-query-kb (brand KB $kbid)))
+                   ($adds (if (rule-truth-installed? $kb $type) (the (List CompiledAddition) ())
+                             (once (class-link-query-adds $kb (make-kb-context (brand KB $kbid) MAIN Nil) (brand Statement $type)))))
+                   ($_rules (once (foreach-flat (kb-add-expr backward)
+                               (map-flat mm2stmt (fold-flat (fresh-producer-step backward) () $adds))))))
+               ())
             ()))
-      ($_other ()))))
+      ()))
 
 (: inject-compiled-query-adds (-[semidet]-> KbBackend CompiledQuery Atom))
 (= (inject-compiled-query-adds $backend (compiled-query $_goal $adds))
@@ -1718,7 +1673,6 @@
       (($type $kbctx $proof $tv)
          (let* (($_special
                    (if (> $depth 0) (inject-special-subgoal-query-adds temp $type $kbctx $proof $tv) ()))
-                ($_member (install-member-inheritance-rules! $type $kbctx))
                 ($_activate (sk-activate-pending!))
                 ($_mark (sk-mark-expanded! $hash $node))
                 ($_seeds (context-answer-seeds! $node))
@@ -1815,8 +1769,8 @@
 ;; read through an open node (a base rate's members over (Num $x) → (Num (succ
 ;; $x))) unrolls one new open node per step, each answered by every key below
 ;; it. A candidate's index column is a prefix of the instance's statement, so
-;; one lookup per prefix finds it. Implications and inheritance links are
-;; expanded on their own, since their expansion installs rules. A root of the
+;; one lookup per prefix finds it. Implications are expanded on their own,
+;; since their expansion installs rules. A root of the
 ;; current query subsumes nothing: its rows always fit the allowance, so a
 ;; recursive rule answering it through an instance would never stop.
 (: sk-subsumers (-[det]-> Number SkPattern (List SkPattern)))
@@ -1826,7 +1780,7 @@
       (($type $_kbctx $_proof $_tv)
          (if (if (== $depth 0) true
                 (if (== (extract-vars $type) ()) true
-                   (if (implication-type? $type) true (== (car-atom $type) Inheritance))))
+                   (implication-type? $type)))
             ()
             (let $prefixes (append-flat (statement-prefix-hashes $type) (cons (index-hash (car-atom $type)) ()))
                (collapse (once (let $prefix (superpose $prefixes)
@@ -2130,8 +2084,7 @@
 ;; reads the compound's parts, so reading it through its key costs the search
 ;; what reading the parts did (#142). Any other compound node, such as a rule's
 ;; whole conjunctive antecedent, which no rule reads, costs a step.
-;; Implications and inheritance links are not free, since expanding them
-;; installs rules.
+;; Implications are not free, since expanding them installs rules.
 (: sk-free-expansion? (-[semidet]-> Number SkPattern Bool))
 (= (sk-free-expansion? $hash $node)
    (case $node (
@@ -2139,8 +2092,7 @@
       (($type $kbctx $_proof $_tv)
          (if (compound-source? (brand Statement $type)) (if (fold-semidet (sk-only-reader-step none) true (sk-reader-names $hash)) false true)
             (if (implication-type? $type) false
-               (if (head-is? $type Inheritance) false
-                  (== (collapse (once (sk-rule-match (assemble-stored-runtime-fact $type $kbctx $_rp $_rt)))) ()))))))))
+               (== (collapse (once (sk-rule-match (assemble-stored-runtime-fact $type $kbctx $_rp $_rt)))) ())))))))
 
 (: sk-search-pop! (-[semidet]-> (Number SkeletonFrontier (Heap SkeletonFrontier)) Atom))
 (= (sk-search-pop! ($_priority (sk-frontier $node $depth $hash) $rest))
@@ -2250,10 +2202,8 @@
           ($_stale (context-remove! &sk_stale ($hash $rhash))))
       (sk-drop-row-views! $hash $key $rhash)))
 
-;; Query-local rules leave with their query: their rows, waiters, deferred joins
-;; and rows and views are removed, and the keys of the removed rows changed. A
-;; later query's rule may take a removed rule's id, so a deferred join left
-;; behind would extend the wrong rule.
+;; Query-local rules leave with their query: their rows, waiters, deferred rows
+;; and views are removed, and the keys of the removed rows changed.
 (: sk-clear-temp! (-[semidet]-> Atom))
 (= (sk-clear-temp!)
    (let* (($_deferred

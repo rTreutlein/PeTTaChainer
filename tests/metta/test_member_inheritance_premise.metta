@@ -5,7 +5,7 @@
 !(compileadd memberInheritanceRootKb
    (: tomMortal (Member Tom Mortal) (STV 0.8 1.0)))
 
-;; The empirical member fold can answer the public root query.
+;; The link's instance fold over the members can answer the public root query.
 !(test
    (> (length
       (query 60 memberInheritanceRootKb
@@ -29,7 +29,7 @@
    (query 100 memberInheritancePremiseKb
       (: $prf (Member Goal Supported) $tv))
    (: (by inheritanceToGoal
-         (member-inheritance-fold cpu))
+         (implication-instance-fold cpu))
       (Member Goal Supported)
       (STV 0.8 0.0012484394506833685)))
 

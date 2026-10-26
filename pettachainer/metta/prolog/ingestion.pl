@@ -139,7 +139,7 @@ weighted_assumption(Source, Value, Statement, TV) :-
     ; Head == 'Not'
     -> Args = [Inner], nonvar(Inner), assumption_stv(Value),
        weighted_assumption(Inner, Value, _, _), Statement = Source, TV = Value
-    ; \+ memberchk(Head, [':','CPU','ForAll','Exists','WithPrior','Assuming','Inheritance']),
+    ; \+ memberchk(Head, [':','CPU','ForAll','Exists','WithPrior','Assuming']),
       'compound-connective?'(Head, false), 'source-computation-head?'(Head, false),
       'bidirectional-implication-form?'(Head, false), ingestion_closed([], Source),
       assumption_stv(Value), Statement = Source, TV = Value ).
@@ -187,33 +187,45 @@ assumed_annotations(Fact) :-
                    context(query/3, 'unsupported assumed implication')))
     ; query_annotations(Fact) ).
 
-% A class membership (Member x P) is the unary statement (P x) (#96): one
-% statement in either form, with one key and one evidence identity. Every
-% source statement (facts, rules, queries, base-rate patterns) is rewritten
-% here, at every subterm: a statement quoted as a predicate argument is the
-% same proposition, which a rule may conclude. Answers keep the written
-% shape. A class is a symbol or a variable that names no reserved head: an
-% expression class would make an expression-headed key, and a connective or
-% computation class would make the statement that connective.
+% A class membership (Member x P) is the unary statement (P x) (#96), and a
+% class link (Inheritance A B) the implication (A $x) -> (B $x) between two
+% unary predicates (step C): one statement in either form, with one key and
+% one evidence identity. Every source statement (facts, rules, queries,
+% base-rate patterns) is rewritten here, at every subterm: a statement quoted
+% as a predicate argument is the same proposition, which a rule may conclude.
+% Answers keep the written shape. A class is a symbol or a variable that names
+% no reserved head: an expression class would make an expression-headed key,
+% and a connective or computation class would make the statement that
+% connective.
 'member-canon'(Term, Canon) :-
     (   nonvar(Term), Term = [Head|Args]
     ->  (   Head == 'Member'
-        ->  (   Args = [X, Class], ( var(Class) ; atom(Class), \+ reserved_head(Class) )
+        ->  (   Args = [X, Class], canon_class(Class)
             ->  'member-canon'(X, CanonX), Canon = [Class, CanonX]
             ;   throw(error(domain_error(member_class, Term),
                             context(compileadd/2, 'a Member class must be a symbol naming no connective, computation or internal head, or a variable'))) )
+        ;   Head == 'Inheritance'
+        ->  (   Args = [Sub, Super], canon_class(Sub), canon_class(Super)
+            ->  Canon = ['Implication', [Sub, X], [Super, X]]
+            ;   throw(error(domain_error(inheritance_class, Term),
+                            context(compileadd/2, 'Inheritance links two classes, each a symbol naming no connective, computation or internal head, or a variable'))) )
         ;   maplist('member-canon', Term, Canon) )
     ;   Canon = Term ).
 
+canon_class(Class) :- var(Class) ; atom(Class), \+ reserved_head(Class).
+
 % An answer of a written statement's canonical form, with each written
-% Member restored. The answer's own terms are kept: its binders and
-% variables are not the written ones. An open class never answers with a
-% reserved head, such as an existential claim key.
+% Member and Inheritance restored. The answer's own terms are kept: its
+% binders and variables are not the written ones. An open class never answers
+% with a reserved head, such as an existential claim key.
 'member-shape'(Written, Answer, Shaped) :-
     (   nonvar(Written), Written = [Head|Args], nonvar(Answer), Answer = [AnswerHead|AnswerArgs]
     ->  (   Head == 'Member', AnswerArgs = [X]
         ->  \+ reserved_head(AnswerHead), Args = [WrittenX, _],
             'member-shape'(WrittenX, X, ShapedX), Shaped = ['Member', ShapedX, AnswerHead]
+        ;   Head == 'Inheritance'
+        ->  AnswerHead == 'Implication', AnswerArgs = [[Sub, X], [Super, Y]], X == Y,
+            \+ reserved_head(Sub), \+ reserved_head(Super), Shaped = ['Inheritance', Sub, Super]
         ;   same_length(Written, Answer)
         ->  maplist('member-shape', Written, Answer, Shaped)
         ;   Shaped = Answer )
@@ -224,10 +236,9 @@ assumed_annotations(Fact) :-
 % unary fact under one is a class.
 reserved_head(Head) :-
     atom(Head),
-    (   memberchk(Head, ['Member','And','Or','Not','Implication','ForAll','Exists','WithPrior',
-                         'Assuming',':','CPU','RuleTruth','ExistentialClaim','ExistsJudgment',
-                         'QuantifiedRule','ExistentialAlternatives','MemberInheritanceSample',
-                         'ImplicationInstanceSample'])
+    (   memberchk(Head, ['Member','Inheritance','And','Or','Not','Implication','ForAll','Exists',
+                         'WithPrior','Assuming',':','CPU','RuleTruth','ExistentialClaim','ExistsJudgment',
+                         'QuantifiedRule','ExistentialAlternatives','ImplicationInstanceSample'])
     ;   'bidirectional-implication-form?'(Head, true)
     ;   'compound-connective?'(Head, true)
     ;   'source-computation-head?'(Head, true)
@@ -284,10 +295,11 @@ source_head(Statement, Head, Arity) :-
     source_atom(Statement, Atom),
     ( atom(Atom) -> Head = Atom, Arity = 0 ; Atom = [Head|Args], length(Args, Arity) ).
 
-% Declarations name a class itself (D5): after #96 no statement has the head
-% Member, so a declaration on it would silently apply to nothing.
+% Declarations name a class itself (D5): after #96 and step C no statement has
+% the head Member or Inheritance, so a declaration on one would silently apply
+% to nothing.
 'declared-head!'(Head, true) :-
-    (   Head == 'Member'
+    (   memberchk(Head, ['Member', 'Inheritance'])
     ->  throw(error(domain_error(predicate_head, Head),
-                    context(declaration/2, 'Member is no predicate: declare each class as a head')))
+                    context(declaration/2, 'Member and Inheritance are no predicates: declare each class as a head')))
     ;   true ).

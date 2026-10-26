@@ -107,3 +107,29 @@ stage_statement(KB, Statement, Sides) :-
         ;   atom(Arg) -> constant_sort(Arg, KB, Sort)
         ;   var(Arg), member(Side, Sides), source_sort(KB, Side, Term-Sort), Term == Arg ),
         memberchk(Sort, ['Stage','Time']) ).
+
+% Whether a rule A -> B is stationary: its variables range over objects or
+% concepts, never stages, so its rate never changes (rule-change hazard 0).
+% Every variable is at a declared Object or Concept position, or the rule is
+% an unsorted class link, every conjunct of either side a class of one
+% variable; no side is a stage.
+'stationary-rule?'(KB, A, B, Result) :-
+    ( stationary_rule(KB, A, B) -> Result = true ; Result = false ).
+
+stationary_rule(KB, A, B) :-
+    term_variables(A-B, Vars), Vars \== [],
+    \+ ( sorted_kb(KB), ( stage_statement(KB, A, [A, B]) ; stage_statement(KB, B, [A, B]) ) ),
+    (   forall(( side_conjunct(A, C) ; side_conjunct(B, C) ), ( nonvar(C), C = [Head, X], atom(Head), var(X) ))
+    ->  true
+    ;   sorted_kb(KB),
+        forall(member(V, Vars),
+               ( member(Side, [A, B]), source_sort(KB, Side, Term-Sort), Term == V,
+                 memberchk(Sort, ['Object', 'Concept']) )) ).
+
+side_conjunct(Side, C) :- ( nonvar(Side), Side = ['And'|Cs] -> member(C, Cs) ; C = Side ).
+
+% Whether A -> B is a class link: (Sub X) -> (Super X), two classes of one
+% variable.
+'class-link?'(A, B, Result) :-
+    (   nonvar(A), nonvar(B), A = [Sub, X], B = [Super, Y], atom(Sub), atom(Super), var(X), X == Y
+    ->  Result = true ; Result = false ).

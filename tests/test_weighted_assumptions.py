@@ -90,8 +90,7 @@ class WeightedAssumptionTests(unittest.TestCase):
                 '(: b (P $x) (STV 0.5 0.5))', '(: b (And (P a) (Q a)) (STV 0.5 0.5))',
                 '(: b (Exists ($x) (P $x)) (STV 0.5 0.5))', '(: b (Compute f (1) -> $r) (STV 0.5 0.5))',
                 '(: b (Implication (P a) (Q a)) (PointMass 1.0))', '(: b (Not (P a)) (CTV (STV 1 1) (STV 0 1)))',
-                '(: b (Height bob) (PointMass 170.0))',
-                '(: b (Inheritance Dog Animal) (STV 0.9 0.9))'):
+                '(: b (Height bob) (PointMass 170.0))'):
             with self.subTest(annotation=annotation):
                 with self.assertRaisesRegex(janus.PrologError, 'weighted_assumption'):
                     answers(self.h, f'(Assuming (And (P a) {annotation}) (P a))')

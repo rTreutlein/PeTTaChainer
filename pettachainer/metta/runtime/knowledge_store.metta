@@ -107,16 +107,10 @@
                      (data $fold-type ($fold-kb $fold-ctx $fold-vars) $fold-prf $fold-tv) $id $idx)))))))
       (+ $idx 1)))
 
-;; Keep an empty fold live so later sample proofs can refine it, but do not let
-;; its provisional no-evidence value become a public Inheritance proof.
-(: MemberInheritanceEvidenceFormula (-[nondet]-> TV  TV))
-(= (MemberInheritanceEvidenceFormula $tv) (if (== $tv no-evidence) (empty) $tv))
-
-(: inheritance-subject-prior-tv (-[det]-> KB Statement TV))
-(= (inheritance-subject-prior-tv $kbid $subj)
-   (if (space-row-present? &inheritance_subject ($kbid $subj))
-      (let $scale (fa-mass-scale $kbid) (if (== $scale 0.0) no-evidence (STV $scale 1.0)))
-      no-evidence))
+;; Keep an empty instance fold live so later samples can refine it, but do
+;; not let its provisional no-evidence value become a public implication proof.
+(: InstanceEvidenceFormula (-[nondet]-> TV  TV))
+(= (InstanceEvidenceFormula $tv) (if (== $tv no-evidence) (empty) $tv))
 
 ;; A rule's expected premise confidence is a pure function of its premise
 ;; structure and stored TVs, so it is computed once here instead of on every
@@ -185,21 +179,6 @@
       ((cons $premise $rest)
          (cons (typed-runtime-premise $premise) (typed-runtime-premises $rest))))))
 
-;; An Inheritance fact records its concepts as nodes, and its subject too when
-;; the fact is an observation rather than a materialized conclusion.
-(: record-fact-inheritance-nodes! (-[det]-> (Statement KBContext Proof TV) Bool Atom))
-(= (record-fact-inheritance-nodes! $fact $record-subject?)
-   (case $fact (
-      (($type ($kbid $_ctx $_vars) $_prf $_tv)
-         (if (if (head-is? $type Inheritance) (= $type (Inheritance $subj $concept)) false)
-            (if (is-var $subj) ()
-               (let* (($typed-kb (brand KB $kbid))
-                      ($typed-subj (brand Statement $subj))
-                      ($_subject (if $record-subject? (record-kb-node! &inheritance_subject subject-node $typed-kb $typed-subj) ())))
-                  (record-inheritance-nodes! $typed-kb $typed-subj (brand Statement $concept))))
-            ()))
-      ($_other ()))))
-
 ;; A certain fact of a ground statement two or more forward rules conclude is
 ;; an outcome the combination modes learn from; it waits for the first merge
 ;; that needs its predicate's mode (docs/metta/combination_modes.md).
@@ -246,7 +225,6 @@
                    ($_add (chainer-add-atom &kb $fact))
                    ($_index (kb-index-fact! live $fact))
                    ($_journal (sk-note-fact! $type $kb))
-                   ($_nodes (record-fact-inheritance-nodes! $fact true))
                    ($_outcome (note-combination-outcome! $fact)))
                   ;; The aggregates observing the statement count it at once,
                   ;; with its stored facts merged: whether a forward run takes it
@@ -384,8 +362,8 @@
       $kbs))
 
 ;; The rule rows registered under a statement name, with its gated rows and its
-;; specialization state (#114): its templates, so no later fact grounds it, its
-;; grounded markers, and its Inheritance lifts, which queries compile.
+;; specialization state (#114): its templates, so no later fact grounds it, and
+;; its grounded markers.
 ;; Re-adding the withdrawn rule exactly as it was installs it again, so it
 ;; derives once more; another value under its name is rejected (#113).
 (: withdraw-named-rules! (-[det]-> Proof (List KB)))
@@ -396,9 +374,5 @@
           ($_live (remove-data-rows! &prior_gated_live (quote ($_lh $_lk $_lp $name $_lid))))
           ($_rule-templates (remove-data-rows! &spec_template
              (quote ($_rh (specialization-template-row $_rk $_rhead $_rtriggers (compile-specialization (: $name $_rtype $_rtv)))))))
-          ($_lift-templates (remove-data-rows! &spec_template
-             (quote ($_th (specialization-template-row $_tk $_thead $_ttriggers (inheritance-lift-specialization $_tground (: $name $_ttype $_ttv)))))))
-          ($_done (remove-data-rows! &spec_done (quote ($_dh (specialization-done-row $_dk (: $name $_dtype $_dtv))))))
-          ($_lifts (remove-data-rows! &inheritance_lift_instance
-             (quote ($_ih (inheritance-lift-instance-row $_ik $_istmt (: $name $_itype $_itv)))))))
+          ($_done (remove-data-rows! &spec_done (quote ($_dh (specialization-done-row $_dk (: $name $_dtype $_dtv)))))))
       $kbs))

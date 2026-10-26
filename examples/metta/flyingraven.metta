@@ -1,91 +1,36 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 
-!(compileadd flyingRavenKb (: samRaven (Inheritance Sam Raven) (STV 0.99 0.9)))
+!(compileadd flyingRavenKb (: samRaven (Member Sam Raven) (STV 0.99 0.9)))
 
-!(compileadd flyingRavenKb (: pinguPenguin (Inheritance Pingu Penguin) (STV 0.99 0.9)))
+!(compileadd flyingRavenKb (: pinguPenguin (Member Pingu Penguin) (STV 0.99 0.9)))
 
 !(compileadd flyingRavenKb
    (: penguinsDoNotFly
       (Implication
-         (Inheritance $x Penguin)
-         (Not (Inheritance $x (IntSet flies))))
+         (Member $x Penguin)
+         (Not (Member $x flies)))
       (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 
 !(compileadd flyingRavenKb (: ravenBird (Inheritance Raven Bird) (STV 0.99 0.9)))
 
 !(compileadd flyingRavenKb (: penguinBird (Inheritance Penguin Bird) (STV 0.99 0.9)))
 
-!(compileadd flyingRavenKb (: birdFlies (Inheritance Bird (IntSet flies)) (STV 0.99 0.9)))
+!(compileadd flyingRavenKb (: birdFlies (Inheritance Bird flies) (STV 0.99 0.9)))
 
-;; Inheritance queries use one chainer execution.  These budgets preserve the
-;; total search work that was previously split across two equal executions.
-;; Representative caches allocate their own proof references. Check the full
-;; proof and its sharing relationships while leaving allocation IDs free.
+;; Sam is a raven, so a bird, so flies. The class links are rules whose
+;; negative branches come from the base rates, which no member informs here:
+;; a non-raven Sam is unknown, which bounds the confidence.
 !(test
-   (let $actual (collapse
-      (query 200 flyingRavenKb
-         (: $prf (Inheritance Sam (IntSet flies)) $tv)))
-      (if (= $actual ((:
-      (inheritance-implication-fold
-         (total-implication
-            (merge/revision
-               (by (inheritance-implication birdFlies)
-                  (shared $sam0 (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 0)))))
-               (negated
-                  (by penguinsDoNotFly
-                     ((inverted (inheritance-implication penguinBird)
-                         with cpu (prior (STV 0.730917365761377 0.00022594893654011704)))
-                        (shared $sam0)))))
-            (merge/revision
-               (by (inheritance-implication birdFlies)
-                  (shared $sam1 (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 1)))))
-               (negated
-                  (by penguinsDoNotFly
-                     ((inverted (inheritance-implication penguinBird)
-                         with cpu (prior (STV 0.730917365761377 0.00022594893654011704)))
-                        (shared $sam1)))))))
-      (Inheritance Sam (IntSet flies))
-      (STV 0.9812452856741397 0.2634386832520395))))
-         (if (== $sam0 $sam1) false true)
-         false))
-   true)
+   (collapse (query 200 flyingRavenKb (: $prf (Member Sam flies) $tv)))
+   ((: (by birdFlies (by ravenBird samRaven)) (Member Sam flies) (STV 0.982699 0.4787214132400715))))
+
+;; Pingu is a penguin: the penguin rule and the bird route revise.
+!(test
+   (collapse (query 60 flyingRavenKb (: $prf (Member Pingu flies) $tv)))
+   ((: (merge/revision (negated (by penguinsDoNotFly pinguPenguin)) (by birdFlies (by penguinBird pinguPenguin)))
+       (Member Pingu flies) (STV 0.10007216199275315 0.9084036784088747))))
 
 !(test
-   (collapse
-      (query 60 flyingRavenKb
-         (: $prf (Inheritance Pingu (IntSet flies)) $tv)))
-   ((:
-      (inheritance-implication-fold
-         (total-implication
-            (merge/revision
-               (negated
-                  (by penguinsDoNotFly
-                     (by (inheritance-implication pinguPenguin) (ctx proof 2))))
-               (by (inheritance-implication birdFlies) (by (inheritance-implication penguinBird) (by (inheritance-implication pinguPenguin) (ctx proof 2)))))
-            (merge/revision
-               (by (inheritance-implication birdFlies) (by (inheritance-implication penguinBird) (by (inheritance-implication pinguPenguin) (ctx proof 3))))
-               (negated
-                  (by penguinsDoNotFly
-                     (by (inheritance-implication pinguPenguin) (ctx proof 3)))))))
-      (Inheritance Pingu (IntSet flies))
-      (STV 0.04712033556329214 0.9034427158790064))))
-
-!(test
-   (collapse
-      (query 200 flyingRavenKb
-         (: $prf (Inheritance Pingu (IntSet flies)) $tv)))
-   ((:
-      (inheritance-implication-fold
-         (total-implication
-            (merge/revision
-               (negated
-                  (by penguinsDoNotFly
-                     (by (inheritance-implication pinguPenguin) (ctx proof 4))))
-               (by (inheritance-implication birdFlies) (by (inheritance-implication penguinBird) (by (inheritance-implication pinguPenguin) (ctx proof 4)))))
-            (merge/revision
-               (by (inheritance-implication birdFlies) (by (inheritance-implication penguinBird) (by (inheritance-implication pinguPenguin) (ctx proof 5))))
-               (negated
-                  (by penguinsDoNotFly
-                     (by (inheritance-implication pinguPenguin) (ctx proof 5)))))))
-      (Inheritance Pingu (IntSet flies))
-      (STV 0.04712033556329214 0.9034427158790064))))
+   (collapse (query 200 flyingRavenKb (: $prf (Member Pingu flies) $tv)))
+   ((: (merge/revision (negated (by penguinsDoNotFly pinguPenguin)) (by birdFlies (by penguinBird pinguPenguin)))
+       (Member Pingu flies) (STV 0.10007216199275315 0.9084036784088747))))

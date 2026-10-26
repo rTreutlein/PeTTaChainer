@@ -8,21 +8,18 @@
 
 !(compileadd deductionRevisionKb (: cInheritsD (Inheritance C D) (STV 0.5 0.9)))
 
-;; Concrete Inheritance queries have one non-Member producer: the compiler's
-;; total-implication view. Both deduction chains revise inside that view.
+;; A class link is the implication between its two classes, so the concept
+;; chains A -> B -> D and A -> C -> D revise as the implications below do.
+;; Stated as STVs, the links' negative branches are unknown: no member gives
+;; a base rate.
 !(test
    (collapse (query 60 deductionRevisionKb (: $prf (Inheritance A D) $tv)))
-   ((:
-      (inheritance-implication-fold
-         (total-implication
-            (merge/revision
-               (by (inheritance-implication cInheritsD) (by (inheritance-implication aInheritsC) (ctx proof 0)))
-               (by (inheritance-implication bInheritsD) (by (inheritance-implication aInheritsB) (ctx proof 0))))
-            (merge/revision
-               (by (inheritance-implication cInheritsD) (by (inheritance-implication aInheritsC) (ctx proof 1)))
-               (by (inheritance-implication bInheritsD) (by (inheritance-implication aInheritsB) (ctx proof 1))))))
-      (Inheritance A D)
-      (STV 0.4999090545615055 0.002273093351340959))))
+   ((: (conditional-implication
+          (merge/revision
+             (by cInheritsD (by aInheritsC (ctx proof 0)))
+             (by bInheritsD (by aInheritsB (ctx proof 0)))))
+       (Inheritance A D)
+       (STV 0.5 0.010716021787382275))))
 
 
 
@@ -51,7 +48,7 @@
    (:
       (conditional-implication
          (merge/revision
-            (by cImpliesD (by aImpliesC (ctx proof 2)))
-            (by bImpliesD (by aImpliesB (ctx proof 2)))))
+            (by cImpliesD (by aImpliesC (ctx proof 1)))
+            (by bImpliesD (by aImpliesB (ctx proof 1)))))
       (Implication (A $_1139496) (D $_1139496))
       (STV 0.125 0.9692294378874315)))

@@ -101,7 +101,6 @@ class TestIngestion(unittest.TestCase):
             'source-compute-goals': "'source-compute-goals'([[_Head,a,b,c]],_Out),var(_Head)",
             'canonical-addition': "'canonical-addition'([Kb,'MAIN','Nil'],[],[by,r,cpu],[_Head,a],['STV',1.0,1.0],_Out),var(_Head)",
             'base-rate-fold': "'base-rate-fold'(Kb,[_Head,_X,concept],_TV,_Out),var(_Head)",
-            'inheritance-context-premise?': "'inheritance-context-premise?'([_Head,a,b],a,_Out),var(_Head),_Out==false",
             'default-query-assumption-tv': "'default-query-assumption-tv'([_Head,a,b],_TV,_Out),var(_Head),_Out==['STV',1.0,1.0]",
             'query-context-assumed-implication-rules': "'query-context-assumed-implication-rules'(Kb,ctx,[],proof,[_Head,a,b],['STV',1.0,1.0],_Out),var(_Head),_Out==[]",
             'internalize-proof-structure-any': "'internalize-proof-structure-any'([_Head,a,b,c,d],_Out),var(_Head)",
@@ -109,7 +108,6 @@ class TestIngestion(unittest.TestCase):
             'pattern-shape': "'pattern-shape'([_Head,['P',a],['Q',b]],_Out),var(_Head)",
             'sk-fact-premise-type': "'sk-fact-premise-type'([[_Head,a],[Kb,'MAIN','Nil'],proof,['STV',1.0,1.0]],[],_Out),var(_Head),_Out=[[_Head,a]]",
             'sk-shared-candidate': "'sk-shared-candidate'([],['sk-key',[_Head,a],[Kb,'MAIN','Nil']],_Out),var(_Head)",
-            'record-fact-inheritance-nodes!': "'record-fact-inheritance-nodes!'([[_Head,a,b],[Kb,'MAIN','Nil'],proof,['STV',1.0,1.0]],false,_Out),var(_Head)",
             'forward-maintain-member-aggregates!': "'forward-maintain-member-aggregates!'(forward_add,[[_Head,a,b],[Kb,'MAIN','Nil'],proof,['STV',1.0,1.0]],_Out),var(_Head)",
             'sk-row-exclusions': "_Key=['sk-key',[_Head,a,b,c,d],[Kb,'MAIN','Nil']],'index-hash'(_Key,_Hash),'sk-row-exclusions'(_Hash,_Key,proof,_Out),var(_Head)",
         }

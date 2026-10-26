@@ -223,8 +223,7 @@ connective_shape(Pattern, Shape) :-
 statement_shape(Statement, Shape) :-
     (   connective_shape(Statement, Shape) -> true
     ;   nonvar(Statement), Statement = [Head|Args], atom(Head),
-        \+ memberchk(Head, ['And', 'Or', 'Not', 'Inheritance', 'MemberInheritanceSample',
-            'ImplicationInstanceSample', 'RuleTruth', 'Implication', 'Equivalence',
+        \+ memberchk(Head, ['And', 'Or', 'Not', 'ImplicationInstanceSample', 'RuleTruth', 'Implication', 'Equivalence',
             'BiImplication', 'ForAll', 'Exists', 'WithPrior', 'Evaluation', 'Similarity',
             'Compute', 'CPU', 'FoldAll', 'FoldAllValue', 'FoldAllTruth', 'MapDist', 'Map2Dist',
             'AverageDist', 'KnownExistential', 'ExistentialResidual', 'GreaterThan', '>',
@@ -1368,12 +1367,11 @@ dormancy_settles([[Type, Ctx, Proof, Tv]|Rest]) :-
 % The search judges only what it fully sees: user predicates in the main
 % context (or one a rule leaves open). An assumption context supplies its own
 % premises, and the chainer's own vocabulary has support the search does not
-% model: rules installed when a node expands (implications, member
-% inheritance), member folds and samples. Anything else counts as supported.
+% model: rules installed when a node expands (implications), member folds and
+% samples. Anything else counts as supported.
 dormancy_judged(Type, [_, Context|_]) :-
     ( var(Context) ; Context == 'MAIN' ),
-    \+ ( Type = [Head|_], memberchk(Head, ['Inheritance', 'MemberInheritanceSample',
-        'ImplicationInstanceSample', 'RuleTruth', 'Implication', 'Equivalence', 'And', 'Or', 'Not',
+    \+ ( Type = [Head|_], memberchk(Head, ['ImplicationInstanceSample', 'RuleTruth', 'Implication', 'Equivalence', 'And', 'Or', 'Not',
         'ForAll', 'WithPrior', 'Evaluation', 'Similarity']) ).
 
 dormancy_fact(Type, Ctx) :-

@@ -32,7 +32,7 @@
 ;; The first review folds the three instances, deriving their outcomes: two
 ;; positive, one negative.
 !(test (let (: $p $t $tv) (query 50 givenKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv)
-   (STV 0.6659079306063799 0.7505551077946563))
+   (STV 0.6661072710577975 0.7505924097492963))
 
 ;; A positive instance whose outcome only the rule tells. A query with no
 ;; budget about something else takes it into the tally and the population, at
@@ -42,7 +42,7 @@
 !(begin-backward-query-metrics!)
 !(test (query 0 givenKb (: $p (A i1) $tv)) (: a1 (A i1) (STV 1 1)))
 !(test (query_metric_value row-computes) 7)
-!(test (truth givenKb) (STV 0.7493401927213437 0.8003617909614495))
+!(test (truth givenKb) (STV 0.7493701514382423 0.8003713528065355))
 !(test (query 0 givenKb (: $p (B other) $tv))
    (: (population-prior (B $_0)) (B other) (STV 0.7380929703163627 0.7999679980798818)))
 
@@ -55,6 +55,6 @@
 !(compileadd givenKb (: hc (Implication (A $x) (C $x)) (STV 0.5 0.01)))
 !(compileadd givenKb (: acase (A case) (STV 1 1)))
 !(test (let (: $p $t $tv) (query 50 givenKb (: $p (RuleTruth (Implication (A $x) (C $x))) $tv)) $tv)
-   (STV 0.25065968444186937 0.8003936642103078))
+   (STV 0.2506297229219143 0.8004032258064516))
 !(test (query 50 givenKb (: $p (C case) $tv))
-   (: (by hc acase) (C case) (STV 0.25065968444186937 0.800393664112891)))
+   (: (by hc acase) (C case) (STV 0.2506297229219143 0.8004032257090217)))

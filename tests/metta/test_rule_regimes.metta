@@ -5,7 +5,9 @@
 ;; possible change. Its truth is the posterior mixture over where the rate
 ;; changed, with a KB's hazard, the prior probability that a sample starts a
 ;; new regime (set-rule-change-hazard, default 0.0001; 0 keeps one regime)
-;; (docs/metta/hypothesis_rules.md, "Regimes").
+;; (docs/metta/hypothesis_rules.md, "Regimes"). Only a rule over stages has
+;; regimes: one over objects or concepts is stationary, so each KB declares
+;; its instances stages.
 !(set-evidence-confidence-k 5)
 
 (: truth (-[semidet]-> KB Atom))
@@ -39,6 +41,8 @@
 ;; candidate is more probably a change than not and becomes the current
 ;; segment.
 !(set-rule-refinement offKb true)
+!(set-argument-sorts offKb A (Stage))
+!(set-argument-sorts offKb B (Stage))
 !(set-rule-change-hazard offKb 0)
 !(set-positive-only-predicate offKb A)
 !(compileadd offKb (: h (Implication (A $x) (B $x)) (STV 0.5 0.02)))
@@ -68,6 +72,8 @@
 !(compileadd offKb (: b11 (B i11) (STV 1 1)))
 !(test (let (: $p $t $tv) (query 50 offKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv) (STV 0.9957841483979765 0.7076372315035799))
 !(set-rule-refinement onKb true)
+!(set-argument-sorts onKb A (Stage))
+!(set-argument-sorts onKb B (Stage))
 !(set-positive-only-predicate onKb A)
 !(compileadd onKb (: h (Implication (A $x) (B $x)) (STV 0.5 0.02)))
 !(compileadd onKb (: a0 (A i0) (STV 1 1)))
@@ -152,6 +158,8 @@
 ;; segment, and since it matches the first regime the two merge: the truth
 ;; stands at once on all the cases B held.
 !(set-rule-refinement recurKb true)
+!(set-argument-sorts recurKb A (Stage))
+!(set-argument-sorts recurKb B (Stage))
 !(set-rule-change-hazard recurKb 0.01)
 !(set-positive-only-predicate recurKb A)
 !(compileadd recurKb (: h (Implication (A $x) (B $x)) (STV 0.5 0.02)))
@@ -227,6 +235,8 @@
 ;; Through the chainer: 32 instances, three in four held, shuffled; the truth
 ;; is the one in one regime.
 !(set-rule-refinement shufOffKb true)
+!(set-argument-sorts shufOffKb A (Stage))
+!(set-argument-sorts shufOffKb B (Stage))
 !(set-rule-change-hazard shufOffKb 0)
 !(set-positive-only-predicate shufOffKb A)
 !(compileadd shufOffKb (: h (Implication (A $x) (B $x)) (STV 0.5 0.02)))
@@ -296,6 +306,8 @@
 !(compileadd shufOffKb (: b31 (B i31) (STV 1 1)))
 !(test (let (: $p $t $tv) (query 50 shufOffKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv) (STV 0.7492053401144311 0.8652365236523653))
 !(set-rule-refinement shufKb true)
+!(set-argument-sorts shufKb A (Stage))
+!(set-argument-sorts shufKb B (Stage))
 !(set-positive-only-predicate shufKb A)
 !(compileadd shufKb (: h (Implication (A $x) (B $x)) (STV 0.5 0.02)))
 !(compileadd shufKb (: a0 (A i0) (STV 1 1)))
@@ -370,6 +382,8 @@
 ;; In a CTV rule P(B|A) flips after 8 instances while P(B|not A) stays at
 ;; one half: the negative branch keeps one regime.
 !(set-rule-refinement ctvOffKb true)
+!(set-argument-sorts ctvOffKb A (Stage))
+!(set-argument-sorts ctvOffKb B (Stage))
 !(set-rule-change-hazard ctvOffKb 0)
 !(compileadd ctvOffKb (: h (Implication (A $x) (B $x)) (CTV (STV 0.5 0.02) (STV 0.5 0.02))))
 !(compileadd ctvOffKb (: a0 (A i0) (STV 1 1)))
@@ -429,6 +443,8 @@
       $stored-tv)
    (CTV (STV 0.6652613827993255 0.7076372315035799) (STV 0.5 0.7076372315035799)))
 !(set-rule-refinement ctvOnKb true)
+!(set-argument-sorts ctvOnKb A (Stage))
+!(set-argument-sorts ctvOnKb B (Stage))
 !(compileadd ctvOnKb (: h (Implication (A $x) (B $x)) (CTV (STV 0.5 0.02) (STV 0.5 0.02))))
 !(compileadd ctvOnKb (: a0 (A i0) (STV 1 1)))
 !(compileadd ctvOnKb (: b0 (B i0) (STV 1 1)))

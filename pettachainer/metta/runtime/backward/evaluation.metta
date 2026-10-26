@@ -2332,9 +2332,6 @@
       ((extract-with-truth $pattern $truth $value)
          (let* ((($pattern ($_kb $_ctx $_vars) $_proof $truth) (copy_term $fact)))
             ($fun $acc $value)))
-      ((extract-inheritance-tv $kbid $_statement)
-         (let* ((((Inheritance $subject $_concept) ($_kb $_ctx $_vars) $_proof $tv) (copy_term $fact)))
-            ($fun $acc (WeightedTv (inheritance-subject-prior-tv $kbid (brand Statement $subject)) $tv))))
       (extract-tv (let* ((($_type $_kbctx $_proof $tv) $fact)) ($fun $acc $tv))))))
 
 ;; Members are read without the views that depend on the fold itself: a
@@ -2446,10 +2443,9 @@
          ;; like base rates, are not revised against their members' evidence;
          ;; their dependencies still reach their readers.
          (if $base-rate (ev-set 0)
-            (if (stored-list-member? $finish (uniform-prior uniform-prior-known)) (ev-set 0)
-               (case $args (
-                  (($_kb $_pattern (extract-with-truth $_p $_t $_v) $_init $_fn $_fin $_mode) (ev-set 0))
-                  ($_other (evidence-join $ev))))))
+            (case $args (
+               (($_kb $_pattern (extract-with-truth $_p $_t $_v) $_init $_fn $_fin $_mode) (ev-set 0))
+               ($_other (evidence-join $ev)))))
          (if $base-rate (deps-key $hash) (deps-join (cons (deps-key $hash) $deps)))))))
 
 ;; A base rate is one estimate per pattern, kept by the forward aggregate of the
@@ -2500,7 +2496,17 @@
 (= (sk-instance-tally $hash $fold $kb)
    (case (collapse (once (match &ctx_sk_instance_tally ($hash $stored $acc) (if (=alpha $stored $fold) $acc (empty))))) (
       ((cons $found $_rest) $found)
-      (() (instance-regimes (rule-change-hazard (brand KB $kb)) 1 () ())))))
+      (() (instance-regimes (instance-hazard (brand KB $kb) $fold) 1 () ())))))
+
+;; A stationary rule, one whose variables range over objects or concepts, such
+;; as a class link, keeps one regime: its estimate is exact, whatever order
+;; its samples arrive in. A rule over stages has the KB's hazard.
+(: instance-hazard (-[det]-> KB SkeletonKey Number))
+(= (instance-hazard $kb $fold)
+   (case $fold (
+      ((sk-fold ($_kb (ImplicationInstanceSample $a $b $_atv $_btv) $_extract $_init $_function $_finish $_mode))
+         (if (stationary-rule? $kb $a $b) 0.0 (rule-change-hazard $kb)))
+      ($_other (rule-change-hazard $kb)))))
 
 (: sk-instance-view (-[semidet]-> Number ScalarFoldSpec InstanceRegimeState SkeletonValue))
 (= (sk-instance-view $hash $args (instance-regimes $hazard $_next $pos $neg))
@@ -2527,13 +2533,32 @@
       ($_other ()))))
 
 ;; A member with no value whose rows are still to be computed is left to take:
-;; the evaluation needs it and checks the fold again (sk-instance-checks!).
+;; the evaluation needs it and checks the fold again (sk-instance-checks!). A
+;; member no search built, a class-link sample its subject's stored facts
+;; marked (fa-class-link-dirty!), is read from those facts.
 (: sk-instance-take-step (-[semidet]-> Number SkeletonKey ScalarFoldSpec SkeletonFilter Atom SkeletonKey Atom))
 (= (sk-instance-take-step $hash $fold $args $filter $_acc $member)
    (let $value (sk-value $member $filter (cons $hash ()))
-      (if (if (== $value sk-none) (sk-member-pending? $member) false)
-         (if (space-row-present? &ctx_sk_instance_changed ($hash $_stored)) () (context-add! &sk_instance_changed ($hash $fold)))
+      (if (== $value sk-none)
+         (if (sk-member-pending? $member)
+            (if (space-row-present? &ctx_sk_instance_changed ($hash $_stored)) () (context-add! &sk_instance_changed ($hash $fold)))
+            (sk-instance-take-value! $hash $fold $args $member (sk-stored-sample $member)))
          (sk-instance-take-value! $hash $fold $args $member $value))))
+
+;; A sample of its two sides' stored facts, each statement's merged, when both
+;; have one; the sample rule would read the same.
+(: sk-stored-sample (-[det]-> SkeletonKey SkeletonValue))
+(= (sk-stored-sample $member)
+   (case $member (
+      ((sk-key (ImplicationInstanceSample $a $b $_atv $_btv) $kbctx)
+         (case (data (stored-statement-candidate (brand Statement $a) $kbctx false) (stored-statement-candidate (brand Statement $b) $kbctx false)) (
+            (((forward-derived ($_at $_ac $aprf $atv) $aev) (forward-derived ($_bt $_bc $bprf $btv) $bev))
+               (sk-val
+                  (assemble-runtime-fact (ImplicationInstanceSample $a $b $atv $btv) $kbctx
+                     (implication-instance-sample (fact-source $aev $aprf) (fact-source $bev $bprf)) (STV 1.0 1.0))
+                  (evidence-join (cons $aev (cons $bev ()))) 0))
+            ($_missing sk-none))))
+      ($_other sk-none))))
 
 ;; A KB's hazard: the prior probability that a sample of a refined rule's
 ;; branch starts a new regime of its rate (docs/metta/hypothesis_rules.md,
@@ -3196,11 +3221,7 @@
       (if (is-expr $proof)
          (let $head (car-atom $proof)
             (if (is-var $head) false
-               (if (stored-list-member? $head (total-implication-frontier member-inheritance-sample))
-                  true
-                  (if (== $head inheritance-query-result)
-                     (shared-evidence-frontier-proof? (brand Proof (car-atom (cdr-atom $proof))))
-                     false))))
+               (== $head total-implication-frontier)))
          false)))
 
 ;; A rule proof marks each fold premise with a `cpu` token; the tokens are
@@ -5745,9 +5766,8 @@
                 ($_add (chainer-add-atom &kb $fact))
                 ($_index (kb-index-fact! live $fact))
                 ($_rules (record-stored-rules! materialized $hash (sk-key $type $kb) $source))
-                ($_mark (add-atom &materialized_facts $row))
-                ($_journal (sk-note-fact! $type $kb)))
-            (record-fact-inheritance-nodes! $fact false)))))
+                ($_mark (add-atom &materialized_facts $row)))
+            (sk-note-fact! $type $kb)))))
 
 (: materializable-result? (-[det]-> SkFact Bool))
 ;; A positive implication judgment is a query result, never a world fact.
@@ -5994,8 +6014,8 @@
           ($answers (fold-semidet sk-cons-step () (fold-semidet sk-result-step () $values))))
       (prune_answer_instances $answers)))
 
-;; A root's Member producer is part of its scaffold and installed even when
-;; the budget expands nothing.
+;; A root's producers are part of its scaffold and installed even when the
+;; budget expands nothing.
 (: sk-root-score-step (-[semidet]-> Atom SkPattern Atom))
 (= (sk-root-score-step $_acc $goal)
    (let* (($hash (sk-node-hash $goal))
@@ -6005,7 +6025,7 @@
              (case (copy_term $goal) (
                 ((CPU $_fun $_args $_res) ())
                 (($type $kbctx $_proof $_tv)
-                   (let $_producers (install-producers! temp $type $kbctx) (install-member-inheritance-rules! $type $kbctx)))))))
+                   (let $_producers (install-producers! temp $type $kbctx) (install-class-link-rules! $type $kbctx)))))))
       (sk-raise-score! $hash $goal 1.0)))
 
 (: execute-backward

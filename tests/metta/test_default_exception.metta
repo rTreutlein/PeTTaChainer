@@ -13,6 +13,6 @@
 !(compileadd penguinKb (: f4 (Inheritance Penguin Bird) (STV 1.0 0.9)))
 !(compileadd penguinKb (: r2 (Implication (Member $x Bird) (Fly $x)) (STV 1.0 0.9)))
 !(test (query 100 penguinKb (: $p (Fly sam) $tv))
-   (: (by r2 (by (no_inverse (member-inheritance-implication f3)) f2)) (Fly sam) (STV 1.0 0.8437377919893592)))
+   (: (by r2 (by f3 f2)) (Fly sam) (STV 1.0 0.8616947709793574)))
 !(test (query 100 penguinKb (: $p (Fly pingu) $tv))
-   (: (specializes (by r1 f1) (by r2 (by (no_inverse (member-inheritance-implication f4)) f1)) (STV 0.0 0.8709625387995333) (STV 1.0 0.8437377919893592)) (Fly pingu) (STV 3.697567900442999e-05 0.8709625387995333)))
+   (: (specializes (by r1 f1) (by r2 (by f4 f1)) (STV 0.0 0.8709625387995333) (STV 1.0 0.8616947709793574)) (Fly pingu) (STV 3.698390382182274e-05 0.8709625387995333)))

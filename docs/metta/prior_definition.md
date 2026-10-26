@@ -94,8 +94,7 @@ centre, indexed hits for the excluded sources are subtracted from its distinct
 count; a positive remainder and no duplicate/unverified sources are necessary.
 Subtract their numeric contributions through the reverse index and require a
 positive remaining member count: removing one source can remove an entire
-multi-source member. A drained tally cannot supply an empirical centre, even
-if a synthetic concept prior remains. Cost is proportional to the sources
+multi-source member. A drained tally cannot supply an empirical centre. Cost is proportional to the sources
 explicitly excluded, not the marginal population size.
 Numeric tallies keep an exact live contribution count, so a drained population
 becomes exactly zero rather than a floating-point subtraction residual. Branch pooling requires positive support in

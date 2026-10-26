@@ -8,26 +8,20 @@
 (: forward-output-key (-[det]-> KBContext Statement ForwardOutputKey))
 
 (: forward-base-rate-identity
-   (-[det]-> KB Statement
-       (| ExtractTV ExtractInheritanceTV)
-       (| BaseRateEvidenceState BaseRateEvidenceWithPriorState)
-       (-[semidet]-> $accumulator $value $accumulator)
-       (| BaseRateFinish WeightedBaseRateInUniverseFinish WeightedBaseRateWithPriorInUniverseFinish)
-       AggregateTVMode
+   (-[det]-> KB Statement ExtractTV BaseRateEvidenceState
+       (-[semidet]-> $accumulator $value $accumulator) BaseRateFinish AggregateTVMode
        ForwardAggregateIdentityKey))
 
-(: forward-member-inheritance-identity (-[det]-> KB Term Term ForwardAggregateIdentityKey))
+(: forward-class-link-identity (-[det]-> KB Term Term ForwardAggregateIdentityKey))
 
 (: forward-base-rate-descriptor
-   (-[det]-> KB Statement
-       (| ExtractTV ExtractInheritanceTV)
-       (| BaseRateEvidenceState BaseRateEvidenceWithPriorState)
-       (-[semidet]-> $accumulator $value $accumulator)
-       (| BaseRateFinish WeightedBaseRateInUniverseFinish WeightedBaseRateWithPriorInUniverseFinish)
+   (-[det]-> KB Statement ExtractTV BaseRateEvidenceState
+       (-[semidet]-> $accumulator $value $accumulator) BaseRateFinish
        ForwardAggregateDescriptor))
 
-(: forward-member-inheritance-descriptor
-   (-[det]-> KB Term Term Statement ForwardAggregateDescriptor))
+;; A class link's instance fold, by its skeleton key.
+(: forward-class-link-descriptor
+   (-[det]-> KB Term Term SkeletonKey ForwardAggregateDescriptor))
 
 (: ForwardAggregateIdentityRow Type)
 (: forward-aggregate-identity-row
@@ -58,8 +52,6 @@
 (: no-forward-aggregate-observation-value ForwardAggregateObservationValue)
 (: forward-base-rate-observation-value
    (-[det]-> (Statement KBContext Proof TV) ForwardAggregateObservationValue))
-(: forward-member-inheritance-observation-value
-   (-[det]-> ForwardDerived ForwardDerived ForwardAggregateObservationValue))
 
 (: ForwardAggregateObservation Type)
 (: forward-aggregate-observation

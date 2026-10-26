@@ -18,12 +18,10 @@
 !(test (candidate-tv mergeKb (P a)) (STV 0.6 0.6666666666666666))
 !(test (query 50 mergeKb (: $p (P a) $tv)) (: (merge/revision a2 a1) (P a) (STV 0.6 0.6666666666666666)))
 
-;; Membership reads the stored facts merged (fa-member), as aggregate
-;; seeding counts a statement once with its facts merged (fa-seed-statement).
+;; Aggregate seeding counts a statement once with its facts merged
+;; (fa-seed-statement), as a class-link sample reads them (sk-stored-sample).
 !(compileadd mergeKb (: d1 (Member rex Dog) (STV 0.8 0.5)))
 !(compileadd mergeKb (: d2 (Member rex Dog) (STV 0.4 0.5)))
-!(test (case (fa-member mergeKb rex Dog) (((forward-derived ($_t $_c $_p $tv) $_ev) $tv) ($other $other)))
-   (STV 0.6 0.6666666666666666))
 !(test (case (fa-seed-statement (mergeKb MAIN Nil) () (Dog rex)) (((cons ($_t $_c $_p $tv) ()) $tv) ($other $other)))
    (STV 0.6 0.6666666666666666))
 

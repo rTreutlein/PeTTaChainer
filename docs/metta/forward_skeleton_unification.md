@@ -188,7 +188,7 @@ was approved.
   `&kb` in their place.
 
 Implemented as: `compileadd` stores each fact in `&kb` as it is, and readers
-that need one value per statement (member-inheritance joins, base-rate seeding)
+that need one value per statement (class-link samples, base-rate seeding)
 merge its stored facts (`stored-statement-candidate`). The skeleton
 already read them as separate leaves. Materialization adds a marked fact and
 removes the statement's earlier marked ones. Two equally confident facts of one statement now merge in the

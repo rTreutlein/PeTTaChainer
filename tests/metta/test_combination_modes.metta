@@ -79,7 +79,7 @@
        ((sk-val ($_type $_ctx $_proof $stored-tv) $_ev $_deps)
           (sk-value (sk-key (brand Statement $type) (kbctx refinedOddsKb)) sk-any-filter ())))
       $stored-tv)
-   (CTV (STV 0.6357340720221606 0.815512048192771) (STV 0.05384348624508418 0.8839863784146035)))
+   (CTV (STV 0.6357340720221606 0.815512048192771) (STV 0.05382967327262989 0.8839962121212122)))
 !(test
    (let*
       (((: $_public-proof $type (STV $_s $_c))
@@ -87,6 +87,6 @@
        ((sk-val ($_type $_ctx $_proof $stored-tv) $_ev $_deps)
           (sk-value (sk-key (brand Statement $type) (kbctx refinedOddsKb)) sk-any-filter ())))
       $stored-tv)
-   (CTV (STV 0.5996324392502989 0.8338853455528261) (STV 0.02994186046511628 0.8753180661577608)))
+   (CTV (STV 0.5995934959349594 0.8338983050847458) (STV 0.02994186046511628 0.8753180661577608)))
 !(test (both-true refinedOddsKb)
-   (: (combination odds (prior (STV 0.27419354838709675 0.9230769230769231)) ((by r2 q2) (by r1 q1))) (C q) (STV 0.873722302450798 0.8694974289494)))
+   (: (combination odds (prior (STV 0.27419354838709675 0.9230769230769231)) ((by r2 q2) (by r1 q1))) (C q) (STV 0.8737044042941137 0.8694918942543559)))

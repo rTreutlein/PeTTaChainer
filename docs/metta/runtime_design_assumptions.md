@@ -36,12 +36,13 @@ Consequences:
   retains the statement and KB identity through nested negative proofs. It is
   opaque provenance, not a new proof source. Its handle is traced by the
   existing proof/evidence collector; public proof output omits the wrapper.
-  A class membership `(Member x P)` is the unary statement `(P x)` (#96):
+  A class membership `(Member x P)` is the unary statement `(P x)` (#96),
+  and a class link `(Inheritance A B)` the implication `(A $x) -> (B $x)`:
   every source and query statement is rewritten so at every subterm on
   entry (`member-canon`), so no key, rule, fold, base rate or
-  declaration inside the chainer ever has the head `Member`, and both forms
-  share one key and one evidence identity. Answers are given back in the
-  written form (`member-shape`). Each head has one arity per KB (checked at
+  declaration inside the chainer ever has the head `Member` or
+  `Inheritance`, and both forms share one key and one evidence identity.
+  Answers are given back in the written form (`member-shape`). Each head has one arity per KB (checked at
   ingestion), so per-head tables mean one predicate.
   A statement is stored, assumed and concluded at its canonical key (`canon`):
   under its negations, the statement they negate, complemented for an odd
@@ -185,10 +186,13 @@ A separate whole-event context can establish the conditional through a rule
 reading that event directly, without selecting its alternatives or requiring
 leaf population rates. Its certain event never enters the prior-world joint.
 
-`Inheritance` may receive compiler-specific lowering and querying, but its
-ordinary compiled implication reasoning should use the same chainer machinery
-as other relations. A genuinely different semantic operation, such as member
-lookup, may remain a separate path.
+A class link is an ordinary implication between two unary predicates, so it
+uses the same compiled rules, queries, inversions and instance folds as any
+other implication; nothing in the chainer is specific to `Inheritance`. An
+open link `(Inheritance $s $c)` is the implication query over variable
+predicates, `($s $x) -> ($c $x)`: besides the links stated or derived it
+answers the identity `(Inheritance $x $x)` and an instance fold over every
+class.
 
 ### Cached base rates are estimates, not exact memoized answers
 
@@ -291,9 +295,10 @@ any other read rules for every context. They are never installed for a MAIN
 compound node a search reaches otherwise: an open variable-headed node matches
 each new producer's conclusion, and installing for those instances would nest
 compound keys without bound. Producers that depend only on a pattern (the
-Member inheritance producer of a concrete `Inheritance` link, the compiled
-source of a fold pattern shape) are installed once as permanent backward
-rules, so their rows outlive the query. Rules imported from a static dump keep
+compiled source of a fold pattern shape, a class link's sample and fold rules)
+are installed once as permanent backward rules, so their rows outlive the
+query: a class link queried again reads its tally at the cost of the samples
+that changed, where per-query rules sampled the whole population each time. Rules imported from a static dump keep
 their ids; a new live rule takes an id past them.
 
 A connective's producer reads an implication part at its probability, in the
@@ -1033,7 +1038,21 @@ the order values arrive; a segment that merges into another leaves an entry in
 segment holding its sample (merges keep the larger segment's id, so the chain
 grows only logarithmically). A branch's work per new sample is constant (at
 most five hypotheses), and nothing is cut while the branch holds at most three
-distinct regimes. A `FoldAllTruth` fold
+distinct regimes. A stationary rule keeps one regime, whatever the hazard:
+one whose variables range over objects or concepts, each at a declared
+`Object` or `Concept` position, or an unsorted class link, every conjunct a
+class of one variable (`stationary-rule?`, prolog/sorts.pl). Its rate does not
+change while the KB runs, so its estimate is the plain frequency of its
+samples, independent of the order they arrive in; a rule over stages keeps
+the hazard. A class link's instance fold is also kept by the forward
+interest of its two classes (`fa-class-link-dirty!`): a class fact stored or
+taken by a forward run marks its subject's sample, one mark per link, and the
+fold takes the marked samples when next read, a sample no search built read
+from its two sides' stored facts (`sk-stored-sample`). A registration seeds
+the marks from the classes' stored facts, as a base rate counts the facts
+already stored, so a link registered at budget 0 and fed by facts and forward
+runs answers its exact frequency once a query expands it, at budget 1, and at
+budget 0 after a search. A `FoldAllTruth` fold
 reads its members' truth values as data and is treated the same way, so a rule
 can fold a group's beliefs and read one member of the group again.
 
@@ -1101,9 +1120,7 @@ per query: error 0.0042 against 0.0015 without). Needing the fold
 needs only those members, not the population. A member whose inputs changed
 while no query needed it keeps its last contribution until a query recomputes
 it, so a base rate may lag the members' current values; every step costs the
-members that changed. Inheritance-weighted members count at unit mass and the
-evidence is scaled by the current subject mass when the fold finishes, so a
-growing universe does not leave contributions stale.
+members that changed.
 
 A compound's prior is composed from its parts' priors (#142). A negation's is
 the complement of its statement's: there is no fold over a negation, and a
@@ -1290,8 +1307,8 @@ search, which a budget spends on that case first: subsuming those too moved
 SupplyNet stage 3 timed (error 0.0027 to 0.0039 at budget 50) and StationOps
 replay (Brier 0.0446 to 0.0497 at budget 50). A root subsumes nothing, since
 its rows always fit the allowance below.
-A node no rule can conclude (other than an implication or inheritance link,
-whose expansion installs rules) is expanded without a step when the walk
+A node no rule can conclude (other than an implication, whose expansion
+installs rules) is expanded without a step when the walk
 reaches it: its expansion only reads its stored facts. It keeps its place in the walk, so its facts extend joins
 when its priority says so (reading them at once filled the row budget early:
 StationOps Brier 0.0652 against 0.0607 at the smallest budgets). A
@@ -1625,7 +1642,9 @@ compound's consequence updates each part (`fuzzing.md`).
 
 A materializing query writes back its first answer and, for every statement
 that answer's proof uses, that statement's current value. Materialized facts are never leaves of later searches: the
-backward chainer re-derives them.
+backward chainer re-derives them. An implication judgment is no world fact
+and is not written back; a budget-0 re-query of a class link a search
+expanded reads its instance fold, whose tally outlives the query.
 
 ## Performance goals
 
@@ -1806,7 +1825,7 @@ value between cold runs of the same knowledge base.
 Syntactic dispatch must inspect an expression's actual head before matching its
 arguments. A variable predicate in a query, rule premise/conclusion, open key,
 or recursively encoded expression must remain a variable: testing whether it
-is `Implication`, `Inheritance`, `RuleTruth`, `CPU` or another reserved form
+is `Implication`, `RuleTruth`, `CPU` or another reserved form
 must not bind it to that symbol. Unification remains the operation for matching
 knowledge against a query; it is not a syntax classifier. The ingestion rule
 for free variables does not make internal open keys or rule patterns ground.

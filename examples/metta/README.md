@@ -12,8 +12,9 @@ The remaining examples are deliberately outside the default suite:
 - `robot.metta` and `simple_base_rate_deduction_libpln.metta` take roughly one
   and two minutes respectively on the current runtime, so they belong in an
   eventual slow/extended suite.
-- `flyingraven.metta` currently exposes unresolved interaction between direct
-  negated evidence and higher-order positive inheritance evidence.
+- `flyingraven.metta` revises the penguin rule's negated evidence with the
+  bird route through the class links, without preferring the more specific
+  rule.
 - `simple_base_rate_deduction_pettachainer.metta` currently exposes unresolved
   estimated-base-rate behavior after canonical inheritance merging.
 

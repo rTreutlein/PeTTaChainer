@@ -64,7 +64,7 @@
    (: (factored-revision (by hA anew) (prior (STV 0.0016778523489932888 0.7506297030989233)) (((reported with cpu (prior (STV 0.5 0.0))) bnew))) (B new) (STV 0.0025146689019279155 0.6213466593358833)))
 ;; The truth itself counts every sample.
 !(test (let (: $p $t $tv) (query 200 softKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv)
-   (STV 0.08697206540828625 0.7782566475768755))
+   (STV 0.08690647482014388 0.7782754759238522))
 !(test (query 200 softKb (: $p (B new) $tv))
    (: (factored-revision (by hA anew) (prior (STV 0.0016778523489932888 0.7506297030989233)) (((reported with cpu (prior (STV 0.5 0.0))) bnew))) (B new) (STV 0.0025146689019279155 0.6213466593358833)))
 
@@ -171,4 +171,4 @@
        ((sk-val ($_type $_ctx $_proof $stored-tv) $_ev $_deps)
           (sk-value (sk-key (brand Statement $type) (kbctx negKb)) sk-any-filter ())))
       $stored-tv)
-   (CTV (STV 0.5 0.02) (STV 0.25612202882009555 0.4506485110763119)))
+   (CTV (STV 0.5 0.02) (STV 0.2562189054726368 0.4506726457399103)))

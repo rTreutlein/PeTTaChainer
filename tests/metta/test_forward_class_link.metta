@@ -1,0 +1,116 @@
+!(import! &self ../../pettachainer/metta/petta_chainer)
+
+;; A class link (Inheritance A B) is the implication (A $x) -> (B $x). Its
+;; instance fold is kept by the forward interest of its two classes: a class
+;; fact marks its subject's sample, which the fold takes when next read, at
+;; any budget (fa-class-link-dirty!, sk-instance-take-step).
+
+(: member-test-fact
+   (-[det]-> KB Term Term
+       (List (Statement KBContext Proof TV))))
+(= (member-test-fact $kb $obj $class)
+   (collapse
+      (once
+         (match &kb
+            (($class $obj) ($kb MAIN Nil) $prf $tv)
+            (let*
+               (($type
+                   (brand Statement (cons $class (cons $obj ()))))
+                ($kbctx
+                   (brand KBContext (quote ($kb MAIN Nil))))
+                ($proof (brand Proof $prf))
+                ($truth-value (the TV $tv)))
+               (assemble-runtime-fact
+                  $type $kbctx $proof $truth-value))))))
+
+(: link-interest-count (-[det]-> KB Number))
+(= (link-interest-count $kb)
+   (list-count
+      (collapse
+         (match &forward_aggregate_interest_by_trigger
+            ($_hash (forward-aggregate-interest $_trigger $_id (forward-class-link-descriptor $kb $_sub $_super $_fold)))
+            true))))
+
+(: link-identity-count (-[det]-> KB Number))
+(= (link-identity-count $kb)
+   (list-count
+      (collapse
+         (match &forward_aggregate_identity
+            ($_hash (forward-aggregate-identity-row (forward-class-link-identity $kb $_sub $_super) $_id))
+            true))))
+
+;; Open classes give no selective trigger and register nothing.
+!(query 0 openLinkKb (: $proof (Inheritance $open-subj $open-concept) $tv))
+!(test (link-identity-count openLinkKb) 0)
+
+;; A zero-budget query registers the link's interest once, one per class.
+!(compileadd linkKb (: aHuman (Member a Human) (STV 1.0 1.0)))
+!(compileadd linkKb (: aMortal (Member a Mortal) (STV 0.8 1.0)))
+!(query 0 linkKb (: $proof (Inheritance Human Mortal) $tv))
+!(test (link-identity-count linkKb) 1)
+!(test (link-interest-count linkKb) 2)
+!(query 0 linkKb (: $proof (Inheritance Human Mortal) $tv))
+!(test (link-identity-count linkKb) 1)
+
+;; The facts stored before it registered count at the next read.
+!(test
+   (query 5 linkKb (: $proof (Inheritance Human Mortal) $tv))
+   (: (implication-instance-fold cpu) (Inheritance Human Mortal) (STV 0.8 0.0012484394506866417)))
+
+;; Appending b adds its sample at the next read, without a forward run.
+!(compileadd linkKb (: bHuman (Member b Human) (STV 0.5 1.0)))
+!(compileadd linkKb (: bMortal (Member b Mortal) (STV 0.4 1.0)))
+!(test
+   (query 0 linkKb (: $proof (Inheritance Human Mortal) $tv))
+   (: (implication-instance-fold cpu) (Inheritance Human Mortal) (STV 0.6666666666666666 0.0018714909544603868)))
+
+;; A second Member fact for a is merged with the first: a's sample is
+;; replaced, not counted again. With (Member a Human) at .75 the fold is
+;; (.8 * .75 + .4 * .5) / (.75 + .5) = .64.
+!(compileadd linkKb (: aHumanSecond (Member a Human) (STV 0.5 1.0)))
+!(forward-chain 1 linkKb (member-test-fact linkKb a Human))
+!(test
+   (query 5 linkKb (: $proof (Inheritance Human Mortal) $tv))
+   (: (implication-instance-fold cpu) (Inheritance Human Mortal) (STV 0.64 0.0015600624024961)))
+
+;; A materialized answer is read at budget zero; a later sample extends it.
+!(compileadd materializedLinkKb (: maHuman (Member a Human) (STV 1.0 1.0)))
+!(compileadd materializedLinkKb (: maMortal (Member a Mortal) (STV 0.8 1.0)))
+!(compileadd materializedLinkKb (: mbHuman (Member b Human) (STV 0.5 1.0)))
+!(compileadd materializedLinkKb (: mbMortal (Member b Mortal) (STV 0.4 1.0)))
+!(test
+   (query-materialize 1000 materializedLinkKb (: $proof (Inheritance Human Mortal) $tv))
+   (: (implication-instance-fold cpu) (Inheritance Human Mortal) (STV 0.6666666666666666 0.0018714909544603868)))
+!(test
+   (query 0 materializedLinkKb (: $proof (Inheritance Human Mortal) $tv))
+   (: (implication-instance-fold cpu) (Inheritance Human Mortal) (STV 0.6666666666666666 0.0018714909544603868)))
+!(compileadd materializedLinkKb (: mcHuman (Member c Human) (STV 1.0 1.0)))
+!(compileadd materializedLinkKb (: mcMortal (Member c Mortal) (STV 0.6 1.0)))
+!(test
+   (query 0 materializedLinkKb (: $proof (Inheritance Human Mortal) $tv))
+   (: (implication-instance-fold cpu) (Inheritance Human Mortal) (STV 0.64 0.003115264797507788)))
+!(test
+   (query 1000 materializedLinkKb (: $proof (Inheritance Human Mortal) $tv))
+   (: (implication-instance-fold cpu) (Inheritance Human Mortal) (STV 0.64 0.003115264797507788)))
+
+;; A membership a rule derives counts with the member's stored membership once
+;; a search builds its sample: (Member a B) through specialB.
+!(compileadd derivedLinkKb (: ma (Member a A) (STV 1.0 1.0)))
+!(compileadd derivedLinkKb (: mb (Member b A) (STV 1.0 1.0)))
+!(compileadd derivedLinkKb (: mbb (Member b B) (STV 1.0 1.0)))
+!(compileadd derivedLinkKb (: sa (Special a) (STV 1.0 1.0)))
+!(compileadd derivedLinkKb
+   (: specialB (Implication (Special $x) (Member $x B)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(test
+   (query 100 derivedLinkKb (: $p (Inheritance A B) $tv))
+   (: (implication-instance-fold cpu) (Inheritance A B) (STV 1.0 0.0024935168810108843)))
+
+;; Order does not matter: the link is stationary, so its estimate is the
+;; plain frequency of its samples, whatever order they arrive in.
+!(compileadd orderKb (: o1 (Member x1 Human) (STV 1 1)))
+!(compileadd orderKb (: o2 (Member x1 Mortal) (STV 1 1)))
+!(compileadd orderKb (: o3 (Member x2 Human) (STV 1 1)))
+!(compileadd orderKb (: o4 (Member x2 Mortal) (STV 0 1)))
+!(test
+   (query 100 orderKb (: $proof (Inheritance Human Mortal) $tv))
+   (: (implication-instance-fold cpu) (Inheritance Human Mortal) (STV 0.5 0.0024937655860349127)))

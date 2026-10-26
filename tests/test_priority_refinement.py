@@ -5,9 +5,10 @@ from pettachainer import PeTTaChainer
 
 
 class TestPriorityRefinement(unittest.TestCase):
-    def test_two_root_inheritance_incorporates_late_case(self):
-        # Fixed symmetric four-case population. At convergence both directions
-        # have the same TV; each hypothetical context must include every case.
+    def test_two_root_class_links_incorporate_late_case(self):
+        # Fixed symmetric four-case population. Each class link is the
+        # instance fold of its implication, so a late case reaches both
+        # directions: at convergence both are 1/2 over two antecedent members.
         cases = {"a": (1.0, 0.0), "b": (1.0, 1.0),
                  "c": (0.0, 0.0), "d": (0.0, 1.0)}
         roots = [
@@ -21,13 +22,11 @@ class TestPriorityRefinement(unittest.TestCase):
                     ("observed", "outcome"), ("Observed", "Outcome"), cases[name]
                 ):
                     chainer.add_atom(
-                        f"(: {field}-{name} (Inheritance sample-{name} {concept}) "
+                        f"(: {field}-{name} (Member sample-{name} {concept}) "
                         f"(STV {value} 1.0))"
                     )
 
         def parse_answer(answer):
-            # Parse the public proof tree so an incidental occurrence of d
-            # inside a calibration fold cannot masquerade as a context witness.
             stack = [[]]
             for token in re.findall(r"[()]|[^\s()]+", answer):
                 if token == "(":
@@ -41,45 +40,32 @@ class TestPriorityRefinement(unittest.TestCase):
             self.assertEqual(len(stack[0]), 1)
             return stack[0][0]
 
+        def truth_values(batches):
+            self.assertEqual([len(batch) for batch in batches], [1, 1])
+            values = []
+            for batch in batches:
+                answer = parse_answer(batch[0])
+                self.assertEqual(answer[1], ["implication-instance-fold", "cpu"])
+                values.append((float(answer[3][1]), float(answer[3][2])))
+            return values
+
+        two = 2 / 802
         for order in ("abc", "cba"):
             with self.subTest(order=order):
                 chainer = PeTTaChainer()
                 add_cases(chainer, order)
-                initial = chainer.query_many(roots, steps=80, timeout_sec=0)
-                self.assertEqual([len(batch) for batch in initial], [1, 1])
+                initial = truth_values(chainer.query_many(roots, steps=80, timeout_sec=0))
+                self.assertAlmostEqual(initial[0][0], 0.5, delta=1e-10)
+                self.assertAlmostEqual(initial[0][1], two, delta=1e-10)
+                self.assertAlmostEqual(initial[1][0], 1.0, delta=1e-10)
+                self.assertAlmostEqual(initial[1][1], 1 / 801, delta=1e-10)
 
                 add_cases(chainer, "d")
-                refined = chainer.query_many(roots, steps=320, timeout_sec=0)
-                self.assertEqual([len(batch) for batch in refined], [1, 1])
-                for root, batch in enumerate(refined):
-                    answer = parse_answer(batch[0])
-                    proof, tv = answer[1], answer[3]
-                    with self.subTest(root=root, check="truth value"):
-                        self.assertEqual(tv[0], "STV")
-                        # Finite inferred branches now use the neutral #89 read.
-                        # Fixed reference, compared numerically rather
-                        # than by string formatting.
-                        self.assertAlmostEqual(
-                            float(tv[1]), 0.4999998306455424, delta=1e-10
-                        )
-                        self.assertAlmostEqual(
-                            float(tv[2]), 4.248248936507523e-06, delta=1e-10
-                        )
-                    self.assertEqual(proof[0], "inheritance-implication-fold")
-                    self.assertEqual(proof[1][0], "total-implication")
-                    self.assertEqual(len(proof[1][1:]), 2)
-                    for context, branch in enumerate(proof[1][1:]):
-                        with self.subTest(root=root, context=context):
-                            pending, witnesses = [branch], []
-                            while pending:
-                                node = pending.pop()
-                                if node[0] == "merge/revision":
-                                    pending.extend(node[1:])
-                                else:
-                                    self.assertEqual(node[0], "by")
-                                    self.assertEqual(node[1][0], "inheritance-implication")
-                                    witnesses.append(node[1][1])
-                            field = ("outcome", "observed")[root]
-                            self.assertCountEqual(
-                                witnesses, [f"{field}-{name}" for name in "abcd"]
-                            )
+                refined = truth_values(chainer.query_many(roots, steps=320, timeout_sec=0))
+                for strength, confidence in refined:
+                    self.assertAlmostEqual(strength, 0.5, delta=1e-10)
+                    self.assertAlmostEqual(confidence, two, delta=1e-10)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -90,7 +90,7 @@
 ;; the hypothetical Tall individual. Each observed conjunction has strength
 ;; 0.9 * 0.9 = 0.81. The positive judgment revises that direct copy evidence
 ;; with its empirical instance fold; no predicate is reclassified as Not or
-;; Inheritance while compiling this rule.
+;; Implication while compiling this rule.
 !(test
    (query 100 openVariableConclusionImplicationKb (: $p (Implication (Tall $x) (Female $x)) $tv))
    (: (merge/revision (conditional-implication (merge/revision (by copyPredicate (conjunction tallAlice femaleAlice (ctx proof 0))) (by copyPredicate (conjunction tallMary femaleMary (ctx proof 0))))) (implication-instance-fold cpu)) (Implication (Tall $_0) (Female $_0)) (STV 0.8100239739628896 0.6786287374397676)))

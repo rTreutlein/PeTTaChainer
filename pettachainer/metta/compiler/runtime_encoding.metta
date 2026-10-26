@@ -37,10 +37,8 @@
 (: externalize-query-proof (-[nondet]-> Proof Proof))
 (= (externalize-query-proof $proof)
    (if (is-var $proof) $proof
-      (if (= $proof (inheritance-query-result $inner))
+      (if (= $proof (total-implication-frontier $inner))
          (externalize-query-proof (brand Proof $inner))
-         (if (= $proof (total-implication-frontier $inner))
-            (externalize-query-proof (brand Proof $inner))
          (if (is-expr $proof)
             (brand Proof
                (cons
@@ -48,7 +46,7 @@
                      (car-atom $proof))
                   (map-flat externalize-query-proof-child
                      (cdr-atom $proof))))
-            $proof)))))
+            $proof))))
 
 (: externalize-query-proof-child
    (-[nondet]-> Expression Proof))

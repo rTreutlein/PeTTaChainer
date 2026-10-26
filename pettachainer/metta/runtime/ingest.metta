@@ -2,26 +2,11 @@
 (: add-to-kb (-[nondet]-> RuntimeAddition (| Bool (List $none))))
 (= (add-to-kb $expr) (kb-add-expr live $expr))
 
-;; Inheritance induction is installed per concrete query by the compiler. The
-;; public registration call remains valid but has no KB-local work to perform.
+;; A class link (Inheritance A B) is the implication (A $x) -> (B $x), whose
+;; instances its queries fold. The public registration call remains valid but
+;; has no KB-local work to perform.
 (: register-inheritance-induction! (-[det]-> KB (List $none)))
 (= (register-inheritance-induction! $_kb) ())
-
-(: record-compiled-inheritance! (-[nondet]-> CompiledAddition Atom))
-(= (record-compiled-inheritance! $expr)
-   (case $expr (
-      ((: ($kbid $_ctx $_vars) $_prf (Inheritance $subj $concept) $_tv)
-         (let*
-            (($typed-kbid (brand KB $kbid))
-             ($typed-subj (brand Statement $subj))
-             ($_subject (record-kb-node! &inheritance_subject subject-node $typed-kbid $typed-subj)))
-            (record-inheritance-nodes! $typed-kbid $typed-subj (brand Statement $concept))))
-      ;; A class is the head of a unary fact, in either written form (#96);
-      ;; an internal key such as an existential claim is no class.
-      ((: ($ckbid $_cctx $_cvars) $_cprf ($class $_obj) $_ctv)
-         (if (reserved-head? $class) ()
-            (record-kb-node! &concept_node concept-node (brand KB $ckbid) (brand Statement $class))))
-      ($_other ()))))
 
 (: materialize-stmt-lambdas (-[nondet]-> $term  $term))
 (= (materialize-stmt-lambdas $term)
@@ -45,7 +30,6 @@
         ($_sorts (record-source-sorts! $kb $source))
         ($_recorded-heads (record-source-heads! $kb $source))
         ($eatoms (the (List CompiledAddition) (map-flat externalize-proof-structure $iatoms)))
-        ($_recorded (collapse (foreach-flat record-compiled-inheritance! $eatoms)))
         ($_ (collapse (foreach-flat add-to-kb $iatoms)))
         ($_mined (map-flat (|-> ($hypothesis) (collapse (compileadd $kb $hypothesis))) (hm-observe! $kb $source)))
         ($_closed (map-flat (|-> ($fact) (collapse (compileadd $kb $fact))) (observed-gaps $kb $source))))

@@ -48,7 +48,7 @@
    (:
       (implication-instance-fold cpu)
       (Implication (A $_v) (B $_v))
-      (STV 0.4999627775704609 0.0020205545927834746)))
+      (STV 0.5 0.0020209076619844817)))
 
 ;; --- A rule for the same implication ---------------------------------------
 ;; The hypothetical proof through ab and the instance fold revise into one
@@ -159,13 +159,13 @@
 ;; positive query.
 !(test
    (let (: $prf $type $tv) (query 100 negKb (: $prf (Implication (Not (A $v)) (B $v)) $tv)) $tv)
-   (STV 0.24990002999100272 0.004974629489078395))
+   (STV 0.25 0.004975124378109453))
 !(test
    (let (: $prf $type $tv) (query 100 negKb (: $prf (Implication (A $v) (B $v)) $tv)) $tv)
    (STV 1.0 0.0024937655860349127))
 !(test
    (let (: $prf $type $tv) (query 100 negKb (: $prf (Implication (Not (A $v)) (B $v)) $tv)) $tv)
-   (STV 0.24990002999100272 0.004974629489078395))
+   (STV 0.25 0.004975124378109453))
 ;; Without an antecedent-false instance the negated antecedent has no sample,
 ;; and the instances give it no answer (every A of instanceFactsKb is true).
 !(test (query 100 instanceFactsKb (: $prf (Implication (Not (A $v)) (B $v)) $tv)) ())
@@ -229,7 +229,7 @@
 !(compileadd threeRuleKb (: g2 (G t2) (STV 0 1)))
 !(test
    (let (: $prf $type $tv) (query 200 threeRuleKb (: $prf (RuleTruth (Implication (And (P $t) (Q $t) (R $t)) (G $t))) $tv)) $tv)
-   (STV 0.5260578505053451 0.6562878403845945))
+   (STV 0.5261572985341251 0.6563102709435056))
 
 ;; A query's rules leave with it, deferred joins included: a later query's
 ;; rule may take the same id, and resuming the old join with it failed the

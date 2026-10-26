@@ -68,8 +68,8 @@ would, but on patterns rather than on facts:
 - Only what the search fully sees is judged: user predicates in the main
   context, or a context the rule leaves open. A premise in an assumption
   context (the query-local rules of total implications) is supplied by its
-  assumptions, and the chainer's own vocabulary (`Inheritance`,
-  member and implication samples, `RuleTruth`, implications and connectives)
+  assumptions, and the chainer's own vocabulary (implication samples,
+  `RuleTruth`, implications and connectives)
   has support the search does not model: rules installed when a node expands,
   member folds. Such premises count as supported. (A first version judged
   them and put the `smokes` example's inheritance-lift rules to sleep,

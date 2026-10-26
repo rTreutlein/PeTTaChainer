@@ -65,9 +65,9 @@
 
 ;; The first review folds every instance.
 !(test (let (: $p $t $tv) (query 50 shortKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv)
-   (STV 0.7438779711799046 0.4506485110763119))
+   (STV 0.7437810945273632 0.4506726457399103))
 !(test (let (: $p $t $tv) (query 50 longKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv)
-   (STV 0.7484270482958006 0.7630535266350652))
+   (STV 0.7484157160963244 0.7630560928433269))
 
 ;; A positive instance arrives. A query that does not ask for the truth, with
 ;; no budget, takes it: (3 + 1) / 5 revised with the prior. It costs three
@@ -77,17 +77,17 @@
 !(begin-backward-query-metrics!)
 !(test (query 0 shortKb (: $p (A i0) $tv)) (: a0 (A i0) (STV 1 1)))
 !(test (query_metric_value row-computes) 3)
-!(test (truth shortKb) (STV 0.7940973727973338 0.5050260161337391))
+!(test (truth shortKb) (STV 0.794 0.5050505050505051))
 
 !(compileadd longKb (: anew (A new) (STV 1 1)))
 !(compileadd longKb (: bnew (B new) (STV 1 1)))
 !(begin-backward-query-metrics!)
 !(test (query 0 longKb (: $p (A i0) $tv)) (: a0 (A i0) (STV 1 1)))
 !(test (query_metric_value row-computes) 3)
-!(test (truth longKb) (STV 0.7631380054603719 0.7737740612150117))
+!(test (truth longKb) (STV 0.7631264916467779 0.7737765466297322))
 
 ;; A review then computes nothing: it reads the truth.
 !(begin-backward-query-metrics!)
 !(test (let (: $p $t $tv) (query 50 longKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv)
-   (STV 0.7631380054603719 0.7737740612150117))
+   (STV 0.7631264916467779 0.7737765466297322))
 !(test (query_metric_value row-computes) 0)

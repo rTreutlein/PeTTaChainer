@@ -19,10 +19,10 @@
 (: SkPattern (Alias (| Goal (Statement KBContext Proof TV))))
 
 (: ScalarFoldSpec
-   (Alias (KB Statement (| ExtractValue ExtractInheritanceTV ExtractTV) $a
+   (Alias (KB Statement (| ExtractValue ExtractTV) $a
              (-[semidet]-> $b $c $b) AggregateFinish AggregateTVMode)))
 (: GroupedFoldSpec
-   (Alias (KB Statement $a (| ExtractValue ExtractInheritanceTV ExtractTV) $b
+   (Alias (KB Statement $a (| ExtractValue ExtractTV) $b
              (-[semidet]-> $c $d $c) AggregateFinish AggregateTVMode)))
 
 ;; What a value belongs to: a statement in a context, a fold, one group of a
@@ -516,9 +516,6 @@
 ;; (kb pattern) of a fold's compiled member goal, by hash
 (: &sk_fold_members (SpaceOf (Number Atom SkPattern)))
 !(bind! &sk_fold_members (new-space))
-;; (kb subject concept) of the Member producers installed, by hash
-(: &sk_member_rules (SpaceOf (Number Atom)))
-!(bind! &sk_member_rules (new-space))
 ;; the current query's roots
 (: &sk_roots (SpaceOf (Number SkPattern)))
 !(bind! &sk_roots (new-space))

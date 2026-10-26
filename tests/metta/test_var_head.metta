@@ -6,7 +6,7 @@
 
 ;; The STV rule states P(Friend(y,x) | Symmetric(Friend) and Friend(x,y)).
 ;; Its open predicate population stays generic instead of being bound to
-;; Inheritance while computing base rates; its positive conditional is 0.9.
+;; a reserved head while computing base rates; its positive conditional is 0.9.
 ;; Its negative branch reads the antecedent's prior: the joint fold over the
 ;; conjunction has no evidence on a cold query, so the prior composes from the
 ;; parts' rates (#142), and the cold query already gives the value the

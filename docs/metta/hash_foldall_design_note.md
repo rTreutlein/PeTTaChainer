@@ -188,49 +188,26 @@ knowledge base in `&base_rate_cache`:
 
 `tests/metta/test_base_rate_cache.metta` covers user overrides, cache reuse, and
 invalidation. `tests/metta/test_forward_incremental_base_rates.metta` covers
-incremental estimates, full-fold refinement, inheritance scaling, revised
+incremental estimates, full-fold refinement, revised
 forward outputs, and forward/backward provenance deduplication.
 
-### Incremental member-inheritance fold
+### Incremental class-link fold
 
-The compiler-generated empirical `Inheritance` producer has one additionally
-supported incremental shape: `FoldAllCompiled` over `MemberInheritanceSample`,
-extracting `WeightedTv` from the two `Member` TVs, starting at
-`BaseRateEvidence 0 0`, accumulating with `WeightedBaseRateAcc`, and finishing
-with `(member-inheritance kb)`. Other `FoldAllCompiled` expressions are not
-registered by this path.
-
-Registration creates indexes for the concrete subject and concept classes.
-If either complete class term contains a variable, whether at top level or
-nested inside a compound class, the fold is not registered and no identity,
-interest, observation, or cache row is created; such an open query cannot
-provide the selective class key required by this path.
-Forward processing of either affected `Member` statement looks up the
-other side for the same object, replaces that object's prior joined
-contribution, and adjusts additive weight/mass totals. Removal recomputes from
-the surviving facts or subtracts the observation when one side has no
-support. Several facts of one statement therefore contribute merged, not as
-duplicate samples. Work is proportional to the
-interests for the changed class/object, not the number of historical objects.
-
-The resulting cache row is the tally's `computed` value: it can answer
-immediately, and a normal backward fold remains live, with its ordinary proof,
-evidence deduplication, and cycle checks. Only facts actually processed by a
-requested forward-chain budget update the cache; `compileadd` never runs the
-fold. When that backward fold commits, its accepted child proofs seed the same
-per-object sufficient-statistic table. Later forward-selected facts can then
-replace or append only their object contribution without replaying the older
-population; overlapping components retain the evidence-superset result, and
-the updated cache remains `computed`. Time windows and general incremental
-`FoldAllCompiled` support remain outside this mechanism. Focused coverage is in
-`tests/metta/test_forward_incremental_member_inheritance.metta`.
-
-When a concrete `Inheritance` goal occurs as a stored rule premise, backward
-subgoal expansion installs the same temporary member-inheritance producer that
-`compileQuery` installs for a root query. The premise can therefore consume the
-empirical fold without materializing an `Inheritance` fact first. It retains
-the root path's proof provenance, overlap handling, and self-support rejection;
-coverage is in `tests/metta/test_member_inheritance_premise.metta`.
+A class link `(Inheritance A B)` is the implication `(A $x) -> (B $x)`, and
+its instance fold has one forward-maintained shape: `FoldAllCompiled` over
+`(ImplicationInstanceSample (A $x) (B $x) $atv $btv)` with two symbol classes
+(`class-link?`). Registration, by the fold premise of a ground link query,
+indexes the two classes; an open class registers nothing, since it gives no
+selective class key. A class fact stored or taken by a forward run marks its
+subject's sample changed (`fa-class-link-dirty!`), one mark per link, and the
+fold takes the marked samples when next read, whatever the query's budget, reading a sample
+no search built from its two sides' stored facts, merged
+(`sk-stored-sample`). Registration seeds the marks from the classes' stored
+facts. A search that builds a subject's sample row replaces that subject's
+contribution, never adds a second. Work is proportional to the links over
+the changed class, not to the number of historical subjects. Coverage is in
+`tests/metta/test_forward_class_link.metta`; a link as a stored rule premise
+is in `tests/metta/test_member_inheritance_premise.metta`.
 
 Removed along with the construct: `contains-hash?`, the hash-to-variable rewriting in `direct-goal-results-view`, the `wildcard_premise_index`/`wildcard_premise_context` stores and their lookup path, and the hash special cases in `open-rule-goal?`, `materializable-proof-output?`, and `leaf-evidence-for-result`.
 

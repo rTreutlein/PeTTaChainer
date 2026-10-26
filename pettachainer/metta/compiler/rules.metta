@@ -345,28 +345,12 @@
 (: deterministic-rule? (-[det]-> KB Proof Bool))
 (= (deterministic-rule? $kbid $name) (not (== (collapse (once (match &deterministic_rules ($name $kbid) true))) ())))
 
-;; Estimate the base rate required to reinterpret an STV rule as a CTV. Open
-;; inheritance antecedents use universe-aware weighted evidence; a concrete
-;; inheritance target may have a configured/dynamic concept prior, so its fold
-;; is seeded with that prior and sparse observations revise the prior instead
-;; of silently behaving like an uninformative generic predicate. Ordinary
-;; patterns use the generic evidence accumulator.
+;; The base rate required to reinterpret an STV rule as a CTV.
 (: base-rate-fold (-[det]-> KB Statement $truth-value Goal))
 (= (base-rate-fold $kb $pattern $brtv)
-   (let ($extractor $initial $accumulator $finish)
-      (if (if (head-is? $pattern Inheritance)
-              (if (= $pattern (Inheritance $x $subj)) (is-var $x) false) false)
-         (if (is-var $subj)
-            (data (extract-inheritance-tv $kb $pattern) (BaseRateEvidence 0.0 0.0)
-               WeightedBaseRateAcc (weighted-base-rate-in-universe $kb))
-            (data (extract-inheritance-tv $kb $pattern)
-               (BaseRateEvidenceWithPrior (brand BaseRatePrior (ConceptNodePriorRuntime $kb $subj))
-                  (BaseRateEvidence 0.0 0.0))
-               WeightedBaseRateWithPriorAcc (weighted-base-rate-with-prior-in-universe $kb)))
-         (data extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate))
-      (CPU FoldAllCompiled
-         (quote ($kb $pattern $extractor $initial $accumulator $finish result-tv))
-         $brtv)))
+   (CPU FoldAllCompiled
+      (quote ($kb $pattern extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv))
+      $brtv))
 
 ;; A conjunction's conjuncts grouped into parts that share no variables;
 ;; ground conjuncts join the first part that has variables, since a single
@@ -647,7 +631,7 @@
                                   (InstanceEvidence (BaseRateEvidence 0.0 0.0) (BaseRateEvidence 0.0 0.0))
                                   ImplicationInstanceAcc $finish result-tv))
                             $fold-tv))
-                      ($positive (CPU MemberInheritanceEvidenceFormula ($fold-tv) $instance-tv))
+                      ($positive (CPU InstanceEvidenceFormula ($fold-tv) $instance-tv))
                       (($ctv-goals $instance-ctv $_instance-likelihoods)
                          (implication-ctv-goals $kb () $antecedent $consequent $instance-tv false))
                       ($fold-premises
@@ -899,104 +883,13 @@
          $kb $shape-kb $prf $tv $truth-premises $value $params
          $full $consequent $children (+ $idx 1) $rest))))
 
-(: concrete-inheritance-link? (-[det]-> Atom Atom Bool))
-(= (concrete-inheritance-link? $subj $concept) (not (or (is-var $subj) (is-var $concept))))
-
-;; A total-implication context represents a hypothetical instance of the
-;; queried subject. Top-level Inheritance premises about a rule's conclusion
-;; subject transfer to that instance; every other premise is subject-specific
-;; auxiliary evidence and must be specialized against MAIN. Examples:
-;;
-;;   friendSmokingRule: both premises are auxiliary to conclusion subject $y.
-;;   lighterHeatsPlastic: `Inheritance $x madeOfPlastic` transfers, while
-;;                        `Operation $x opLighter` is auxiliary.
-(: inheritance-context-premise? (-[det]-> $premise $subject Bool))
-(= (inheritance-context-premise? $premise $subj)
-   (if (if (head-is? $premise Inheritance) (= $premise (Inheritance $premise-subj $_concept)) false)
-      (== $premise-subj $subj)
-      false))
-
-(: inheritance-lift-auxiliary-premises (-[det]-> (List Atom) $subject (List Atom)))
-(= (inheritance-lift-auxiliary-premises () $_subj) ())
-(= (inheritance-lift-auxiliary-premises (cons $premise $rest) $subj)
-   (if (inheritance-context-premise? $premise $subj)
-      (inheritance-lift-auxiliary-premises $rest $subj)
-      (cons $premise (inheritance-lift-auxiliary-premises $rest $subj))))
-
-;; Pair a grounded rule instance with its original template. Contextual
-;; Inheritance premises keep their grounded concept but replace the concrete
-;; subject with the query's hypothetical instance; auxiliary premises remain
-;; grounded MAIN facts.
-(: inheritance-lift-parts
-   (-[semidet]-> (List Atom) (List Atom) $subject $instance ((List Atom) (List Atom))))
-(= (inheritance-lift-parts () () $_source-subj $_instance) (data () ()))
-(= (inheritance-lift-parts
-      (cons $ground-premise $ground-rest)
-      (cons $source-premise $source-rest)
-      $source-subj $instance)
-   (let ($contextual $auxiliary)
-      (inheritance-lift-parts $ground-rest $source-rest $source-subj $instance)
-      (if (inheritance-context-premise? $source-premise $source-subj)
-         (let (Inheritance $_ground-subj $ground-concept) $ground-premise
-            (data (cons (Inheritance $instance $ground-concept) $contextual) $auxiliary))
-         (data $contextual (cons $ground-premise $auxiliary)))))
-
-;; Compile a specialized relational rule into one fixed query context. The
-;; rule's positive STV is already its conditional estimate; unlike an observed
-;; Inheritance link it does not need to be inferred again from population base
-;; rates. Explicit CTV rules retain both branches.
-(: inheritance-lift-ctv (-[semidet]-> TV CTVType))
-(= (inheritance-lift-ctv (CTV $pos $neg)) (CTV $pos $neg))
-(= (inheritance-lift-ctv (STV $s $c)) (CTV (STV $s $c) (STV 0.0 1.0)))
-
-(: compile-inheritance-lift-instance
-   (-[semidet]-> KB KBContext AnnotatedStatement AnnotatedStatement CompiledAddition))
-(= (compile-inheritance-lift-instance $kb $lift-kb
-      (: $prf (Implication $ground-antecedent (Inheritance $ground-subj $ground-concept)) $tv)
-      (: $_source-prf
-         (Implication $source-antecedent (Inheritance $source-subj $_source-concept))
-         $_source-tv))
-   (let*
-      ((($kbid $ctx $vars) $lift-kb)
-       (($contextual-premises $auxiliary-premises)
-          (inheritance-lift-parts
-             (implication-side-conjuncts (brand Statement $ground-antecedent))
-             (implication-side-conjuncts (brand Statement $source-antecedent))
-             $source-subj $instance))
-       ($lift-premises
-          (if (== $contextual-premises ())
-             (the (List Atom) ((Inheritance $instance $ground-subj)))
-             $contextual-premises))
-       (($main-execs $main-proofs $main-atv)
-          (complete-lowering (kbctx (brand KB $kbid))
-             (brand Statement (seq2expr (the (List Atom) $auxiliary-premises)))))
-       (($context-execs $context-proofs $context-atv)
-          (complete-lowering $lift-kb
-             (brand Statement (seq2expr (the (List Atom) $lift-premises)))))
-       ($source-proof (implication-proof-token $main-proofs))
-       ($context-proof (implication-proof-token $context-proofs))
-       ($all-evidence (CPU AndFormula (quote ($main-atv $context-atv)) $all-atv))
-       ($rule-ctv (inheritance-lift-ctv $tv))
-       ($modus-ponens (CPU CTVModusPonensFormula (quote ($all-atv $rule-ctv)) $out-tv)))
-      ((append-goals $main-execs
-          (append-goals $context-execs (quote ($all-evidence $modus-ponens))))
-        |- (: $lift-kb
-              ((inheritance-rule-lift $prf) $source-proof $context-proof)
-              (Inheritance $instance $ground-concept) $out-tv))))
-
-;; A grounded lift is one specialization job. The common specialization engine
-;; below handles template indexing and late facts for both ordinary compiler
-;; specialization and these Inheritance views.
+;; A grounded rule is one specialization job. The specialization engine below
+;; handles template indexing and late facts.
 (: SpecializationJob Type)
 (: compile-specialization (-[det]-> AnnotatedStatement SpecializationJob))
-(: inheritance-lift-specialization
-   (-[det]-> AnnotatedStatement AnnotatedStatement SpecializationJob))
 
 ;; These rows cross atom-space storage boundaries, so their tags are stable
 ;; schemas rather than local multiple-return wrappers.
-(: InheritanceLiftInstanceRow Type)
-(: inheritance-lift-instance-row
-   (-[det]-> KB AnnotatedStatement AnnotatedStatement InheritanceLiftInstanceRow))
 
 (: SpecializationTemplateRow Type)
 (: specialization-template-row
@@ -1006,55 +899,6 @@
 (: specialization-done-row (-[det]-> KB AnnotatedStatement SpecializationDoneRow))
 
 (: emit-specialization (-[nondet]-> KB SpecializationJob CompiledAddition))
-(= (emit-specialization $kb (inheritance-lift-specialization $stmt $source-stmt))
-   (let*
-      (($stmt-copy (copy_term $stmt))
-       ($hash (term_hash $stmt-copy))
-       ($stored
-          (collapse
-             (once
-                (match &inheritance_lift_instance
-                   ($hash (inheritance-lift-instance-row $kb $candidate $_source))
-                   (if (=alpha $candidate $stmt-copy) true (empty))))))
-       ($_instance
-          (if (== $stored ())
-             (let $source-copy (copy_term $source-stmt)
-                (add-atom &inheritance_lift_instance
-                   ($hash (inheritance-lift-instance-row $kb $stmt-copy $source-copy))))
-             ())))
-      (empty)))
-
-(: collect-inheritance-lifts-for-context (-[det]-> KB KBContext (List CompiledAddition)))
-(= (collect-inheritance-lifts-for-context $kb $lift-kb)
-   (collapse
-      (match &inheritance_lift_instance
-         ($_hash (inheritance-lift-instance-row $kb $ground-stmt $source-stmt))
-         (compile-inheritance-lift-instance
-            $kb $lift-kb
-            (the AnnotatedStatement (copy_term $ground-stmt))
-            (the AnnotatedStatement (copy_term $source-stmt))))))
-
-;; On rule addition, emit every instance already supported by stored facts and
-;; retain the template for facts added later. No open lifted rule enters the KB.
-(: compile-inheritance-rule-lifts
-   (-[nondet]-> KB AnnotatedStatement Statement Statement CompiledAddition))
-(= (compile-inheritance-rule-lifts $kb $stmt $antecedent $consequent)
-   (if (if (head-is? $consequent Inheritance) (= $consequent (Inheritance $subj $_concept)) false)
-      (let*
-         (($ground-copy (copy_term $stmt))
-          ($source-copy (copy_term $stmt))
-          ((: $_prf
-              (Implication $ground-antecedent (Inheritance $ground-subj $_ground-concept))
-              $_tv)
-             $ground-copy)
-          ($ground-auxiliary
-             (inheritance-lift-auxiliary-premises
-                (implication-side-conjuncts (brand Statement $ground-antecedent))
-                $ground-subj))
-          ($job (inheritance-lift-specialization $ground-copy $source-copy)))
-         (if (== $ground-auxiliary ()) (empty) (specialize-rule-add $kb $ground-auxiliary $job)))
-      (empty)))
-
 ;; --- Rule specialization against structural facts -------------------------
 ;;
 ;; A premise is a specialization *trigger* when its head is a registered
@@ -1077,10 +921,9 @@
 (: fact-head (-[det]-> Statement Atom))
 (= (fact-head $type) (if (is-expr $type) (car-atom $type) $type))
 
-;; Both structural rules and Inheritance lifts use the same indexed template
-;; store. A job carries the emitter to run after its trigger list is grounded.
-;; Keeping the triggers with the job lets a newly added fact use this one path
-;; regardless of which compiler feature requested specialization.
+;; Structural rules use an indexed template store. A job carries the emitter
+;; to run after its trigger list is grounded, so a newly added fact grounds it
+;; through this one path.
 (: register-specialization-templates!
    (-[det]-> KB (List Atom) (List Atom) SpecializationJob (| Bool (List $no-result))))
 (= (register-specialization-templates! $_kb () $_triggers $_job) ())
@@ -1176,24 +1019,6 @@
       (if (context-polymorphic-facts? $kb) (make-kb-context $kb $ctx $vars) (kbctx $kb))
       (superpose (
          (brand CompiledAddition (() |- (: $fact-kb $prf $Type $tv)))
-         ;; Concrete Inheritance assertions also act as implication-like
-         ;; rules over members. Materializing these views once at compile
-         ;; time lets ordinary rule indexing and inference handle inheritance
-         ;; without a separate chainer path.
-         (if (= $Type (Inheritance $subj $concept))
-            (if (concrete-inheritance-link? $subj $concept)
-               (superpose
-                  ((compile_ $kb
-                      (: (inheritance-implication $prf)
-                         (Implication (Inheritance $x $subj) (Inheritance $x $concept))
-                         $tv))
-                   (let $ctv (inheritance-lift-ctv $tv)
-                      (compile_ $kb
-                         (: (no_inverse (member-inheritance-implication $prf))
-                            (Implication ($subj $x) ($concept $x))
-                            $ctv)))))
-               (empty))
-            (empty))
          (compile-specialization-fact-triggers $kb $Type)
          (compile-outputs (: $fact-kb $prf $Type $tv))))))
 
@@ -1416,17 +1241,13 @@
                         $kb $shape-kb $prf $tv $truth-premises $value $params
                         $full $b $children 0 $children))
                   (empty))
-               (compile-implication-statement-rules $kb $b)
-               (compile-inheritance-rule-lifts $kb (: $prf $Type $tv)
-                  (brand Statement $antecedent)
-                  (brand Statement $consequent))))))))
+               (compile-implication-statement-rules $kb $b)))))))
 
 ;; Main statement compiler.
 ;;
 ;; Implications become forward rules, optional inverse rules, and adapters.
 ;; Bidirectional forms are split into two ordinary implications. Facts are
-;; stored directly, with extra derived views for concrete Inheritance links and
-;; projections for configured compound outputs. Structural specialization is
+;; stored directly, with projections for configured compound outputs. Structural specialization is
 ;; checked before generic implication compilation so variable-headed templates
 ;; never leak into the broad `any` index.
 (: compile_ (-[nondet]-> KB AnnotatedStatement  CompiledAddition))

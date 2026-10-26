@@ -581,8 +581,8 @@ class TestPeTTaChainer(unittest.TestCase):
         handler = PeTTaChainer()
         root = (
             "(: $proof "
-            "(Inheritance (PressureNormal old oxygen-scrubber) "
-            "(SealLeak old oxygen-scrubber)) $tv)"
+            "(Inheritance PressureNormal-old-oxygen-scrubber "
+            "SealLeak-old-oxygen-scrubber) $tv)"
         )
 
         def add_states(target, rows):
@@ -590,12 +590,9 @@ class TestPeTTaChainer(unittest.TestCase):
             terms = []
             for name, leak, normal in rows:
                 state_terms = [
-                    f"(Inheritance (State {name}) "
-                    "(EquipmentState old oxygen-scrubber))",
-                    f"(Inheritance (State {name}) "
-                    "(SealLeak old oxygen-scrubber))",
-                    f"(Inheritance (State {name}) "
-                    "(PressureNormal old oxygen-scrubber))",
+                    f"(Member {name} EquipmentState-old-oxygen-scrubber)",
+                    f"(Member {name} SealLeak-old-oxygen-scrubber)",
+                    f"(Member {name} PressureNormal-old-oxygen-scrubber)",
                 ]
                 statements.extend(
                     [

@@ -3,9 +3,7 @@
 ;; One full-weight observation carries one unit
 ;; of evidence: confidence is 1 / (1 + 800), never min(1, 1).
 !(test
-   (finish-aggregate fallbackCalibrationKb
-      (weighted-base-rate-in-universe fallbackCalibrationKb)
-      (BaseRateEvidence 1.0 1.0))
+   (finish-aggregate fallbackCalibrationKb base-rate (BaseRateEvidence 1.0 1.0))
    (STV 1.0 0.0012484394506866417))
 
 !(compileadd brKb (: r (Implication (P $x) (Q $x)) (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
@@ -86,22 +84,22 @@
       (if (== $cached ()) no-cache-entry (car-atom $cached)))
    no-cache-entry)
 
-; Compound patterns containing Inheritance are stored and cleared directly.
+; Compound patterns containing a class membership are stored and cleared directly.
 !(set-base-rate inheritancePatternKb
-   (And (Inheritance $x madeOfPlastic) (Operation $x opLighter))
+   (And (Member $x madeOfPlastic) (Operation $x opLighter))
    (STV 0.25 0.9))
 
 !(test
    (cached-base-rate inheritancePatternKb
-      (And (Inheritance $x madeOfPlastic) (Operation $x opLighter)))
+      (And (Member $x madeOfPlastic) (Operation $x opLighter)))
    ((STV 0.25 0.9)))
 
 !(clear-base-rate inheritancePatternKb
-   (And (Inheritance $x madeOfPlastic) (Operation $x opLighter)))
+   (And (Member $x madeOfPlastic) (Operation $x opLighter)))
 
 !(test
    (cached-base-rate inheritancePatternKb
-      (And (Inheritance $x madeOfPlastic) (Operation $x opLighter)))
+      (And (Member $x madeOfPlastic) (Operation $x opLighter)))
    ())
 
 ; --- Refinement of computed cache entries ---
@@ -197,27 +195,6 @@
    (: (by s qa) (S alice) (STV 0.4867707142777444 0.13578858998536592)))
 !(test (cached-base-rate startRateKb (Q $x))
    ((STV 0.6221923233199902 0.0021424540496628843)))
-
-; An inheritance base rate weights each member by the subject mass, which falls
-; as the universe gains subjects. New subjects elsewhere rescale the rate kept
-; from before them, so it equals that of a KB that had them from the start.
-!(compileadd grownUniverseKb
-   (: bf (Implication (Inheritance $x Bird) (Inheritance $x Flyer)) (CTV (STV 0.9 0.9) (STV 0.2 0.9))))
-!(compileadd grownUniverseKb (: tweetyBird (Inheritance tweety Bird) (STV 1.0 0.9)))
-!(compileadd grownUniverseKb (: pinguFlyer (Inheritance pingu Flyer) (STV 0.3 0.9)))
-
-!(test
-   (let $_answers (collapse (query 200 grownUniverseKb (: $prf (Inheritance pingu Bird) $tv)))
-      (cached-base-rate grownUniverseKb (Inheritance $x Bird)))
-   ((STV 0.998669031501917 0.0005631826475775279)))
-
-!(compileadd grownUniverseKb (: samCat (Inheritance sam Cat) (STV 1.0 0.9)))
-!(compileadd grownUniverseKb (: rexDog (Inheritance rex Dog) (STV 1.0 0.9)))
-
-!(test
-   (let $_answers (collapse (query 200 grownUniverseKb (: $prf (Inheritance pingu Bird) $tv)))
-      (cached-base-rate grownUniverseKb (Inheritance $x Bird)))
-   ((STV 0.998669031501917 0.0005631826475775279)))
 
 ; A member derived through its own base rate (the inverted sensor concludes
 ; Leak q with the Leak rate as its prior) changes whenever the rate moves. The

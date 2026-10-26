@@ -154,7 +154,14 @@ rule `(Implication (Claims $p $s) $s)` may conclude.
 - One head has one arity in a KB, so a class cannot also be a predicate of
   more arguments (`domain_error(predicate_arity, (head arity other))`).
 
-For new knowledge, prefer `Member` for instance-to-class observations:
+### Inheritance is the implication between two classes
+
+`(Inheritance A B)` and `(Implication (A $x) (B $x))` are one statement, read
+like `Member` wherever it occurs. A stated link is an ordinary rule, with its
+stated truth: it applies forward and backward, is inverted and completed, and
+its negative branch comes from the two classes' base rates, as for any rule
+stated with an STV. Observing that an object is Mortal is evidence that it is
+Human, through Bayes' rule over the base rates.
 
 ```metta
 !(compileadd kb
@@ -166,30 +173,21 @@ For new knowledge, prefer `Member` for instance-to-class observations:
 !(query 40 kb (: $prf (Member Tom Mortal) $tv))
 ```
 
-The concrete `Inheritance Human Mortal` assertion is compiled into ordinary
-inference views equivalent to:
+- Both classes are symbols or variables; `(Inheritance <expression> B)` raises
+  `domain_error(inheritance_class, ...)`. A link is between classes, so
+  instance membership is written `(Member object class)`: `(Inheritance rex
+  Dog)` is the link from a class named `rex`.
+- A ground query `(Inheritance A B)` is the implication query of the link and
+  answers in the `Inheritance` shape: the stated and rule-derived links,
+  revised with the judgment over the rules and with the link's instance fold.
+- An open query, such as `(Inheritance $subclass $superclass)`, is the
+  implication query over variable predicates: it answers the links stated or
+  derived, and also the identity `(Inheritance $x $x)` and an instance fold
+  over every class, as `(Implication ($p $x) ($q $x))` does.
+- A rule concluding a link, `(Implication X (Inheritance A B))`, is the derived
+  implication `(X and (A $x)) -> (B $x)`.
 
-```metta
-(Human $x)              -> (Mortal $x)
-(Inheritance $x Human)  -> (Inheritance $x Mortal)
-```
-
-These views are generated automatically. User code should not duplicate them.
-The generated member view is marked non-invertible: observing that an object is
-Mortal does not by itself prove that it is Human.
-
-`Member` can also appear on either side of an explicit rule:
-
-```metta
-!(compileadd kb
-    (: seedHuman
-       (Implication
-          (Member $x Seed)
-          (Member $x Human))
-       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
-```
-
-### Estimating inheritance from members
+### Estimating a link from members
 
 A ground query such as:
 
@@ -197,37 +195,25 @@ A ground query such as:
 !(query 100 kb (: $prf (Inheritance Human Mortal) $tv))
 ```
 
-can infer class-level inheritance from objects for which both
-`(Member object Human)` and `(Member object Mortal)` are provable. The sample
-collector uses the normal backward chainer, so rule-derived memberships count
-along with directly stored facts. It retains proof identities, rejects
-self-supporting cycles, and avoids treating overlapping evidence as independent.
+estimates the link from the objects for which both `(Member object Human)`
+and `(Member object Mortal)` are provable: the link's instance fold, as for any
+implication. The sample collector uses the normal backward chainer, so
+rule-derived memberships count along with directly stored facts. It retains
+proof identities, rejects self-supporting cycles, and leaves out samples that
+restate the link.
 
-The member estimator uses count-based confidence: every observed member adds
-evidence, and there is no closed-world population size to declare.
-Forward chaining can maintain a provisional estimate incrementally after a
-ground inheritance query has registered interest; a later backward query folds
-the complete currently derivable sample set and refines that estimate.
+The estimate uses count-based confidence: every observed member adds
+evidence, and there is no closed-world population size to declare. A class
+link is stationary, so its estimate is the plain frequency of its samples,
+whatever order they arrive in (see [Sorts](#sorts-stages-and-aggregates)).
+Once a ground link query has registered the link, each class fact stored or
+taken by a forward run marks its subject's sample, and the next query reading
+the link takes the marked samples, whatever its budget: a registration at
+budget 0 followed by facts and a forward run answers the exact frequency at
+budget 1, and once a query has searched the link, at budget 0 too.
 
-PeTTaChainer also estimates ground `Inheritance A B` through its
-total-implication path using `Inheritance x A` and `Inheritance x B`
-observations. Concept priors used by inheritance base-rate folds can be
-configured with:
-
-```metta
-!(set-concept-prior-confidence kb 0.5)
-!(clear-concept-prior-confidence kb)
-```
-
-The head of every unary fact, in either form, is registered as a concept node;
-the member object is not. Open queries such as `(Inheritance $subclass $superclass)` remain useful
-for retrieving matching ordinary derivations, but variable classes cannot
-register a selective incremental member estimate.
-
-Legacy programs in this repository sometimes encode instance membership as
-`(Inheritance object class)`. That representation remains supported for
-compatibility and participates in inheritance-only reasoning. It is not an
-alias for `Member`: adding both forms records two distinct propositions.
+Legacy programs that encode instance membership as `(Inheritance object
+class)` must be rewritten with `Member`.
 
 ## Sorts: stages and aggregates
 
@@ -604,7 +590,11 @@ starts a new regime is the KB's hazard, 0.0001 by default:
 `!(set-rule-change-hazard kb 0)` keeps one regime. On samples of one rate the
 truth is the one in one regime; after a change the new samples take over as
 their evidence grows, and an earlier regime that returns counts its old samples
-at once.
+at once. Only a rule over stages has regimes. A stationary rule, one whose
+variables range over objects or concepts (each at a declared `Object` or
+`Concept` position), or an unsorted class link (every conjunct a class of
+one variable, as `(Inheritance A B)`), keeps one regime whatever the hazard:
+its estimate is the plain frequency of its samples.
 
 A KB can also propose its own hypotheses (off by default):
 

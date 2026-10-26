@@ -93,7 +93,7 @@
        ((sk-val ($_type $_ctx $_proof $stored-tv) $_ev $_deps)
           (sk-value (sk-key (brand Statement $type) (kbctx hypKb)) sk-any-filter ())))
       $stored-tv)
-   (CTV (STV 0.4992318014558537 0.6687146348286057) (STV 0.4992318014558537 0.6687146348286057)))
+   (CTV (STV 0.5 0.6689189189189189) (STV 0.5 0.6689189189189189)))
 !(test
    (let*
       (((: $_public-proof $type (STV $_s $_c))
@@ -101,16 +101,16 @@
        ((sk-val ($_type $_ctx $_proof $stored-tv) $_ev $_deps)
           (sk-value (sk-key (brand Statement $type) (kbctx hypKb)) sk-any-filter ())))
       $stored-tv)
-   (CTV (STV 0.7934110109537581 0.6681312812545516) (STV 0.2021459950865152 0.6687223602108197)))
+   (CTV (STV 0.796969696969697 0.6689189189189189) (STV 0.20303030303030306 0.6689189189189189)))
 
 ;; The confirmed hypothesis is scored by what it adds; the rejected one, whose
 ;; consequent does not move with its antecedent, stays at the floor.
-!(test (hypothesis-scores) ((A 0.39109222608625) (A 0.39109222608625) (A 0.3555383873511364) (C 0.0099) (C 0.0099) (C 0.009000000000000001)))
+!(test (hypothesis-scores) ((A 0.3933243243243243) (A 0.3933243243243243) (A 0.3575675675675676) (C 0.0099) (C 0.0099) (C 0.009000000000000001)))
 
 ;; A forward run applies the learned truth, not the prior.
 !(compileadd hypKb (: anew (A new) (STV 1 1)))
 !(forward-chain 20 hypKb (the (List (Statement KBContext Proof TV)) (((A new) (hypKb MAIN Nil) anew (STV 1 1)))))
-!(test (let (: $p $t $tv) (query 0 hypKb (: $p (B new) $tv)) $tv) (STV 0.7934110109537581 0.6681312811298272))
+!(test (let (: $p $t $tv) (query 0 hypKb (: $p (B new) $tv)) $tv) (STV 0.796969696969697 0.6689189187913668))
 
 ;; Two hypotheses confirmed from the same cases, through correlated
 ;; antecedents. Each learns the single hypothesis's truth; their samples are
@@ -185,11 +185,11 @@
 ;; Reviewed, the two give the single hypothesis's answer (0.793, 0.668 alone):
 ;; the other hypothesis's view of C new is no sample.
 !(test (let (: $p $t $tv) (query 50 ovKb (: $p (RuleTruth (Implication (A $x) (C $x))) $tv)) $tv)
-   (STV 0.7934110109537581 0.6681312812545516))
+   (STV 0.796969696969697 0.6689189189189189))
 !(test (let (: $p $t $tv) (query 50 ovKb (: $p (RuleTruth (Implication (B $x) (C $x))) $tv)) $tv)
-   (STV 0.7934110109537581 0.6681312812545516))
+   (STV 0.796969696969697 0.6689189189189189))
 !(test (let (: $p $t $tv) (query 200 ovKb (: $p (C new) $tv)) $tv)
-   (STV 0.7934110109537581 0.6681312811163517))
+   (STV 0.7969696969696971 0.6689189187764815))
 
 ;; Refined trust rules, one per source, learned from ten labelled claims each
 ;; (ChainerGame's conflicting sources, in small; test_certain_merge.metta has

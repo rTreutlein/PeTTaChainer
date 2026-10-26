@@ -255,42 +255,6 @@
    ((base-rate forwardUserBaseRateKb (P $x)
       (STV 0.42 0.75) user any)))
 
-;; Inheritance base rates use the same incremental path, with subject/universe
-;; mass and the configured concept prior applied when the accumulator finishes.
-!(set-concept-prior-confidence forwardInheritanceBaseRateKb 0.5)
-!(compileadd forwardInheritanceBaseRateKb
-   (: ravenBird (Inheritance Raven Bird) (STV 1.0 0.9)))
-!(compileadd forwardInheritanceBaseRateKb
-   (: penguinBird (Inheritance Penguin Bird) (STV 1.0 0.9)))
-!(forward-chain 50 forwardInheritanceBaseRateKb
-   (test-main-facts forwardInheritanceBaseRateKb))
-
-!(test
-   (cached-base-rate
-      forwardInheritanceBaseRateKb (Inheritance $x Bird))
-   ((STV 0.33408249053148537 0.5002810918858142)))
-
-!(test
-   (let (base-rate $_kb $_pattern $_tv $source $_mode)
-      (car-atom
-         (base-rate-cache-entries
-            forwardInheritanceBaseRateKb (Inheritance $x Bird)))
-      $source)
-   computed)
-
-!(test
-   (query 100 forwardInheritanceBaseRateKb
-      (: $proof (Inheritance Raven Penguin) $tv))
-   (: (inheritance-implication-fold (total-implication ((inverted (inheritance-implication penguinBird) with cpu (prior (STV 0.3333749895859368 0.5))) (by (inheritance-implication ravenBird) (ctx proof 0))) ((inverted (inheritance-implication penguinBird) with cpu (prior (STV 0.3333749895859368 0.5))) (by (inheritance-implication ravenBird) (ctx proof 1))))) (Inheritance Raven Penguin) (STV 0.9978683976403822 1.0e-06)))
-
-!(test
-   (let (base-rate $_kb $_pattern $_tv $source $_mode)
-      (car-atom
-         (base-rate-cache-entries
-            forwardInheritanceBaseRateKb (Inheritance $x Bird)))
-      $source)
-   computed)
-
 ;; A computed ordinary snapshot keeps that source across later additions.
 ;; compileadd counts the new fact in the harvested statistics and republishes;
 ;; a seeded forward step over it changes nothing.

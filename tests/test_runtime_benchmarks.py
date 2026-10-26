@@ -41,7 +41,7 @@ class RuntimeBenchmarkTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         metrics = json.loads(result.stdout)
         self.assertAlmostEqual(metrics["member_population_final_confidence"], 12 / 812)
-        self.assertAlmostEqual(metrics["member_population_cached_confidence"], 12 / 812)
+        self.assertAlmostEqual(metrics["member_population_one_step_confidence"], 12 / 812)
         self.assertEqual(metrics["member_population_final_result_count"], 1)
 
 
