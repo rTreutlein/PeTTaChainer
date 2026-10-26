@@ -79,6 +79,7 @@ memory peaks.
 
 ```bash
 /nexus/Dev/OpenCog/bench/compare.sh <base> <candidate> [--quick|--full|--nightly] [--timing|--no-timing] [--no-fail-fast]
+/nexus/Dev/OpenCog/bench/compare.sh anchor <candidate> --canary
 /nexus/Dev/OpenCog/bench/compare.sh <base> <candidate> --curves [--only <case>]
 ```
 
@@ -89,6 +90,9 @@ memory peaks.
 - `--quick` (default, about 75 s: one point per behaviour) while iterating. Run `--full` (about 3 min, under a minute to a first regression; with `BENCH_TIMING_FULL=1` about 20 min for two new builds: each behaviour as a budget curve, plus the ProbLog fuzzer gate) before hand-back.
   `--nightly` adds the cases `--full`'s history shows add no catch of their own.
   `bench/README.md` lists what each profile runs and how long it takes.
+- Hand-back gates: `scripts/verify.sh`, `--full` against master and the
+  canary (`compare.sh anchor <worktree> --canary`, a few presentation
+  workloads against the pinned anchor build).
 - Cases run riskiest first (the most catching in past comparisons, then the
   cheapest), and a comparison stops at its first confirmed regression: an
   accuracy flag, a failed run, or a timing flag its paired rerun repeats.
@@ -111,7 +115,12 @@ memory peaks.
   either build.
 - `--curves` sweeps each curve case up its budget ladder for both builds,
   stops once the error flattens, and reports the best error each build
-  reaches within t seconds.
+  reaches within t seconds. Run it only for changes to scheduling, budgets
+  or anytime behaviour, where error against time matters, or when the brief
+  asks for it.
+- Curves and `--nightly` run every night on master (bench `nightly.sh`, a
+  03:00 user timer), comparing it with the previous night's master. Each
+  night adds one line to `bench/results/nightly.log`.
 - The report goes to
   `bench/results/compare/<base>_vs_<candidate>_<profile>/report.md`. Below
   its title, the verdict is `**PASS**` or `**REGRESSIONS (n): ...**`, and
@@ -138,7 +147,7 @@ benchmark and probe runs. Most of both is avoidable:
   the unit tests of the code you change, or one fuzzer seed. Each takes
   seconds.
 - Run `compare.sh --quick` only at checkpoints, when a change works, and
-  `--full` once before hand-back.
+  `--full` and the canary once before hand-back.
 - While a long job runs (the suite, `verify.sh`, `compare.sh`), do other
   work: the unit tests, the docs, the next change. Start the job in the
   background, tied to its PID (see "Waiting for your own jobs"), and read
@@ -420,9 +429,10 @@ The coordinator reads the report, not your transcript. Include:
 3. **Design**: what you changed and why this shape, plus the alternatives you
    rejected and why.
 4. **Gates**: `scripts/verify.sh` result.
-5. **Benchmarks**: the `compare.sh --full` summary line (`PASS` or the
-   regression list), the accuracy-changed line, the report path, and the
-   numbers that moved.
+5. **Benchmarks**: the `compare.sh --full` and canary summary lines (`PASS`
+   or the regression list), the accuracy-changed line, the report paths, and
+   the numbers that moved; the curves report when the change or brief called
+   for one.
 6. **Moved test values**: every expected value you changed in a test, old to
    new, with the reason it is correct now.
 7. **Limits**: what is not done or not verified, and known weaknesses.

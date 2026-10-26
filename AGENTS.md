@@ -77,9 +77,12 @@ Details and the exact commands are in `docs/agent_workflow.md`. Read it first.
 - Gates: `scripts/test_metta.sh`, `.venv/bin/python -m unittest discover -s tests`,
   and `scripts/verify.sh` before hand-back.
 - Benchmarks: `/nexus/Dev/OpenCog/bench/compare.sh master <worktree> --quick`
-  while iterating, `--full` before hand-back. Results are stored by the code
-  that ran, so a rerun of unchanged code is free. Do not improvise runners,
-  seeds or frozen builds.
+  while iterating, `--full` and the canary (`compare.sh anchor <worktree>
+  --canary`) before hand-back. `--curves` only for changes to scheduling,
+  budgets or anytime behaviour, or when the brief asks; master gets curves
+  and `--nightly` every night. Results are stored by the code that ran, so a
+  rerun of unchanged code is free. Do not improvise runners, seeds or frozen
+  builds.
 - Git: never run a bare `git stash`, never `rm -rf` a variable path, and do
   not push or merge. The coordinator merges. Commit trailers come from the
   brief.
