@@ -273,13 +273,11 @@
          (sk-prior-update $prior (brand Proof (prior $prior-tv)) (cons $proof ())))
       ((factored-revision $prior $prior-tv $parts) (sk-prior-update $prior $prior-tv $parts))
       ((by $rule $premise)
-         (if (head-is? $premise conjunction) (sk-own-prior-update $proof $tv)
+         (if (if (head-is? $premise conjunction) false (equivalence-rule? $kb (brand Proof $rule)))
             (case (sk-prior-update-of $kb (brand Proof $premise) $tv) (
                ((sk-prior-update $_own-source $_own-read ()) (sk-own-prior-update $proof $tv))
-               ((sk-prior-update $moved $moved-tv $_moved)
-                  (if (equivalence-rule? $kb (brand Proof $rule))
-                     (sk-prior-update $moved $moved-tv (cons $proof ()))
-                     (sk-own-prior-update $proof $tv)))))))
+               ((sk-prior-update $moved $moved-tv $_moved) (sk-prior-update $moved $moved-tv (cons $proof ())))))
+            (sk-own-prior-update $proof $tv)))
       ($_other (sk-own-prior-update $proof $tv)))))
 
 (: instance-prior-tv (-[det]-> KB Proof TV TV))

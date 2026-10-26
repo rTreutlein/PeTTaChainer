@@ -100,3 +100,79 @@
    (: (factored-revision (by srcRule src) (prior (STV 0.5199999995 0.9999000099990001)) ((by (bi-backward problemDefinition) ((inverted problemRaisesAlarm with cpu (prior (STV 0.5062495703411769 0.003735865981753913))) currentAlarm)))) (Local current) (STV 0.9069767440170363 0.9998893381888581)))
 !(test (query 2000 atomEqKb (: $proof (Problem current) $tv))
    (: (factored-revision (by (bi-forward problemDefinition) (by srcRule src)) (prior (STV 0.5199999994999991 0.9999000097983993)) (((inverted problemRaisesAlarm with cpu (prior (STV 0.5062495703411769 0.003735865981753913))) currentAlarm))) (Problem current) (STV 0.906976744017036 0.9998893390306737)))
+
+;; The carry needs only a certain rule from Problem to Local, and an inversion
+;; of Local's own leaves it as it is.
+!(compileadd impEqKb (: src (Src current) (STV 1.0 1.0)))
+!(compileadd impEqKb (: srcRule (Implication (Src current) (Local current)) (CTV (STV 0.52 1.0) (STV 0.52 1.0))))
+!(compileadd impEqKb (: problemRaisesAlarm (Implication (Problem $unit) (Alarm $unit)) (CTV (STV 0.9 1.0) (STV 0.1 1.0))))
+!(compileadd impEqKb (: currentAlarm (Alarm current) (STV 1.0 1.0)))
+!(compileadd impEqKb (: h1Problem (Problem h1) (STV 1.0 1.0)))
+!(compileadd impEqKb (: h2Problem (Problem h2) (STV 0.0 1.0)))
+!(compileadd impEqKb (: f1 (Implication (Problem current) (Local current)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(test (let (: $_p $_t $tv) (query 2000 impEqKb (: $proof (Local current) $tv)) $tv) (STV 0.9069767440170361 0.9998893381890228))
+!(compileadd localAlarmKb (: src (Src current) (STV 1.0 1.0)))
+!(compileadd localAlarmKb (: srcRule (Implication (Src current) (Local current)) (CTV (STV 0.52 1.0) (STV 0.52 1.0))))
+!(compileadd localAlarmKb (: problemRaisesAlarm (Implication (Problem $unit) (Alarm $unit)) (CTV (STV 0.9 1.0) (STV 0.1 1.0))))
+!(compileadd localAlarmKb (: currentAlarm (Alarm current) (STV 1.0 1.0)))
+!(compileadd localAlarmKb (: h1Problem (Problem h1) (STV 1.0 1.0)))
+!(compileadd localAlarmKb (: h2Problem (Problem h2) (STV 0.0 1.0)))
+!(compileadd localAlarmKb (: pd (BiImplication (Local current) (Problem current)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd localAlarmKb (: localAlarm (Implication (Local $u) (Alarm $u)) (CTV (STV 0.9 1.0) (STV 0.1 1.0))))
+!(test (let (: $_p $_t $tv) (query 2000 localAlarmKb (: $proof (Local current) $tv)) $tv) (STV 0.9069767440170363 0.999889338244343))
+
+;; Implications both ways: each carries the other's inversion.
+!(compileadd twoWayKb (: src (Src current) (STV 1.0 1.0)))
+!(compileadd twoWayKb (: srcRule (Implication (Src current) (Local current)) (CTV (STV 0.52 1.0) (STV 0.52 1.0))))
+!(compileadd twoWayKb (: problemRaisesAlarm (Implication (Problem $unit) (Alarm $unit)) (CTV (STV 0.9 1.0) (STV 0.1 1.0))))
+!(compileadd twoWayKb (: currentAlarm (Alarm current) (STV 1.0 1.0)))
+!(compileadd twoWayKb (: h1Problem (Problem h1) (STV 1.0 1.0)))
+!(compileadd twoWayKb (: h2Problem (Problem h2) (STV 0.0 1.0)))
+!(compileadd twoWayKb (: f1 (Implication (Problem current) (Local current)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd twoWayKb (: f2 (Implication (Local current) (Problem current)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(test (let (: $_p $_t $tv) (query 2000 twoWayKb (: $proof (Local current) $tv)) $tv) (STV 0.9029692616043835 0.9999528999802401))
+
+;; Current behaviour, as on master: two certain equivalences between Local and
+;; Problem, a second BiImplication or the reverse one, give Local two
+;; applications of the one update, and the carry is lost (0.520).
+!(compileadd dupEqKb (: src (Src current) (STV 1.0 1.0)))
+!(compileadd dupEqKb (: srcRule (Implication (Src current) (Local current)) (CTV (STV 0.52 1.0) (STV 0.52 1.0))))
+!(compileadd dupEqKb (: problemRaisesAlarm (Implication (Problem $unit) (Alarm $unit)) (CTV (STV 0.9 1.0) (STV 0.1 1.0))))
+!(compileadd dupEqKb (: currentAlarm (Alarm current) (STV 1.0 1.0)))
+!(compileadd dupEqKb (: h1Problem (Problem h1) (STV 1.0 1.0)))
+!(compileadd dupEqKb (: h2Problem (Problem h2) (STV 0.0 1.0)))
+!(compileadd dupEqKb (: pd (BiImplication (Local current) (Problem current)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd dupEqKb (: pd2 (BiImplication (Local current) (Problem current)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(test (let (: $_p $_t $tv) (query 2000 dupEqKb (: $proof (Local current) $tv)) $tv) (STV 0.5200009875095359 0.9999000102573048))
+!(compileadd revEqKb (: src (Src current) (STV 1.0 1.0)))
+!(compileadd revEqKb (: srcRule (Implication (Src current) (Local current)) (CTV (STV 0.52 1.0) (STV 0.52 1.0))))
+!(compileadd revEqKb (: problemRaisesAlarm (Implication (Problem $unit) (Alarm $unit)) (CTV (STV 0.9 1.0) (STV 0.1 1.0))))
+!(compileadd revEqKb (: currentAlarm (Alarm current) (STV 1.0 1.0)))
+!(compileadd revEqKb (: h1Problem (Problem h1) (STV 1.0 1.0)))
+!(compileadd revEqKb (: h2Problem (Problem h2) (STV 0.0 1.0)))
+!(compileadd revEqKb (: pd (BiImplication (Local current) (Problem current)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd revEqKb (: pdr (BiImplication (Problem current) (Local current)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(test (let (: $_p $_t $tv) (query 2000 revEqKb (: $proof (Local current) $tv)) $tv) (STV 0.5200009875095359 0.9999000102573048))
+
+;; A premise with a variable the conclusion lacks is one of many instances,
+;; with a population prior of its own: (P $x $y) -> (Q $x) is no equivalence,
+;; and Q's inversion keeps Q's prior (0.9878 under P's 0.5 when registered).
+!(compileadd coverKb (: pa (Implication (P $x $y) (Al $x $y)) (CTV (STV 0.9 1.0) (STV 0.1 1.0))))
+!(compileadd coverKb (: qa (Implication (Q $x) (Alq $x)) (CTV (STV 0.9 1.0) (STV 0.1 1.0))))
+!(compileadd coverKb (: pq (Implication (P $x $y) (Q $x)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(test (collapse (match &equivalence_rules ($prf coverKb) $prf)) ())
+!(compileadd coverKb (: h1 (P h1 a) (STV 1.0 1.0)))
+!(compileadd coverKb (: h2 (P h2 b) (STV 0.0 1.0)))
+!(compileadd coverKb (: g1 (Q h1) (STV 1.0 1.0)))
+!(compileadd coverKb (: g2 (Q h4) (STV 0.0 1.0)))
+!(compileadd coverKb (: g3 (Q h5) (STV 0.0 1.0)))
+!(compileadd coverKb (: al1 (Al k y1) (STV 1.0 1.0)))
+!(compileadd coverKb (: alq (Alq k) (STV 1.0 1.0)))
+!(test (let (: $_p $_t $tv) (query 2000 coverKb (: $p (Q k) $tv)) $tv) (STV 0.9863685918674778 0.06974122484843895))
+
+;; An assumed rule is compiled for its world only and registers no
+;; equivalence, so worlds leave the registry as it was.
+!(compileadd assumeEqKb (: a (A k) (STV 0.7 0.9)))
+!(query 200 assumeEqKb (: $p (Assuming (: r (Implication (A $x) (B $x)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))) (B k)) $tv))
+!(query 200 assumeEqKb (: $p (Assuming (: r (Implication (A $x) (B $x)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))) (B k)) $tv))
+!(test (collapse (match &equivalence_rules ($prf assumeEqKb) $prf)) ())

@@ -310,9 +310,13 @@
 !(bind! &deterministic_rules (new-space))
 
 ;; Rules stated as a certain equivalence, ((1, 1), (0, 1)), over one
-;; statement, by their proof name as their applications carry it, such as
-;; (bi-backward name): the conclusion is the premise, so an application of one
-;; update is that update (sk-prior-update-of). A rule named no_inverse
+;; statement with the conclusion's variables, by their proof name as their
+;; applications carry it, such as (bi-backward name): the conclusion is the
+;; premise, so an application of one update is that update
+;; (sk-prior-update-of). A premise with a variable the conclusion lacks, as in
+;; (P $x $y) -> (Q $x), is one of many instances, whose population prior is
+;; not the conclusion's: carrying its update put Q's own inversion under P's
+;; prior. A rule named no_inverse
 ;; declares its conclusion no observation of its premise, and a refined rule
 ;; holds by its learned truth: neither is one (the conflict benchmark's claims
 ;; run from a source-wide reliability to each claimed node, no_inverse).
@@ -322,10 +326,14 @@
 (: equivalence-rule? (-[det]-> KB Proof Bool))
 (= (equivalence-rule? $kb $prf) (not (== (collapse (once (match &equivalence_rules ($prf $kb) true))) ())))
 
-(: register-equivalence-rule! (-[det]-> KB Proof TV Statement Atom))
-(= (register-equivalence-rule! $kb $prf $tv $antecedent)
+(: register-equivalence-rule! (-[det]-> KB Proof TV Statement Statement Atom))
+(= (register-equivalence-rule! $kb $prf $tv $antecedent $consequent)
    (if (head-is? $prf no_inverse) ()
-      (if (if (== (extract-vars $tv) ()) (== (cdr-atom (implication-side-conjuncts $antecedent)) ()) false)
+      (if (if (== (extract-vars $tv) ())
+             (if (== (cdr-atom (implication-side-conjuncts $antecedent)) ())
+                (if (vars-covered? $antecedent (extract-vars $consequent)) (vars-covered? $consequent (extract-vars $antecedent)) false)
+                false)
+             false)
          (case $tv (
             ((CTV (STV $ps $pc) (STV $ns $nc))
                (if (if (>= $ps 1.0) (if (>= $pc 1.0) (if (<= $ns 0.0) (>= $nc 1.0) false) false) false)
@@ -1295,7 +1303,7 @@
                       ())
                    ()))
              ($value (if $refine? $truth-tv $tv))
-             ($_equivalence (if $refine? () (register-equivalence-rule! $kb $prf $tv $a))))
+             ($_equivalence (if $refine? () (register-equivalence-rule! $kb $prf $tv $a $b))))
             (superpose (
                ;; Stated positive judgments stay private. A CTV is already
                ;; executable rule storage in MAIN; an STV's full CTV reads its
