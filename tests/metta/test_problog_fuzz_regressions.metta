@@ -218,7 +218,8 @@
 ;; that never clashes (docs/metta/overlap_conditioning.md, "Entangled
 ;; premises"). E <- (Or C B) with C <- B, B <- A and A observed: exact
 ;; P(E) = 0.274288 (fuzzer seed 1000004; before: 0.342106, the premises
-;; multiplied as independent).
+;; multiplied as independent). The rule reads the Or through its key, so the
+;; Or's producer row conditions on B and the rule applies to its value.
 !(compileadd f7reuse (: rB (Implication (A $x) (B $x)) (CTV (STV 0.28 1) (STV 0.7 1))))
 !(compileadd f7reuse (: rC (Implication (B $x) (C $x)) (CTV (STV 0.29 1) (STV 0.87 1))))
 !(compileadd f7reuse (: rE (Implication (Or (C $x) (B $x)) (E $x)) (CTV (STV 0.22 1) (STV 0.8 1))))
@@ -228,8 +229,8 @@
 !(set-base-rate f7reuse (C $x) (STV 0.517592 1.0))
 !(set-base-rate f7reuse (E $x) (STV 0.24958696 1.0))
 !(test (query 2000 f7reuse (: $prf (E b) $tv))
-   (: (conditioned (by rB obs-A-b) (by rE (conjunction (by rC (given true)) (given true))) (by rE (conjunction (by rC (given false)) (given false))))
-      (E b) (STV 0.274288 0.999948229038266)))
+   (: (by rE (conditioned (by rB obs-A-b) (conjunction (by rC (given true)) (given true)) (conjunction (by rC (given false)) (given false))))
+      (E b) (STV 0.27428800000000003 0.9999179931943128)))
 
 ;; Two premises derived from one statement, E <- (And C D) with C <- B and
 ;; D <- B: exact P(E) = 0.2264, independent 0.17936.

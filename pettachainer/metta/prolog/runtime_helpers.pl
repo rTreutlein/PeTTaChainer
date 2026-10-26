@@ -1308,8 +1308,7 @@ rule_set_ancestor([Set|Rest], Seen, Ancestor) :-
 dormancy_analysis(Id, Dormant, Heads) :-
     nb_setval(dormancy_budget, 2000), nb_setval(dormancy_heads, []),
     (   dormancy_row(rules('runtime-rule-row', Id, [Type, Ctx, Proof|_], Premises)),
-        \+ ( ( Proof = [by|_] ; Proof = [negated, [by|_]] ),
-             Ctx = [Kb|_], statement_head(Type, Head), dormancy_row('&complete_predicates'(Kb, Head)) ),
+        \+ ( 'derivation-proof?'(Type, Proof, true), dormancy_complete(Type, Ctx) ),
         member([PType, PCtx, _, _], Premises), PType \== 'CPU',
         \+ dormancy_premise_supported(Proof, PType, PCtx, Type-Ctx, [], 8)
     ->  Dormant = true
@@ -1348,8 +1347,8 @@ dormancy_derived(Type, Ctx) :-
 % (docs/metta/complete_predicates.md). So it supports a reader even when its
 % only derivations run through a loop back to it: a loop disjunct read closed
 % is false, and the rest of its antecedent decides.
-dormancy_complete(Type, [Kb|_]) :-
-    statement_head(Type, Head), dormancy_row('&complete_predicates'(Kb, Head)).
+% A connective with a complete part is complete too (`complete-statement?`).
+dormancy_complete(Type, [Kb|_]) :- 'complete-part?'(Kb, false, Type, true).
 
 % A settled rule reads only a part whose certain stored fact settles its
 % compound (docs/metta/connective_settling.md), so it supports its conclusion

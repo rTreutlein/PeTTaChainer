@@ -1449,13 +1449,20 @@
 ;; A ground statement of a complete predicate in the main context or in an
 ;; Assuming query's context, which holds the world's facts and rules with its
 ;; assumptions; an implication query's hypothetical contexts are not complete.
+;; A connective with a complete part is complete too: its producers derive it
+;; from its parts, so a closed read of it reads them as a rule reading the
+;; parts would (#142).
 (: complete-statement? (-[det]-> Atom Atom Bool))
+(: complete-part? (-[det]-> KB Bool Atom Bool))
+(= (complete-part? $kb $found $part)
+   (if $found true
+      (let ($key $_odd) (canon (brand Statement $part))
+         (if (compound-source? $key)
+            (let $parts (the (List Atom) (cdr-atom $key)) (fold-flat (complete-part? $kb) false $parts))
+            (let $head (if (is-expr $key) (car-atom $key) $key) (complete-predicate? $kb $head))))))
 (= (complete-statement? $type ($kbid $ctx $_vars))
    (if (== $ctx MAIN)
-      (if (== (extract-vars $type) ())
-         (let* (($kb (brand KB $kbid)) ($head (if (is-expr $type) (car-atom $type) $type)))
-            (complete-predicate? $kb $head))
-         false)
+      (if (== (extract-vars $type) ()) (complete-part? (brand KB $kbid) false $type) false)
       false))
 
 ;; A rule applied forward, `(by rule premises)`, negated or not: one of the
@@ -1470,6 +1477,16 @@
                (if (== $head negated) (rule-application-proof? (car-atom (cdr-atom $proof))) false))))
       false))
 
+;; The ways a statement becomes true: its rule applications and, for a
+;; connective, its producers, which read its parts (`compound-readings`).
+(: derivation-proof? (-[det]-> Atom Atom Bool))
+(= (derivation-proof? $type $proof)
+   (if (rule-application-proof? $proof) true
+      (if (compound-source? (brand Statement $type))
+         (if (head-is-member? $proof (conjunction settled)) true
+            (let* (($connective (car-atom $type)) ($any (atom_concat $connective introduction))) (head-is? $proof $any)))
+         false)))
+
 ;; A rule applies to a node when its conclusion fits the whole node pattern;
 ;; its row is built from the statement and context alone, since a row belongs
 ;; to its key and each reader applies its own proof and truth-value pattern.
@@ -1483,7 +1500,7 @@
    (if (if (if (sk-context-search? $goal) false (rule-dormant? $rule)) false (= (copy_term $goal) (sk-rule-goal (copy_term $owner))))
       (if (if (case $goal (
                 (($type $kbctx $proof $_tv)
-                   (if (rule-application-proof? $proof) (complete-statement? $type $kbctx) false))))
+                   (if (derivation-proof? $type $proof) (complete-statement? $type $kbctx) false))))
              false
              (prefilter-prunes-walk (copy_term $premises)))
          ()

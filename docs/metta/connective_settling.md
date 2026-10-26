@@ -38,12 +38,14 @@ rule variant that reads only the settling part:
   `(CPU SettlesFormula ($tv value) value)`, which yields `value` when the part
   is certain at it and nothing otherwise. Its proof token is `(settled P)`.
 - The variants are readings of a compound after the complete one
-  (`compound-readings`, used by the producers of compound keys and by a
-  compound conjunct read inline), and lowerings of an `And` antecedent after
-  the complete one (`antecedent-lowerings`, each conjunct read as `lower`
-  reads it, so `(Not X)` reads X and `NotFormula`). `complete-lowering` reads
-  the complete one; `compile-rule` compiles one forward rule per lowering.
-  Inversion, completion and outputs use the complete antecedent only.
+  (`compound-readings`, used by the producers of compound keys and by an
+  assumed compound), and lowerings of an `And` antecedent after the complete
+  one (`antecedent-lowerings`, each conjunct read as `lower` reads it, so
+  `(Not X)` reads X and `NotFormula`, and a compound conjunct its key, which
+  its producers settle). `compile-rule` compiles one forward rule per
+  lowering. Inversion, completion and outputs use the complete antecedent
+  only; `complete-lowering` reads a completion's siblings and consequence
+  inline, a compound one through its complete reading.
 - A part settles only when it binds every variable of the compound, so a
   settled row is as ground as the complete join's.
 - A part whose bundle already carries a ground value settles only with that

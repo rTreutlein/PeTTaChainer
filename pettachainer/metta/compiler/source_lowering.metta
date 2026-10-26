@@ -678,14 +678,23 @@
             ()))
       (() ()))))
 
-;; The settling readings of a compound's parts, in source order. This and the
-;; antecedent recursions below prepend onto their later results: the
-;; determinism checker accepts `append` only onto a constructed list, and a
-;; semidet fold's type-variable result would leave a runtime type check.
-(: settlings (-[semidet]-> KBContext Statement (List Statement) (List PremiseBundle)))
-(= (settlings $_kc $_compound ()) ())
-(= (settlings $kc $compound (cons $part $rest))
-   (append (settled-reading $compound $part (lower-part $kc $part)) (settlings $kc $compound $rest)))
+;; The settling readings of a compound's parts read by `$read`, in source
+;; order. It prepends onto its later results: the determinism checker accepts
+;; `append` only onto a constructed list, and a semidet fold's type-variable
+;; result would leave a runtime type check.
+(: settlings
+   (-[semidet]-> (-[semidet]-> KBContext Statement PremiseBundle) KBContext Statement
+       (List Statement) (List PremiseBundle)))
+(= (settlings $_read $_kc $_compound ()) ())
+(= (settlings $read $kc $compound (cons $part $rest))
+   (append (settled-reading $compound $part ($read $kc $part)) (settlings $read $kc $compound $rest)))
+
+;; A conjunctive antecedent's settlings. The And test stays in a function
+;; body: as an argument, an `if` with an empty-list branch leaves a runtime
+;; type check.
+(: antecedent-settlings (-[semidet]-> KBContext Statement (List Statement) (List PremiseBundle)))
+(= (antecedent-settlings $kc $antecedent $conjuncts)
+   (if (head-is? $antecedent And) (settlings lower $kc $antecedent $conjuncts) ()))
 
 ;; An Any-mode compound is introduced by any one of its parts.
 (: any-reading (-[semidet]-> KBContext Atom Statement PremiseBundle))
@@ -700,7 +709,7 @@
    (let* (($head (car-atom $compound)) ($parts (statement-children (cdr-atom $compound))))
       (if (== (configured-compound-premise-mode $head) Any)
          (map-semidet (any-reading $kc $head) $parts)
-         (cons (lower-all lower-part $kc $head $parts) (settlings $kc $compound $parts)))))
+         (cons (lower-all lower-part $kc $head $parts) (settlings lower-part $kc $compound $parts)))))
 
 ;; The rules that give a compound key its value: one per reading, concluding
 ;; the compound in the reader's context, and those of every compound key the
@@ -724,14 +733,6 @@
             (statement-children (cdr-atom $key)))
          ())))
 
-;; The readings of a top-level premise: a compound is read inline through its
-;; readings, any other statement through `lower`.
-(: premise-readings (-[semidet]-> KBContext Statement (List PremiseBundle)))
-(= (premise-readings $kc $premise)
-   (if (compound-source? $premise)
-      (compound-readings $kc $premise)
-      (cons (lower $kc $premise) ())))
-
 ;; Combine premise bundles left-to-right. AndFormula is inserted only between
 ;; non-empty bundles so the first premise supplies the initial TV and no fake
 ;; unit-evidence proof is introduced.
@@ -753,63 +754,33 @@
             (cons $proof $current-proofs)
             $next-tv))))
 
-(: extend-step
-   (-[det]-> CompiledPremises PremiseBundle (List CompiledPremises) (List CompiledPremises)))
-(= (extend-step $partial $reading $kept) (cons (append-premise-bundle $partial $reading) $kept))
-(: extend-partials-step
-   (-[det]-> (List PremiseBundle) CompiledPremises (List CompiledPremises) (List CompiledPremises)))
-(= (extend-partials-step $readings $partial $kept) (foldr-flat (extend-step $partial) $kept $readings))
-;; Every combination of the conjuncts' readings, the last conjunct varying
-;; fastest, as reversed partial lowerings.
-(: conjunct-combinations
-   (-[semidet]-> KBContext (List CompiledPremises) (List Atom) (List CompiledPremises)))
-(= (conjunct-combinations $_kc $partials ()) $partials)
-(= (conjunct-combinations $kc $partials (cons $conjunct $rest))
-   (conjunct-combinations $kc
-      (foldr-flat (extend-partials-step (premise-readings $kc (brand Statement $conjunct))) () $partials)
-      $rest))
-
-;; The lowerings of a conjunctive antecedent that one conjunct settles alone,
-;; one per reading of the conjunct, in source order. `antecedent-settlings`
-;; keeps the And test in a function body: as an argument, an `if` with an
-;; empty-list branch leaves a runtime type check.
-(: reading-settlings
-   (-[det]-> Statement Statement (List PremiseBundle) (List CompiledPremises) (List CompiledPremises)))
-(= (reading-settlings $_antecedent $_conjunct () $later) $later)
-(= (reading-settlings $antecedent $conjunct (cons $reading $rest) $later)
-   (let $after (reading-settlings $antecedent $conjunct $rest $later)
-      (case (settled-reading $antecedent $conjunct $reading) (
-         ((cons (premise-bundle $goals $tv $proof) $_none) (cons (data $goals (cons $proof ()) $tv) $after))
-         ($_unsettled $after)))))
-(: conjunct-settlings (-[semidet]-> KBContext Statement (List Atom) (List CompiledPremises)))
-(= (conjunct-settlings $_kc $_antecedent ()) ())
-(= (conjunct-settlings $kc $antecedent (cons $conjunct $rest))
-   (let $part (brand Statement $conjunct)
-      (reading-settlings $antecedent $part (premise-readings $kc $part)
-         (conjunct-settlings $kc $antecedent $rest))))
-(: antecedent-settlings (-[semidet]-> KBContext Statement (List CompiledPremises)))
-(= (antecedent-settlings $kc $antecedent)
-   (if (head-is? $antecedent And)
-      (conjunct-settlings $kc $antecedent (implication-side-conjuncts $antecedent))
-      ()))
-
-;; Every lowering of a rule's antecedent, the complete one first: each conjunct
-;; is read through each of its readings, and a conjunct that settles a
-;; conjunctive antecedent alone adds a lowering of its own.
+;; Every lowering of a rule's antecedent, the complete one first. Each conjunct
+;; is a `lower` read, a compound one of its key, so a stored or assumed
+;; compound reaches the rule, and the key's producers, which the rule emits,
+;; give it its value; a conjunct that settles a conjunctive antecedent alone
+;; adds a lowering of its own.
 (: antecedent-lowerings (-[semidet]-> KBContext Statement (List CompiledPremises)))
-(: finished-lowerings (-[det]-> (List CompiledPremises) (List CompiledPremises) (List CompiledPremises)))
-(= (finished-lowerings () $later) $later)
-(= (finished-lowerings (cons $partial $rest) $later)
-   (cons (finish-reversed-compiled-premises $partial) (finished-lowerings $rest $later)))
 (= (antecedent-lowerings $kc $antecedent)
-   (let* (($conjuncts (implication-side-conjuncts $antecedent))
-          ($combinations (conjunct-combinations $kc ((data () () (STV 1.0 1.0))) $conjuncts)))
-      (finished-lowerings $combinations (antecedent-settlings $kc $antecedent))))
+   (let* (($conjuncts (statement-children (implication-side-conjuncts $antecedent)))
+          ($complete (fold-flat append-premise-bundle (data () () (STV 1.0 1.0)) (map-semidet (lower $kc) $conjuncts))))
+      (cons (finish-reversed-compiled-premises $complete)
+         (map-flat (|-> ((premise-bundle $goals $tv $proof)) (data $goals ($proof) $tv))
+            (antecedent-settlings $kc $antecedent $conjuncts)))))
 
-;; The complete lowering of a statement read as an antecedent.
+;; The complete lowering of a statement read inline, as a completion reads
+;; its siblings and its consequence and an inheritance lift its premises: each
+;; conjunct, a compound one through its first reading, so that no read waits
+;; on a compound key that nothing gives a value.
+(: inline-reading (-[semidet]-> KBContext Statement PremiseBundle))
+(= (inline-reading $kc $statement)
+   (if (compound-source? $statement)
+      (case (compound-readings $kc $statement) (((cons $first $_others) $first)))
+      (lower $kc $statement)))
 (: complete-lowering (-[semidet]-> KBContext Statement CompiledPremises))
 (= (complete-lowering $kc $statement)
-   (case (antecedent-lowerings $kc $statement) (((cons $complete $_others) $complete))))
+   (finish-reversed-compiled-premises
+      (fold-flat append-premise-bundle (data () () (STV 1.0 1.0))
+         (map-semidet (inline-reading $kc) (statement-children (implication-side-conjuncts $statement))))))
 
 ;; The query-local rule a goal reading a statement as a whole needs: a negation
 ;; is read through a view of its statement, whose proof is negated so its
@@ -922,15 +893,17 @@
 ;; Antecedents of an implication *query* are temporary assumptions, asserted at
 ;; their canonical key (an existential at its claim): an assumed negation is
 ;; its statement at strength zero. An assumed compound asserts the keys of one
-;; of its readings, each reading a world of its own, since rules read a
-;; compound antecedent through its parts.
+;; of its readings, each reading a world of its own, and its producers give
+;; its own key the value of each world (#143: asserting the key once instead
+;; is the `assume` unification).
 (= (lower-query-assumption-premise $kb $ctx $vars $source)
    (let* ((($statement $odd) (canon $source))
           ($premise (if (contains-explicit-exists? $statement) (canonical-existential-side $statement) $statement))
           ($kc (make-kb-context $kb $ctx $vars)))
       (if $odd
          (premise-bundle ((: $kc $prf $premise (STV 0.0 1.0))) (STV 1.0 1.0) $prf)
-         (let $readings (premise-readings $kc $premise) (superpose $readings)))))
+         (let $readings (if (compound-source? $premise) (compound-readings $kc $premise) (cons (lower $kc $premise) ()))
+            (superpose $readings)))))
 
 (: lower-query-assumption-premises
    (-[nondet]-> KB $context $variables (List Atom)

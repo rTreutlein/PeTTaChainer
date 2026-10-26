@@ -3670,11 +3670,11 @@
 (= (sk-application-waits? $node $found (sk-node-at $hash $child))
    (if $found true
       (if (sk-delivered? $child) false
-         (not (== (collapse (once (match &sk_wait ($hash $stored (sk-partial $owner $rule ($_t $_k $proof $_v) $_done $_rest $_keys))
+         (not (== (collapse (once (match &sk_wait ($hash $stored (sk-partial $owner $rule ($type $_k $proof $_v) $_done $_rest $_keys))
                      (if (=alpha $stored $child)
                         (if (rule-live? $rule)
-                           (if (=alpha $owner $node) (if (rule-application-proof? $proof) true (empty)) (empty))
-                           (let $_removed (sk-retire-wait! $hash $stored (sk-partial $owner $rule ($_t $_k $proof $_v) $_done $_rest $_keys)) (empty)))
+                           (if (=alpha $owner $node) (if (derivation-proof? $type $proof) true (empty)) (empty))
+                           (let $_removed (sk-retire-wait! $hash $stored (sk-partial $owner $rule ($type $_k $proof $_v) $_done $_rest $_keys)) (empty)))
                         (empty)))))
                   ())))))
 
@@ -3704,14 +3704,14 @@
                false)))
       ($_fold false))))
 
-;; Whether a rule application is among a statement's rows. This check also
+;; Whether a derivation (`derivation-proof?`) is among a statement's rows. This check also
 ;; removes encountered retired rows and their optimization registrations.
 (: sk-founded? (-[det]-> Number SkeletonKey Bool))
 (= (sk-founded? $hash $key)
-   (not (== (collapse (once (match &sk_row ($hash $stored $_rhash (sk-row (sk-ident $rule $_keys $_key) ($_t $_k $proof $_v) $_ps $_seq))
+   (not (== (collapse (once (match &sk_row ($hash $stored $_rhash (sk-row (sk-ident $rule $_keys $_key) ($type $_k $proof $_v) $_ps $_seq))
                (if (=alpha $stored $key)
-                  (if (rule-live? $rule) (if (rule-application-proof? $proof) true (empty))
-                     (let $_removed (sk-drop-row! $hash $stored $_rhash (sk-row (sk-ident $rule $_keys $_key) ($_t $_k $proof $_v) $_ps $_seq)) (empty)))
+                  (if (rule-live? $rule) (if (derivation-proof? $type $proof) true (empty))
+                     (let $_removed (sk-drop-row! $hash $stored $_rhash (sk-row (sk-ident $rule $_keys $_key) ($type $_k $proof $_v) $_ps $_seq)) (empty)))
                   (empty)))))
             ())))
 
@@ -4155,10 +4155,10 @@
    (let* ((($statement $_odd) (canon (brand Statement $part))) ($key (sk-key $statement $kbctx)))
       (append-flat (sk-unifier-hashes (index-hash $key) $key) $hashes)))
 
-;; A compound And or Or antecedent is lowered into its parts, so what a rule
-;; concludes from it depends on the parts' keys, never on the compound's.
-;; Inverting that rule concludes the compound again, so its row also excludes
-;; views depending on any part: the premise it inverts was derived from them.
+;; A compound antecedent is read through its key, whose producers read its
+;; parts. Inverting the rule concludes the compound again, so its row also
+;; excludes views depending on any part: the premise it inverts was derived
+;; from them.
 ;; An implication instance sample reads no value a refined rule's truth
 ;; estimates: what the other hypotheses predict is no observation, and taking
 ;; it as one would count their samples again and feed hypotheses into each
@@ -4205,7 +4205,7 @@
 ;; P(BC) read off ABC is 1). So the premises after the compound exclude views
 ;; depending on it.
 (= (sk-row-state $given $exclusions $khash $policy (sk-row $_ident ($type $kbctx $proof $_tv) $premises $_seq))
-   (let* (($pin (sk-closed-pin $khash $type $kbctx (rule-application-proof? $proof)))
+   (let* (($pin (sk-closed-pin $khash $type $kbctx (derivation-proof? $type $proof)))
           ($shared (shared-evidence-frontier-proof? $proof))
           ($start (sk-acc () (evidence-set (sk-sample-exclusions $type $kbctx)) (cons (deps-key $khash) ()) ())))
       (if (if (is-expr $proof)
@@ -4596,7 +4596,7 @@
    (case $key (
       ((sk-key $type $kbctx)
          (if (complete-statement? $type $kbctx)
-            (if (rule-application-proof? $rproof) (complete-statement? $rtype $rkbctx) false)
+            (if (derivation-proof? $rtype $rproof) (complete-statement? $rtype $rkbctx) false)
             false))
       ($_fold false))))
 

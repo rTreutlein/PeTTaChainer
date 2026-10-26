@@ -779,14 +779,28 @@ set holds a key is a walk pruned by each node's bitmask of key hashes
 (`dependency_tracking_design.md`). Its evidence is one interned set id too,
 the set's entries kept in the order they were added, so equal evidence is an
 equal id and set tests run over integers ([evidence_sets.md](evidence_sets.md)).
-A compound And or Or antecedent is lowered into its parts, so what a rule
-concludes from it depends on the parts' keys and never on the compound's; a
-row inverting such a rule into the compound therefore also excludes views that
+A rule reads a conjunctive antecedent conjunct by conjunct, and a compound
+conjunct, or a compound antecedent of another connective, through its key,
+whose producers derive it from its parts, as any nested compound is read
+(#142): a stored or assumed compound reaches the rule. What a rule concludes
+from it depends on the compound's key and, through the producers, on the
+parts; a row inverting such a rule into the compound also excludes views that
 depend on any of its parts. A part whose certain stored fact is its
 connective's absorbing value (a true disjunct, a false conjunct) settles the
-compound alone, through a rule variant reading only that part, whose join
-builds a row only for such a part; its view gives way to the complete step's
-when both exist (`connective_settling.md`).
+compound alone, through a producer, or for a conjunctive antecedent a rule
+variant, reading only that part, whose join builds a row only for such a
+part; its view gives way to the complete step's when both exist
+(`connective_settling.md`). A completion reads its siblings and its
+consequence inline, a compound one through its connective over its parts,
+since no producer gives such a compound a key. Known limit: a rule that
+derives a compound antecedent back from its own conclusion, as the
+bi-backward rule of `(BiImplication (Or L D) Problem)` does, reads the
+conclusion without the views that depend on the compound, so a likelihood
+update the conclusion holds reaches the compound through that rule's
+application, which the merge revises with the compound's producer view
+instead of applying it to it: .520 for the Or where it is .907
+(`test_or_inversion_conditioned_merge`; an atom antecedent `L` gives the same
+on master).
 
 The chainer is open-world: a statement with no proof is unknown. A KB may
 declare a predicate complete (`complete_predicates.md`): a rule application
@@ -797,7 +811,9 @@ is unfounded; both only once the statement's search is settled (its general
 node expanded, no rule application of it waiting on a premise not yet
 answered, nothing deferred), so a budget cut never concludes false. The pin
 cuts circular support; it is no observation, so an inversion or completion
-reading the pinned statement as its consequence gives nothing.
+reading the pinned statement as its consequence gives nothing. A connective
+with a complete part is complete too: its producer rows are its derivations,
+so a closed read of it reads its parts as a rule reading them directly would.
 
 Premises are selected by the consumer. Evidence of a certain fact, strength 0
 or 1 at confidence 1, never counts as shared: a join over it is exact either

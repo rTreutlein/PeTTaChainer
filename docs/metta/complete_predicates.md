@@ -120,6 +120,17 @@ premises in the same cycle multiply that.
   read as usual. A certain stored fact applies no rules, as before.
 - Settling. A settled join reads a part only through a certain stored fact,
   so a closed value never settles a compound; the complete row reads it.
+- Connectives. A rule reads a compound antecedent such as `(Or (S $t)
+  (M $t))` through its key (#142), so the loop above runs through the key
+  `(Or (StockedFuel t) (FuelArrived t))`. A connective with a complete part
+  is complete too (`complete-statement?`), and its producer rows, which read
+  its parts, are its derivations (`derivation-proof?`): read closed, it is its
+  producers evaluated again with the reader's conclusion pinned, which read
+  the complete part closed in turn, as the rule reading the parts directly
+  did. A part with no value leaves the producer join waiting, so the
+  connective is unsettled and the reader gets nothing, as before. With the
+  stock certain, the plant reads the Or's settled view, which does not
+  depend on the plant, rather than closing it: the same value.
 - Dormancy, prefilter. A rule application concluding a complete predicate
   is never dormant and never pruned before it starts: its join is how a
   closed read sees that a derivation exists, or that one waits on an unknown
