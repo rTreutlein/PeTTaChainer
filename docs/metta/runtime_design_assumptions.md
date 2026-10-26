@@ -1621,7 +1621,11 @@ agenda earlier runs left, and grows the backward skeleton upward from them (`run
   that premise bound. The join's other premises read the stored facts and the
   keys the skeleton already has, never expanding anything. A complete join is
   an ordinary row. Its owner is the rule's conclusion, and no node is marked
-  expanded, so a later query still starts every rule on that pattern.
+  expanded, so a later query still starts every rule on that pattern. A
+  forward join records no join digest: it never waits, so one that stopped at
+  a premise no key answered yet kept the same join, started later from that
+  premise's key, from extending (`H <- (And A M)` with `M` derived after `A`
+  was taken built no row for H); a row is kept once whichever join builds it.
 - The rows reading the taken keys, including rows that went stale, are then
   needed and evaluated by the ordinary evaluation; the need stops at those
   readers. So self-support, admitted

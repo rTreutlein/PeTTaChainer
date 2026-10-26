@@ -959,7 +959,14 @@
                       false))))
             ;; Record after this answer binds the conclusion. A thawed ground
             ;; key can then remove the digest even for an originally open join.
-            (if (let $link (sk-join-link (sk-partial $owner $rule $concl $done $remaining $keys) $registered) (sk-store-join! (link-digest $link) $waiter $concl))
+            ;; A forward run's join is not recorded: it never waits, so one
+            ;; that stops at a premise no key answers yet would keep the same
+            ;; join, started later from that premise's key, from extending,
+            ;; and its row would never be built (sk-complete-row! keeps a row
+            ;; once).
+            (if (if (== (search-id-value sk_forward_run) 1) true
+                   (let $link (sk-join-link (sk-partial $owner $rule $concl $done $remaining $keys) $registered)
+                      (sk-store-join! (link-digest $link) $waiter $concl)))
                (sk-advance!
                   (sk-partial $owner $rule $concl (cons $premise $done) $rest (cons $registered $keys)))
                ())

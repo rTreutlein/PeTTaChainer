@@ -196,3 +196,17 @@
       ((forward-derived ($_type $_kbctx $proof $tv) $_ev) ($proof $tv))
       ($other $other)))
    (pall (STV 0.5 0.9)))
+
+;; A join that stops at a premise no key answers yet does not keep the same
+;; join, started later from that premise's key, from building its row: A is
+;; taken first (its value moved furthest from none), the join of lateH stops
+;; at M, and M, derived from B, then completes it. Exact: 0.63 * 0.14 * 0.443
+;; + 0.3 * (1 - 0.14 * 0.443) = 0.3204666.
+!(compileadd latekb (: lateA (LateA k) (STV 0.14 1)))
+!(compileadd latekb (: lateB (LateB k) (STV 0.49 1)))
+!(compileadd latekb (: lateM (Implication (LateB $x) (LateM $x)) (CTV (STV 0.8 1) (STV 0.1 1))))
+!(compileadd latekb (: lateH (Implication (And (LateA $x) (LateM $x)) (LateH $x)) (CTV (STV 0.63 1) (STV 0.3 1))))
+!(test
+   (result-for (LateH k)
+      (forward-chain 1000 latekb (append-flat (test-selected-facts latekb (LateA k)) (test-selected-facts latekb (LateB k)))))
+   (((by lateH (conjunction lateA (by lateM lateB))) (STV 0.3204666 0.9999133911760584))))
