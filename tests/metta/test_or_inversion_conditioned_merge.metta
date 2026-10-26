@@ -53,6 +53,9 @@
 ;; definition's odds instead of the base rate's (prior_factored_merge.md): odds
 ;; 0.52 / 0.48 times the stated ratio 0.9 / 0.1 give 0.907. The base rate is
 ;; read from two historical cases, so the confidence falls with its variance.
+;; The OR is read through its key (#142): its own view is the parts' prior,
+;; and the certain bi-backward rule carries the inversion over Problem to it
+;; as the same update, which factors onto that prior.
 !(test
    (query 2000 orInversionConditionedMergeKb
       (: $proof
@@ -60,7 +63,7 @@
             (LocalProblem current)
             (ProblemDependency current))
          $tv))
-   (: (by (bi-backward problemDefinition) (factored-revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) (prior (STV 0.5199995299237518 0.9140621947055227)) (((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455289852 0.003629357526433342))) currentAlarm)))) (Or (LocalProblem current) (ProblemDependency current)) (STV 0.906976585290498 0.9691290850214814)))
+   (: (factored-revision (conjunction localPrior dependencyPrior) (prior (STV 0.5199995299237528 0.9140621948732192)) ((by (bi-backward problemDefinition) ((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455289852 0.003629357526433342))) currentAlarm)))) (Or (LocalProblem current) (ProblemDependency current)) (STV 0.9069765852904983 0.969129085157964)))
 
 ;; The general Problem estimate can use both the definition and the alarm.
 ;; The base rates count the whole population, including the derived alarm.
@@ -80,3 +83,20 @@
    (query 20000 orInversionConditionedMergeKb
       (: $proof (LocalProblem current) $tv))
    (: (factored-revision localPrior (prior (STV 0.4000027777006194 0.9)) (((antecedent-completion (bi-forward problemDefinition) 0 with cpu (prior (STV 0.5 0.0))) (conjunction dependencyPrior ((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455289852 0.003629357526433342))) currentAlarm))))) (LocalProblem current) (STV 0.6976768597879697 0.9110388213710066)))
+
+;; The same with an atom: Local is derived (0.52) and certainly equivalent to
+;; Problem. The bi-backward application of the alarm's inversion over Problem
+;; is the same update of Local, over the same prior, so it factors onto
+;; Local's own 0.52 as it factors onto Problem's: exact 0.907 for both. Master
+;; revised the two as independent views and kept 0.520.
+!(compileadd atomEqKb (: src (Src current) (STV 1.0 1.0)))
+!(compileadd atomEqKb (: srcRule (Implication (Src current) (Local current)) (CTV (STV 0.52 1.0) (STV 0.52 1.0))))
+!(compileadd atomEqKb (: problemDefinition (BiImplication (Local current) (Problem current)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd atomEqKb (: problemRaisesAlarm (Implication (Problem $unit) (Alarm $unit)) (CTV (STV 0.9 1.0) (STV 0.1 1.0))))
+!(compileadd atomEqKb (: currentAlarm (Alarm current) (STV 1.0 1.0)))
+!(compileadd atomEqKb (: h1Problem (Problem h1) (STV 1.0 1.0)))
+!(compileadd atomEqKb (: h2Problem (Problem h2) (STV 0.0 1.0)))
+!(test (query 2000 atomEqKb (: $proof (Local current) $tv))
+   (: (factored-revision (by srcRule src) (prior (STV 0.5199999995 0.9999000099990001)) ((by (bi-backward problemDefinition) ((inverted problemRaisesAlarm with cpu (prior (STV 0.5062495703411769 0.003735865981753913))) currentAlarm)))) (Local current) (STV 0.9069767440170363 0.9998893381888581)))
+!(test (query 2000 atomEqKb (: $proof (Problem current) $tv))
+   (: (factored-revision (by (bi-forward problemDefinition) (by srcRule src)) (prior (STV 0.5199999994999991 0.9999000097983993)) (((inverted problemRaisesAlarm with cpu (prior (STV 0.5062495703411769 0.003735865981753913))) currentAlarm))) (Problem current) (STV 0.906976744017036 0.9998893390306737)))

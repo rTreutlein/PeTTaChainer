@@ -248,12 +248,22 @@
 
 ;; A view as updates of a prior: an inversion or an antecedent completion, or
 ;; a factored merge of several, updates its prior; any other view is its own
-;; prior, updated by nothing.
+;; prior, updated by nothing. A rule of `$kb` stated as a certain equivalence,
+;; ((1, 1), (0, 1)), applied to one update is that update over the same prior:
+;; its conclusion is its premise (equivalence-rule?). So the bi-backward
+;; application of an inversion over Problem updates (Or L D) by the alarm's
+;; likelihood ratio, as it updates Problem (test_or_inversion_conditioned_merge:
+;; 0.907, not the 0.520 a revision with the parts' prior gave; the atom case
+;; was revised on master too).
 (: SkeletonPriorUpdate Type)
 (: sk-prior-update (-[det]-> Proof Proof (List Proof) SkeletonPriorUpdate))
 
-(: sk-prior-update-of (-[det]-> Proof TV SkeletonPriorUpdate))
-(= (sk-prior-update-of $proof $tv)
+(: sk-own-prior-update (-[det]-> Proof TV SkeletonPriorUpdate))
+(= (sk-own-prior-update $proof $tv)
+   (let $read (population-prior-tv $tv) (sk-prior-update $proof (brand Proof (prior $read)) ())))
+
+(: sk-prior-update-of (-[det]-> KB Proof TV SkeletonPriorUpdate))
+(= (sk-prior-update-of $kb $proof $tv)
    (case (sk-step-proof $proof) (
       (((inverted $_rule with $prior (prior $prior-tv)) $_observation)
          (sk-prior-update $prior (brand Proof (prior $prior-tv)) (cons $proof ())))
@@ -262,13 +272,19 @@
       (((reported with $prior (prior $prior-tv)) $_report)
          (sk-prior-update $prior (brand Proof (prior $prior-tv)) (cons $proof ())))
       ((factored-revision $prior $prior-tv $parts) (sk-prior-update $prior $prior-tv $parts))
-      ($_other
-         (let $read (population-prior-tv $tv)
-            (sk-prior-update $proof (brand Proof (prior $read)) ()))))))
+      ((by $rule $premise)
+         (if (head-is? $premise conjunction) (sk-own-prior-update $proof $tv)
+            (case (sk-prior-update-of $kb (brand Proof $premise) $tv) (
+               ((sk-prior-update $_own-source $_own-read ()) (sk-own-prior-update $proof $tv))
+               ((sk-prior-update $moved $moved-tv $_moved)
+                  (if (equivalence-rule? $kb (brand Proof $rule))
+                     (sk-prior-update $moved $moved-tv (cons $proof ()))
+                     (sk-own-prior-update $proof $tv)))))))
+      ($_other (sk-own-prior-update $proof $tv)))))
 
-(: instance-prior-tv (-[det]-> Proof TV TV))
-(= (instance-prior-tv $proof $tv)
-   (case (sk-prior-update-of $proof $tv) (
+(: instance-prior-tv (-[det]-> KB Proof TV TV))
+(= (instance-prior-tv $kb $proof $tv)
+   (case (sk-prior-update-of $kb $proof $tv) (
       ((sk-prior-update $_source (prior $read) ()) (the TV $read))
       ($_updated $tv))))
 
@@ -291,10 +307,10 @@
 ;; - a stage (stage-statement?, prolog/sorts.pl) gets evidence from below
 ;;   only (#122): its consequence's reports and assumptions count, a forward
 ;;   prediction does not. An aggregate keeps PLN induction and abduction.
-(: sk-observation-prior (-[semidet]-> Proof TV Bool TV))
-(= (sk-observation-prior $proof $tv $stage)
+(: sk-observation-prior (-[semidet]-> KB Proof TV Bool TV))
+(= (sk-observation-prior $kb $proof $tv $stage)
    (if (== (sk-step-proof $proof) unfounded) (empty)
-      (case (sk-prior-update-of $proof $tv) (
+      (case (sk-prior-update-of $kb $proof $tv) (
          ((sk-prior-update $_prior $_own ())
             (if $stage (if (sk-observed? $proof) no-evidence (empty)) no-evidence))
          ((sk-prior-update $_prior (prior $prior-tv) $_parts) (the TV $prior-tv))))))
@@ -409,7 +425,7 @@
 
 (: sk-evidence-view (-[semidet]-> Number $spec (List Number) SkeletonValue))
 (= (sk-evidence-view $hash $args $exclude)
-   (let* ((($_kb $ktype $ctype $kbctx) $args)
+   (let* ((($kb $ktype $ctype $kbctx) $args)
           ($compound (sk-key $ktype $kbctx))
           ($_use (sk-add-use! $compound (sk-evidence $args)))
           ($apart (hash-set (foldr-flat (sk-part-exclusions (the KBContext $kbctx)) $exclude
@@ -418,7 +434,7 @@
          sk-none
          (case (sk-premise-value false (sk-value $compound sk-any-filter $apart)) (
             ((sk-val ($_type $_kbctx $proof $tv) $ev $deps)
-               (case (collapse (once (sk-observation-prior (the Proof $proof) (the TV $tv) false))) (
+               (case (collapse (once (sk-observation-prior (brand KB $kb) (the Proof $proof) (the TV $tv) false))) (
                   ((cons $formed ())
                      (sk-goal-val (CPU CompoundEvidence $args (key-evidence $tv $formed))
                         $proof $ev (deps-join (cons (deps-key $hash) (cons $deps ())))))
@@ -613,7 +629,7 @@
       (if (if $independent (if (sk-report-proof? $proof-b) (sk-report-prior? $proof-a) false) false)
          (sk-report-merge (data $btype $bkbctx $proof-b $tv-b) $ev-b $deps-b
             (data $type $kbctx $proof-a $tv-a) $ev-a $deps-a)
-         (case (data (sk-prior-update-of $proof-a $tv-a) (sk-prior-update-of $proof-b $tv-b) $tv-a $tv-b) (
+         (case (let $kb (brand KB (car-atom $kbctx)) (data (sk-prior-update-of $kb $proof-a $tv-a) (sk-prior-update-of $kb $proof-b $tv-b) $tv-a $tv-b)) (
             (((sk-prior-update $base-a (prior (STV $spa $cpa)) $parts-a)
               (sk-prior-update $base-b (prior (STV $spb $cpb)) $parts-b)
               (STV $sa $ca) (STV $sb $cb))
@@ -1633,8 +1649,8 @@
    (if $found true (not (== (sk-shared-hash-step $ignore () $hash) ()))))
 
 (: sk-updates? (-[semidet]-> SkeletonValue Bool))
-(= (sk-updates? (sk-val ($_type $_ctx $proof $tv) $_ev $_deps))
-   (case (sk-prior-update-of $proof $tv) (((sk-prior-update $_prior $_own ()) false) ($_update true))))
+(= (sk-updates? (sk-val ($_type $ctx $proof $tv) $_ev $_deps))
+   (case (sk-prior-update-of (brand KB (car-atom $ctx)) $proof $tv) (((sk-prior-update $_prior $_own ()) false) ($_update true))))
 
 ;; The merge of two connected views, or sk-none for views apart. The second's
 ;; dependencies and evidence are those of its whole component.
@@ -4467,7 +4483,7 @@
                    (case $value-tv (
                       ((STV $s $_c)
                          (if (<= $s 0)
-                            (case (sk-prior-update-of $applied $value-tv) (
+                            (case (sk-prior-update-of (brand KB (car-atom $kbctx)) $applied $value-tv) (
                                ((sk-prior-update $_base $_prior ()) false)
                                ($_update (fold-semidet sk-zero-likelihood-step false $premises)))) false))
                       ($_other false)))))

@@ -309,6 +309,31 @@
 (: &deterministic_rules (SpaceOf (Proof KB)))
 !(bind! &deterministic_rules (new-space))
 
+;; Rules stated as a certain equivalence, ((1, 1), (0, 1)), over one
+;; statement, by their proof name as their applications carry it, such as
+;; (bi-backward name): the conclusion is the premise, so an application of one
+;; update is that update (sk-prior-update-of). A rule named no_inverse
+;; declares its conclusion no observation of its premise, and a refined rule
+;; holds by its learned truth: neither is one (the conflict benchmark's claims
+;; run from a source-wide reliability to each claimed node, no_inverse).
+(: &equivalence_rules (SpaceOf (Proof KB)))
+!(bind! &equivalence_rules (new-space))
+
+(: equivalence-rule? (-[det]-> KB Proof Bool))
+(= (equivalence-rule? $kb $prf) (not (== (collapse (once (match &equivalence_rules ($prf $kb) true))) ())))
+
+(: register-equivalence-rule! (-[det]-> KB Proof TV Statement Atom))
+(= (register-equivalence-rule! $kb $prf $tv $antecedent)
+   (if (head-is? $prf no_inverse) ()
+      (if (if (== (extract-vars $tv) ()) (== (cdr-atom (implication-side-conjuncts $antecedent)) ()) false)
+         (case $tv (
+            ((CTV (STV $ps $pc) (STV $ns $nc))
+               (if (if (>= $ps 1.0) (if (>= $pc 1.0) (if (<= $ns 0.0) (>= $nc 1.0) false) false) false)
+                  (if (equivalence-rule? $kb $prf) () (let $_added (add-atom &equivalence_rules ($prf $kb)) ()))
+                  ()))
+            ($_other ())))
+         ())))
+
 (: deterministic-rule? (-[det]-> KB Proof Bool))
 (= (deterministic-rule? $kbid $name) (not (== (collapse (once (match &deterministic_rules ($name $kbid) true))) ())))
 
@@ -702,7 +727,7 @@
                       (append-goals $estimate
                          (append-goals (stage-goals $kb $key ($a $b) $stage)
                             (the (List Goal)
-                               ((CPU sk-observation-prior (quote ($prfb_wit $btv_wit $stage)) $obs-prior)
+                               ((CPU sk-observation-prior (quote ($kb $prfb_wit $btv_wit $stage)) $obs-prior)
                                 (CPU ObservationRatioFormula (quote ($btv_wit $obs-prior $atv $iitv)) $obs-tv)
                                 (CPU CTVModusPonensFormula (quote ($obs-tv $iitv)) $mp-tv)))))))))
           (($polarity $key-tv $key-prior)
@@ -751,7 +776,7 @@
           (if $population
              (prior-base-rate-premises $kb $a-rate-pattern $_raw-prior $atv)
              (cons (: $kc $prior-prf (brand Statement $prior) $raw-atv)
-                ((CPU instance-prior-tv (quote ($prior-prf $raw-atv)) $atv)))))
+                ((CPU instance-prior-tv (quote ($kb $prior-prf $raw-atv)) $atv)))))
        (($ctv-execs $rule-ctv $rule-likelihoods)
           (compile-implication-ctv-execs $kb $params $a $b $tv $value true))
        (($read-goals $read-likelihoods)
@@ -847,7 +872,7 @@
                                       (CPU CTVBayesFormula
                                          (quote ($target-prior $likelihood-read)) $completion-ctv)
                                       (CPU sk-observation-prior
-                                         (quote ($consequent-proof $consequent-tv $stage))
+                                         (quote ($kb $consequent-proof $consequent-tv $stage))
                                          $consequent-prior)
                                       (CPU ObservationRatioFormula
                                          (quote ($consequent-tv $consequent-prior $target-prior $completion-ctv))
@@ -1269,7 +1294,8 @@
                           ($_negative (if $ctv? (add-atom &rule_truth_shapes ($kb (RuleTruth (Implication $a-opposite $b)))) ())))
                       ())
                    ()))
-             ($value (if $refine? $truth-tv $tv)))
+             ($value (if $refine? $truth-tv $tv))
+             ($_equivalence (if $refine? () (register-equivalence-rule! $kb $prf $tv $a))))
             (superpose (
                ;; Stated positive judgments stay private. A CTV is already
                ;; executable rule storage in MAIN; an STV's full CTV reads its

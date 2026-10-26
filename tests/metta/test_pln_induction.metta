@@ -45,7 +45,7 @@
 !(test (query 2000 selfKb (: $p (Produced now) $tv))
    (: (by rule (conjunction service (negated degraded-prior))) (Produced now) (STV 0.75 0.8999999994868244)))
 !(test (query 2000 selfKb (: $p (Degraded now) $tv)) (: degraded-prior (Degraded now) (STV 0.25 0.9)))
-!(test (sk-observation-prior (brand Proof unfounded) (STV 0 1) false) ())
+!(test (sk-observation-prior (brand KB selfKb) (brand Proof unfounded) (STV 0 1) false) ())
 
 ;; Also exercise a materialized forward prediction: its evidence and dependency
 ;; identities survive storage, so it still cannot feed back into Degraded.

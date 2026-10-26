@@ -667,6 +667,12 @@ A key's value merges its stored facts and one view per row:
   lookups. An undeclared KB has no stages and skips the check. A row's kind
   is fixed when the row is first built: a constant sorted later leaves it an
   aggregate, through re-evaluation and forward chaining alike (D1, #145);
+- a rule stated as a certain equivalence, `((1, 1), (0, 1))`, applied to one
+  inversion or completion is that update over the same prior, since its
+  conclusion is its premise: with `(BiImplication L Problem)` and an alarm's
+  inversion over Problem, L's own view takes the prior's place as Problem's
+  does, 0.907 for both, where a revision with the bi-backward application kept
+  0.520 (`test_or_inversion_conditioned_merge`, for `(Or ...)` and an atom L);
 - inversions and antecedent completions over one prior through different
   observations combine by Bayes' rule (a completion observes its consequence;
   a sibling it reads as certain, alone or inside the compound of the other
@@ -797,15 +803,7 @@ variant, reading only that part, whose join builds a row only for such a
 part; its view gives way to the complete step's when both exist
 (`connective_settling.md`). A completion reads its siblings and its
 consequence inline, a compound one through its connective over its parts,
-since no producer gives such a compound a key. Known limit: a rule that
-derives a compound antecedent back from its own conclusion, as the
-bi-backward rule of `(BiImplication (Or L D) Problem)` does, reads the
-conclusion without the views that depend on the compound, so a likelihood
-update the conclusion holds reaches the compound through that rule's
-application, which the merge revises with the compound's producer view
-instead of applying it to it: .520 for the Or where it is .907
-(`test_or_inversion_conditioned_merge`; an atom antecedent `L` gives the same
-on master).
+since no producer gives such a compound a key.
 
 The chainer is open-world: a statement with no proof is unknown. A KB may
 declare a predicate complete (`complete_predicates.md`): a rule application
