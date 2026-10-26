@@ -78,7 +78,7 @@ launching many `capped` children should pass a stable `--label` to each child
 memory peaks.
 
 ```bash
-/nexus/Dev/OpenCog/bench/compare.sh <base> <candidate> [--quick|--full] [--timing|--no-timing]
+/nexus/Dev/OpenCog/bench/compare.sh <base> <candidate> [--quick|--full|--nightly] [--timing|--no-timing] [--no-fail-fast]
 /nexus/Dev/OpenCog/bench/compare.sh <base> <candidate> --curves [--only <case>]
 ```
 
@@ -86,8 +86,19 @@ memory peaks.
   a frozen build name under `bench/chainers/`, or a worktree path. A worktree
   counts as its HEAD plus its uncommitted diff and its untracked files under
   `pettachainer/` and `third_party/`.
-- `--quick` (default, about 75 s: one point per behaviour) while iterating. Run `--full` (about 3 min: each behaviour as a budget curve, plus the ProbLog fuzzer gate) before hand-back.
+- `--quick` (default, about 75 s: one point per behaviour) while iterating. Run `--full` (about 3 min, under a minute to a first regression; with `BENCH_TIMING_FULL=1` about 20 min for two new builds: each behaviour as a budget curve, plus the ProbLog fuzzer gate) before hand-back.
+  `--nightly` adds the cases `--full`'s history shows add no catch of their own.
   `bench/README.md` lists what each profile runs and how long it takes.
+- Cases run riskiest first (the most catching in past comparisons, then the
+  cheapest), and a comparison stops at its first confirmed regression: an
+  accuracy flag, a failed run, or a timing flag its paired rerun repeats.
+  Its verdict then reads `PARTIAL RUN, REGRESSIONS (n): ...` and the report
+  names the cases it did not judge; `--no-fail-fast` runs them all (to see
+  every flag before asking for an approval). A PASS is always a complete run.
+- `--full`, `--nightly` and `--curves` run one at a time on the machine:
+  one that has runs to do waits for the comparison ahead of it, printing
+  its place in the queue (landings first), so concurrent comparisons do not
+  slow each other down. A comparison whose results are all stored never waits.
 - **Results are stored by the code that ran.** The store key is the tree of
   `pettachainer/` and `third_party/` (uncommitted changes included), the PeTTa runtime, the
   ChainerGame source and the case. A run whose key is stored is never
@@ -303,8 +314,9 @@ passed:
    says `PASS` (printing the summary either way): `compare.sh anchor
    <rebased> --canary`, the presentation workloads against the pinned anchor
    build (bench `anchor.txt`, README "Canary and anchor"), first because it
-   takes a few minutes; `compare.sh master <rebased> --full`; and `compare.sh
-   anchor <rebased> --full`, which reuses the candidate's runs. Against the
+   takes a few minutes; `compare.sh master <rebased> --full --no-fail-fast`,
+   every case even past a regression, so the report lists every flag; and
+   `compare.sh anchor <rebased> --full`, which reuses the candidate's runs. Against the
    anchor seconds may be 15% worse per case, flags read
    `<metric> vs anchor`, and a case the anchor cannot run is not compared.
    While master is behind the anchor, an anchor flag blocks only where the
@@ -363,8 +375,11 @@ scripts/land.sh <branch> --accept-flags approved-flags.tsv --clean --push
   load, wherever it ran (bench README "Verdicts"). So an agent's
   `BENCH_TIMING_FULL=1 compare.sh master <worktree> --full` serves the
   landing's comparison with master, as long as neither side's tree changed.
-  A flagged or untrusted verdict is never reused; the comparison then runs,
-  with store reuse as always. A reused report goes through the same
+  A fail-fast agent run that passes ran every case, so its PASS serves too.
+  A flagged, partial or untrusted verdict is never reused; the comparison then runs,
+  with store reuse as always: every result is stored, so only the paired
+  reruns that confirm its timing flags execute (3-16 s on the landings of
+  Oct 25-26, against 0 s for a reused verdict). A reused report goes through the same
   acceptance check, so `--accept-flags` works as before.
 - Before landing, `land.sh` prints `reused: ...` (verify with its record,
   each reused comparison with its verdict key, date and report) and `ran:

@@ -336,7 +336,9 @@ PY_FLAGS
 # An anchor flag blocks only where the candidate is also worse than master.
 master_sha=$(git -C "$main" rev-parse master)
 bench anchor-canary anchor "$rebased" --canary --master "$master_sha"
-bench compare master "$rebased" --full
+# Every case, past the first regression: a landing's report lists all its
+# flags, and its approvals must name every one.
+bench compare master "$rebased" --full --no-fail-fast
 # Against the anchor and master the runs above are reused.
 bench anchor-full anchor "$rebased" --full --master "$master_sha"
 cat "$logs/accepted-flags.log"

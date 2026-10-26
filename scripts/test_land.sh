@@ -26,6 +26,7 @@ EOF
 cat >"$tmp/stubs/compare" <<'EOF'
 #!/usr/bin/env bash
 printf '%s %s\n' "$1" "$3" >>"$LAND_TEST_DIR/compare-calls"
+printf '%s\n' "$*" >>"$LAND_TEST_DIR/compare-args"
 dir=$(mktemp -d "$LAND_TEST_DIR/report.XXXXXX")
 printf 'summary for %s\nThresholds:\n' "$2" >"$dir/report.md"
 if [[ $1 == anchor && -n ${LAND_TEST_ANCHOR_REPORT:-} ]]; then
@@ -414,7 +415,9 @@ PY_REPORT
     cannot-run|approved)
       expect_status 0
       expect_retired "$wt" "$pc" feat
-      [[ $(cat "$tmp/compare-calls") == $'anchor --canary\nmaster --full\nanchor --full' ]] || fail "comparisons: $(cat "$tmp/compare-calls")" ;;
+      [[ $(cat "$tmp/compare-calls") == $'anchor --canary\nmaster --full\nanchor --full' ]] || fail "comparisons: $(cat "$tmp/compare-calls")"
+      # The comparison with master runs every case: no fail-fast partial run.
+      grep -q '^master [0-9a-f]* --full --no-fail-fast$' "$tmp/compare-args" || fail "master --full arguments: $(cat "$tmp/compare-args")" ;;
     *) expect_status 1
        expect_master "$master" ;;
   esac
