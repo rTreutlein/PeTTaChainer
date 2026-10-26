@@ -87,6 +87,24 @@ heap_pop(Heap, [Priority, Value, Rest]) :-
     ;   Id = Next
     ).
 
+% A term with the constant arguments of its atoms replaced by variables, one
+% per constant, so the samples of one link share one pattern; heads and
+% numbers stay.
+'generalize-constants'(Term, General) :-
+    generalize_constants(Term, General, [], _).
+
+generalize_constants(Term, Term, Seen, Seen) :- var(Term), !.
+generalize_constants([Head|Args], [Head|GArgs], Seen0, Seen) :- atom(Head), !,
+    foldl(generalize_argument, Args, GArgs, Seen0, Seen).
+generalize_constants(Terms, General, Seen0, Seen) :- is_list(Terms), !,
+    foldl(generalize_constants, Terms, General, Seen0, Seen).
+generalize_constants(Term, Term, Seen, Seen).
+
+generalize_argument(Arg, General, Seen0, Seen) :-
+    (   atom(Arg)
+    ->  ( memberchk(Arg-Var, Seen0) -> General = Var, Seen = Seen0 ; Seen = [Arg-General|Seen0] )
+    ;   generalize_constants(Arg, General, Seen0, Seen) ).
+
 % Hash a lookup column with every variable replaced by one marker, so a row
 % keeps an integer SWI can JIT-index; =alpha on the stored key still decides.
 'index-hash'(Term, Hash) :-
@@ -2896,7 +2914,7 @@ pw_drop_rep(R) :-
 % Disconnected parts range over a Cartesian product. A separate joint rate
 % would contradict that model; reject it rather than silently ignoring it.
 'validate-base-rate!'(Pattern, Parts, TV, true) :-
-    ( rate_class_link(Pattern)
+    ( 'member-canon'(Pattern, Canonical), rate_class_link(Canonical)
     -> throw(error(domain_error(base_rate_class_link, Pattern),
                    context('set-base-rate'/3, 'a class link is a rule, no population: rate a class membership as (Member $x Class)')))
     ; true ),
@@ -2909,10 +2927,11 @@ pw_drop_rep(R) :-
                    context('set-base-rate'/3, 'set a rate for each connected part')))
     ; true ).
 
-% A rate pattern stating a class link, at its top or under a connective.
+% A canonical rate pattern stating a class link, (Inheritance A B) in any of
+% its spellings, at its top or under a connective.
 rate_class_link(Pattern) :-
     nonvar(Pattern), Pattern = [Head|Args],
-    (   Head == 'Inheritance' -> true
+    (   Head == 'Implication' -> Args = [A, B], 'class-link?'(A, B, true)
     ;   memberchk(Head, ['And', 'Or', 'Not']), member(Arg, Args), rate_class_link(Arg) ), !.
 
 % A view's evidence as its readers inherit it: the role in which the view read

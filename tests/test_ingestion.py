@@ -40,8 +40,10 @@ class TestIngestion(unittest.TestCase):
     def test_base_rate_of_a_class_link_is_rejected(self):
         # A class link is a rule, no population; a class's rate is its
         # membership's.
-        for pattern in ('(Inheritance $x Cat)', '(Not (Inheritance $x Cat))',
-                        '(And (Inheritance $x Cat) (P $x))'):
+        for pattern in ('(Inheritance Dog Cat)', '(Not (Inheritance Dog Cat))',
+                        '(And (Inheritance Dog Cat) (P $x))',
+                        '(Implication (Member $x Dog) (Member $x Cat))',
+                        '(Implication (Dog $x) (Cat $x))'):
             with self.subTest(pattern=pattern), self.assertRaisesRegex(
                     janus.PrologError, 'base_rate_class_link'):
                 self.h._call('set-base-rate', [f'{self.h.kb} {pattern} (STV 0.5 0.9)'])

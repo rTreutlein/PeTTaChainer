@@ -150,3 +150,28 @@
 !(test
    (query 5 derivedCopyUnregisteredKb (: $proof (Inheritance Human Mortal) $tv))
    (: (implication-instance-fold cpu) (Inheritance Human Mortal) (STV 0.5999733368850825 0.0037357419513899073)))
+
+;; A forward copy derived through the link's own stated rule is left out of
+;; the link's samples; the sample is then still to be computed, not read from
+;; the stored facts alone, which would drop c's Mortal from sp. At budget 1 c's
+;; sample waits for its search and the fold holds a and b; at budget 500 it
+;; answers as a cold KB does.
+!(compileadd excludedCopyKb (: hm (Inheritance Human Mortal) (STV 0.9 0.5)))
+!(compileadd excludedCopyKb (: sp (Implication (Special $x) (Member $x Mortal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd excludedCopyKb (: ah (Member a Human) (STV 1.0 1.0)))
+!(compileadd excludedCopyKb (: am (Member a Mortal) (STV 0.8 1.0)))
+!(compileadd excludedCopyKb (: bh (Member b Human) (STV 1.0 1.0)))
+!(compileadd excludedCopyKb (: bm (Member b Mortal) (STV 0.0 1.0)))
+!(query 0 excludedCopyKb (: $p (Inheritance Human Mortal) $tv))
+!(compileadd excludedCopyKb (: ch (Member c Human) (STV 1.0 1.0)))
+!(compileadd excludedCopyKb (: cs (Special c) (STV 1.0 1.0)))
+!(forward-chain 50 excludedCopyKb
+   (collapse (match &kb ((Human c) (excludedCopyKb MAIN Nil) $p $tv) (assemble-stored-runtime-fact (Human c) (excludedCopyKb MAIN Nil) $p $tv))))
+!(forward-chain 50 excludedCopyKb
+   (collapse (match &kb ((Special c) (excludedCopyKb MAIN Nil) $p $tv) (assemble-stored-runtime-fact (Special c) (excludedCopyKb MAIN Nil) $p $tv))))
+!(test
+   (query 1 excludedCopyKb (: $p (Inheritance Human Mortal) $tv))
+   (: (merge/revision hm (implication-instance-fold cpu)) (Inheritance Human Mortal) (STV 0.8987531172069825 0.5006242197253433)))
+!(test
+   (query 500 excludedCopyKb (: $p (Inheritance Human Mortal) $tv))
+   (: (merge/revision hm (implication-instance-fold cpu)) (Inheritance Human Mortal) (STV 0.8988791778080661 0.5009356832233829)))

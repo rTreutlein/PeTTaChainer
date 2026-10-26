@@ -1674,6 +1674,7 @@
       (($type $kbctx $proof $tv)
          (let* (($_special
                    (if (> $depth 0) (inject-special-subgoal-query-adds temp $type $kbctx $proof $tv) ()))
+                ($_links (install-class-link-rules! $type $kbctx))
                 ($_activate (sk-activate-pending!))
                 ($_mark (sk-mark-expanded! $hash $node))
                 ($_seeds (context-answer-seeds! $node))

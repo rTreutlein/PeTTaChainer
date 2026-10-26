@@ -205,6 +205,10 @@
 (: &ctx_sk_instance_sig (SpaceOf (Number Number Number)))
 !(bind! &sk_instance_sig (new-space))
 (: &sk_instance_read (SpaceOf (Number Number Number SkeletonKey)))
+;; the rules a link's samples leave out (sk-sample-exclusions), by link and
+;; rule-id epoch
+(: &sk_sample_exclusions (SpaceOf (Number Atom Atom (List Evidence))))
+!(bind! &sk_sample_exclusions (new-space))
 (: &ctx_sk_instance_read (SpaceOf (Number Number Number SkeletonKey)))
 !(bind! &sk_instance_read (new-space))
 (: SourceList (Newtype Atom))

@@ -264,7 +264,7 @@ witness moves support from that residual into the enumerated disjunction.
 | `(set-bidirectional-implication-form $head)` | Mark `$head` as a bidirectional-implication rule form. |
 | `(mark-logic-rule $name)` | Mark `$name` as a logic (structural) rule, excluded from rule-application evidence. |
 | `(set-specializing-predicate $head)` | Resolve premises headed by `$head` at add-time: a rule premise like `(Symmetric $r)` is ground against stored facts, emitting one concrete-headed rule per matching fact instead of a single variable-headed rule. See below. |
-| `(register-inheritance-induction! $kb)` | No-op retained for callers; a class link `(Inheritance A B)` is the implication `(A $x) -> (B $x)`, estimated by every ground query of it. |
+| `(register-inheritance-induction! $kb)` | No-op retained for callers; a class link `(Inheritance A B)` is the implication `(A $x) -> (B $x)`, estimated by every ground query of it. Limits: a budget-0 query of a link no query has searched answers nothing (budget 1 suffices); an existential over a link, `(Exists ($y) (Inheritance $y A))`, answers nothing; an open link query also answers the identity `(Inheritance $x $x)` and an instance fold over every class (pettachainer/LANGUAGE_SPEC.md, "Inheritance is the implication between two classes"). |
 
 ### Specializing predicates
 

@@ -6,9 +6,16 @@
 % Concept only exclude a constant from being a stage (D2); Value positions
 % sort nothing. A KB that declares no sorts and no time has no stages: the
 % declarations set sorted_kb, and nothing is walked without it.
-:- dynamic sorted_kb/1, argument_sort/4, constant_sort/3, time_layer/4, stage_position/3.
+:- dynamic sorted_kb/1, argument_sort/4, constant_sort/3, time_layer/4, stage_position/3,
+           constant_position/4.
 
-'sorted-kb!'(KB, true) :- ( sorted_kb(KB) -> true ; assertz(sorted_kb(KB)) ).
+% A KB's first declaration records the positions of the constants it already
+% stores, once; later sources record their own (record-source-sorts!).
+'sorted-kb!'(KB, true) :-
+    (   sorted_kb(KB) -> true
+    ;   assertz(sorted_kb(KB)),
+        forall(catch('&kb'(Type, [KB|_], _, _), error(existence_error(procedure, _), _), fail),
+               record_positions(KB, Type)) ).
 
 'set-argument-sorts'(KB, Head, Sorts, true) :-
     'declared-head!'(Head, true),
@@ -34,8 +41,7 @@
 
 'set-constant-sort'(KB, Constant, Sort, true) :-
     (   atom(Constant), memberchk(Sort, ['Stage','Time','Object','Concept'])
-    ->  'sorted-kb!'(KB, true), record_sorts(KB, [Constant-Sort]),
-        forall(( memberchk(Sort, ['Stage', 'Time']), catch('&kb'(Type, [KB|_], _, _), error(existence_error(procedure, _), _), fail) ), note_stage_positions(KB, Type))
+    ->  'sorted-kb!'(KB, true), record_sorts(KB, [Constant-Sort])
     ;   throw(error(domain_error(constant_sort, [Constant, Sort]),
                     context(declaration/2, 'a constant sort names a symbol and one of Stage, Time, Object or Concept'))) ).
 
@@ -69,7 +75,7 @@
         pairs_keys_values(Found, Copies, Pairs),
         maplist(=(Statement), Copies),
         record_sorts(KB, Pairs),
-        note_stage_positions(KB, Statement)
+        record_positions(KB, Statement)
     ;   true ).
 
 record_sorts(KB, Pairs) :-
@@ -83,7 +89,10 @@ record_sorts(KB, Pairs) :-
                            context(sorts/2, 'a term is a stage or time, or an object or concept, never both')))
            ;   true )),
     forall(( member(Term-Sort, Pairs), atom(Term), \+ constant_sort(Term, KB, Sort) ),
-           assertz(constant_sort(Term, KB, Sort))).
+           (   assertz(constant_sort(Term, KB, Sort)),
+               (   memberchk(Sort, ['Stage', 'Time'])
+               ->  forall(constant_position(Term, KB, Head, Position), mark_stage_position(Head, KB, Position))
+               ;   true ) )).
 
 % The terms at declared positions of a canonical source's statements, with
 % their positions' sorts. Arguments are data: nothing is read inside them.
@@ -126,13 +135,19 @@ stage_capable(Head, KB, Position) :-
     (   argument_sort(Head, KB, Position, Sort), memberchk(Sort, ['Stage', 'Time']) -> true
     ;   stage_position(Head, KB, Position) ).
 
-% The positions where a Stage or Time constant was stated, as its sources are
-% recorded (record-source-sorts!) or its sort is declared after them.
-note_stage_positions(KB, Statement) :-
-    forall(( source_atom(Statement, [Head|Args]), atom(Head), nth1(Position, Args, Arg), atom(Arg),
-             constant_sort(Arg, KB, Sort), memberchk(Sort, ['Stage', 'Time']),
-             \+ stage_position(Head, KB, Position) ),
-           assertz(stage_position(Head, KB, Position))).
+% The positions each constant of a sorted KB was stated at, indexed by the
+% constant, and the positions where a Stage or Time constant was: one a
+% constant takes when its sort becomes Stage or Time (record_sorts), or a
+% stage constant takes when stated. A declaration costs the constant's own
+% positions, never a scan of the KB.
+record_positions(KB, Statement) :-
+    forall(( source_atom(Statement, [Head|Args]), atom(Head), nth1(Position, Args, Arg), atom(Arg) ),
+           (   ( constant_position(Arg, KB, Head, Position) -> true ; assertz(constant_position(Arg, KB, Head, Position)) ),
+               (   constant_sort(Arg, KB, Sort), memberchk(Sort, ['Stage', 'Time'])
+               ->  mark_stage_position(Head, KB, Position) ; true ) )).
+
+mark_stage_position(Head, KB, Position) :-
+    ( stage_position(Head, KB, Position) -> true ; assertz(stage_position(Head, KB, Position)) ).
 
 % Whether A -> B is a class link: (Sub X) -> (Super X), two classes of one
 % variable.

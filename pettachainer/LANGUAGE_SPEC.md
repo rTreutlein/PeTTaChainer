@@ -190,8 +190,17 @@ Human, through Bayes' rule over the base rates.
   no answer, as an existential over any implication does: its witnesses are
   not judged, though the identity link `(Inheritance Animal Animal)` answers
   (1, 1) as a query of its own.
-- A base rate is a population's: `set-base-rate` on a pattern stating a link
-  raises `domain_error(base_rate_class_link, ...)`; rate `(Member $x A)`.
+- A base rate is a population's: `set-base-rate` on a pattern stating a link,
+  in any spelling (`(Inheritance A B)`, `(Implication (Member $x A) (Member $x
+  B))`, `(Implication (A $x) (B $x))`), raises
+  `domain_error(base_rate_class_link, ...)`; rate `(Member $x A)`.
+- A link read as a compound's part, `(And (Inheritance A B) ...)`, answers as
+  the link itself does, on a cold KB too.
+- Through a stated link, a member's conclusion is less confident than a
+  certain negative branch would make it: `(Member Sam Raven)` at (.99, .9) and
+  links at (.99, .9) give `(Member Sam flies)` (.983, .479). The 1% of Sam that
+  may be no raven has an unknown value, which bounds the confidence; this is
+  intended.
 
 ### Estimating a link from members
 
@@ -213,7 +222,8 @@ evidence, and there is no closed-world population size to declare. A class
 link whose members are no stages is stationary, so its estimate is the plain
 frequency of its samples, whatever order they arrive in (see the regimes of
 refined rules below).
-Once a ground link query has registered the link, each class fact stored or
+A link query at budget 0 on a link no query has searched yet answers nothing;
+budget 1 suffices. Once a ground link query has registered the link, each class fact stored or
 taken by a forward run marks its subject's sample, and the next query reading
 the link takes the marked samples, whatever its budget: a registration at
 budget 0 followed by facts and a forward run answers the exact frequency at

@@ -2498,9 +2498,34 @@
       ((cons $found $_rest) $found)
       (() (instance-regimes (instance-hazard (brand KB $kb) $fold) 1 () ())))))
 
-;; A stationary rule, one whose variables range over objects or concepts, such
-;; as a class link, keeps one regime: its estimate is exact, whatever order
-;; its samples arrive in. A rule over stages has the KB's hazard.
+;; A rule's hazard can change while its tally stands: a head of the rule gains
+;; a stage position after its samples were taken (a Stage constant sort
+;; declared, or first stated there). The tally is then dropped and every
+;; member it held is taken again, in the order it was first taken, under the
+;; rule's hazard now (instance-hazard).
+(: sk-instance-rehazard! (-[det]-> Number SkeletonKey Atom Atom))
+(= (sk-instance-rehazard! $hash $fold $kb)
+   (case (collapse (once (match &ctx_sk_instance_tally ($hash $stored (instance-regimes $hazard $_next $_pos $_neg))
+            (if (=alpha $stored $fold) $hazard (empty))))) (
+      ((cons $hazard $_rest)
+         (if (== $hazard (instance-hazard (brand KB $kb) $fold)) ()
+            (let* (($members (collapse (match &ctx_sk_instance_member ($_mh $hash $member $_pseg $_nseg $_contrib) $member)))
+                   ($_tally (remove-data-rows! &sk_instance_tally (quote ($hash $_tf $_ta))))
+                   ($_member (remove-data-rows! &sk_instance_member (quote ($_mmh $hash $_mm $_mp $_mn $_mc))))
+                   ($_regime (remove-data-rows! &sk_instance_regime (quote ($hash $_rs $_rt))))
+                   ($_digest (remove-data-rows! &sk_instance_digest (quote ($hash $_dd))))
+                   ($_sig (remove-data-rows! &sk_instance_sig (quote ($_smh $hash $_ss))))
+                   ($_read (remove-data-rows! &sk_instance_read (quote ($_rr $hash $_rmh $_rmm)))))
+               (fold-flat (sk-rate-dirty-step $fold) () $members))))
+      (() ()))))
+
+(: sk-rate-dirty-step (-[det]-> SkeletonKey Atom SkeletonKey Atom))
+(= (sk-rate-dirty-step $fold $_acc $member) (sk-rate-dirty! $fold $member))
+
+;; A stationary rule, one no variable of which can bind a stage
+;; (stationary-rule?, prolog/sorts.pl), keeps one regime: its estimate is the
+;; plain frequency of its samples, whatever order they arrive in. A rule one
+;; of whose variables can bind a stage has the KB's hazard.
 (: instance-hazard (-[det]-> KB SkeletonKey Number))
 (= (instance-hazard $kb $fold)
    (case $fold (
@@ -2535,20 +2560,23 @@
 ;; A member with no value whose rows are still to be computed is left to take:
 ;; the evaluation needs it and checks the fold again (sk-instance-checks!). A
 ;; member no search built, a class-link sample its subject's facts marked
-;; (fa-class-link-dirty!), is read from its two sides' stored values.
+;; (fa-class-link-dirty!), is read from its two sides' stored values; one a
+;; side of which only a run's left-out copy holds is still to be computed.
 (: sk-instance-take-step (-[semidet]-> Number SkeletonKey ScalarFoldSpec SkeletonFilter Atom SkeletonKey Atom))
 (= (sk-instance-take-step $hash $fold $args $filter $_acc $member)
    (let $value (sk-value $member $filter (cons $hash ()))
       (if (== $value sk-none)
-         (if (sk-member-pending? $member)
-            (if (space-row-present? &ctx_sk_instance_changed ($hash $_stored)) () (context-add! &sk_instance_changed ($hash $fold)))
-            (sk-instance-take-value! $hash $fold $args $member (sk-stored-sample $member)))
+         (case (if (sk-member-pending? $member) (sk-waiting sk-none) (sk-stored-sample $member)) (
+            ((sk-waiting $_none)
+               (if (space-row-present? &ctx_sk_instance_changed ($hash $_stored)) () (context-add! &sk_instance_changed ($hash $fold))))
+            ($stored (sk-instance-take-value! $hash $fold $args $member (the SkeletonValue $stored)))))
          (sk-instance-take-value! $hash $fold $args $member $value))))
 
 ;; A class-link sample of its two sides' stored values, when both have one: a
-;; side's stored facts, merged, or a forward run's copy of its value unless
-;; that was derived through a rule the sample leaves out (sk-sample-exclusions).
-(: sk-stored-sample (-[semidet]-> SkeletonKey SkeletonValue))
+;; side's stored facts, merged, or a forward run's copy of its value. A copy
+;; derived through a rule the sample leaves out (sk-sample-exclusions) holds
+;; more than the facts, so the sample is still to be computed.
+(: sk-stored-sample (-[semidet]-> SkeletonKey (| SkeletonValue SkeletonWaitingAnswer)))
 (= (sk-stored-sample $member)
    (case $member (
       ((sk-key (ImplicationInstanceSample $a $b $_atv $_btv) $kbctx)
@@ -2560,17 +2588,20 @@
                      (assemble-runtime-fact (ImplicationInstanceSample $a $b $atv $btv) $kbctx
                         (implication-instance-sample (fact-source $aev $aprf) (fact-source $bev $bprf)) (STV 1.0 1.0))
                      (evidence-join (cons $aev (cons $bev ()))) 0))
+               (((sk-waiting $_wa) $_b) (sk-waiting sk-none))
+               (($_a (sk-waiting $_wb)) (sk-waiting sk-none))
                ($_missing sk-none))))
             sk-none))
       ($_other sk-none))))
 
 ;; A side's stored value: a forward run's copy of the key's value, which
-;; holds its stored facts as well, else the stored facts merged.
-(: sk-stored-side (-[det]-> Atom KBContext EvidenceSet (| ForwardDerived NoForwardOutputCandidate)))
+;; holds its stored facts as well, else the stored facts merged; a copy left
+;; out is waiting.
+(: sk-stored-side (-[det]-> Atom KBContext EvidenceSet (| ForwardDerived NoForwardOutputCandidate SkeletonWaitingAnswer)))
 (= (sk-stored-side $side $kbctx $excluded)
    (let $hash (index-hash (sk-key $side $kbctx))
       (case (collapse (once (match &sk_forward_stored ($hash $_key $fact $ev $_deps)
-               (if (evidence-excludes? $excluded $ev) (empty) (forward-derived $fact $ev))))) (
+               (if (evidence-excludes? $excluded $ev) (sk-waiting sk-none) (forward-derived $fact $ev))))) (
          ((cons $copy $_rest) $copy)
          (() (stored-statement-candidate (brand Statement $side) $kbctx false))))))
 
@@ -2691,7 +2722,10 @@
 ;; changed, never the instances.
 (: sk-instance-take! (-[semidet]-> Number ScalarFoldSpec Atom))
 (= (sk-instance-take! $hash $args)
-   (let* (($fold (sk-fold $args)) ($changed (sk-rate-changed $hash $fold)))
+   (let* (($fold (sk-fold $args))
+          ($kb (car-atom $args))
+          ($_rescored (sk-instance-rehazard! $hash $fold $kb))
+          ($changed (sk-rate-changed $hash $fold)))
       (if (== $changed ()) ()
          (let $filter
                (case (sk-fold-node-member (CPU FoldAllCompiled $args $_result)) (
@@ -4422,14 +4456,32 @@
 (: sk-sample-exclusions (-[semidet]-> Atom KBContext (List Evidence)))
 (= (sk-sample-exclusions $type $kbctx)
    (if (head-is? $type ImplicationInstanceSample)
-      (let* (((ImplicationInstanceSample $a $b $_atv $_btv) (copy_term $type))
+      (let* (((ImplicationInstanceSample $sa $sb $_atv $_btv) $type)
              (($kbid $_ctx $_vars) $kbctx)
-             ($conjuncts (implication-side-conjuncts (the Statement $a))))
-         (collapse
-            (match ccls_index (($b ($kbid $_rctx $_rvars) $prf $_tv) $_id $prems)
-               (if (= (foldr-flat sk-fact-premise-type () $prems) $conjuncts)
-                  (rule-excluded (brand KB $kbid) (rule-evidence-head $prf))
-                  (empty)))))
+             ($sides (quote ($sa $sb)))
+             ($general (generalize-constants $sides))
+             ($a (car-atom $general))
+             ($b (car-atom (cdr-atom $general)))
+             ($link (quote ($kbid $a $b)))
+             ($hash (index-hash $link))
+             ($epoch (data (search-id-value ruleid) (search-id-value bwd_tmp_ruleid))))
+         ;; The rules restating one sample restate every sample of the link,
+         ;; so they are found once per link and rule set, over the sample's
+         ;; sides with their constants generalized.
+         (case (collapse (once (match &sk_sample_exclusions ($hash $stored $stored-epoch $excluded)
+                  (if (=alpha $stored $link) (if (== $stored-epoch $epoch) $excluded (empty)) (empty))))) (
+            ((cons $excluded $_rest) $excluded)
+            (()
+               (let* (($conjuncts (implication-side-conjuncts (the Statement $a)))
+                      ($excluded
+                         (collapse
+                            (match ccls_index (($b ($kbid $_rctx $_rvars) $prf $_tv) $_id $prems)
+                               (if (= (foldr-flat sk-fact-premise-type () $prems) $conjuncts)
+                                  (rule-excluded (brand KB $kbid) (rule-evidence-head $prf))
+                                  (empty)))))
+                      ($_old (remove-data-rows! &sk_sample_exclusions (quote ($hash $_old-link $_old-epoch $_old-excluded))))
+                      ($_new (add-atom &sk_sample_exclusions ($hash $link $epoch $excluded))))
+                  $excluded)))))
       ()))
 
 (: sk-fact-premise-type (-[det]-> Atom (List Atom) (List Atom)))

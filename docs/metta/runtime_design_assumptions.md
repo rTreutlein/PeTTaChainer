@@ -1040,12 +1040,20 @@ grows only logarithmically). A branch's work per new sample is constant (at
 most five hypotheses), and nothing is cut while the branch holds at most three
 distinct regimes. Only a rule one of whose variables can bind a stage keeps
 the hazard: a variable at a position declared `Stage` or `Time`, or at one
-where a `Stage` or `Time` constant was stated (`stage_position`, recorded as
-sources are and when a constant sort is declared). Every other rule is
-stationary, whatever its arity (`stationary-rule?`, prolog/sorts.pl): its
-rate does not change while the KB runs, so its estimate is the plain
-frequency of its samples, independent of the order they arrive in. A KB
-that declares no sorts has no stages, so all its rules are stationary. A class link's instance fold is also kept by the forward
+where a `Stage` or `Time` constant was stated (`stage_position`). Every
+other rule is stationary, whatever its arity (`stationary-rule?`,
+prolog/sorts.pl): its rate does not change while the KB runs, so its
+estimate is the plain frequency of its samples, independent of the order
+they arrive in. A KB that declares no sorts has no stages, so all its rules
+are stationary. A sorted KB keeps the positions each constant was stated at,
+indexed by the constant (`constant_position`), so a constant that gains a
+Stage or Time sort, declared or from a declared position, marks its own
+positions at the cost of those positions, never a scan of the KB. A rule's
+hazard is read at each take of its tally: when it changed since the tally was
+built, as when a head gains a stage position after the samples were taken,
+the tally is dropped and its members are taken again in their first order
+(`sk-instance-rehazard!`). The rules a link's samples leave out are found once
+per link pattern and rule set (`sk-sample-exclusions`), not per sample. A class link's instance fold is also kept by the forward
 interest of its two classes (`fa-class-link-dirty!`): a class fact stored or
 taken by a forward run marks its subject's sample, one mark per link, and the
 fold takes the marked samples when next read. A sample no search built is
