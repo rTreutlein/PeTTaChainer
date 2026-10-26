@@ -1049,11 +1049,17 @@ are stationary. A sorted KB keeps the positions each constant was stated at,
 indexed by the constant (`constant_position`), so a constant that gains a
 Stage or Time sort, declared or from a declared position, marks its own
 positions at the cost of those positions, never a scan of the KB. A rule's
-hazard is read at each take of its tally: when it changed since the tally was
-built, as when a head gains a stage position after the samples were taken,
-the tally is dropped and its members are taken again in their first order
-(`sk-instance-rehazard!`). The rules a link's samples leave out are found once
-per link pattern and rule set (`sk-sample-exclusions`), not per sample. A class link's instance fold is also kept by the forward
+hazard can change while its tally stands: a head gains or loses a stage
+position (a sort declared, or a Stage constant first stated there), or the
+KB's rule-change hazard is set. Each such change raises one flag
+(`hazards-changed!`), and the next evaluation brings every standing tally to
+its rule's hazard (`sk-rehazard-tallies!`): a tally whose hazard differs is
+dropped and its members are marked to be taken again in the order they were
+first taken, which their read rows keep, before the members still waiting to
+join it (`sk-instance-rehazard!`). A rebuild costs the tally's members, so a
+KB that changes its hazard every period pays its members each period. The
+rules a link's samples leave out are found once per link pattern and rule set
+(`sk-sample-exclusions`), not per sample. A class link's instance fold is also kept by the forward
 interest of its two classes (`fa-class-link-dirty!`): a class fact stored or
 taken by a forward run marks its subject's sample, one mark per link, and the
 fold takes the marked samples when next read. A sample no search built is

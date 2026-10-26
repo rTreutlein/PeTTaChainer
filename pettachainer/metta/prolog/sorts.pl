@@ -37,7 +37,8 @@
     retractall(argument_sort(Head, KB, _, _)),
     forall(( nth1(Position, Sorts, Declared),
              ( time_layer(Head, KB, Position, _) -> Sort = 'Time' ; Sort = Declared ), Sort \== 'Any' ),
-           assertz(argument_sort(Head, KB, Position, Sort))).
+           assertz(argument_sort(Head, KB, Position, Sort))),
+    'hazards-changed!'(true).
 
 'set-constant-sort'(KB, Constant, Sort, true) :-
     (   atom(Constant), memberchk(Sort, ['Stage','Time','Object','Concept'])
@@ -59,7 +60,8 @@
     ->  'sorted-kb!'(KB, true),
         ( argument_sort(Head, KB, Position, 'Time') -> true ; assertz(argument_sort(Head, KB, Position, 'Time')) ),
         retractall(time_layer(Head, KB, Position, _)),
-        assertz(time_layer(Head, KB, Position, Layer))
+        assertz(time_layer(Head, KB, Position, Layer)),
+        'hazards-changed!'(true)
     ;   throw(error(domain_error(predicate_time, [Head, Position]),
                     context(declaration/2, 'a predicate time is one Time position within the head\'s arity'))) ).
 
@@ -147,7 +149,8 @@ record_positions(KB, Statement) :-
                ->  mark_stage_position(Head, KB, Position) ; true ) )).
 
 mark_stage_position(Head, KB, Position) :-
-    ( stage_position(Head, KB, Position) -> true ; assertz(stage_position(Head, KB, Position)) ).
+    (   stage_position(Head, KB, Position) -> true
+    ;   assertz(stage_position(Head, KB, Position)), 'hazards-changed!'(true) ).
 
 % Whether A -> B is a class link: (Sub X) -> (Super X), two classes of one
 % variable.

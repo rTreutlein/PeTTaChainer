@@ -194,8 +194,10 @@ Human, through Bayes' rule over the base rates.
   in any spelling (`(Inheritance A B)`, `(Implication (Member $x A) (Member $x
   B))`, `(Implication (A $x) (B $x))`), raises
   `domain_error(base_rate_class_link, ...)`; rate `(Member $x A)`.
-- A link read as a compound's part, `(And (Inheritance A B) ...)`, answers as
-  the link itself does, on a cold KB too.
+- A link read as a compound's part, `(And (Inheritance A B) ...)` or negated,
+  `(And (Not (Inheritance A B)) ...)`, answers as the link itself does, on a
+  cold KB too. So does any implication part: it is read as the implication's
+  judgment, and a negated one as that judgment's complement.
 - Through a stated link, a member's conclusion is less confident than a
   certain negative branch would make it: `(Member Sam Raven)` at (.99, .9) and
   links at (.99, .9) give `(Member Sam flies)` (.983, .479). The 1% of Sam that

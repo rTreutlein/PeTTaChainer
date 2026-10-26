@@ -629,14 +629,18 @@
 
 ;; A connective's part. Its formula reads an implication part at the
 ;; implication's probability, which the chainer judges in the implication's
-;; query scaffold. A rule's own conclusion is never read so: its projections
-;; would take a part judged from the same rule as evidence for its siblings
-;; (see compile-output-children).
+;; query scaffold, and a negated part as the complement of its statement read
+;; so. A rule's own conclusion is never read so: its projections would take a
+;; part judged from the same rule as evidence for its siblings (see
+;; compile-output-children).
 (: lower-part (-[semidet]-> KBContext Statement PremiseBundle))
 (= (lower-part $kc $part)
    (if (implication-type? $part)
       (premise-bundle ((: $kc $prf $part (STV $s $c))) (STV $s $c) $prf)
-      (lower $kc $part)))
+      (if (head-is? $part Not)
+         (let (premise-bundle $goals $tv $proof) (lower-part $kc (brand Statement (car-atom (cdr-atom $part))))
+            (premise-bundle (append-goals $goals ((CPU NotFormula ($tv) $not-tv))) $not-tv (negated $proof)))
+         (lower $kc $part))))
 
 ;; A connective over parts read by `$read`: their goals in source order, their
 ;; values folded by <Head>Formula, the conjunction of their proofs.

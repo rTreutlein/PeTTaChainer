@@ -87,6 +87,14 @@ heap_pop(Heap, [Priority, Value, Rest]) :-
     ;   Id = Next
     ).
 
+% Whether a rule's hazard may have changed since the last evaluation: a head
+% gained or lost a stage position (prolog/sorts.pl), or a KB's rule-change
+% hazard was set. The evaluation then brings every standing instance tally to
+% its rule's hazard (sk-rehazard-tallies!).
+:- dynamic hazards_changed/0.
+'hazards-changed!'(true) :- ( hazards_changed -> true ; assertz(hazards_changed) ).
+'take-hazards-changed'(Result) :- ( retract(hazards_changed) -> Result = true ; Result = false ).
+
 % A term with the constant arguments of its atoms replaced by variables, one
 % per constant, so the samples of one link share one pattern; heads and
 % numbers stay.
@@ -2928,10 +2936,13 @@ pw_drop_rep(R) :-
     ; true ).
 
 % A canonical rate pattern stating a class link, (Inheritance A B) in any of
-% its spellings, at its top or under a connective.
+% its spellings, with either class a name or a variable, at its top or under a
+% connective.
 rate_class_link(Pattern) :-
     nonvar(Pattern), Pattern = [Head|Args],
-    (   Head == 'Implication' -> Args = [A, B], 'class-link?'(A, B, true)
+    (   Head == 'Implication'
+    ->  Args = [[Sub, X], [Super, Y]], var(X), X == Y,
+        forall(member(Class, [Sub, Super]), ( var(Class) ; atom(Class) ))
     ;   memberchk(Head, ['And', 'Or', 'Not']), member(Arg, Args), rate_class_link(Arg) ), !.
 
 % A view's evidence as its readers inherit it: the role in which the view read

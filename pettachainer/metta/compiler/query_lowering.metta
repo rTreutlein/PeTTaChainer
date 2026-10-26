@@ -342,8 +342,9 @@
          (prepend-reversed-goals $execs $reversed))))
 
 ;; A class link's instance estimate depends only on the link, so its sample
-;; and fold rules are permanent backward rules, installed once when a root of
-;; the link or of an instance of it is scored (install-class-link-rules!):
+;; and fold rules are permanent backward rules, installed once when a root or
+;; an expanded node of the link or of an instance of it needs them
+;; (install-class-link-rules!):
 ;; their rows outlive the query, and a later query reads the tally instead of
 ;; sampling the population again. A query of the link, or of the link applied
 ;; to one constant, which the link's rules answer for that constant, leaves

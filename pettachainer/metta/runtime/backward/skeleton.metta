@@ -1580,9 +1580,10 @@
          ())))
 
 ;; A class link's sample and fold rules (class-link-query-adds) are permanent
-;; backward rules, installed once per link up to renaming, from a root of the
-;; link or of an instance of it: their rows survive the query, so a later
-;; query reads the link's tally at the cost of the samples that changed.
+;; backward rules, installed once per link up to renaming, when a root or an
+;; expanded node of the link or of an instance of it needs them, as a
+;; compound's part does: their rows survive the query, so a later query reads
+;; the link's tally at the cost of the samples that changed.
 (: install-class-link-rules! (-[semidet]-> Statement KBContext Atom))
 (= (install-class-link-rules! $type ($kbid $ctx $vars))
    (if (if (head-is? $kbid implication-query) (head-is? $type Implication) false)

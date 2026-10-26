@@ -82,6 +82,8 @@
 (: class-link? (-[det]-> Atom Atom Bool))
 (: class-link-instance? (-[det]-> Atom Atom Bool))
 (: generalize-constants (-[det]-> Atom Atom))
+(: hazards-changed! (-[det]-> Bool))
+(: take-hazards-changed (-[det]-> Bool))
 (: set-predicate-time (-[det]-> KB Atom Number Number Bool))
 (: rule-truth-factor (-[det]-> Atom Number))
 ;; Hypothesis mining's term helpers (runtime/hypothesis_mining.metta).

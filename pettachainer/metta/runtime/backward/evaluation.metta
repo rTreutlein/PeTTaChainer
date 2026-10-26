@@ -2499,24 +2499,39 @@
       (() (instance-regimes (instance-hazard (brand KB $kb) $fold) 1 () ())))))
 
 ;; A rule's hazard can change while its tally stands: a head of the rule gains
-;; a stage position after its samples were taken (a Stage constant sort
-;; declared, or first stated there). The tally is then dropped and every
-;; member it held is taken again, in the order it was first taken, under the
-;; rule's hazard now (instance-hazard).
+;; or loses a stage position after its samples were taken (a sort declared, or
+;; a Stage constant first stated there), or the KB's rule-change hazard is
+;; set. The evaluation that follows brings every standing tally to its rule's
+;; hazard now (instance-hazard): a tally whose hazard differs is dropped and
+;; every member it held is marked to be taken again, in the order it was first
+;; taken, which its read rows keep (sk-instance-reads!), before the members
+;; still waiting to join it.
+(: sk-rehazard-tallies! (-[det]-> Atom))
+(= (sk-rehazard-tallies!)
+   (fold-flat sk-rehazard-step () (collapse (match &ctx_sk_instance_tally ($hash $fold $_acc) ($hash $fold)))))
+
+(: sk-rehazard-step (-[det]-> Atom (Number SkeletonKey) Atom))
+(= (sk-rehazard-step $_acc ($hash $fold))
+   (case $fold (
+      ((sk-fold $args) (let $kb (car-atom $args) (sk-instance-rehazard! $hash $fold $kb)))
+      ($_other ()))))
+
 (: sk-instance-rehazard! (-[det]-> Number SkeletonKey Atom Atom))
 (= (sk-instance-rehazard! $hash $fold $kb)
    (case (collapse (once (match &ctx_sk_instance_tally ($hash $stored (instance-regimes $hazard $_next $_pos $_neg))
             (if (=alpha $stored $fold) $hazard (empty))))) (
       ((cons $hazard $_rest)
          (if (== $hazard (instance-hazard (brand KB $kb) $fold)) ()
-            (let* (($members (collapse (match &ctx_sk_instance_member ($_mh $hash $member $_pseg $_nseg $_contrib) $member)))
+            (let* (($members (the (List SkeletonKey) (alpha_unique_keys (collapse (match &ctx_sk_instance_read ($_fr $hash $_fmh $member) $member)))))
+                   ($pending (sk-rate-changed $hash $fold))
+                   ($_dirty (remove-data-rows! &sk_rate_dirty (quote ($hash $_dmh $_df $_dm))))
                    ($_tally (remove-data-rows! &sk_instance_tally (quote ($hash $_tf $_ta))))
                    ($_member (remove-data-rows! &sk_instance_member (quote ($_mmh $hash $_mm $_mp $_mn $_mc))))
                    ($_regime (remove-data-rows! &sk_instance_regime (quote ($hash $_rs $_rt))))
                    ($_digest (remove-data-rows! &sk_instance_digest (quote ($hash $_dd))))
                    ($_sig (remove-data-rows! &sk_instance_sig (quote ($_smh $hash $_ss))))
                    ($_read (remove-data-rows! &sk_instance_read (quote ($_rr $hash $_rmh $_rmm)))))
-               (fold-flat (sk-rate-dirty-step $fold) () $members))))
+               (fold-flat (sk-rate-dirty-step $fold) () (append-flat $members $pending)))))
       (() ()))))
 
 (: sk-rate-dirty-step (-[det]-> SkeletonKey Atom SkeletonKey Atom))
@@ -2614,7 +2629,8 @@
 (: set-rule-change-hazard (-[det]-> KB Number Bool))
 (= (set-rule-change-hazard $kb $hazard)
    (let* (($_old (remove-data-rows! &rule_change_hazard (quote ($kb $_stored))))
-          ($_new (add-atom &rule_change_hazard ($kb $hazard))))
+          ($_new (add-atom &rule_change_hazard ($kb $hazard)))
+          ($_changed (hazards-changed!)))
       (> $hazard 0.0)))
 
 (: rule-change-hazard (-[det]-> KB Number))
@@ -2722,10 +2738,7 @@
 ;; changed, never the instances.
 (: sk-instance-take! (-[semidet]-> Number ScalarFoldSpec Atom))
 (= (sk-instance-take! $hash $args)
-   (let* (($fold (sk-fold $args))
-          ($kb (car-atom $args))
-          ($_rescored (sk-instance-rehazard! $hash $fold $kb))
-          ($changed (sk-rate-changed $hash $fold)))
+   (let* (($fold (sk-fold $args)) ($changed (sk-rate-changed $hash $fold)))
       (if (== $changed ()) ()
          (let $filter
                (case (sk-fold-node-member (CPU FoldAllCompiled $args $_result)) (
@@ -4459,9 +4472,7 @@
       (let* (((ImplicationInstanceSample $sa $sb $_atv $_btv) $type)
              (($kbid $_ctx $_vars) $kbctx)
              ($sides (quote ($sa $sb)))
-             ($general (generalize-constants $sides))
-             ($a (car-atom $general))
-             ($b (car-atom (cdr-atom $general)))
+             (($a $b) (generalize-constants $sides))
              ($link (quote ($kbid $a $b)))
              ($hash (index-hash $link))
              ($epoch (data (search-id-value ruleid) (search-id-value bwd_tmp_ruleid))))
@@ -5588,7 +5599,8 @@
 
 (: sk-evaluate! (-[semidet]-> Atom))
 (= (sk-evaluate!)
-   (let* (($_queued (remove-data-rows! &sk_queued (quote ($qpass $qkhash $qrhash))))
+   (let* (($_hazards (if (take-hazards-changed) (sk-rehazard-tallies!) ()))
+          ($_queued (remove-data-rows! &sk_queued (quote ($qpass $qkhash $qrhash))))
           ($_cleared-forced (remove-data-rows! &sk_forced (quote ($khash $rhash $cause))))
           ($_used (sk-force-reset!))
           ($_pending (remove-data-rows! &sk_fold_pending (quote ($fhash $member))))
