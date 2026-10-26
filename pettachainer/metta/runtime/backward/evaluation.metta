@@ -5162,10 +5162,27 @@
                 (sk-readable-row? $khash $key $premises)
                 (if $world true (if $refresh true
                    (if (<= $depth (sk-evaluation-free-depth)) true $unseen))))
-         (sk-need-next (fold-semidet sk-direct-key-step $next $premises) $members)
-         (sk-need-next $next $members)))
+         (fold-semidet (sk-need-premise-step true (- $depth 1)) (sk-need-next $next $members) $premises)
+         (fold-semidet (sk-need-premise-step false (- $depth 1)) (sk-need-next $next $members) $premises)))
    (let $_removed (sk-drop-row! $khash $key $rhash (sk-row (sk-ident $rule $_keys $_key) $_concl $premises $_s))
       (sk-need-next $next $members))))
+
+;; A row's premise keys are needed one level further when the row passes its
+;; need on (`$all`). A compound key is the row's own reading of the compound's
+;; parts (#142), so a needed row always needs it, at the row's key's depth:
+;; its producer rows are then as near a root as the reading row, and a change
+;; of a part reaches the reading row through them, as it did when the rule
+;; read the part itself. Without that, an assumed part changed only the
+;; producer row, which no need reached, and the reading row kept the view of
+;; an earlier world (SupplyNet stage 4: an assumed stock read as unfounded).
+(: sk-need-premise-step (-[semidet]-> Bool Number SkeletonNeed SkPattern SkeletonNeed))
+(= (sk-need-premise-step $all $depth (sk-need-next $next $members) $premise)
+   (case (sk-direct-key-step () $premise) (
+      ((cons (sk-key $type $kbctx) ())
+         (if (compound-source? (brand Statement $type))
+            (sk-need! $depth (sk-need-next $next $members) (sk-key $type $kbctx))
+            (if $all (sk-need-next (cons (sk-key $type $kbctx) $next) $members) (sk-need-next $next $members))))
+      ($keys (if $all (sk-need-next (append-flat $keys $next) $members) (sk-need-next $next $members))))))
 
 ;; The need from a query's roots, or from the keys a forward wave takes.
 (: sk-need-roots! (-[semidet]-> (List SkeletonKey) Atom))

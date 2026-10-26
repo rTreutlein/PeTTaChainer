@@ -196,3 +196,26 @@
 !(compileadd carryKb (: (no_inverse f) (Implication (Not (D now)) (F later)) (STV 1 1)))
 !(compileadd carryKb (: (no_inverse o) (Implication (Not (D later)) (O later)) (STV 1 1)))
 !(test (let (: $_p $_t (STV $s $_c)) (query 400 carryKb (: $p (And (F later) (O later)) $tv)) $s) 0.46)
+
+;; A rule over a complete compound antecedent reads it through its key, whose
+;; producer row reads the parts. An Assuming world that assumes a part reaches
+;; the reading rule through that producer row: a needed row needs its compound
+;; premise keys at its own depth (#142). Before, after a first world without
+;; the stock, the second world kept the first's producer view and read the
+;; assumed stock as unfounded: 0 where it is 0.95 (SupplyNet stage 4).
+!(set-complete-predicate stockKb Producing)
+!(set-complete-predicate stockKb Fuelled)
+!(set-complete-predicate stockKb FuelArrived)
+!(set-complete-predicate stockKb StockedFuel)
+!(compileadd stockKb (: fuelled (Implication (Or (StockedFuel $t) (FuelArrived $t)) (Fuelled $t)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd stockKb (: runs (Implication (And (Fuelled $t) (Not (Degraded $t)) (InService $t)) (Producing $t)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd stockKb (: arrives (Implication (And (NextPeriod $p $t) (Producing $p)) (FuelArrived $t)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd stockKb (: (no_inverse out) (Implication (And (Value $v) (Producing $t)) (Outcome $t $v)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd stockKb (: v (Value 1) (STV 1 1)))
+!(compileadd stockKb (: n (NextPeriod t0 t1) (STV 1 1)))
+!(compileadd stockKb (: p0 (Producing t0) (STV 0 1)))
+!(compileadd stockKb (: d (Degraded t1) (STV 0.05 1)))
+!(test (let (: $_p $_t $tv) (query 350 stockKb (: $p (Assuming (InService t1) (Outcome t1 $v)) $tv)) $tv)
+   (STV 0.0 0.9994393142192537))
+!(test (let (: $_p $_t $tv) (query 450 stockKb (: $p (Assuming (And (StockedFuel t1) (InService t1) (Repairing t1)) (Outcome t1 $v)) $tv)) $tv)
+   (STV 0.95 0.9998999985907656))

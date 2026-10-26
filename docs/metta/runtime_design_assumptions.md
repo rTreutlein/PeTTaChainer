@@ -1378,6 +1378,15 @@ seeds 1–4 and budgets 25–200: 0.00348 by creation, 0.00323 by depth). The
 order does not depend on the allowance, so an allowance that covers everything
 computes what an unbounded evaluation would.
 
+A needed row always needs its compound premise keys, at its own key's
+depth, whether or not it passes the need on: a compound key is the row's
+reading of the compound's parts (#142), so its producer rows are as near a
+root as the reading row and a change of a part reaches the reading row through
+them, as it did when the rule read the part itself. Otherwise an assumed part
+changed only a producer row no need reached, and the reading row kept the view
+of an earlier world (SupplyNet stage 4: an assumed stock read as unfounded, 0
+where the plant runs at 0.95; `test_complete_predicates`, stockKb).
+
 A row's computation from the allowance, like its creation, costs more the
 larger its key (`term-cost`), so a step costs the same however large the terms
 a recursive rule builds; the reserve near the roots is left by count, since it
