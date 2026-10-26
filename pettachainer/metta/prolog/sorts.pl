@@ -6,7 +6,7 @@
 % Concept only exclude a constant from being a stage (D2); Value positions
 % sort nothing. A KB that declares no sorts and no time has no stages: the
 % declarations set sorted_kb, and nothing is walked without it.
-:- dynamic sorted_kb/1, argument_sort/4, constant_sort/3, time_layer/4.
+:- dynamic sorted_kb/1, argument_sort/4, constant_sort/3, time_layer/4, stage_position/3.
 
 'sorted-kb!'(KB, true) :- ( sorted_kb(KB) -> true ; assertz(sorted_kb(KB)) ).
 
@@ -34,7 +34,8 @@
 
 'set-constant-sort'(KB, Constant, Sort, true) :-
     (   atom(Constant), memberchk(Sort, ['Stage','Time','Object','Concept'])
-    ->  'sorted-kb!'(KB, true), record_sorts(KB, [Constant-Sort])
+    ->  'sorted-kb!'(KB, true), record_sorts(KB, [Constant-Sort]),
+        forall(( memberchk(Sort, ['Stage', 'Time']), catch('&kb'(Type, [KB|_], _, _), error(existence_error(procedure, _), _), fail) ), note_stage_positions(KB, Type))
     ;   throw(error(domain_error(constant_sort, [Constant, Sort]),
                     context(declaration/2, 'a constant sort names a symbol and one of Stage, Time, Object or Concept'))) ).
 
@@ -67,7 +68,8 @@
     ->  findall(Statement-Pair, source_sort(KB, Statement, Pair), Found),
         pairs_keys_values(Found, Copies, Pairs),
         maplist(=(Statement), Copies),
-        record_sorts(KB, Pairs)
+        record_sorts(KB, Pairs),
+        note_stage_positions(KB, Statement)
     ;   true ).
 
 record_sorts(KB, Pairs) :-
@@ -108,28 +110,38 @@ stage_statement(KB, Statement, Sides) :-
         ;   var(Arg), member(Side, Sides), source_sort(KB, Side, Term-Sort), Term == Arg ),
         memberchk(Sort, ['Stage','Time']) ).
 
-% Whether a rule A -> B is stationary: its variables range over objects or
-% concepts, never stages, so its rate never changes (rule-change hazard 0).
-% Every variable is at a declared Object or Concept position, or the rule is
-% an unsorted class link, every conjunct of either side a class of one
-% variable; no side is a stage.
+% Whether a rule A -> B is stationary: no variable of it can bind a stage,
+% so its rate never changes (rule-change hazard 0). A variable can bind a
+% stage at a position declared Stage or Time, or at one where a constant of
+% sort Stage or Time was stated (stage_position). A KB that declares no sorts
+% has no stages, so every rule of it is stationary.
 'stationary-rule?'(KB, A, B, Result) :-
     ( stationary_rule(KB, A, B) -> Result = true ; Result = false ).
 
 stationary_rule(KB, A, B) :-
-    term_variables(A-B, Vars), Vars \== [],
-    \+ ( sorted_kb(KB), ( stage_statement(KB, A, [A, B]) ; stage_statement(KB, B, [A, B]) ) ),
-    (   forall(( side_conjunct(A, C) ; side_conjunct(B, C) ), ( nonvar(C), C = [Head, X], atom(Head), var(X) ))
-    ->  true
-    ;   sorted_kb(KB),
-        forall(member(V, Vars),
-               ( member(Side, [A, B]), source_sort(KB, Side, Term-Sort), Term == V,
-                 memberchk(Sort, ['Object', 'Concept']) )) ).
+    \+ ( sorted_kb(KB), member(Side, [A, B]), source_atom(Side, [Head|Args]),
+          nth1(Position, Args, Arg), var(Arg), stage_capable(Head, KB, Position) ).
 
-side_conjunct(Side, C) :- ( nonvar(Side), Side = ['And'|Cs] -> member(C, Cs) ; C = Side ).
+stage_capable(Head, KB, Position) :-
+    (   argument_sort(Head, KB, Position, Sort), memberchk(Sort, ['Stage', 'Time']) -> true
+    ;   stage_position(Head, KB, Position) ).
+
+% The positions where a Stage or Time constant was stated, as its sources are
+% recorded (record-source-sorts!) or its sort is declared after them.
+note_stage_positions(KB, Statement) :-
+    forall(( source_atom(Statement, [Head|Args]), atom(Head), nth1(Position, Args, Arg), atom(Arg),
+             constant_sort(Arg, KB, Sort), memberchk(Sort, ['Stage', 'Time']),
+             \+ stage_position(Head, KB, Position) ),
+           assertz(stage_position(Head, KB, Position))).
 
 % Whether A -> B is a class link: (Sub X) -> (Super X), two classes of one
 % variable.
 'class-link?'(A, B, Result) :-
     (   nonvar(A), nonvar(B), A = [Sub, X], B = [Super, Y], atom(Sub), atom(Super), var(X), X == Y
+    ->  Result = true ; Result = false ).
+
+% Whether A -> B is an instance of a class link: (Sub T) -> (Super T) with T
+% one variable or one constant, the link applied to it.
+'class-link-instance?'(A, B, Result) :-
+    (   nonvar(A), nonvar(B), A = [Sub, X], B = [Super, Y], atom(Sub), atom(Super), X == Y, ( var(X) ; atomic(X) )
     ->  Result = true ; Result = false ).

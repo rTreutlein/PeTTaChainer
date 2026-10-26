@@ -59,6 +59,20 @@ class WeightedAssumptionTests(unittest.TestCase):
         self.assertEqual(answers(self.h, '(PlayingTennisNow Bob)'), [])
         self.assertNoMainLeak()
 
+    def test_weighted_class_link_is_an_assumed_implication(self):
+        # (Inheritance Dog Animal) is the implication (Dog $x) -> (Animal $x):
+        # assumed with a weight, it applies as the same link stated in a KB.
+        rex = '(: rexDog (Member rex Dog) (STV 0.9 0.8))'
+        self.h.add_atoms_no_check([rex])
+        link = '(Inheritance Dog Animal)'
+        expected = tv(isolated(rex, f'(: link {link} (STV 0.7 0.6))'), '(Member rex Animal)')
+        rows = answers(self.h, f'(Assuming (: link {link} (STV 0.7 0.6)) (Member rex Animal))')
+        self.assertEqual(len(rows), 1, rows)
+        self.assertEqual(rows[0].tv, expected)
+        self.assertIn('rexDog', self.h.expand_proof(rows[0].proof))
+        self.assertEqual(answers(self.h, '(Member rex Animal)'), [])
+        self.assertNoMainLeak()
+
     def test_several_weighted_and_bare_assumptions_keep_their_values(self):
         facts = '(And (A x) (: wb (B x) (STV 0.3 0.9)) (: wc (C x) (STV 0.6 0.5)))'
         for goal, value in (('(A x)', [1.0, 1.0]), ('(B x)', [0.3, 0.9]), ('(C x)', [0.6, 0.5])):

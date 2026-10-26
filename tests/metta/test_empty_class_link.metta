@@ -52,7 +52,7 @@
 !(test
    (query 0 emptyLinkKb
       (: $_proof (Inheritance EmptyClass MissingClass) $_tv))
-   (: (implication-instance-fold cpu) (Inheritance EmptyClass MissingClass) (STV 0.6000000000000001 0.0012484394506866415)))
+   (: (implication-instance-fold cpu) (Inheritance EmptyClass MissingClass) (STV 0.6 0.0012484394506866417)))
 
 ;; A stated link answers beside the instance fold.
 !(compileadd directLinkKb

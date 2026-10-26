@@ -25,14 +25,14 @@
    (: (implication-instance-fold cpu) (Implication (A a) (B a)) (STV 1.0 0.001011475880670821)))
 
 ;; A consequent added later joins the fold on the next query. The ground
-;; implication answered above is an instance of the open query and is
-;; returned beside it.
+;; implication answered above is the link's own fold applied to a, an
+;; instance of the open answer with the same proof, which subsumes it.
 !(compileadd instanceFactsKb (: b3 (B c) (STV 1.0 0.9)))
 
 !(test
    (collapse
       (let (: $prf $type $tv) (query 100 instanceFactsKb (: $prf (Implication (A $v) (B $v)) $tv)) $tv))
-   ((STV 1.0 0.0030283015340902015) (STV 1.0 0.001011475880670821)))
+   ((STV 1.0 0.0030283015340902015)))
 
 ;; --- An explicit counterexample lowers the strength -------------------------
 ;; (Not (B b)) is stored as (B b) with inverted strength, so it is a sample

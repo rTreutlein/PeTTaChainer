@@ -343,13 +343,17 @@
 
 ;; A class link's instance estimate depends only on the link, so its sample
 ;; and fold rules are permanent backward rules, installed once when a root of
-;; the link is scored (install-class-link-rules!): their rows outlive the
-;; query, and a later query reads the tally instead of sampling the population
-;; again. A ground link query leaves them out of its own additions.
+;; the link or of an instance of it is scored (install-class-link-rules!):
+;; their rows outlive the query, and a later query reads the tally instead of
+;; sampling the population again. A query of the link, or of the link applied
+;; to one constant, which the link's rules answer for that constant, leaves
+;; them out of its own additions. The fold concludes the samples' frequency as
+;; it is: a query answers the positive branch, which a CTV would make
+;; consistent with base rates that may not count a derived member yet.
 (: class-link-query-adds (-[nondet]-> KB KBContext Statement (List CompiledAddition)))
 (= (class-link-query-adds $kb $query-ctx $type)
    (let* ((($antecedent $consequent) (implication-query-sides $type))
-          ($adds (compile-implication-instance-adds true $kb $type $antecedent $consequent)))
+          ($adds (compile-implication-instance-adds false $kb $type $antecedent $consequent)))
       (map-flat (positive-implication-producer $query-ctx $type) $adds)))
 
 (: compileQuery (-[nondet]-> KB AnnotatedStatement CompilationPlan))
@@ -409,7 +413,7 @@
                         (map-flat (positive-implication-producer $query-ctx (brand Statement $Type))
                            (if (rule-truth-installed? $kb $Type)
                               (rule-truth-query-adds $kb $Type $antecedent $consequent)
-                              (if (class-link? $antecedent $consequent) (the (List CompiledAddition) ())
+                              (if (class-link-instance? $antecedent $consequent) (the (List CompiledAddition) ())
                                  (compile-implication-instance-adds true $kb
                                     (brand Statement $Type) $antecedent $consequent))))
                         $pos-adds)))))

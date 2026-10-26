@@ -37,6 +37,16 @@ class TestIngestion(unittest.TestCase):
             self.assertEqual(rows['Rules'], 0)
             self.assertNotIn(atom, self.h._added_atoms)
 
+    def test_base_rate_of_a_class_link_is_rejected(self):
+        # A class link is a rule, no population; a class's rate is its
+        # membership's.
+        for pattern in ('(Inheritance $x Cat)', '(Not (Inheritance $x Cat))',
+                        '(And (Inheritance $x Cat) (P $x))'):
+            with self.subTest(pattern=pattern), self.assertRaisesRegex(
+                    janus.PrologError, 'base_rate_class_link'):
+                self.h._call('set-base-rate', [f'{self.h.kb} {pattern} (STV 0.5 0.9)'])
+        self.h._call('set-base-rate', [f'{self.h.kb} (Member $x Cat) (STV 0.5 0.9)'])
+
     def test_lexical_binders_in_quoted_content_allow_only_their_own_scope(self):
         statements = [
             '(ClaimContent finding (Implication (Member $a Event) (Occurred $a)))',

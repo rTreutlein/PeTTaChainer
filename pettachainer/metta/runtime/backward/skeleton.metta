@@ -1580,17 +1580,18 @@
          ())))
 
 ;; A class link's sample and fold rules (class-link-query-adds) are permanent
-;; backward rules, installed once per link up to renaming: their rows survive
-;; the query, so a later query reads the link's tally at the cost of the
-;; samples that changed.
+;; backward rules, installed once per link up to renaming, from a root of the
+;; link or of an instance of it: their rows survive the query, so a later
+;; query reads the link's tally at the cost of the samples that changed.
 (: install-class-link-rules! (-[semidet]-> Statement KBContext Atom))
 (= (install-class-link-rules! $type ($kbid $ctx $vars))
    (if (if (head-is? $kbid implication-query) (head-is? $type Implication) false)
       (let (Implication $a $b) $type
-         (if (class-link? $a $b)
+         (if (class-link-instance? $a $b)
             (let* (($kb (statement-query-kb (brand KB $kbid)))
-                   ($adds (if (rule-truth-installed? $kb $type) (the (List CompiledAddition) ())
-                             (once (class-link-query-adds $kb (make-kb-context (brand KB $kbid) MAIN Nil) (brand Statement $type)))))
+                   ($link (brand Statement (Implication (cons (car-atom $a) (cons $x ())) (cons (car-atom $b) (cons $x ())))))
+                   ($adds (if (rule-truth-installed? $kb $link) (the (List CompiledAddition) ())
+                             (once (class-link-query-adds $kb (make-kb-context (brand KB $kbid) MAIN Nil) $link))))
                    ($_rules (once (foreach-flat (kb-add-expr backward)
                                (map-flat mm2stmt (fold-flat (fresh-producer-step backward) () $adds))))))
                ())
@@ -2202,8 +2203,10 @@
           ($_stale (context-remove! &sk_stale ($hash $rhash))))
       (sk-drop-row-views! $hash $key $rhash)))
 
-;; Query-local rules leave with their query: their rows, waiters, deferred rows
-;; and views are removed, and the keys of the removed rows changed.
+;; Query-local rules leave with their query: their rows, waiters, deferred joins
+;; and rows and views are removed, and the keys of the removed rows changed. A
+;; later query's rule may take a removed rule's id, so a deferred join left
+;; behind would extend the wrong rule.
 (: sk-clear-temp! (-[semidet]-> Atom))
 (= (sk-clear-temp!)
    (let* (($_deferred

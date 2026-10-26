@@ -2896,6 +2896,10 @@ pw_drop_rep(R) :-
 % Disconnected parts range over a Cartesian product. A separate joint rate
 % would contradict that model; reject it rather than silently ignoring it.
 'validate-base-rate!'(Pattern, Parts, TV, true) :-
+    ( rate_class_link(Pattern)
+    -> throw(error(domain_error(base_rate_class_link, Pattern),
+                   context('set-base-rate'/3, 'a class link is a rule, no population: rate a class membership as (Member $x Class)')))
+    ; true ),
     ( 'canon'(Pattern, [_, true]), \+ (nonvar(TV), TV = ['STV'|_])
     -> throw(error(domain_error(negated_base_rate_value, TV),
                    context('set-base-rate'/3, 'a negated statement takes an STV')))
@@ -2904,6 +2908,12 @@ pw_drop_rep(R) :-
     -> throw(error(domain_error(disconnected_base_rate, Pattern),
                    context('set-base-rate'/3, 'set a rate for each connected part')))
     ; true ).
+
+% A rate pattern stating a class link, at its top or under a connective.
+rate_class_link(Pattern) :-
+    nonvar(Pattern), Pattern = [Head|Args],
+    (   Head == 'Inheritance' -> true
+    ;   memberchk(Head, ['And', 'Or', 'Not']), member(Arg, Args), rate_class_link(Arg) ), !.
 
 % A view's evidence as its readers inherit it: the role in which the view read
 % a certain fact (given-ev, a condition) is that view's own; a reader holds the

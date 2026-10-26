@@ -1038,17 +1038,25 @@ the order values arrive; a segment that merges into another leaves an entry in
 segment holding its sample (merges keep the larger segment's id, so the chain
 grows only logarithmically). A branch's work per new sample is constant (at
 most five hypotheses), and nothing is cut while the branch holds at most three
-distinct regimes. A stationary rule keeps one regime, whatever the hazard:
-one whose variables range over objects or concepts, each at a declared
-`Object` or `Concept` position, or an unsorted class link, every conjunct a
-class of one variable (`stationary-rule?`, prolog/sorts.pl). Its rate does not
-change while the KB runs, so its estimate is the plain frequency of its
-samples, independent of the order they arrive in; a rule over stages keeps
-the hazard. A class link's instance fold is also kept by the forward
+distinct regimes. Only a rule one of whose variables can bind a stage keeps
+the hazard: a variable at a position declared `Stage` or `Time`, or at one
+where a `Stage` or `Time` constant was stated (`stage_position`, recorded as
+sources are and when a constant sort is declared). Every other rule is
+stationary, whatever its arity (`stationary-rule?`, prolog/sorts.pl): its
+rate does not change while the KB runs, so its estimate is the plain
+frequency of its samples, independent of the order they arrive in. A KB
+that declares no sorts has no stages, so all its rules are stationary. A class link's instance fold is also kept by the forward
 interest of its two classes (`fa-class-link-dirty!`): a class fact stored or
 taken by a forward run marks its subject's sample, one mark per link, and the
-fold takes the marked samples when next read, a sample no search built read
-from its two sides' stored facts (`sk-stored-sample`). A registration seeds
+fold takes the marked samples when next read. A sample no search built is
+read from its two sides' stored values (`sk-stored-sample`): each side's
+stored facts, merged, or a forward run's copy of its value unless that was
+derived through a rule the sample leaves out; a search that builds the
+sample's rows replaces it. The link's fold concludes the
+samples' frequency as an STV: a CTV would make its positive branch consistent
+with base rates that need not count a derived member yet (a derived Mortal
+taken by a forward run: .546 at budget 5 against the exact .59997). A
+registration seeds
 the marks from the classes' stored facts, as a base rate counts the facts
 already stored, so a link registered at budget 0 and fed by facts and forward
 runs answers its exact frequency once a query expands it, at budget 1, and at

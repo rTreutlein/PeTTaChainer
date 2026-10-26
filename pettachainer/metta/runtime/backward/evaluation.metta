@@ -2534,8 +2534,8 @@
 
 ;; A member with no value whose rows are still to be computed is left to take:
 ;; the evaluation needs it and checks the fold again (sk-instance-checks!). A
-;; member no search built, a class-link sample its subject's stored facts
-;; marked (fa-class-link-dirty!), is read from those facts.
+;; member no search built, a class-link sample its subject's facts marked
+;; (fa-class-link-dirty!), is read from its two sides' stored values.
 (: sk-instance-take-step (-[semidet]-> Number SkeletonKey ScalarFoldSpec SkeletonFilter Atom SkeletonKey Atom))
 (= (sk-instance-take-step $hash $fold $args $filter $_acc $member)
    (let $value (sk-value $member $filter (cons $hash ()))
@@ -2545,20 +2545,34 @@
             (sk-instance-take-value! $hash $fold $args $member (sk-stored-sample $member)))
          (sk-instance-take-value! $hash $fold $args $member $value))))
 
-;; A sample of its two sides' stored facts, each statement's merged, when both
-;; have one; the sample rule would read the same.
-(: sk-stored-sample (-[det]-> SkeletonKey SkeletonValue))
+;; A class-link sample of its two sides' stored values, when both have one: a
+;; side's stored facts, merged, or a forward run's copy of its value unless
+;; that was derived through a rule the sample leaves out (sk-sample-exclusions).
+(: sk-stored-sample (-[semidet]-> SkeletonKey SkeletonValue))
 (= (sk-stored-sample $member)
    (case $member (
       ((sk-key (ImplicationInstanceSample $a $b $_atv $_btv) $kbctx)
-         (case (data (stored-statement-candidate (brand Statement $a) $kbctx false) (stored-statement-candidate (brand Statement $b) $kbctx false)) (
-            (((forward-derived ($_at $_ac $aprf $atv) $aev) (forward-derived ($_bt $_bc $bprf $btv) $bev))
-               (sk-val
-                  (assemble-runtime-fact (ImplicationInstanceSample $a $b $atv $btv) $kbctx
-                     (implication-instance-sample (fact-source $aev $aprf) (fact-source $bev $bprf)) (STV 1.0 1.0))
-                  (evidence-join (cons $aev (cons $bev ()))) 0))
-            ($_missing sk-none))))
+         (if (class-link-instance? $a $b)
+         (let $excluded (evidence-set (sk-sample-exclusions (ImplicationInstanceSample $a $b $_atv $_btv) $kbctx))
+            (case (data (sk-stored-side $a $kbctx $excluded) (sk-stored-side $b $kbctx $excluded)) (
+               (((forward-derived ($_at $_ac $aprf $atv) $aev) (forward-derived ($_bt $_bc $bprf $btv) $bev))
+                  (sk-val
+                     (assemble-runtime-fact (ImplicationInstanceSample $a $b $atv $btv) $kbctx
+                        (implication-instance-sample (fact-source $aev $aprf) (fact-source $bev $bprf)) (STV 1.0 1.0))
+                     (evidence-join (cons $aev (cons $bev ()))) 0))
+               ($_missing sk-none))))
+            sk-none))
       ($_other sk-none))))
+
+;; A side's stored value: a forward run's copy of the key's value, which
+;; holds its stored facts as well, else the stored facts merged.
+(: sk-stored-side (-[det]-> Atom KBContext EvidenceSet (| ForwardDerived NoForwardOutputCandidate)))
+(= (sk-stored-side $side $kbctx $excluded)
+   (let $hash (index-hash (sk-key $side $kbctx))
+      (case (collapse (once (match &sk_forward_stored ($hash $_key $fact $ev $_deps)
+               (if (evidence-excludes? $excluded $ev) (empty) (forward-derived $fact $ev))))) (
+         ((cons $copy $_rest) $copy)
+         (() (stored-statement-candidate (brand Statement $side) $kbctx false))))))
 
 ;; A KB's hazard: the prior probability that a sample of a refined rule's
 ;; branch starts a new regime of its rate (docs/metta/hypothesis_rules.md,

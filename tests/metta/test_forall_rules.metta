@@ -81,7 +81,7 @@
    (:
       (merge/revision (rule-axiom sensor) (implication-instance-fold cpu))
       (RuleTruth (Implication (Leak $_c $_u) (Alarm $_c $_u)))
-      (STV 0.8999027544292098 0.9000374784498913)))
+      (STV 0.8999028182701653 0.9000374859427714)))
 
 ;; A ForAll query asks for the stated rule as written: its body's positive
 ;; truth, answered in the quantified form (#142).

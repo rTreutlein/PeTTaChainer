@@ -201,7 +201,8 @@ indexes the two classes; an open class registers nothing, since it gives no
 selective class key. A class fact stored or taken by a forward run marks its
 subject's sample changed (`fa-class-link-dirty!`), one mark per link, and the
 fold takes the marked samples when next read, whatever the query's budget, reading a sample
-no search built from its two sides' stored facts, merged
+no search built from its two sides' stored values: their facts, merged, or
+a forward run's copy not derived through a rule the sample leaves out
 (`sk-stored-sample`). Registration seeds the marks from the classes' stored
 facts. A search that builds a subject's sample row replaces that subject's
 contribution, never adds a second. Work is proportional to the links over

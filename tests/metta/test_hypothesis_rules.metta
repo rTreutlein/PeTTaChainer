@@ -319,7 +319,7 @@
 !(compileadd specKb (: s12 (S a t12) (STV 1 1)))
 !(compileadd specKb (: l12 (L c t12) (STV 1 1)))
 !(compileadd specKb (: w12 (Win t12) (STV 0 1)))
-!(test (let (: $p $t $tv) (query 50 specKb (: $p (RuleTruth (Implication (S a $t) (Win $t))) $tv)) $tv) (STV 0.24569397197102627 0.7056385432963005))
+!(test (let (: $p $t $tv) (query 50 specKb (: $p (RuleTruth (Implication (S a $t) (Win $t))) $tv)) $tv) (STV 0.25104777870913664 0.7067535545023698))
 !(test (let (: $p $t $tv) (query 50 specKb (: $p (RuleTruth (Implication (And (S a $t) (L b $t)) (Win $t))) $tv)) $tv) (STV 0.9917202260594017 0.37887466975565864))
 !(compileadd specKb (: sx (S a new) (STV 1 1)))
 !(compileadd specKb (: lx (L b new) (STV 1 1)))

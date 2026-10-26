@@ -186,6 +186,12 @@ Human, through Bayes' rule over the base rates.
   over every class, as `(Implication ($p $x) ($q $x))` does.
 - A rule concluding a link, `(Implication X (Inheritance A B))`, is the derived
   implication `(X and (A $x)) -> (B $x)`.
+- An existential over a link, `(Exists ($y) (Inheritance $y Animal))`, gives
+  no answer, as an existential over any implication does: its witnesses are
+  not judged, though the identity link `(Inheritance Animal Animal)` answers
+  (1, 1) as a query of its own.
+- A base rate is a population's: `set-base-rate` on a pattern stating a link
+  raises `domain_error(base_rate_class_link, ...)`; rate `(Member $x A)`.
 
 ### Estimating a link from members
 
@@ -204,8 +210,9 @@ restate the link.
 
 The estimate uses count-based confidence: every observed member adds
 evidence, and there is no closed-world population size to declare. A class
-link is stationary, so its estimate is the plain frequency of its samples,
-whatever order they arrive in (see [Sorts](#sorts-stages-and-aggregates)).
+link whose members are no stages is stationary, so its estimate is the plain
+frequency of its samples, whatever order they arrive in (see the regimes of
+refined rules below).
 Once a ground link query has registered the link, each class fact stored or
 taken by a forward run marks its subject's sample, and the next query reading
 the link takes the marked samples, whatever its budget: a registration at
@@ -590,11 +597,14 @@ starts a new regime is the KB's hazard, 0.0001 by default:
 `!(set-rule-change-hazard kb 0)` keeps one regime. On samples of one rate the
 truth is the one in one regime; after a change the new samples take over as
 their evidence grows, and an earlier regime that returns counts its old samples
-at once. Only a rule over stages has regimes. A stationary rule, one whose
-variables range over objects or concepts (each at a declared `Object` or
-`Concept` position), or an unsorted class link (every conjunct a class of
-one variable, as `(Inheritance A B)`), keeps one regime whatever the hazard:
-its estimate is the plain frequency of its samples.
+at once. Only a rule that can apply to stages has regimes: one of its
+variables is at a position declared `Stage` or `Time`, or at one where a
+constant of sort `Stage` or `Time` was stated (with `set-constant-sort` or
+through a declared position). Every other rule, whatever its arity, is
+stationary and keeps one regime whatever the hazard: its estimate is the
+plain frequency of its samples. A KB that declares no sorts has no stages,
+so all its rules are stationary; declare the stages of a rule whose rate may
+change.
 
 A KB can also propose its own hypotheses (off by default):
 

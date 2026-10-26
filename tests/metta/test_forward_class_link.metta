@@ -114,3 +114,39 @@
 !(test
    (query 100 orderKb (: $proof (Inheritance Human Mortal) $tv))
    (: (implication-instance-fold cpu) (Inheritance Human Mortal) (STV 0.5 0.0024937655860349127)))
+
+;; A sample no search built is read from its sides' stored values, a forward
+;; run's copy included, and the link's estimate is
+;; the frequency as it is, not made consistent with base rates that do not
+;; count a derived member yet: at any budget, c's Mortal derived by sp counts.
+!(compileadd derivedCopyKb (: ah (Member a Human) (STV 1.0 1.0)))
+!(compileadd derivedCopyKb (: am (Member a Mortal) (STV 0.8 1.0)))
+!(query 0 derivedCopyKb (: $p (Inheritance Human Mortal) $tv))
+!(compileadd derivedCopyKb (: bh (Member b Human) (STV 1.0 1.0)))
+!(compileadd derivedCopyKb (: bm (Member b Mortal) (STV 0.0 1.0)))
+!(compileadd derivedCopyKb (: sp (Implication (Special $x) (Member $x Mortal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd derivedCopyKb (: ch (Member c Human) (STV 1.0 1.0)))
+!(compileadd derivedCopyKb (: cs (Special c) (STV 1.0 1.0)))
+!(forward-chain 50 derivedCopyKb
+   (collapse (match &kb ((Special c) (derivedCopyKb MAIN Nil) $p $tv) (assemble-stored-runtime-fact (Special c) (derivedCopyKb MAIN Nil) $p $tv))))
+!(test
+   (query 1 derivedCopyKb (: $proof (Inheritance Human Mortal) $tv))
+   (: (implication-instance-fold cpu) (Inheritance Human Mortal) (STV 0.5999733368850825 0.0037357419513899073)))
+!(test
+   (query 5 derivedCopyKb (: $proof (Inheritance Human Mortal) $tv))
+   (: (implication-instance-fold cpu) (Inheritance Human Mortal) (STV 0.5999733368850825 0.0037357419513899073)))
+!(compileadd derivedCopyUnregisteredKb (: ah (Member a Human) (STV 1.0 1.0)))
+!(compileadd derivedCopyUnregisteredKb (: am (Member a Mortal) (STV 0.8 1.0)))
+!(compileadd derivedCopyUnregisteredKb (: bh (Member b Human) (STV 1.0 1.0)))
+!(compileadd derivedCopyUnregisteredKb (: bm (Member b Mortal) (STV 0.0 1.0)))
+!(compileadd derivedCopyUnregisteredKb (: sp (Implication (Special $x) (Member $x Mortal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd derivedCopyUnregisteredKb (: ch (Member c Human) (STV 1.0 1.0)))
+!(compileadd derivedCopyUnregisteredKb (: cs (Special c) (STV 1.0 1.0)))
+!(forward-chain 50 derivedCopyUnregisteredKb
+   (collapse (match &kb ((Special c) (derivedCopyUnregisteredKb MAIN Nil) $p $tv) (assemble-stored-runtime-fact (Special c) (derivedCopyUnregisteredKb MAIN Nil) $p $tv))))
+!(test
+   (query 1 derivedCopyUnregisteredKb (: $proof (Inheritance Human Mortal) $tv))
+   (: (implication-instance-fold cpu) (Inheritance Human Mortal) (STV 0.5999733368850825 0.0037357419513899073)))
+!(test
+   (query 5 derivedCopyUnregisteredKb (: $proof (Inheritance Human Mortal) $tv))
+   (: (implication-instance-fold cpu) (Inheritance Human Mortal) (STV 0.5999733368850825 0.0037357419513899073)))

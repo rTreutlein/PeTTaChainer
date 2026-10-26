@@ -128,7 +128,7 @@
          stormKb
          (: $prf (RuleTruth (Implication (And (NextPeriod $p $t) (Storm $p)) (Storm $t))) $tv))
       $tv)
-   (STV 0.4999350008580249 0.450600230398338))
+   (STV 0.5 0.45062436849986953))
 !(test
    (let
       (: $prf $t $tv)
@@ -146,7 +146,7 @@
 !(compileadd stormKb (: next-t2 (NextPeriod t1 t2) (STV 1 1)))
 !(compileadd stormKb (: blocked-t2 (Blocked r1 t2) (STV 1 1)))
 !(test (let (: $prf $t $tv) (query 100 stormKb (: $prf (Storm t2) $tv)) $tv)
-   (STV 0.9198799673024876 0.17247015984665653))
+   (STV 0.919920574124224 0.17261476870701056))
 
 ;; Read the full internal CTV after scheduling a public STV query below.
 ;; These pins protect learned negative branches used by modus ponens.
