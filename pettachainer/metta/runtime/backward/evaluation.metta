@@ -3377,7 +3377,11 @@
 ;; dependency, so checking only that view would silently reuse it unchanged.
 ;; Folds and closed unfounded reads keep their ordinary admission behavior.
 ;; A compound whose rows read a given statement can acquire a value even when
-;; it had none in MAIN; row hash -2 prevents re-entry through those rows.
+;; it had none in MAIN; row hash -2 prevents re-entry through those rows. An
+;; excluded compound acquires none, by the read's exclusions or the rebuild
+;; frame's: a value built from its rows depends on it, and a branch rebuilt
+;; without it read it anyway (test_history_closed_replay: FuelArrived through
+;; the excluded (Or StockedFuel FuelArrived), never quiet).
 (: sk-pinned-value (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) SkeletonValue))
 (= (sk-pinned-value $given $key $filter $exclude)
    (let* (($branch (case $key (
@@ -3390,7 +3394,9 @@
             (case $key (
                ((sk-key $type $kbctx)
                   (let $hash (index-hash $key)
-                     (if (if (not (head-is-member? $type (And Or Implication))) true (space-row-present? &ctx_sk_conditioning ($hash -2))) sk-none
+                     (if (if (not (head-is-member? $type (And Or Implication))) true
+                            (if (space-row-present? &ctx_sk_conditioning ($hash -2)) true
+                               (if (sk-excludes? $exclude (deps-key $hash)) true (sk-branch-excludes? (deps-key $hash))))) sk-none
                         (let* (($_entered (context-add! &sk_conditioning ($hash -2)))
                                ($views
                                   (fold-semidet (sk-given-row-step $given $exclude $hash $key) ()
