@@ -4276,10 +4276,21 @@
 ;; conditioned on (CompletionEvidenceFormula). The siblings read none of K's
 ;; views, which carry that evidence: a projection of a stored (And G H) onto
 ;; H would count it again. C may read its prediction from K: under M's prior
-;; given K's evidence, that prediction is the prior C has.
+;; given K's evidence, that prediction is the prior C has. But not from what
+;; K's inversion rows observe for other rules: K inverted from another rule's
+;; observation reaches M through that rule's own completion, and C's
+;; prediction from it read as an observation shared that evidence with it, a
+;; view the merge then took in place of the informative one (p10_a: A 0.401
+;; where master gives 0.560 and the exact value is 0.567).
 (: sk-compound-evidence-step (-[det]-> Atom SkPattern Atom))
 (= (sk-compound-evidence-step $found $premise)
    (case $premise (((CPU CompoundEvidence ($_kb $compound $_consequence $kbctx) $_res) (sk-key $compound $kbctx)) ($_other $found))))
+
+;; Folded over what the compound's inversion rows read: the hashes of each
+;; such observation, the completion's own consequence aside.
+(: sk-observed-exclusion-step (-[det]-> SkeletonKey (List Number) SkeletonKey (List Number)))
+(= (sk-observed-exclusion-step $consequence $hashes $input)
+   (if (=alpha $input $consequence) $hashes (append-flat (sk-unifier-hashes (index-hash $input) $input) $hashes)))
 
 (: sk-completion-state
    (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey Bool SkeletonReadPolicy SkeletonRowState (List SkPattern)
@@ -4291,13 +4302,24 @@
                 ($chash (index-hash $consequence))
                 ($completed (fold-semidet (sk-completed-given-step $khash $key) () $premises))
                 ($compound (sk-key $ktype $kkbctx))
-                ($apart (hash-union (sk-unifier-hashes (index-hash $compound) $compound) $exclusions)))
+                ($apart (hash-union (sk-unifier-hashes (index-hash $compound) $compound) $exclusions))
+                ($compound-hash (index-hash $compound))
+                ($inverted-inputs (collapse (match &sk_row ($compound-hash $stored $_irhash (sk-row $_iident ($_itype $_ikbctx $iproof $_itv) $ipremises $_iseq))
+                   (if (=alpha $stored $compound)
+                      (if (if (is-expr $iproof)
+                             (let $ihead (car-atom $iproof)
+                                (if (is-var $ihead) false
+                                   (case (copy_term $ihead) (((inverted $_irule with $_iprior $_itoken) true) ($_iother false)))))
+                             false)
+                         (fold-semidet sk-direct-key-step () $ipremises) (empty))
+                      (empty)))))
+                ($observed (hash-set (fold-flat (sk-observed-exclusion-step $consequence) $exclusions (fold-flat append-flat () $inverted-inputs)))))
             (if (fold-semidet sk-known-false-step false (sk-key-leaves $consequence sk-any-filter))
                (fold-semidet
-                  (sk-completion-premise-step () $given $exclusions $apart $consequence $completed $shared $policy)
+                  (sk-completion-premise-step () $given $exclusions $observed $apart $consequence $completed $shared $policy)
                   $start $premises)
                (fold-semidet
-                  (sk-completion-premise-step (sk-closed-pin $chash $ctype $ckbctx true) $given $exclusions
+                  (sk-completion-premise-step (sk-closed-pin $chash $ctype $ckbctx true) $given $exclusions $observed
                      (hash-union (sk-unifier-hashes $chash $consequence) $apart) $consequence $completed $shared $policy)
                   $start $premises)))))))
 
@@ -4327,14 +4349,14 @@
       (($type $kbctx $_proof $_tv) (sk-key $type $kbctx)))))
 
 (: sk-completion-premise-step
-   (-[semidet]-> (List SkeletonGiven) (List SkeletonGiven) (List Number) (List Number) SkeletonKey (List SkeletonGiven)
+   (-[semidet]-> (List SkeletonGiven) (List SkeletonGiven) (List Number) (List Number) (List Number) SkeletonKey (List SkeletonGiven)
        Bool SkeletonReadPolicy SkeletonRowState SkPattern SkeletonRowState))
-(= (sk-completion-premise-step $pin $given $exclusions $siblings $consequence $completed $shared $policy $state $premise)
+(= (sk-completion-premise-step $pin $given $exclusions $observed $siblings $consequence $completed $shared $policy $state $premise)
    (case $premise (
       ((CPU $_fun $_args $_res) (sk-premise-step () $given $exclusions $shared true $policy $state $premise))
       (($type $kbctx $_proof $_tv)
          (if (=alpha (sk-key $type $kbctx) $consequence)
-            (sk-premise-step () $given $exclusions $shared true $policy $state $premise)
+            (sk-premise-step () $given $observed $shared true $policy $state $premise)
             (case (sk-premise-step $pin $given $siblings $shared true $policy $state $premise) (
                (sk-fail
                   (case $completed (

@@ -116,3 +116,20 @@
 !(test (let (: $_p $_t $tv) (query 2000 order2Kb (: $p (W k) $tv)) $tv) (STV 0.7406412478336222 0.9551320158018678))
 !(test (let (: $_p $_t $tv) (query 2000 order2Kb (: $p (Or (A k) (B k)) $tv)) $tv) (STV 0.7336170275687196 0.6113550151124288))
 !(test (let (: $_p $_t $tv) (query 2000 order2Kb (: $p (V k) $tv)) $tv) (STV 0.5668085137843598 0.8877359359573489))
+
+;; A completion's consequence is no view derived from the compound it
+;; completes. Here r1 and r2 read the Or, y observes Y, and rya concludes A.
+;; X has no observation, only its prediction from the Or inverted from y; r1's
+;; completion of A read that prediction as X's observation, shared y's
+;; evidence with r2's completion, and the merge took it instead: A 0.401.
+;; Exact enumeration of the DAG: A 0.567, X 0.7577, the Or 0.8222; A here is
+;; r2's completion revised with a (master's 0.560).
+!(compileadd consequenceKb (: r1 (Implication (Or (A $t) (B $t)) (X $t)) (CTV (STV 0.9 1) (STV 0.1 1))))
+!(compileadd consequenceKb (: rya (Implication (Y $t) (A $t)) (CTV (STV 0.9 1) (STV 0.2 1))))
+!(compileadd consequenceKb (: y (Y k) (STV 0.95 0.9)))
+!(compileadd consequenceKb (: a (A k) (STV 0.4 0.5)))
+!(compileadd consequenceKb (: b (B k) (STV 0.3 0.9)))
+!(compileadd consequenceKb (: r2 (Implication (Or (A $t) (B $t)) (Y $t)) (CTV (STV 0.8 1) (STV 0.2 1))))
+!(test (let (: $_p $_t $tv) (query 2000 consequenceKb (: $p (X k) $tv)) $tv) (STV 0.7577269944980254 0.8634521690129491))
+!(test (let (: $_p $_t $tv) (query 2000 consequenceKb (: $p (A k) $tv)) $tv) (STV 0.560039770239416 0.49342278189196137))
+!(test (let (: $_p $_t $tv) (query 2000 consequenceKb (: $p (Or (A k) (B k)) $tv)) $tv) (STV 0.8221587431225318 0.7632249553719406))

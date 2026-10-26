@@ -811,11 +811,19 @@ variant, reading only that part, whose join builds a row only for such a
 part; its view gives way to the complete step's when both exist
 (`connective_settling.md`). A completion reads its siblings and its
 consequence inline, a compound one through its connective over its parts,
-since no producer gives such a compound a key. Known limit: an unanswered
-root's waiting answer (the representative read) can fail through a compound
-key where reading the parts gave one: SupplyNet stage 3 untimed soft0.9 b100
-s4, `(Producing plant-a t4)` has no answer where master answers (0, 0.4999)
-from the same inputs, coverage 0.9734 to 0.9707 (#142).
+since no producer gives such a compound a key. Its consequence may be the
+rule's prediction from the compound's own evidence (a stored compound: P(G |
+not (G and H)) through a rule from the negated And, `test_compound_completion`),
+but reads no view depending on what the compound's inversion rows observe
+for other rules: the compound inverted from another rule's observation
+reaches the part through that rule's own completion, and the prediction
+read as an observation shared that evidence with it, a view the merge took
+in that completion's place (`test_compound_key_reads`, consequenceKb: A
+0.401 where master gives 0.560 and the exact value is 0.567). Known limit:
+an unanswered root's waiting answer (the representative read) can fail
+through a compound key where reading the parts gave one: SupplyNet stage 3
+untimed soft0.9 b100 s4, `(Producing plant-a t4)` has no answer where master
+answers (0, 0.4999) from the same inputs, coverage 0.9734 to 0.9707 (#142).
 
 The chainer is open-world: a statement with no proof is unknown. A KB may
 declare a predicate complete (`complete_predicates.md`): a rule application
