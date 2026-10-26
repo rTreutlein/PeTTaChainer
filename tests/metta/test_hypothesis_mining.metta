@@ -21,6 +21,12 @@
 ;; with k = 1, confidence 0.01/1.01.
 !(set-evidence-confidence-k 1)
 
+;; With mining on and no predicate time declared in the process yet, a fact
+;; is ingested as usual and mines nothing.
+!(set-hypothesis-mining noTimeKb 2 4)
+!(test (compileadd noTimeKb (: s1 (Storm north t1) (STV 1 1))) (: (noTimeKb MAIN Nil) s1 (Storm north t1) (STV 1 1)))
+!(test (live-hypotheses noTimeKb) ())
+
 ;; Within one time point, a fact of a lower layer concludes one of a higher
 ;; layer: a pair at once; a pair whose features share another constant also
 ;; gives the relational form. A single is proposed when it recurs at another

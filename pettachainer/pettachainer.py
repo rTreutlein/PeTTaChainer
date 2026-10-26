@@ -495,7 +495,12 @@ class PeTTaChainer:
         (counted from 1), and within a time point a fact of a lower ``layer``
         may cause one of a higher layer, never the reverse; equal layers are
         not related. Only declared predicates are mined
-        (docs/metta/hypothesis_rules.md). Timed subprocess queries replay the
+        (docs/metta/hypothesis_rules.md). The position is a ``Time`` sort, so
+        every statement mentioning a symbol stated there is a stage
+        (docs/metta/API.md, "Sorts"). It commutes with
+        ``set_argument_sorts``: the position stays ``Time`` either way round,
+        and a declaration that gives it another sort, places it beyond the
+        head's arity or moves it raises. Timed subprocess queries replay the
         declaration.
         """
         self.handler.process_metta_string(

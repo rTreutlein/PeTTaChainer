@@ -6,7 +6,7 @@
 % Concept only exclude a constant from being a stage (D2); Value positions
 % sort nothing. A KB that declares no sorts and no time has no stages: the
 % declarations set sorted_kb, and nothing is walked without it.
-:- dynamic sorted_kb/1, argument_sort/4, constant_sort/3.
+:- dynamic sorted_kb/1, argument_sort/4, constant_sort/3, time_layer/4.
 
 'sorted-kb!'(KB, true) :- ( sorted_kb(KB) -> true ; assertz(sorted_kb(KB)) ).
 
@@ -17,6 +17,10 @@
     ->  length(Sorts, Arity)
     ;   throw(error(domain_error(argument_sorts, [Head, Sorts]),
                     context(declaration/2, 'argument sorts are a list of Stage, Time, Object, Concept, Value or Any'))) ),
+    (   time_layer(Head, KB, Position, _), \+ ( nth1(Position, Sorts, Sort), memberchk(Sort, ['Time','Any']) )
+    ->  throw(error(domain_error(predicate_time, [Head, Position]),
+                    context(declaration/2, 'the position set-predicate-time declares is Time')))
+    ;   true ),
     (   source_head_arity(Head, KB, Other)
     ->  (   Other == Arity -> true
         ;   throw(error(domain_error(predicate_arity, [Head, Arity, Other]),
@@ -24,7 +28,9 @@
     ;   assertz(source_head_arity(Head, KB, Arity)) ),
     'sorted-kb!'(KB, true),
     retractall(argument_sort(Head, KB, _, _)),
-    forall(( nth1(Position, Sorts, Sort), Sort \== 'Any' ), assertz(argument_sort(Head, KB, Position, Sort))).
+    forall(( nth1(Position, Sorts, Declared),
+             ( time_layer(Head, KB, Position, _) -> Sort = 'Time' ; Sort = Declared ), Sort \== 'Any' ),
+           assertz(argument_sort(Head, KB, Position, Sort))).
 
 'set-constant-sort'(KB, Constant, Sort, true) :-
     (   atom(Constant), memberchk(Sort, ['Stage','Time','Object','Concept'])
@@ -33,14 +39,22 @@
                     context(declaration/2, 'a constant sort names a symbol and one of Stage, Time, Object or Concept'))) ).
 
 % Head's facts refer to the time point at argument Position, which is
-% declared Time, and have layer Layer within it (hypothesis mining).
+% Time, and have layer Layer within it (hypothesis mining). It commutes with
+% set-argument-sorts: whichever comes first, the position stays Time, and
+% one that gives it another sort, lies beyond the head's arity or moves the
+% time to another position is rejected.
 'set-predicate-time'(KB, Head, Position, Layer, true) :-
     'declared-head!'(Head, true),
-    'sorted-kb!'(KB, true),
-    retractall(argument_sort(Head, KB, Position, _)),
-    assertz(argument_sort(Head, KB, Position, 'Time')),
-    retractall(time_layer(Head, KB, _)),
-    assertz(time_layer(Head, KB, Layer)).
+    (   integer(Position), Position >= 1,
+        \+ ( time_layer(Head, KB, Other, _), Other \== Position ),
+        \+ ( argument_sort(Head, KB, Position, Sort), Sort \== 'Time' ),
+        \+ ( source_head_arity(Head, KB, Arity), Position > Arity )
+    ->  'sorted-kb!'(KB, true),
+        ( argument_sort(Head, KB, Position, 'Time') -> true ; assertz(argument_sort(Head, KB, Position, 'Time')) ),
+        retractall(time_layer(Head, KB, Position, _)),
+        assertz(time_layer(Head, KB, Position, Layer))
+    ;   throw(error(domain_error(predicate_time, [Head, Position]),
+                    context(declaration/2, 'a predicate time is one Time position within the head\'s arity'))) ).
 
 % A source's constants take the sorts of their declared positions. A term
 % that would be both a stage or time and an object or concept, across the

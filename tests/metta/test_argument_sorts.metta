@@ -128,6 +128,36 @@
    (: ((inverted lw with cpu (prior (STV 0.4 1))) (by qw q3)) (L t3) (STV 0.7783251231527094 0.9998738296388164)))
 !(set-bayes-prior-count 0.2)
 
+;; Mining's place in time is the position set-predicate-time names, also
+;; when the head has another Time position.
+!(set-argument-sorts sortShip Ship (Time Object Time))
+!(set-predicate-time sortShip Ship 3 0)
+!(test (hypothesis-place sortShip (Ship t1 x t2)) (t2 0))
+
+;; set-predicate-time and set-argument-sorts commute: the named position
+;; stays Time whichever comes first, and a declaration that gives it another
+;; sort, puts it beyond the head's arity or moves it is rejected, changing
+;; nothing. Another layer at the same position is allowed.
+!(set-predicate-time sortGo Go 2 0)
+!(set-argument-sorts sortGo Go (Object Any))
+!(test (stage-statement? sortGo (Go x $t) ()) true)
+!(test (hypothesis-place sortGo (Go x t1)) (t1 0))
+!(test (let (Error $error $_context) (catch (set-argument-sorts sortGo Go (Object Object))) (repr $error))
+   "(domain_error predicate_time (Go 2))")
+!(test (let (Error $error $_context) (catch (set-argument-sorts sortGo Go (Object))) (repr $error))
+   "(domain_error predicate_time (Go 2))")
+!(test (let (Error $error $_context) (catch (set-predicate-time sortGo Go 1 0)) (repr $error))
+   "(domain_error predicate_time (Go 1))")
+!(test (stage-statement? sortGo (Go x $t) ()) true)
+!(test (set-predicate-time sortGo Go 2 1) true)
+!(test (hypothesis-place sortGo (Go x t1)) (t1 1))
+!(set-argument-sorts sortCome Come (Object Object))
+!(test (let (Error $error $_context) (catch (set-predicate-time sortCome Come 2 0)) (repr $error))
+   "(domain_error predicate_time (Come 2))")
+!(test (let (Error $error $_context) (catch (set-predicate-time sortCome Come 3 0)) (repr $error))
+   "(domain_error predicate_time (Come 3))")
+!(test (hypothesis-place sortCome (Come x t1)) ())
+
 ;; D2: a constant is never both a stage or time and an object or concept.
 ;; Swapped role arguments are rejected before anything of them is stored or
 ;; recorded, its heads' arities included; Object with Concept (punning) and

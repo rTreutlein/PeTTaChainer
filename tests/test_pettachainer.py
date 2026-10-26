@@ -220,6 +220,31 @@ class TestPeTTaChainer(unittest.TestCase):
         self.assertIn("inverted sw", live[0])
         self.assertEqual(handler.query("(: $prf (S ev3) $tv)", steps=500, timeout_sec=30), live)
 
+    def test_predicate_time_commutes_with_argument_sorts_in_timed_replay(self):
+        # A timed query replays every argument-sorts declaration before every
+        # predicate time. They commute: a later set_argument_sorts keeps the
+        # declared time position Time, so t1 is a time point and Producing t1
+        # a stage, which keeps its prior live and in the replay alike; one
+        # that gives the position another sort is rejected.
+        handler = PeTTaChainer()
+        handler.set_bayes_prior_count(0)
+        self.addCleanup(handler.set_bayes_prior_count, 0.2)
+        handler.set_predicate_time("Go", 2, 0)
+        handler.set_argument_sorts("Go", ["Object", "Any"])
+        with self.assertRaises(Exception):
+            handler.set_argument_sorts("Go", ["Object", "Object"])
+        handler.add_atoms_no_check([
+            "(: sw (Implication (Stormy $t) (NoOutput $t)) (CTV (STV 0.9 1) (STV 0.2 1)))",
+            "(: pw (Implication (Producing $t) (NoOutput $t)) (CTV (STV 0.9 1) (STV 0.1 1)))",
+            "(: z1 (Producing z1) (STV 1 1))", "(: z2 (Producing z2) (STV 0 1))",
+            "(: g (Go x t1) (STV 1 1))",
+            "(: s1 (Stormy t1) (STV 1 1))",
+        ])
+        live = handler.query("(: $prf (Producing t1) $tv)", steps=2000)
+        self.assertEqual(len(live), 1, live)
+        self.assertIn("population-prior", live[0])
+        self.assertEqual(handler.query("(: $prf (Producing t1) $tv)", steps=2000, timeout_sec=30), live)
+
     def test_bayes_prior_count_applies_in_process_and_to_timed_queries(self):
         handler = PeTTaChainer()
         handler.set_bayes_prior_count(1e6)

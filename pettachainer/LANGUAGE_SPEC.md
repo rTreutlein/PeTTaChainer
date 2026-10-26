@@ -247,7 +247,7 @@ a number or a quoted statement, which sorts nothing) and `Any` (undeclared).
 A statement with a `Stage` or `Time` argument is a *stage*: after
 `(Agent e1 Bob)`, `(Late e1)` is one. So is an `And`, `Or`, `Not` or
 existential claim with a stage part. `set-predicate-time` declares its
-position `Time`, so its time points make stages too. An inversion or
+position `Time`, so the symbols stated there make stages too. An inversion or
 completion of a stage reads only evidence from below, never a forward
 prediction; every other statement is an aggregate and keeps PLN induction and
 abduction. A constant that would be both a stage or time and an object or

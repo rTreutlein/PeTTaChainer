@@ -2128,11 +2128,11 @@ generalize_argument(Subst, Arg, General) :-
 
 % Observed predicates (runtime/observed_predicates.metta): the ground
 % statements of Head at time point Time that a rule of KB concludes (its
-% conclusion with the argument at Head's Time position a variable and every
+% conclusion with the argument at Head's predicate time a variable and every
 % other argument ground) and that KB stores no fact of, each as a false fact
 % named by its hash.
 'closed-world-gaps'(KB, Head, Time, Facts) :-
-    (   current_predicate(ccls_index/3), argument_sort(Head, KB, Position, 'Time')
+    (   current_predicate(ccls_index/3), time_layer(Head, KB, Position, _)
     ->  findall(S, ( ccls_index([T, [KB|_], _, _], _, _), T = [Head|_], copy_term(T, S),
                      nth0(Position, S, V), var(V), V = Time, ground(S) ), Found),
         sort(Found, Statements)
@@ -2143,11 +2143,11 @@ generalize_argument(Subst, Arg, General) :-
             Facts).
 
 % A ground statement's place in time, [Time, Layer]: the constant at its
-% predicate's Time position and the predicate's layer (set-predicate-time);
-% [] when there is none.
+% predicate's time position and its layer (set-predicate-time); [] when
+% there is none.
 'hypothesis-place'(KB, Statement, Place) :-
     (   is_list(Statement), ground(Statement), Statement = [Head|Args],
-        time_layer(Head, KB, Layer), argument_sort(Head, KB, Position, 'Time'),
+        time_layer(Head, KB, Position, Layer),
         nth1(Position, Args, Time), atomic(Time), Time \== []
     ->  Place = [Time, Layer] ; Place = [] ).
 
@@ -2231,7 +2231,7 @@ hypothesis_confidence(['CTV', ['STV', _, C], _], C).
 % (set-predicate-time), lowest first.
 'hypothesis-layers'(KB, Live, Groups) :-
     findall(Layer-Reviewed, ( member(Reviewed, Live), Reviewed = ['hm-reviewed', _, _, [Head|_], _, _],
-                              time_layer(Head, KB, Layer) ), Keyed),
+                              time_layer(Head, KB, _, Layer) ), Keyed),
     keysort(Keyed, Sorted), group_pairs_by_key(Sorted, ByLayer), pairs_values(ByLayer, Groups).
 
 % How many of the live hypotheses under review no review had read, which
