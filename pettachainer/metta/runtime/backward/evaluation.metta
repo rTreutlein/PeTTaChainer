@@ -408,13 +408,18 @@
 ;; apart from them only by a stored fact or one of the rows reading neither,
 ;; which the key needs (sk-need-below!) and is read only then, since every
 ;; change of a part changes K.
+;; The evidence read excludes K's parts and C, besides what its reader excludes.
+(: sk-evidence-apart (-[det]-> $spec (List Number) (List Number)))
+(= (sk-evidence-apart ($_kb $ktype $ctype $kbctx) $exclude)
+   (hash-set (foldr-flat (sk-part-exclusions (the KBContext $kbctx)) $exclude
+      (sk-statement-parts (cons $ctype (the (List Atom) (cdr-atom $ktype)))))))
+
 (: sk-evidence-rows (-[semidet]-> $spec (List SkeletonItem)))
 (= (sk-evidence-rows $args)
-   (let* ((($_kb $ktype $ctype $kbctx) $args)
+   (let* ((($_kb $ktype $_ctype $kbctx) $args)
           ($compound (sk-key $ktype $kbctx))
           ($khash (index-hash $compound))
-          ($apart (hash-set (foldr-flat (sk-part-exclusions (the KBContext $kbctx)) ()
-                     (sk-statement-parts (cons $ctype (the (List Atom) (cdr-atom $ktype))))))))
+          ($apart (sk-evidence-apart $args ())))
       (collapse (match &sk_row ($khash $stored $rhash (sk-row $ident $concl $premises $seq))
          (if (=alpha $stored $compound)
             (if (sk-excludes? $apart
@@ -425,11 +430,10 @@
 
 (: sk-evidence-view (-[semidet]-> Number $spec (List Number) SkeletonValue))
 (= (sk-evidence-view $hash $args $exclude)
-   (let* ((($kb $ktype $ctype $kbctx) $args)
+   (let* ((($kb $ktype $_ctype $kbctx) $args)
           ($compound (sk-key $ktype $kbctx))
           ($_use (sk-add-use! $compound (sk-evidence $args)))
-          ($apart (hash-set (foldr-flat (sk-part-exclusions (the KBContext $kbctx)) $exclude
-                     (sk-statement-parts (cons $ctype (the (List Atom) (cdr-atom $ktype))))))))
+          ($apart (sk-evidence-apart $args $exclude)))
       (if (if (== (sk-key-leaves $compound sk-any-filter) ()) (== (sk-evidence-rows $args) ()) false)
          sk-none
          (case (sk-premise-value false (sk-value $compound sk-any-filter $apart)) (
@@ -4210,9 +4214,6 @@
                          (case (copy_term $head) (((inverted $_rule with $_prior $_token) true) ($_other false)))))
                    false)
                (hash-set (foldr-flat (sk-part-exclusions $kbctx) $own (sk-statement-parts (cons $type ()))))
-               (if (if (compound-source? (brand Statement $type))
-                      (if (rule-application-proof? $proof) false (derivation-proof? $type $proof)) false)
-                  (hash-set (sk-reader-conclusions (brand Statement $type) $kbctx $own))
                (if (head-is? $type ImplicationInstanceSample)
                   (case $type (
                      ((ImplicationInstanceSample $a $b $_atv $_btv)
@@ -4221,24 +4222,8 @@
                            (hash-union (hash-union $own (sk-unifier-hashes (index-hash $implication) $implication))
                               (hash-set (collapse (match &sk_rule_truth ($_id $hash $_type ($kbid $_ctx $_vars)) $hash))))))
                      ($_statement $own)))
-                  $own))))
+                  $own)))
          ($_fold $own)))))
-
-;; A compound read through its key is its readers' reading of its parts
-;; (#142), so its producer rows exclude what those readers exclude: views
-;; depending on what the rules reading the compound conclude. A part's
-;; completion from the reader's own conclusion is no support of it, as it was
-;; none when the rule read the part; reading it made the producer condition
-;; around the loop for a view the reader then refused (fuzz s22000086: 7,966
-;; conditioned evaluations where master makes none).
-(: sk-reader-conclusions (-[det]-> Statement KBContext (List Number) (List Number)))
-(= (sk-reader-conclusions $type $kbctx $own)
-   (let $kbid (car-atom $kbctx)
-      (fold-flat sk-match-conclusion-step $own
-         (foldr-flat (sk-premise-rules-step $type $kbctx) () (statement-prefix-keys $kbid $type)))))
-(: sk-match-conclusion-step (-[det]-> (List Number) SkeletonMatch (List Number)))
-(= (sk-match-conclusion-step $hashes (sk-match $_id $_premises ($ctype $cctx $_cproof $_ctv)))
-   (let $ckey (sk-key $ctype $cctx) (append-flat (sk-unifier-hashes (index-hash $ckey) $ckey) $hashes)))
 
 ;; A projection of a compound, its first premise, onto one part reads the other
 ;; parts as evidence apart from the compound: a part's view derived from the
@@ -5144,37 +5129,52 @@
       ()))
 
 ;; A row cannot contribute when every structural reader excludes one of its
-;; mandatory statement inputs. Keep the pending claim: a new reader or root
-;; revokes this proof of unreadability on the next need/payment round.
-(: sk-readable-row? (-[semidet]-> Number SkeletonKey (List SkPattern) Bool))
+;; mandatory statement inputs, or a key the view it keeps depends on: its
+;; conditioned view reads the same views of its inputs, and each reader reads
+;; the row again under its own exclusions. A fold or group using the key reads
+;; it; a connective's evidence read (sk-evidence-view) excludes the parts and
+;; the consequence. So a compound's producer row whose part has a completion
+;; from what the rule reading the compound concludes does not condition around
+;; that loop for its reader, which refuses that view (#142; fuzz s22000086:
+;; 7,966 conditioned evaluations otherwise, none on master, whose rule read the
+;; parts itself). Keep the pending claim: a new reader or root revokes this
+;; proof of unreadability on the next need/payment round.
+(: sk-readable-row? (-[semidet]-> Number SkeletonKey Number (List SkPattern) Bool))
 ;; A forward run exposes taken values too, beyond its depth-zero reader keys.
 ;; Conservatively keep all its claims live instead of pruning a public value.
-(= (sk-readable-row? $hash $key $premises)
+(= (sk-readable-row? $hash $key $rhash $premises)
    (if (if (== (search-id-value sk_forward_run) 1) true (== (sk-need-depth $hash $key) 0)) true
-      (if (not (== (collapse (once (match &sk_use ($hash $member $_fold)
-                    (if (=alpha $member $key) true (empty))))) ())) true
          (let* (($inputs (fold-semidet sk-direct-key-step (cons $key ()) $premises))
-                ($mandatory (deps-join (collapse
+                ($input-deps (deps-join (collapse
                    (let (sk-key $type $scope) (superpose $inputs)
                       (deps-key (index-hash (sk-key $type $scope)))))))
+                ($mandatory (case (sk-latest-view $hash $key $rhash) (
+                   ((sk-val $_fact $_ev $view-deps) (deps-union $input-deps $view-deps))
+                   ($_none $input-deps))))
+                ($used (not (== (collapse (once (match &sk_use ($hash $member $use)
+                   (if (=alpha $member $key)
+                      (case $use (
+                         ((sk-evidence $args) (if (deps-meet? (sk-evidence-apart $args ()) $mandatory) (empty) true))
+                         ($_fold true)))
+                      (empty))))) ())))
                 ($readers (append-flat
                    (collapse (match &ctx_sk_reader ($hash $read $kh $rh)
                       (if (=alpha $read $key) ($kh $rh) (empty))))
                    (collapse (match &ctx_sk_stale_reader ($hash $stale $sh $sr)
                       (if (=alpha $stale $key) ($sh $sr) (empty)))))))
-            (not (== (collapse (once
-               (let ($reader-hash $reader-row) (superpose $readers)
-                  (match &sk_row ($reader-hash $reader-key $reader-row
-                           (sk-row $_ident ($_type $_ctx $proof $_tv) $_premises $_seq))
-                     (if (deps-meet? (sk-row-exclusions $reader-hash $reader-key $proof) $mandatory)
-                        (empty) true))))) ()))))))
+            (if $used true
+               (not (== (collapse (once
+                  (let ($reader-hash $reader-row) (superpose $readers)
+                     (match &sk_row ($reader-hash $reader-key $reader-row
+                              (sk-row $_ident ($_type $_ctx $proof $_tv) $_premises $_seq))
+                        (if (deps-meet? (sk-row-exclusions $reader-hash $reader-key $proof) $mandatory)
+                           (empty) true))))) ()))))))
 
 (: sk-need-row! (-[semidet]-> Number SkeletonNeed SkeletonItem SkeletonNeed))
 (= (sk-need-row! $depth (sk-need-next $next $members) (sk-row-item $_seq $khash $key $rhash (sk-row (sk-ident $rule $_keys $_key) $_concl $premises $_s)))
    (if (rule-live? $rule)
    (let* (($_reserve (sk-reserve-near! (- $depth 1)))
           ($near (<= $depth (+ (sk-evaluation-free-depth) 1)))
-          ($compound-depth (case $key (((sk-key $_ctype ($ckb $_cctx $_cvars)) (if (context-searching? $ckb) (- $depth 1) $depth)) ($_cfold $depth))))
           ($world (space-row-present? &sk_world_stale ($khash $rhash)))
           ($_world-needed (if $world
              (if (space-row-present? &sk_world_done ($khash $rhash)) ()
@@ -5201,32 +5201,38 @@
                 (let $_relinked (sk-relink-row! $khash $rhash $premises) (context-add! &sk_refresh ($khash $rhash)))
                 ())))
       (if (if (space-row-present? &ctx_sk_given_pending ($khash $rhash $_cost))
-                (sk-readable-row? $khash $key $premises)
+                (sk-readable-row? $khash $key $rhash $premises)
                 (if $world true (if $refresh true
                    (if (<= $depth (sk-evaluation-free-depth)) true $unseen))))
-         (fold-semidet (sk-need-premise-step true $compound-depth) (sk-need-next $next $members) $premises)
-         (fold-semidet (sk-need-premise-step false $compound-depth) (sk-need-next $next $members) $premises)))
+         (fold-semidet (sk-need-premise-step true $depth) (sk-need-next $next $members) $premises)
+         (fold-semidet (sk-need-premise-step false $depth) (sk-need-next $next $members) $premises)))
    (let $_removed (sk-drop-row! $khash $key $rhash (sk-row (sk-ident $rule $_keys $_key) $_concl $premises $_s))
       (sk-need-next $next $members))))
 
-;; A row's premise keys are needed one level further when the row passes its
-;; need on (`$all`). A compound key is the row's own reading of the compound's
-;; parts (#142), so a needed row always needs it, and a change of a part
-;; reaches the reading row through its producer rows, as it did when the rule
-;; read the part itself. In a query with Assuming worlds (context-searching?)
-;; it is needed at the row's key's depth, so its producer rows are as near a
-;; root as the reading row: an assumed part changes only the producer row,
-;; which no stale cascade from MAIN reaches, and the reading row kept the view
-;; of an earlier world (SupplyNet stage 4: an assumed stock read as unfounded,
-;; regret 0.08; one level further, 0.04). In MAIN the next level is enough, and
-;; nearer cost stage 3 untimed b25 12%.
+;; A row's premise keys are needed one level further, at `$depth`, when the
+;; row passes its need on (`$all`). A compound key is the row's own reading of
+;; the compound's parts (#142), so a needed row always needs it, at the row's
+;; key's depth, and its producer rows with the row: they are as near a root as
+;; the reading row, the parts as near as when the rule read them, and a change
+;; of a part reaches the reading row through them. A stale producer row one
+;; level further was not brought current, and its reader kept the view of an
+;; earlier value of the part, in MAIN (a late fact of a part: Q at 0.6306 for
+;; 0.6524) and in an Assuming world, which relinks only the rows of keys near
+;; a root (SupplyNet stage 4: an assumed stock read as unfounded). The key of
+;; a root's row is needed at depth 1, which is as near: depth 0 makes a root,
+;; whose merge a query reads and conditions as its answer.
 (: sk-need-premise-step (-[semidet]-> Bool Number SkeletonNeed SkPattern SkeletonNeed))
 (= (sk-need-premise-step $all $depth (sk-need-next $next $members) $premise)
    (case (sk-direct-key-step () $premise) (
       ((cons (sk-key $type $kbctx) ())
-         (if (compound-source? (brand Statement $type))
-            (sk-need! $depth (sk-need-next $next $members) (sk-key $type $kbctx))
-            (if $all (sk-need-next (cons (sk-key $type $kbctx) $next) $members) (sk-need-next $next $members))))
+         (let* (($key (sk-key $type $kbctx)) ($hash (index-hash $key)))
+            (if (compound-source? (brand Statement $type))
+               (if (sk-needed? $hash $key) (sk-need-next $next $members)
+                  (let* (($at (max (- $depth 1) 1))
+                         ($_new (add-atom &sk_needed ($hash $key $at)))
+                         ($_touched (sk-touch-key! $hash $key)))
+                     (sk-need-below! (- $depth 1) $hash $key (sk-need-next $next $members))))
+               (if $all (sk-need-next (cons $key $next) $members) (sk-need-next $next $members)))))
       ($keys (if $all (sk-need-next (append-flat $keys $next) $members) (sk-need-next $next $members))))))
 
 ;; The need from a query's roots, or from the keys a forward wave takes.
@@ -5512,7 +5518,7 @@
                (if (== $pr -1)
                   (match &sk_keys ($ph $pk) (if (sk-needed? $ph $pk) true (empty)))
                   (match &sk_row ($ph $pk $pr (sk-row $_pi $_pc $pp $_ps))
-                     (if (sk-needed? $ph $pk) (if (sk-readable-row? $ph $pk $pp) true (empty)) (empty))))))))))))
+                     (if (sk-needed? $ph $pk) (if (sk-readable-row? $ph $pk $pr $pp) true (empty)) (empty))))))))))))
 
 ;; A pass works off the rows never evaluated, the readers of the keys changed
 ;; outside evaluation, the stale rows a need brought current (forced by their
@@ -5614,7 +5620,7 @@
                (collapse (match &ctx_sk_given_pending ($khash $rhash $cost)
                   (match &sk_row ($khash $key $rhash (sk-row $ident $concl $premises $seq))
                      (if (if (sk-needed? $khash $key)
-                              (if (sk-readable-row? $khash $key $premises)
+                              (if (sk-readable-row? $khash $key $rhash $premises)
                                  (not (space-row-present? &ctx_sk_given_granted ($khash $rhash))) false) false)
                         (sk-claim (sk-need-depth $khash $key) $cost $seq
                            (sk-row-waiting (sk-row-item $seq $khash $key $rhash (sk-row $ident $concl $premises $seq))))

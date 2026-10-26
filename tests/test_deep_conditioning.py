@@ -401,7 +401,7 @@ class DeepConditioningTests(unittest.TestCase):
             "findall(true,(call(_Request),arg(1,_Request,_H),arg(2,_Request,_R), "
             " (_R == -1 -> '&sk_keys'(_H,_K),_Readable=true "
             " ; '&sk_row'(_H,_K,_R,['sk-row',_,_,_Premises,_]), "
-            "   'sk-readable-row?'(_H,_K,_Premises,_Readable)), "
+            "   'sk-readable-row?'(_H,_K,_R,_Premises,_Readable)), "
             " _Readable == true, 'sk-needed?'(_H,_K,true)), _Needed), "
             "findall(true, ('&ctx_sk_root_exhausted'(_DH,_DK,_), "
             " 'sk-root-claim?'([],_DH,_DK,true), "
@@ -549,7 +549,7 @@ print(json.dumps({'tv': [r.tv for r in rows], 'metrics': metrics}, sort_keys=Tru
             "'index-hash'(_Key,_H), "
             "once(('&sk_row'(_H,_Key,_R,['sk-row',_,_,_Prem,_]), "
             " member([['Fuelled',plant,t2]|_],_Prem))), "
-            "'sk-readable-row?'(_H,_Key,_Prem,Readable)"
+            "'sk-readable-row?'(_H,_Key,_R,_Prem,Readable)"
         )
         self.assertEqual(janus.query_once(inspect, {'Kb': handler.kb})['Readable'], 'false')
         # Forward runs may expose a taken key even when it has no depth-zero

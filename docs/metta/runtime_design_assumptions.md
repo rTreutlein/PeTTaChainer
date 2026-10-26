@@ -672,7 +672,13 @@ A key's value merges its stored facts and one view per row:
   conclusion is its premise: with `(BiImplication L Problem)` and an alarm's
   inversion over Problem, L's own view takes the prior's place as Problem's
   does, 0.907 for both, where a revision with the bi-backward application kept
-  0.520 (`test_or_inversion_conditioned_merge`, for `(Or ...)` and an atom L);
+  0.520 (`test_or_inversion_conditioned_merge`, for `(Or ...)` and an atom L).
+  The premise and conclusion have the same variables: `(P $x $y) → (Q $x)`
+  reads one of many instances, whose population prior is not Q's, and carrying
+  its update put Q's own inversion under P's prior. Two certain equivalences
+  between the same statements (a second one, or the reverse BiImplication)
+  give the conclusion two applications of the one update, and it keeps none:
+  0.520, as on master (`dupEqKb`, `revEqKb`);
 - inversions and antecedent completions over one prior through different
   observations combine by Bayes' rule (a completion observes its consequence;
   a sibling it reads as certain, alone or inside the compound of the other
@@ -791,12 +797,14 @@ whose producers derive it from its parts, as any nested compound is read
 (#142): a stored or assumed compound reaches the rule. What a rule concludes
 from it depends on the compound's key and, through the producers, on the
 parts; a row inverting such a rule into the compound also excludes views that
-depend on any of its parts. A compound's producer rows exclude what
-the rules reading it conclude, as those rules excluded it when they read the
-parts: a part's completion from a reader's own conclusion supports no reading
-of it (without that the producer conditioned around a loop for a view its
-reader then refused: fuzz s22000086, 7,966 conditioned evaluations against
-none). A part whose certain stored fact is its
+depend on any of its parts. The compound's producer rows are shared by all
+its readers and exclude only what any row of the key excludes; each reader
+excludes its own conclusion at its own read, as it did reading the parts.
+Excluding every reader's conclusion in the producer row removed, for every
+reader and the key itself, the views that depend on any of them: with two
+rules reading `(Or A B)` and concluding X and Y, A's view through Y was gone,
+and X fell from 0.794 to 0.564 (`test_compound_key_reads`, readersKb), so a
+rule added took evidence away. A part whose certain stored fact is its
 connective's absorbing value (a true disjunct, a false conjunct) settles the
 compound alone, through a producer, or for a conjunctive antecedent a rule
 variant, reading only that part, whose join builds a row only for such a
@@ -1385,14 +1393,28 @@ seeds 1–4 and budgets 25–200: 0.00348 by creation, 0.00323 by depth). The
 order does not depend on the allowance, so an allowance that covers everything
 computes what an unbounded evaluation would.
 
-A needed row always needs its compound premise keys, at its own key's
-depth, whether or not it passes the need on: a compound key is the row's
-reading of the compound's parts (#142), so its producer rows are as near a
-root as the reading row and a change of a part reaches the reading row through
-them, as it did when the rule read the part itself. Otherwise an assumed part
-changed only a producer row no need reached, and the reading row kept the view
-of an earlier world (SupplyNet stage 4: an assumed stock read as unfounded, 0
-where the plant runs at 0.95; `test_complete_predicates`, stockKb).
+A needed row always needs its compound premise keys, whether or not it passes
+the need on: a compound key is the row's reading of the compound's parts
+(#142). The key is needed at the reading row's key's depth and its producer
+rows with the reading row, so they are as near a root as the reading row, the
+parts as near as when the rule read them, and a change of a part reaches the
+reading row through them. A stale producer row one level further was never
+brought current, and the reading row kept the view of an earlier value of the
+part, in MAIN (late facts of a part: Q at 0.6306 for 0.6524, however often
+asked) and in an Assuming world, which relinks only the stale rows of keys
+near a root (SupplyNet stage 4: an assumed stock read as unfounded, 0 where
+the plant runs at 0.95, regret 0.04 one level further;
+`test_compound_key_reads`, `test_complete_predicates` stockKb). The compound
+of a root's row is needed at depth 1, which is as near: at depth 0 it was a
+root, whose merge a query reads and conditions as its answer, and its
+producer row conditioned around a loop for a view its reader refused (fuzz
+s22000086: 7,966 conditioned evaluations where master makes none). Known
+cost: keeping the producer rows near a root makes SupplyNet stage 3 untimed
+b25 s4 13% slower than master (paired, 5.33 s against 6.05 s): the rows'
+closed reads run under the compound's own pin besides the reader's, which
+builds branches the parts' direct reads shared (Or 498, Producing 673,
+Fuelled 186 more branch misses), and the key's merge is read once more per
+reader.
 
 A row's computation from the allowance, like its creation, costs more the
 larger its key (`term-cost`), so a step costs the same however large the terms
@@ -1452,7 +1474,11 @@ unpaid row is recorded only once the query has its answers, so a later
 need knows to come back down to it.
 
 Conditioning spends what that allowance has left, never the near-root
-reserve. A row whose clash needs it waits, keeping its views; an entangled
+reserve. A row is conditioned only for a reader that can read it: one whose
+exclusions miss its mandatory inputs and what the view it keeps depends on,
+or a fold using its key. A connective's evidence read (`sk-evidence-view`)
+excludes the connective's parts, so it reads no producer row; each reader
+reads a row it refuses again under its own exclusions. A row whose clash needs it waits, keeping its views; an entangled
 row takes its independent value if it has no view; a key keeps its one-step
 component merge. Dependencies of discarded views still connect their component.
 After ordinary rows and root reads, waiting targets get turns nearest a root
