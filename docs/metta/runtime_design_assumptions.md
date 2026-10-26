@@ -278,7 +278,9 @@ expansion unfinished with temporary waiters still installed.
 
 Rules compiled for one query (negation views, computation bridges, implication
 scaffolds, the producers of the compound keys it reads) leave with it: their
-rows, waiters and views are removed and the keys they fed change. A query's
+rows, waiters, deferred joins and rows and views are removed and the keys they
+fed change. A later query's rule may take a removed rule's id, so a deferred
+join left behind would extend the wrong rule. A query's
 cost therefore does not grow with the compounds earlier queries read. A
 compound key's producers are the one way it gets a value (#142): a rule emits
 those of the keys it reads, which live with the rule, and the chainer installs

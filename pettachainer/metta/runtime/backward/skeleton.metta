@@ -2250,8 +2250,10 @@
           ($_stale (context-remove! &sk_stale ($hash $rhash))))
       (sk-drop-row-views! $hash $key $rhash)))
 
-;; Query-local rules leave with their query: their rows, waiters, deferred rows
-;; and views are removed, and the keys of the removed rows changed.
+;; Query-local rules leave with their query: their rows, waiters, deferred joins
+;; and rows and views are removed, and the keys of the removed rows changed. A
+;; later query's rule may take a removed rule's id, so a deferred join left
+;; behind would extend the wrong rule.
 (: sk-clear-temp! (-[semidet]-> Atom))
 (= (sk-clear-temp!)
    (let* (($_deferred
@@ -2259,6 +2261,12 @@
                 (if (>= $rule 1000000000)
                    (let $_taken (sk-work! (sk-node-hash $o) $o -1)
                       (remove-atom &sk_deferred ($h $rh (sk-deferred $o $rule $c $p $k))))
+                   (empty)))))
+          ($_joins
+             (collapse (match &sk_deferred_joins ($jh $jj (sk-join (sk-partial $jo $jrule $jc $jd $jr $jk) $jkey))
+                (if (>= $jrule 1000000000)
+                   (let $_taken (sk-work! (sk-node-hash $jo) $jo -1)
+                      (remove-atom &sk_deferred_joins ($jh $jj (sk-join (sk-partial $jo $jrule $jc $jd $jr $jk) $jkey))))
                    (empty)))))
           ($_waits
              (collapse (match &sk_temp_waits ($hash $pattern $waiter)

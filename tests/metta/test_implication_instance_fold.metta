@@ -230,3 +230,17 @@
 !(test
    (let (: $prf $type $tv) (query 200 threeRuleKb (: $prf (RuleTruth (Implication (And (P $t) (Q $t) (R $t)) (G $t))) $tv)) $tv)
    (STV 0.5260578505053451 0.6562878403845945))
+
+;; A query's rules leave with it, deferred joins included: a later query's
+;; rule may take the same id, and resuming the old join with it failed the
+;; whole walk, so a larger budget after a zero-budget read answered nothing.
+!(set-rule-change-hazard laterBudgetKb 0)
+!(compileadd laterBudgetKb (: la (Human a) (STV 1.0 1.0)))
+!(compileadd laterBudgetKb (: lam (Mortal a) (STV 0.8 1.0)))
+!(compileadd laterBudgetKb (: lb (Human b) (STV 0.5 1.0)))
+!(compileadd laterBudgetKb (: lbm (Mortal b) (STV 0.4 1.0)))
+!(query 5 laterBudgetKb (: $prf (Implication (Human $x) (Mortal $x)) $tv))
+!(query 0 laterBudgetKb (: $prf (Implication (Human $x) (Mortal $x)) $tv))
+!(test
+   (let (: $prf $type $tv) (query 1000 laterBudgetKb (: $prf (Implication (Human $x) (Mortal $x)) $tv)) $tv)
+   (STV 0.6666666666666666 0.6))
