@@ -785,7 +785,12 @@ whose producers derive it from its parts, as any nested compound is read
 (#142): a stored or assumed compound reaches the rule. What a rule concludes
 from it depends on the compound's key and, through the producers, on the
 parts; a row inverting such a rule into the compound also excludes views that
-depend on any of its parts. A part whose certain stored fact is its
+depend on any of its parts. A compound's producer rows exclude what
+the rules reading it conclude, as those rules excluded it when they read the
+parts: a part's completion from a reader's own conclusion supports no reading
+of it (without that the producer conditioned around a loop for a view its
+reader then refused: fuzz s22000086, 7,966 conditioned evaluations against
+none). A part whose certain stored fact is its
 connective's absorbing value (a true disjunct, a false conjunct) settles the
 compound alone, through a producer, or for a conjunctive antecedent a rule
 variant, reading only that part, whose join builds a row only for such a

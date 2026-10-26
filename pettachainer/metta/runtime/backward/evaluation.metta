@@ -4188,6 +4188,9 @@
                          (case (copy_term $head) (((inverted $_rule with $_prior $_token) true) ($_other false)))))
                    false)
                (hash-set (foldr-flat (sk-part-exclusions $kbctx) $own (sk-statement-parts (cons $type ()))))
+               (if (if (compound-source? (brand Statement $type))
+                      (if (rule-application-proof? $proof) false (derivation-proof? $type $proof)) false)
+                  (hash-set (sk-reader-conclusions (brand Statement $type) $kbctx $own))
                (if (head-is? $type ImplicationInstanceSample)
                   (case $type (
                      ((ImplicationInstanceSample $a $b $_atv $_btv)
@@ -4196,8 +4199,24 @@
                            (hash-union (hash-union $own (sk-unifier-hashes (index-hash $implication) $implication))
                               (hash-set (collapse (match &sk_rule_truth ($_id $hash $_type ($kbid $_ctx $_vars)) $hash))))))
                      ($_statement $own)))
-                  $own)))
+                  $own))))
          ($_fold $own)))))
+
+;; A compound read through its key is its readers' reading of its parts
+;; (#142), so its producer rows exclude what those readers exclude: views
+;; depending on what the rules reading the compound conclude. A part's
+;; completion from the reader's own conclusion is no support of it, as it was
+;; none when the rule read the part; reading it made the producer condition
+;; around the loop for a view the reader then refused (fuzz s22000086: 7,966
+;; conditioned evaluations where master makes none).
+(: sk-reader-conclusions (-[det]-> Statement KBContext (List Number) (List Number)))
+(= (sk-reader-conclusions $type $kbctx $own)
+   (let $kbid (car-atom $kbctx)
+      (fold-flat sk-match-conclusion-step $own
+         (foldr-flat (sk-premise-rules-step $type $kbctx) () (statement-prefix-keys $kbid $type)))))
+(: sk-match-conclusion-step (-[det]-> (List Number) SkeletonMatch (List Number)))
+(= (sk-match-conclusion-step $hashes (sk-match $_id $_premises ($ctype $cctx $_cproof $_ctv)))
+   (let $ckey (sk-key $ctype $cctx) (append-flat (sk-unifier-hashes (index-hash $ckey) $ckey) $hashes)))
 
 ;; A projection of a compound, its first premise, onto one part reads the other
 ;; parts as evidence apart from the compound: a part's view derived from the
