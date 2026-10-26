@@ -187,6 +187,11 @@
                       (($type $ctx $_p $_tv)
                          (if (=alpha (sk-key $type $ctx) $key)
                             (let* (($_expanded (remove-atom &sk_expanded ($hash $node)))
+                                   ;; Expanding it again defers its inversions anew.
+                                   ($_deferred (collapse (match &sk_deferred_inversion ($hash $drule $downer $dmatch)
+                                      (if (=alpha $downer $node)
+                                         (remove-variant-row! &sk_deferred_inversion (quote ($hash $drule $downer $dmatch)))
+                                         (empty)))))
                                    ($_terms (remove-atom &sk_node_terms ($type $ctx $node)))
                                    ($prefix (sk-node-prefix $type))
                                    ($_open (remove-variant-row! &sk_open_node (quote ($prefix $hash $node)))))

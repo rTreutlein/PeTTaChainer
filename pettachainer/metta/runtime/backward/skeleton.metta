@@ -1457,13 +1457,7 @@
 
 ;; --- Complete predicates (docs/metta/complete_predicates.md) ----------------
 
-;; A ground statement of a complete predicate in the main context or in an
-;; Assuming query's context, which holds the world's facts and rules with its
-;; assumptions; an implication query's hypothetical contexts are not complete.
-;; A connective with a complete part is complete too: its producers derive it
-;; from its parts, so a closed read of it reads them as a rule reading the
-;; parts would (#142).
-(: complete-statement? (-[det]-> Atom Atom Bool))
+;; Whether a statement, or a part of a compound one, has a complete predicate.
 (: complete-part? (-[det]-> KB Bool Atom Bool))
 (= (complete-part? $kb $found $part)
    (if $found true
@@ -1471,6 +1465,14 @@
          (if (compound-source? $key)
             (let $parts (the (List Atom) (cdr-atom $key)) (fold-flat (complete-part? $kb) false $parts))
             (let $head (if (is-expr $key) (car-atom $key) $key) (complete-predicate? $kb $head))))))
+
+;; A ground statement of a complete predicate in the main context or in an
+;; Assuming query's context, which holds the world's facts and rules with its
+;; assumptions; an implication query's hypothetical contexts are not complete.
+;; A connective with a complete part is complete too: its producers derive it
+;; from its parts, so a closed read of it reads them as a rule reading the
+;; parts would (#142).
+(: complete-statement? (-[det]-> Atom Atom Bool))
 (= (complete-statement? $type ($kbid $ctx $_vars))
    (if (== $ctx MAIN)
       (if (== (extract-vars $type) ()) (complete-part? (brand KB $kbid) false $type) false)
@@ -1771,10 +1773,9 @@
    (let $rules (collapse (match &sk_wait ($hash $_premise (sk-partial $_owner $rule $_c $_d $_r $_k)) $rule))
       (map-flat sk-rule-name $rules)))
 
-;; Whether a reader other than `$rule` is among the readers.
-(: sk-other-reader? (-[det]-> Atom (List Atom) Bool))
-(= (sk-other-reader? $_rule ()) false)
-(= (sk-other-reader? $rule (cons $reader $rest)) (if (== $reader $rule) (sk-other-reader? $rule $rest) true))
+;; Folded over readers: whether each is `$rule`.
+(: sk-only-reader-step (-[det]-> Atom Bool Atom Bool))
+(= (sk-only-reader-step $rule $only $reader) (if $only (== $reader $rule) false))
 
 ;; A compound node's matches in source order, an inversion left waiting while
 ;; the inverted rule's joins alone read the node (&sk_deferred_inversion).
@@ -1783,7 +1784,7 @@
 (= (sk-start-now-step $hash $owner $readers $kept $match)
    (let $rule (sk-inverted-rule $match)
       (if (if (== $rule none) false
-             (if (== $readers ()) false (not (sk-other-reader? $rule $readers))))
+             (if (== $readers ()) false (fold-semidet (sk-only-reader-step $rule) true $readers)))
          (let $_deferred (add-atom &sk_deferred_inversion ($hash $rule $owner $match)) $kept)
          (append-flat $kept (cons $match ())))))
 
@@ -2136,7 +2137,7 @@
    (case $node (
       ((CPU $_fun $_args $_res) false)
       (($type $kbctx $_proof $_tv)
-         (if (compound-source? (brand Statement $type)) (sk-other-reader? none (sk-reader-names $hash))
+         (if (compound-source? (brand Statement $type)) (if (fold-semidet (sk-only-reader-step none) true (sk-reader-names $hash)) false true)
             (if (implication-type? $type) false
                (if (head-is? $type Inheritance) false
                   (== (collapse (once (sk-rule-match (assemble-stored-runtime-fact $type $kbctx $_rp $_rt)))) ()))))))))
