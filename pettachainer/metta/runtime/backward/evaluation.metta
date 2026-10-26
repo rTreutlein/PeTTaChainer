@@ -5174,6 +5174,7 @@
    (if (rule-live? $rule)
    (let* (($_reserve (sk-reserve-near! (- $depth 1)))
           ($near (<= $depth (+ (sk-evaluation-free-depth) 1)))
+          ($compound-depth (case $key (((sk-key $_ctype ($ckb $_cctx $_cvars)) (if (context-searching? $ckb) (- $depth 1) $depth)) ($_cfold $depth))))
           ($world (space-row-present? &sk_world_stale ($khash $rhash)))
           ($_world-needed (if $world
              (if (space-row-present? &sk_world_done ($khash $rhash)) ()
@@ -5203,19 +5204,22 @@
                 (sk-readable-row? $khash $key $premises)
                 (if $world true (if $refresh true
                    (if (<= $depth (sk-evaluation-free-depth)) true $unseen))))
-         (fold-semidet (sk-need-premise-step true (- $depth 1)) (sk-need-next $next $members) $premises)
-         (fold-semidet (sk-need-premise-step false (- $depth 1)) (sk-need-next $next $members) $premises)))
+         (fold-semidet (sk-need-premise-step true $compound-depth) (sk-need-next $next $members) $premises)
+         (fold-semidet (sk-need-premise-step false $compound-depth) (sk-need-next $next $members) $premises)))
    (let $_removed (sk-drop-row! $khash $key $rhash (sk-row (sk-ident $rule $_keys $_key) $_concl $premises $_s))
       (sk-need-next $next $members))))
 
 ;; A row's premise keys are needed one level further when the row passes its
 ;; need on (`$all`). A compound key is the row's own reading of the compound's
-;; parts (#142), so a needed row always needs it, at the row's key's depth:
-;; its producer rows are then as near a root as the reading row, and a change
-;; of a part reaches the reading row through them, as it did when the rule
-;; read the part itself. Without that, an assumed part changed only the
-;; producer row, which no need reached, and the reading row kept the view of
-;; an earlier world (SupplyNet stage 4: an assumed stock read as unfounded).
+;; parts (#142), so a needed row always needs it, and a change of a part
+;; reaches the reading row through its producer rows, as it did when the rule
+;; read the part itself. In a query with Assuming worlds (context-searching?)
+;; it is needed at the row's key's depth, so its producer rows are as near a
+;; root as the reading row: an assumed part changes only the producer row,
+;; which no stale cascade from MAIN reaches, and the reading row kept the view
+;; of an earlier world (SupplyNet stage 4: an assumed stock read as unfounded,
+;; regret 0.08; one level further, 0.04). In MAIN the next level is enough, and
+;; nearer cost stage 3 untimed b25 12%.
 (: sk-need-premise-step (-[semidet]-> Bool Number SkeletonNeed SkPattern SkeletonNeed))
 (= (sk-need-premise-step $all $depth (sk-need-next $next $members) $premise)
    (case (sk-direct-key-step () $premise) (
