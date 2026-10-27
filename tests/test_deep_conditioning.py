@@ -2,6 +2,7 @@
 from fractions import Fraction as F
 import itertools
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -778,6 +779,8 @@ print(json.dumps({'tv': [r.tv for r in rows], 'metrics': metrics}, sort_keys=Tru
                 {'V': got, 'R': unfiltered})['Value']
             self.assertEqual(again, got)
 
+    @unittest.skipUnless(os.environ.get("PETTACHAINER_NIGHTLY") == "1",
+                         "slow (about 100 s); runs nightly via bench/nightly.sh with PETTACHAINER_NIGHTLY=1")
     def test_root_refinement_work_is_bounded_with_growing_history(self):
         for periods, budget in ((6, 3000), (8, 20000)):
             handler = PeTTaChainer()

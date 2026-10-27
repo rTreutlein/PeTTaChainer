@@ -71,6 +71,15 @@ so they share the machine with other agents' jobs:
 With 8 workers `verify.sh` takes about 3 minutes: Python suite about 110 s,
 MeTTa suite 30 s, ConceptNet 22 s, the two scaling checks 21 s, lint 2 s.
 
+Tests too slow for every run are marked
+`@unittest.skipUnless(os.environ.get("PETTACHAINER_NIGHTLY") == "1", ...)`
+and skip in `verify.sh`. Bench `nightly.sh` runs them every night on master
+with `PETTACHAINER_NIGHTLY=1`; set it yourself when your change touches what
+they check, e.g. `/nexus/Dev/OpenCog/bench/capped env PETTACHAINER_NIGHTLY=1
+.venv/bin/python -m unittest discover -s tests -p test_deep_conditioning.py
+-k '*test_root_refinement_work_is_bounded_with_growing_history'` (about
+100 s). Today that is the one test.
+
 `scripts/test_python.py` runs every `tests/**/test*.py` file in a process of
 its own, as `python -m unittest discover -s tests -p <file>` from the root,
 so a file loads exactly as under one serial `unittest discover -s tests`, but
@@ -150,8 +159,9 @@ memory peaks.
   or anytime behaviour, where error against time matters, or when the brief
   asks for it.
 - Curves and `--nightly` run every night on master (bench `nightly.sh`, a
-  03:00 user timer), comparing it with the previous night's master. Each
-  night adds one line to `bench/results/nightly.log`.
+  03:00 user timer), comparing it with the previous night's master, and so
+  do the tests marked `PETTACHAINER_NIGHTLY`. Each night adds one line to
+  `bench/results/nightly.log`.
 - The report goes to
   `bench/results/compare/<base>_vs_<candidate>_<profile>/report.md`. Below
   its title, the verdict is `**PASS**` or `**REGRESSIONS (n): ...**`, and
