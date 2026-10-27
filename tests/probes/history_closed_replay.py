@@ -11,6 +11,10 @@ class ClosedHistoryReplayTests(unittest.TestCase):
     def test_u4_round12_warm_and_cold_reach_a_quiet_fixed_point(self):
         tests = Path(__file__).resolve().parents[1]
         record = json.loads((tests / 'data/history_u4_r12.json').read_text())
+        # Load the library before the probe changes the runtime, so the load
+        # replays the snapshot every other process shares instead of
+        # replacing it with one for this state.
+        PeTTaChainer()
         janus.consult(str(tests / 'branch_cache_probe.pl'))
         janus.query_once('branch_probe_install')
         work_counters = ('branch_builds', 'row_computes', 'conditioned_evaluations', 'conditions_unpaid')

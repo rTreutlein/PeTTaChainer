@@ -18,6 +18,10 @@ EXISTS = f'(Exists ($e) {BODY})'
 
 class TestAssumingExists(unittest.TestCase):
     def test_source_gated_witness_fresh_and_warm(self):
+        # Load the library before the probe changes the runtime, so the load
+        # replays the snapshot every other process shares instead of
+        # replacing it with one for this state.
+        PeTTaChainer()
         janus.consult(str(Path(__file__).with_name('assuming_exists_probe.pl')))
         janus.query_once('assuming_exists_probe_install')
         self.addCleanup(janus.query_once, 'assuming_exists_probe_clear')
