@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+# All gates, one after another: MeTTa lint, the MeTTa suite
+# (scripts/test_metta.sh), the Python suite (scripts/test_python.py), import
+# and judgment scaling, and the ConceptNet query. Both suites run PETTA_JOBS
+# workers (default: the CPU count); run this through bench/capped --slots N
+# with PETTA_JOBS=N. A gate fails on its own failure or on a search abort in
+# its query metrics or log. The result is recorded for scripts/land.sh.
 
 set -u
 
@@ -130,7 +136,7 @@ started=$SECONDS
 
 run_gate lint "$repo_root/scripts/lint_metta.sh"
 run_gate metta "$repo_root/scripts/test_metta.sh"
-run_gate python "$python_bin" -m unittest discover -s tests
+run_gate python "$python_bin" "$script_dir/test_python.py"
 run_gate import_scaling "$repo_root/scripts/check_import_scaling.sh"
 run_gate judgment_scaling "$python_bin" "$repo_root/scripts/check_judgment_scaling.py"
 run_gate conceptnet "$repo_root/benchmarks/metta/run_conceptnet_own_pet_query.sh"

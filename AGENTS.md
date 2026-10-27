@@ -74,8 +74,8 @@ Details and the exact commands are in `docs/agent_workflow.md`. Read it first.
   its worker count, e.g. `capped --slots 8 env PETTA_JOBS=8
   scripts/test_metta.sh`. Run every PeTTa or benchmark process under
   `ulimit -v 16000000` with `DISPLAY` unset.
-- Gates: `scripts/test_metta.sh`, `.venv/bin/python -m unittest discover -s tests`,
-  and `scripts/verify.sh` before hand-back.
+- Gates: `scripts/test_metta.sh`, `.venv/bin/python scripts/test_python.py`,
+  and `scripts/verify.sh` (both suites, in parallel) before hand-back.
 - Benchmarks: `/nexus/Dev/OpenCog/bench/compare.sh master <worktree> --quick`
   while iterating, `--full` and the canary (`compare.sh anchor <worktree>
   --canary`) before hand-back. `--curves` only for changes to scheduling,

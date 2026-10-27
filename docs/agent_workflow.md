@@ -58,14 +58,45 @@ Run from the worktree root.
 |---|---|
 | One MeTTa file | `(ulimit -v 16000000; .venv/bin/petta file.metta)` |
 | MeTTa suite (strict det) | `scripts/test_metta.sh` |
-| Python tests | `.venv/bin/python -m unittest discover -s tests` |
+| Python suite (parallel) | `.venv/bin/python scripts/test_python.py` |
+| One Python test file | `.venv/bin/python -m unittest discover -s tests -p test_x.py` |
 | All gates | `scripts/verify.sh` (MeTTa lint, MeTTa, Python, import scaling, ConceptNet) |
 | Benchmarks | `/nexus/Dev/OpenCog/bench/compare.sh master <worktree> --quick` |
 
-`scripts/test_metta.sh` runs `PETTA_JOBS=$(nproc)` (32) files at once.
-Run it, and `scripts/verify.sh`, through the admission pool with a matching
-slot count, so it shares the machine with other agents' jobs:
-`/nexus/Dev/OpenCog/bench/capped --slots 8 env PETTA_JOBS=8 scripts/test_metta.sh`.
+`scripts/test_metta.sh` and `scripts/test_python.py` each run
+`PETTA_JOBS` (default `$(nproc)`, 32) jobs at once, and `scripts/verify.sh`
+runs both. Run them through the admission pool with a matching slot count,
+so they share the machine with other agents' jobs:
+`/nexus/Dev/OpenCog/bench/capped --slots 8 env PETTA_JOBS=8 scripts/verify.sh`.
+With 8 workers `verify.sh` takes about 3 minutes: Python suite about 110 s,
+MeTTa suite 30 s, ConceptNet 22 s, the two scaling checks 21 s, lint 2 s.
+
+`scripts/test_python.py` runs every `tests/**/test*.py` file in a process of
+its own, as `python -m unittest discover -s tests -p <file>` from the root,
+so a file loads exactly as under one serial `unittest discover -s tests`, but
+without state left by other files. A file that took more than its share of
+the previous run (total time over the worker count; today
+`test_deep_conditioning.py`) runs as one process per test, selected with
+`-k`. Its tests are listed afresh on every run. Units start longest first by
+the previous run's durations, kept in
+`~/.cache/pettachainer/python-test-seconds.json`, which only orders the work.
+unittest's exit status decides each unit: failures, errors and unexpected
+successes fail it, skips and expected failures do not. A failing unit's
+whole output, tracebacks included, is printed under its name, and the last
+lines total the tests and list the failed units. New test files are picked
+up by name.
+
+Test isolation in parallel:
+
+- Use `tempfile` directories for every file a test writes. Never write into
+  the repository, a library directory or a fixed `/tmp` path.
+- Load the library (create a `PeTTaChainer`) before consulting a Prolog
+  probe or wrapping a predicate. The PeTTa load cache keeps one snapshot per
+  library path, so a process that loads from a changed runtime state
+  replaces it, and every fresh process after it recompiles for about 13 s,
+  which overruns timed queries in other tests.
+- Each unit gets its own `PETTACHAINER_QUERY_METRICS_PATH` file; the runner
+  appends them to the caller's path at the end.
 
 ### Benchmarks: `bench/compare.sh`
 
@@ -176,7 +207,8 @@ from it stops the whole pane, the coordinator and every agent included.
   /nexus/Dev/OpenCog/bench/admission.py status` shows who holds what.
 - `compare.sh` takes one slot per run itself. `scripts/test_metta.sh` and
   `scripts/verify.sh` put themselves in the slice but not in the pool: run
-  them through `capped --slots N` with `PETTA_JOBS=N`. Run anything else (a
+  them, and `scripts/test_python.py`, through `capped --slots N` with
+  `PETTA_JOBS=N`. Run anything else (a
   `supplynet` sweep, a single `petta` file, a probe, the fuzzer with
   `--jobs N`) through `capped` too.
 - Run every PeTTa or benchmark process under `ulimit -v 16000000`, with
