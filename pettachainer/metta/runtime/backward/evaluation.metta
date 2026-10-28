@@ -13,81 +13,6 @@
 ;; Views are computed in the order rows were created and refreshed while
 ;; support grows; they persist until something below them changes.
 
-;; A conjunction part: an independent premise, or the projections of one
-;; stored (And ...) source pooled back together: source proof, source truth
-;; value, source arity, projected indices, the first projection's truth value.
-(: SkeletonPart Type)
-(: sk-indep-part (-[det]-> TV SkeletonPart))
-(: sk-pool-part (-[det]-> Proof TV Number (List Atom) TV SkeletonPart))
-(: SkeletonSource Type)
-(: sk-source (-[det]-> Statement TV SkeletonSource))
-(: SkeletonReadPolicy Type)
-(: sk-greedy-read SkeletonReadPolicy)
-(: sk-facts-read SkeletonReadPolicy)
-(: sk-representative-read SkeletonReadPolicy)
-(: sk-independent-read SkeletonReadPolicy)
-(: sk-reference-read SkeletonReadPolicy)
-(: SkeletonRowState Type)
-;; fold proofs (newest first), evidence, dependency hashes, conjunction parts
-(: sk-acc (-[det]-> (List Proof) EvidenceSet (List Number) (List SkeletonPart) SkeletonRowState))
-(: sk-fail SkeletonRowState)
-;; a premise had values, all overlapping the evidence the row already used:
-;; the statements of the shared facts, and one more than the clashing value's
-;; dependency count, the rows one conditioned branch evaluates at most
-(: sk-clash (-[det]-> (List SkeletonKey) Number SkeletonRowState))
-;; a rule application whose premises read a shared uncertain statement:
-;; the statements, one more than the premises' dependency count, and the
-;; row's state read as if they were independent, its approximate value
-(: sk-entangled (-[det]-> (List SkeletonKey) Number SkeletonRowState SkeletonRowState))
-(: SkeletonFold Type)
-;; accumulator, member proofs (newest first), evidence, dependency hashes
-(: sk-fold-state (-[det]-> Atom (List Proof) (List EvidenceSet) (List Number) SkeletonFold))
-(: SkeletonGroup Type)
-(: sk-group-found (-[det]-> SkPattern (List SkeletonKey) SkeletonGroup))
-(: sk-group-missing SkeletonGroup)
-(: TokenReplacement Type)
-(: token-state (-[det]-> Atom (List Proof) TokenReplacement))
-
-;; a fold over a key's values: the merge so far, and the first overlap's
-;; statements and dependencies
-(: SkeletonMerging Type)
-(: sk-merging (-[det]-> SkeletonValue (List SkeletonKey) Number SkeletonMerging))
-;; What conditioning evaluates under a condition: a row (the exclusions it
-;; reads under, its key's hash, its key, its hash, the row) or a key's merge
-;; (its hash, the key, the reader's filter and exclusions).
-(: SkeletonTarget Type)
-(: sk-row-target (-[det]-> (List Number) Number SkeletonKey Number SkeletonRow SkeletonTarget))
-(: sk-key-target (-[det]-> Number SkeletonKey SkeletonFilter (List Number) SkeletonTarget))
-
-;; Signatures of the mutually recursive functions below.
-(: sk-note-cuts! (-[det]-> (List Number) Atom))
-(: sk-excludes? (-[det]-> (List Number) Number Bool))
-(: sk-branch-excludes? (-[semidet]-> Number Bool))
-(: sk-hold-branch-reader! (-[det]-> Number SkeletonKey Number (List Number) Atom))
-(: sk-build-wanted! (-[semidet]-> Bool))
-(: sk-branch-ready-step (-[semidet]-> Number (List Number) SkeletonKey Atom SkeletonItem Atom))
-(: sk-finish-branches! (-[semidet]-> Number Atom))
-(: sk-branch-values (-[semidet]-> Number SkeletonKey Number (List Number) Bool (List SkeletonValue)))
-(: sk-reference-view (-[semidet]-> Number SkeletonValue SkeletonValue))
-(: sk-cache-branch!
-   (-[semidet]-> Number Number SkeletonKey Number (List SkeletonKey) (List Number) Bool SkeletonValue SkeletonValue))
-(: sk-stale-reader-step (-[det]-> SkeletonKey Atom SkeletonItem Atom))
-(: sk-value (-[semidet]-> SkeletonKey SkeletonFilter (List Number) SkeletonValue))
-(: sk-row-view (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey Number SkeletonRow SkeletonValue))
-(: sk-computed-fold-view (-[semidet]-> Number ScalarFoldSpec SkeletonValue))
-(: sk-member-pending? (-[det]-> SkeletonKey Bool))
-(: sk-dependent-merge (-[semidet]-> Bool SkeletonValue SkeletonValue SkeletonValue))
-(: sk-larger-count (-[semidet]-> SkeletonValue SkeletonValue SkeletonValue))
-(: sk-given-value (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) SkeletonValue))
-(: sk-given-depth-step (-[det]-> Number SkeletonGiven Number))
-(: sk-conditioned
-   (-[semidet]-> (List SkeletonGiven) SkeletonTarget Number Number (List Number) (List SkeletonKey) Number
-       SkeletonValue SkeletonValue SkeletonValue))
-
-(: sk-row-state (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonReadPolicy SkeletonRow SkeletonRowState))
-(: sk-row-result (-[semidet]-> SkeletonRow SkeletonRowState SkeletonValue))
-(: sk-zero-likelihood-step (-[det]-> Bool SkPattern Bool))
-
 ;; --- Leaves -----------------------------------------------------------------
 
 ;; A borrowed observation retains its MAIN evidence and dependency identity.
@@ -255,8 +180,7 @@
 ;; likelihood ratio, as it updates Problem (test_or_inversion_conditioned_merge:
 ;; 0.907, not the 0.520 a revision with the parts' prior gave; the atom case
 ;; was revised on master too).
-(: SkeletonPriorUpdate Type)
-(: sk-prior-update (-[det]-> Proof Proof (List Proof) SkeletonPriorUpdate))
+(datatype SkeletonPriorUpdate (sk-prior-update Proof Proof (List Proof)))
 
 (: sk-own-prior-update (-[det]-> Proof TV SkeletonPriorUpdate))
 (= (sk-own-prior-update $proof $tv)
@@ -322,10 +246,10 @@
 
 ;; Registered as truth rows are built, rather than walking all producer rows
 ;; at every sensor read. Ambiguous producer folds cannot certify independence.
-(: RuleFold Type)
-(: rule-fold (-[det]-> SkeletonKey RuleFold))
-(: no-rule-fold RuleFold)
-(: ambiguous-rule-fold RuleFold)
+(datatype RuleFold
+   (rule-fold SkeletonKey)
+   no-rule-fold
+   ambiguous-rule-fold)
 (: sk-rule-fold (-[det]-> KB Proof RuleFold))
 (= (sk-rule-fold $kb $rule)
    (case (collapse (once (match rule_name_index ($rule $id)
@@ -378,6 +302,32 @@
                   ((sk-goal-val (CPU $_fun $_args (STV $s $c)) $_proof $_ev $_deps) (STV $s $c))
                   ($_none (empty))))
                (empty)))))))
+
+;; A conjunction part: an independent premise, or the projections of one
+;; stored (And ...) source pooled back together: source proof, source truth
+;; value, source arity, projected indices, the first projection's truth value.
+(datatype SkeletonPart
+   (sk-indep-part TV)
+   (sk-pool-part Proof TV Number (List Atom) TV))
+
+(datatype SkeletonReadPolicy
+   sk-greedy-read
+   sk-facts-read
+   sk-representative-read
+   sk-independent-read
+   sk-reference-read)
+
+(datatype SkeletonRowState
+   ;; fold proofs (newest first), evidence, dependency hashes, conjunction parts
+   (sk-acc (List Proof) EvidenceSet (List Number) (List SkeletonPart))
+   sk-fail
+   ;; A premise had values, all overlapping the evidence the row already used:
+   ;; shared fact statements, and one more than the clashing dependency count,
+   ;; the rows one conditioned branch evaluates at most.
+   (sk-clash (List SkeletonKey) Number)
+   ;; Shared uncertain statements, one more than their dependency count,
+   ;; the row read as independent, and its approximate value.
+   (sk-entangled (List SkeletonKey) Number SkeletonRowState))
 
 ;; The watch already applied the row's cuts. Additional observation cuts
 ;; use the same cached fold evaluator, never a separate raw-tally snapshot.
@@ -459,8 +409,7 @@
             (sk-goal-val (CPU CompoundRate $args (the TV $rate)) (brand Proof cpu) (ev-set 0) (deps-join (cons (deps-key $hash) $deps))))
          ($_missing sk-none)))))
 
-(: LikelihoodContext Type)
-(: likelihood-context (-[det]-> (List Number) EvidenceSet LikelihoodContext))
+(datatype LikelihoodContext (likelihood-context (List Number) EvidenceSet))
 (: rule-likelihood-read
    (-[semidet]-> KB Proof Statement Statement LikelihoodRead LikelihoodContext LikelihoodRead))
 (= (rule-likelihood-read $kb $rule $_antecedent $consequent
@@ -664,8 +613,7 @@
 
 ;; Per consequent predicate: the outcomes counted, their sum, and the log score
 ;; of each mode on the outcomes several disjoint forward views met on.
-(: CombinationTally Type)
-(: combination-tally (-[det]-> Number Number Number Number Number CombinationTally))
+(datatype CombinationTally (combination-tally Number Number Number Number Number))
 (: &combination_tally (SpaceOf (Number Atom Atom CombinationTally)))
 !(bind! &combination_tally (new-space))
 
@@ -786,12 +734,15 @@
 ;; negated so the largest sorts first, that set, its spread: the largest
 ;; variance s (1 - s) of its facts' and views' strengths, and whether stored
 ;; facts supply its probability.
-(: SkeletonShared Type)
-(: sk-shared-key (-[det]-> Number SkeletonKey Number Number Bool SkeletonShared))
+(datatype SkeletonShared (sk-shared-key Number SkeletonKey Number Number Bool))
 ;; A statement to condition on with its expected impact, negated so the
 ;; largest sorts first.
-(: SkeletonRanked Type)
-(: sk-ranked (-[det]-> Number SkeletonKey SkeletonRanked))
+(datatype SkeletonRanked (sk-ranked Number SkeletonKey))
+
+;; A fold over a key's values: merge so far, and the first overlap's
+;; statements and dependencies.
+(datatype SkeletonMerging
+   (sk-merging SkeletonValue (List SkeletonKey) Number))
 
 ;; A statement is known when a stored fact gives it strength 0 or 1 at
 ;; confidence 1, or when every view its rows have does. A shared statement is
@@ -1046,8 +997,7 @@
             ((combination $_mode $_prior2 $_parts) true)
             ($_other (if (is-expr $step) (is-expr (car-atom $step)) false)))))))
 
-(: SkeletonDigest Type)
-(: sk-digest (-[det]-> Number Number SkeletonDigest))
+(datatype SkeletonDigest (sk-digest Number Number))
 
 ;; A refined rule's truth with the digest of the instance folds its rows read.
 (: sk-truth-digest (-[semidet]-> Number SkeletonDigest))
@@ -1162,13 +1112,12 @@
 
 ;; Reference classes are compared before any views are combined. Otherwise
 ;; a learned combination can hide a contained condition.
-(: ReferenceClass Type)
-(: no-class ReferenceClass)
-(: sk-class (-[det]-> Bool (List Atom) ReferenceClass))
-(: SkeletonReference Type)
-(: sk-reference (-[det]-> ReferenceClass SkeletonValue SkeletonReference))
-(: sk-mixture-class (-[det]-> (List Atom) ReferenceClass))
-(: sk-combined-class (-[det]-> (List Atom) ReferenceClass))
+(datatype ReferenceClass
+   no-class
+   (sk-class Bool (List Atom))
+   (sk-mixture-class (List Atom))
+   (sk-combined-class (List Atom)))
+(datatype SkeletonReference (sk-reference ReferenceClass SkeletonValue))
 (: sk-merge-step (-[semidet]-> Bool (List Number) SkeletonValue SkeletonValue SkeletonValue))
 (: sk-pair-merge-step (-[semidet]-> Bool (List Number) SkeletonMerging SkeletonValue SkeletonMerging))
 (: sk-antecedent-step (-[semidet]-> EvidenceSet ((List Atom) Number Bool) Proof ((List Atom) Number Bool)))
@@ -1365,8 +1314,7 @@
          (sk-none $kept)
          ($independent (cons $independent $kept))))))
 
-(: ClassCentre Type)
-(: class-centre (-[det]-> Number Number Number (List Proof) EvidenceSet Number ClassCentre))
+(datatype ClassCentre (class-centre Number Number Number (List Proof) EvidenceSet Number))
 (: sk-class-centre-step (-[det]-> EvidenceSet ClassCentre SkeletonValue ClassCentre))
 (= (sk-class-centre-step $specific-ev (class-centre $n $sum $second $proofs $ev $deps) $view)
    (case $view (
@@ -1411,8 +1359,7 @@
                      (sk-specialized $fact $ev $deps $general $gev $gdeps))
                   ($_none $view))) $kept))))))
 
-(: SkeletonClassGroup Type)
-(: sk-class-group (-[det]-> ReferenceClass (List SkeletonValue) SkeletonClassGroup))
+(datatype SkeletonClassGroup (sk-class-group ReferenceClass (List SkeletonValue)))
 (: sk-same-class-step (-[det]-> (List SkeletonClassGroup) SkeletonReference (List SkeletonClassGroup)))
 (= (sk-same-class-step $groups (sk-reference $class $view))
    (case $groups (
@@ -1435,10 +1382,8 @@
          ((sk-merging $merged () $_deps) (sk-class-view-step $class $kept $merged))
          ($_shared (fold-semidet (sk-class-view-step $class) $kept $values))))))
 
-(: SkeletonSampleView Type)
-(: sk-sample-view (-[det]-> (List SkeletonDigest) SkeletonValue SkeletonSampleView))
-(: SkeletonSampleGrouping Type)
-(: sk-sample-grouping (-[det]-> (List SkeletonDigest) SkeletonValue (List SkeletonSampleView) SkeletonSampleGrouping))
+(datatype SkeletonSampleView (sk-sample-view (List SkeletonDigest) SkeletonValue))
+(datatype SkeletonSampleGrouping (sk-sample-grouping (List SkeletonDigest) SkeletonValue (List SkeletonSampleView)))
 (: sk-sample-group-step (-[semidet]-> SkeletonSampleGrouping SkeletonSampleView SkeletonSampleGrouping))
 (= (sk-sample-group-step $state (sk-sample-view $other-digests $other))
    (case $state (
@@ -1569,6 +1514,7 @@
 ;; Two estimates of one quantity, twins from the same samples or views with
 ;; equal recorded evidence: the larger count holds all of it. Also the
 ;; reference a discounted combination measures its range from.
+(: sk-larger-count (-[semidet]-> SkeletonValue SkeletonValue SkeletonValue))
 (= (sk-larger-count $a $b)
    (case (data $a $b) (
       (((sk-val $fact-a $_ea $_da) (sk-val $fact-b $_eb $_db))
@@ -1582,6 +1528,7 @@
 ;; the log-odds range to the larger count (#49: c_min/(1+R^2), R >= 1), so the
 ;; shared evidence buys no confidence. Sibling forward views keep their own
 ;; conservative combination. No view is selected.
+(: sk-dependent-merge (-[semidet]-> Bool SkeletonValue SkeletonValue SkeletonValue))
 (= (sk-dependent-merge $product $va $vb)
    (if (sk-siblings? false $va $vb) (sk-sibling-merge $product $va $vb)
       (case (data $va $vb) (
@@ -1639,10 +1586,8 @@
 ;; statements with, by the same pair rule: over deeper shared statements it
 ;; updates them; a near-shared update competes with them by count while its
 ;; claim waits.
-(: SkeletonComponent Type)
-(: sk-component (-[det]-> SkeletonValue Number EvidenceSet (List SkeletonValue) SkeletonComponent))
-(: SkeletonConnecting Type)
-(: sk-connecting (-[det]-> SkeletonComponent (List SkeletonComponent) SkeletonConnecting))
+(datatype SkeletonComponent (sk-component SkeletonValue Number EvidenceSet (List SkeletonValue)))
+(datatype SkeletonConnecting (sk-connecting SkeletonComponent (List SkeletonComponent)))
 
 ;; Connectivity needs existence, not a ranked conditioning cut. Stop at the
 ;; first uncertain shared statement instead of ranking every shared key.
@@ -1821,8 +1766,7 @@
                   (sk-sibling-family-value $references $best $members $separators))
                $best))))))
 
-(: SkeletonComponentOrder Type)
-(: sk-component-order (-[det]-> Number SkeletonValue SkeletonComponentOrder))
+(datatype SkeletonComponentOrder (sk-component-order Number SkeletonValue))
 (: sk-component-order-of (-[semidet]-> Bool (List SkeletonReference) SkeletonComponent SkeletonComponentOrder))
 (= (sk-component-order-of $predicted $references (sk-component $best $_deps $_ev $members))
    (let $view (sk-sibling-family $references $best $members)
@@ -1992,6 +1936,7 @@
                                      ($_reader (sk-hold-branch-reader! $slot $key $rhash $exclude)))
                                  (chainer-first-or sk-none $incumbents)))))))))))))))
 
+(: sk-hold-branch-reader! (-[det]-> Number SkeletonKey Number (List Number) Atom))
 (= (sk-hold-branch-reader! $slot $key $rhash $exclude)
    (let* (($_requested
              (if (== (search-id-value sk_holding) 1)
@@ -2011,6 +1956,7 @@
                       (empty)))))))
       ()))
 
+(: sk-excludes? (-[det]-> (List Number) Number Bool))
 (= (sk-excludes? $exclude $deps)
    (if (deps-meet? $exclude $deps)
       (let $_cut (if (== (search-id-value sk_branch_at) 0) ()
@@ -2020,6 +1966,7 @@
 
 ;; Closed reads may use their own pins and direct observations, but cannot
 ;; cross the exclusions of the branch being rebuilt around them.
+(: sk-branch-excludes? (-[semidet]-> Number Bool))
 (= (sk-branch-excludes? $deps)
    (let $frame (search-id-value sk_branch_at)
       (if (== $frame 0) false
@@ -2027,6 +1974,7 @@
                  (match &sk_branch_cuts ($frame $exclude $_cuts) $exclude)))
             (sk-excludes? (the (List Number) $exclude) $deps)))))
 
+(: sk-note-cuts! (-[det]-> (List Number) Atom))
 (= (sk-note-cuts! $cuts)
    (let $frame (search-id-value sk_branch_at)
       (if (if (== $frame 0) true (== $cuts ())) ()
@@ -2036,6 +1984,7 @@
                    (add-atom &sk_branch_cuts ($frame $exclude $both)))))
             ()))))
 
+(: sk-branch-values (-[semidet]-> Number SkeletonKey Number (List Number) Bool (List SkeletonValue)))
 (= (sk-branch-values $slot $key $rhash $exclude $fresh)
    (case (fold-semidet sk-cons-step ()
       (collapse (match &ctx_sk_branch ($slot $stored $rhash $cuts $fresh $view)
@@ -2049,6 +1998,7 @@
       ((cons (sk-cut-view $used $value) $_rest)
          (let $_cuts (sk-note-cuts! (the (List Number) $used)) (cons $value ()))))))
 
+(: sk-reference-view (-[semidet]-> Number SkeletonValue SkeletonValue))
 (= (sk-reference-view $rule $computed)
    (case $computed (
       ((sk-val ($type $kbctx $proof $tv) $ev $vdeps)
@@ -2059,6 +2009,8 @@
          (sk-goal-val $goal (sk-store-proof! $rule $goal-proof $gev) $gev $gdeps))
       (sk-none sk-none))))
 
+(: sk-cache-branch!
+   (-[semidet]-> Number Number SkeletonKey Number (List SkeletonKey) (List Number) Bool SkeletonValue SkeletonValue))
 (= (sk-cache-branch! $slot $hash $key $rhash $inputs $cuts $fresh $view)
    (let* (($deps (sk-view-deps-step 0 $view))
           ($_dominated (if $fresh
@@ -2091,8 +2043,7 @@
    (append-flat (collapse (match &ctx_sk_instance_read ($read $hash $mhash $_member) $mhash)) $found))
 
 ;; A member's sample: its segment in each branch and its contribution.
-(: InstanceSample Type)
-(: instance-sample (-[det]-> Number Number InstanceEvidenceState InstanceSample))
+(datatype InstanceSample (instance-sample Number Number InstanceEvidenceState))
 
 (: sk-member-sample-step (-[det]-> Number (List InstanceSample) Number (List InstanceSample)))
 (= (sk-member-sample-step $hash $found $mhash)
@@ -2309,6 +2260,10 @@
 
 ;; --- Folds ------------------------------------------------------------------
 
+(datatype SkeletonFold
+   ;; accumulator, member proofs (newest first), evidence, dependency hashes
+   (sk-fold-state Atom (List Proof) (List EvidenceSet) (List Number)))
+
 (: sk-fold-node-member (-[det]-> SkPattern (List SkPattern)))
 (= (sk-fold-node-member $node)
    (let $hash (sk-node-hash $node)
@@ -2349,9 +2304,7 @@
                (cons $member-ev $ev) (cons $member-deps $deps))))
       ($_none (sk-fold-state $acc $proofs $ev $deps)))))
 
-(: SkeletonExistentialFold Type)
-(: sk-exists-state
-   (-[det]-> STVType SkeletonValue Bool (List Proof) EvidenceSet (List Number) SkeletonExistentialFold))
+(datatype SkeletonExistentialFold (sk-exists-state STVType SkeletonValue Bool (List Proof) EvidenceSet (List Number)))
 
 ;; Compare strength first, evidence confidence only on an exact strength tie.
 ;; Equal TVs use the canonical statement key, never discovery order or proof id.
@@ -2669,8 +2622,7 @@
 ;; stored outcome observes that outcome (sk-sample-twins?). A member that is
 ;; no sample adds nothing. The signature a member was taken with is kept, so a
 ;; changed member replaces its own.
-(: SkeletonSampleSig Type)
-(: sk-sample-sig (-[det]-> Number Number SkeletonSampleSig))
+(datatype SkeletonSampleSig (sk-sample-sig Number Number))
 (: sk-instance-digest! (-[det]-> Number Number SkeletonKey SkeletonKey SkeletonValue InstanceEvidenceState Atom))
 (= (sk-instance-digest! $hash $mhash $fold $member $value (InstanceEvidence (BaseRateEvidence $_pw $pm) (BaseRateEvidence $_nw $nm)))
    (case $member (
@@ -2797,6 +2749,7 @@
       (if (space-row-present? &ctx_sk_given_pending ($khash $rhash $_cost)) false
          (space-row-present? &ctx_sk_support ($khash $rhash $_deps)))))
 
+(: sk-member-pending? (-[det]-> SkeletonKey Bool))
 (= (sk-member-pending? $key)
    (let $khash (index-hash $key)
       (not (== (collapse (once (match &sk_row ($khash $stored $rhash $_row)
@@ -2804,8 +2757,7 @@
                ()))))
 
 ;; covered members, members still to come
-(: SkeletonCover Type)
-(: sk-cover (-[det]-> Number Number SkeletonCover))
+(datatype SkeletonCover (sk-cover Number Number))
 
 (: sk-cover-member-step (-[semidet]-> Number SkeletonFilter SkeletonCover SkeletonKey SkeletonCover))
 (= (sk-cover-member-step $hash $filter (sk-cover $covered $missing) $key)
@@ -2856,6 +2808,7 @@
                      (brand Proof (partial-fold $covered (if (< $missing 0) 0 (+ $covered $missing)) $proof))
                      $ev $deps))))))))
 
+(: sk-computed-fold-view (-[semidet]-> Number ScalarFoldSpec SkeletonValue))
 (= (sk-computed-fold-view $hash $args)
    (let* ((($_kb $_pattern $extractor $init $function $finish $_mode) $args)
           ($node (CPU FoldAllCompiled $args $_result))
@@ -2879,6 +2832,10 @@
 (: sk-keep-group-member (-[semidet]-> $spec (List SkeletonKey) SkeletonKey (List SkeletonKey)))
 (= (sk-keep-group-member $args $kept $key)
    (if (sk-group-member? (copy_term $args) (copy_term $key)) (cons $key $kept) $kept))
+
+(datatype SkeletonGroup
+   (sk-group-found SkPattern (List SkeletonKey))
+   sk-group-missing)
 
 ;; The group's member node and the member keys belonging to this group.
 (: sk-group-members (-[semidet]-> SkeletonKey $spec SkeletonGroup))
@@ -3028,6 +2985,12 @@
                   (() (if (judgment-consequent? true $type $scope) () $values))
                   ($_found (fold-semidet sk-cons-step () $dependent)))))))
       ($_fold $values))))
+
+;; What conditioning evaluates: a row (exclusions, key hash, key, row hash,
+;; row) or a key's merge (hash, key, reader's filter and exclusions).
+(datatype SkeletonTarget
+   (sk-row-target (List Number) Number SkeletonKey Number SkeletonRow)
+   (sk-key-target Number SkeletonKey SkeletonFilter (List Number)))
 
 ;; Leaves first, then one version per row in the order the rows were found;
 ;; a certain stored fact stands alone (sk-certain-or). Views read under given
@@ -3236,6 +3199,7 @@
 ;; pattern takes the whole merged value when it admits it, and otherwise the
 ;; merge of the views it admits. A consumer that leaves one of its own samples
 ;; out of an instance fold reads the views it admits, never the cached value.
+(: sk-value (-[semidet]-> SkeletonKey SkeletonFilter (List Number) SkeletonValue))
 (= (sk-value $key $filter $exclude)
    (let $derived (case $filter (
            ((sk-filter $proof $_tv) (head-is? $proof derived-implication))
@@ -3285,6 +3249,8 @@
                (== $head total-implication-frontier)))
          false)))
 
+(datatype TokenReplacement (token-state Atom (List Proof)))
+
 ;; A rule proof marks each fold premise with a `cpu` token; the tokens are
 ;; replaced, in premise order, by the folds' proofs.
 (: replace-token (-[det]-> Atom (List Proof) TokenReplacement))
@@ -3322,6 +3288,8 @@
       ($_none sk-fail))))
 
 ;; --- Conjunction pooling ----------------------------------------------------
+
+(datatype SkeletonSource (sk-source Statement TV))
 
 ;; Projections of one stored (And ...) source are not independent: they share
 ;; the source's evidence. A conjunction pools them back into the source, whose
@@ -3506,6 +3474,7 @@
                ($_fold sk-none)))
             $value))))
 
+(: sk-given-value (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) SkeletonValue))
 (= (sk-given-value $given $key $filter $exclude)
    (sk-calibrated-value $given $key $filter $exclude (sk-pinned-value $given $key $filter $exclude)))
 
@@ -4000,6 +3969,7 @@
 ;; would count the shared evidence twice; for premises sharing a statement,
 ;; the premises read as independent. A row read under a condition is charged
 ;; to the claim it is part of.
+(: sk-row-view (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey Number SkeletonRow SkeletonValue))
 (= (sk-row-view $given $exclude $khash $key $rhash $row)
    (if (let (sk-row (sk-ident $rule $_keys $_key) $_concl $_prems $_seq) $row
           (if (rule-live? $rule) (context-rule-visible? $rule) false))
@@ -4032,7 +4002,6 @@
          sk-none)
       sk-none))
 
-
 ;; What a target is under a condition.
 (: sk-target-value (-[semidet]-> (List SkeletonGiven) SkeletonTarget SkeletonValue))
 (= (sk-target-value $given (sk-row-target $exclusions $khash $key $rhash $row))
@@ -4059,6 +4028,9 @@
 ;; but is never an admission threshold. A claim keeps its deepest completed
 ;; pass if the shared evaluation allowance runs out. With no completed pass,
 ;; it keeps its waiting value; incomplete branches cannot contribute.
+(: sk-conditioned
+   (-[semidet]-> (List SkeletonGiven) SkeletonTarget Number Number (List Number) (List SkeletonKey) Number
+       SkeletonValue SkeletonValue SkeletonValue))
 (= (sk-conditioned $given $target $khash $rhash $wexclude $keys $base $approx $waiting)
    (case $keys (
       (() $approx)
@@ -4156,6 +4128,7 @@
       $waiting))
 
 ;; The statements a condition gives, closed reads' pins aside.
+(: sk-given-depth-step (-[det]-> Number SkeletonGiven Number))
 (= (sk-given-depth-step $depth $given) (case $given (((sk-given $_hash $_key $_truth) (+ $depth 1)) ($_pin $depth))))
 
 ;; The target evaluated with a statement known true and known false, mixed
@@ -4310,6 +4283,7 @@
 ;; compound would divide the compound by itself (P(A) = P(ABC) / P(BC) with
 ;; P(BC) read off ABC is 1). So the premises after the compound exclude views
 ;; depending on it.
+(: sk-row-state (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonReadPolicy SkeletonRow SkeletonRowState))
 (= (sk-row-state $given $exclusions $khash $policy (sk-row $_ident ($type $kbctx $proof $_tv) $premises $_seq))
    (let* (($pin (sk-closed-pin $khash $type $kbctx (derivation-proof? $type $proof)))
           ($shared (shared-evidence-frontier-proof? $proof))
@@ -4557,6 +4531,7 @@
 ;; Only a likelihood with a certain zero branch can certify impossibility.
 ;; The opposite branch must allow the observation; a zero prior, a rounded
 ;; posterior endpoint, and an ordinary zero-strength fact certify nothing.
+(: sk-zero-likelihood-step (-[det]-> Bool SkPattern Bool))
 (= (sk-zero-likelihood-step $found $premise)
    (if $found true
       (case $premise (
@@ -4571,6 +4546,7 @@
                         (if (>= (the Number $n) 1) (< (the Number $s) 1) false)) false)) false))
          ($_other false)))))
 
+(: sk-row-result (-[semidet]-> SkeletonRow SkeletonRowState SkeletonValue))
 (= (sk-row-result (sk-row $_ident ($type $kbctx $proof $tv) $premises $_seq) $state)
    (case $state (
       ((sk-acc $fold-proofs $ev $deps $_parts)
@@ -4694,8 +4670,7 @@
 (= (sk-item-order (sk-fold-check $_hash $_fold)) (sk-check-seq))
 
 ;; this pass's remaining items and the next pass's, by their order
-(: SkeletonWork Type)
-(: sk-work (-[det]-> (Heap SkeletonItem) (Heap SkeletonItem) SkeletonWork))
+(datatype SkeletonWork (sk-work (Heap SkeletonItem) (Heap SkeletonItem)))
 
 (: sk-queued-new? (-[det]-> Number Number Number Bool))
 (= (sk-queued-new? $pass $khash $rhash)
@@ -4714,11 +4689,10 @@
 ;; view. View-only notifications retain incoming causes too: a proof-only
 ;; refresh does not force ordinary readers, but must not start a fresh cause
 ;; if it reaches a fold. Empty causes identify an unforced supported change.
-(: SkeletonChange Type)
-(: sk-view-change (-[det]-> Number (List Number) SkeletonChange))
-(: sk-value-same (-[det]-> Number Number (List Number) SkeletonChange))
-(: sk-outside-change (-[det]-> (List Number) Number SkeletonChange))
-
+(datatype SkeletonChange
+   (sk-view-change Number (List Number))
+   (sk-value-same Number Number (List Number))
+   (sk-outside-change (List Number) Number))
 
 ;; Every fact premise on the key asks for an open pattern.
 (: sk-reads-open? (-[det]-> SkeletonKey Atom SkPattern Bool))
@@ -5031,6 +5005,7 @@
 ;; Ordinary reads keep their incumbent. Only this last tier rebuilds a miss;
 ;; nested reads may rebuild inline inside its bounded evaluation slice.
 ;; Leave a request in place until the build returns, including on exceptions.
+(: sk-build-wanted! (-[semidet]-> Bool))
 (= (sk-build-wanted!)
    (let $room (min (search-id-value sk_eval_budget) (search-id-value sk_branch_budget))
       (if (< $room 1) false
@@ -5068,6 +5043,7 @@
                             ())))
                   true)))))))
 
+(: sk-branch-ready-step (-[semidet]-> Number (List Number) SkeletonKey Atom SkeletonItem Atom))
 (= (sk-branch-ready-step $cause $exclude $_member $_acc (sk-row-item $seq $hash $key $rhash (sk-row $ident $concl $premises $created)))
    ;; A row always excludes its own key. Readers in other exclusion contexts
    ;; keep their own requests; this arrival must not force them as well.
@@ -5375,8 +5351,7 @@
 ;; (SupplyNet stage 2 b100 s2: the history rows reading the base rate took the
 ;; allowance from the periods nearest the present, error 0 to 0.0004).
 ;; keys one level further, members of statistical folds
-(: SkeletonNeed Type)
-(: sk-need-next (-[det]-> (List SkeletonKey) (List SkeletonKey) SkeletonNeed))
+(datatype SkeletonNeed (sk-need-next (List SkeletonKey) (List SkeletonKey)))
 
 (: sk-need-level! (-[semidet]-> Number (List SkeletonKey) (List SkeletonKey) Atom))
 (= (sk-need-level! $depth $keys $members)
@@ -5471,6 +5446,7 @@
 ;; moved after them (SupplyNet scale m spq4 s2: the allowance ran out on a row
 ;; of (Front z1 t5), the cascade went up the front's chain, and (Blocked k1 t8)
 ;; ended at 0.46 under a storm of 0.31).
+(: sk-stale-reader-step (-[det]-> SkeletonKey Atom SkeletonItem Atom))
 (= (sk-stale-reader-step $stale $_acc (sk-row-item $seq $khash $key $rhash $row))
    (if (if (== (search-id-value sk_holding) 1) (sk-needed? $khash $key) false)
       (case $stale (
@@ -5724,11 +5700,10 @@
 ;; then oldest. Actual conditioned rows spend the remaining allowance as
 ;; they run; no estimate gates admission. Each target gets at most one
 ;; ordinary turn per evaluation, and an exhausted target stays pending.
-(: SkeletonWaiting Type)
-(: sk-row-waiting (-[det]-> SkeletonItem SkeletonWaiting))
-(: sk-key-waiting (-[det]-> Number SkeletonKey SkeletonWaiting))
-(: SkeletonClaim Type)
-(: sk-claim (-[det]-> Number Number Number SkeletonWaiting SkeletonClaim))
+(datatype SkeletonWaiting
+   (sk-row-waiting SkeletonItem)
+   (sk-key-waiting Number SkeletonKey))
+(datatype SkeletonClaim (sk-claim Number Number Number SkeletonWaiting))
 
 (: sk-order-claims (-[det]-> (List SkeletonClaim) (List SkeletonClaim)))
 
@@ -5756,6 +5731,7 @@
 
 ;; Root merges and conditioning can discover misses after the row heap ends.
 ;; Give those requests the same last tier, within its remaining fixed share.
+(: sk-finish-branches! (-[semidet]-> Number Atom))
 (= (sk-finish-branches! $pass)
    (if (sk-build-wanted!)
       (let* (($last (sk-work-off! $pass (sk-work (empty_heap) (empty_heap))))
@@ -5930,8 +5906,7 @@
 (= (end-backward-query-metrics!)
    (if (query_metrics_enabled) (sk-size-metrics! skeleton-nodes-after skeleton-rows-after) 0))
 
-(: BackwardQueryMetric Type)
-(: query-metric (-[det]-> Atom Number BackwardQueryMetric))
+(datatype BackwardQueryMetric (query-metric Atom Number))
 (: sk-metric-row (-[det]-> Atom BackwardQueryMetric))
 (= (sk-metric-row $key) (query-metric $key (query_metric_value $key)))
 
