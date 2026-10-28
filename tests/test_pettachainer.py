@@ -54,6 +54,42 @@ class TestPeTTaChainer(unittest.TestCase):
                     ["(: (by ab a2) (B b) (STV 0.8000224974690348 0.9000097638542305))"],
                 )
 
+    def test_refined_rule_judgment_and_application_keep_the_prior(self):
+        # Issue #147: the prior (.8, n=8 at k=800) and twelve independent
+        # instances revise to .92 (or .32) at 20/820. The base rates count the
+        # same twelve instances, so reconciling with them would drain the
+        # prior; the judgment and a fresh application keep the refined truth.
+        rule = '(Implication (MaintenanceWindow $x) (CorridorClosed $x))'
+        queries = [f'(: $p (RuleTruth {rule}) $tv)', f'(: $p {rule} $tv)',
+                   '(: $p (CorridorClosed NewWindow) $tv)']
+        refined = '(merge/revision (implication-instance-fold cpu) (rule-axiom prior))'
+        expected = {
+            1: [('STV', 0.9199999999999999, 0.024390243902439025),
+                ('STV', 0.9199999999999999, 0.024390243902439025),
+                ('STV', 0.9199999999999999, 0.024390243902204452)],
+            0: [('STV', 0.31999999999999995, 0.024390243902439025),
+                ('STV', 0.31999999999999995, 0.024390243902439025),
+                ('STV', 0.31999999999999995, 0.02439024390240102)],
+        }
+        for outcome, tvs in expected.items():
+            with self.subTest(outcome=outcome):
+                handler = PeTTaChainer()
+                handler.set_evidence_confidence_k(800)
+                handler.set_argument_sorts('MaintenanceWindow', ['Object'])
+                handler.set_argument_sorts('CorridorClosed', ['Object'])
+                handler.set_rule_refinement(True)
+                handler.add_atoms_no_check([
+                    f'(: prior {rule} (FTV 0.8 0.0099009900990099))',
+                    '(: target (MaintenanceWindow NewWindow) (STV 1 1))',
+                    *[atom for i in range(12) for atom in (
+                        f'(: a{i} (MaintenanceWindow W{i}) (STV 1 1))',
+                        f'(: b{i} (CorridorClosed W{i}) (STV {outcome} 1))')]])
+                rows = handler.query_many_refs(queries, steps=500)
+                self.assertEqual([[tuple(answer.tv) for answer in answers] for answers in rows],
+                                 [[tv] for tv in tvs])
+                self.assertEqual([handler.expand_proof(answers[0].proof) for answers in rows],
+                                 [refined, f'(rule-truth {refined})', '(by prior target)'])
+
     def test_rule_change_hazard_applies_in_process_and_to_timed_queries(self):
         handler = PeTTaChainer()
         handler.set_evidence_confidence_k(5)

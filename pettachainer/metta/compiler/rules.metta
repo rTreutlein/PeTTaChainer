@@ -91,31 +91,46 @@
 (= (base-rate-read-plan $kb $pattern)
    (let $goals (base-rate-premises $kb $pattern $result) (rate-plan $goals $result)))
 
+;; How the base rates of a rule's sides derive its CTV from its positive
+;; branch. `reconciled-rates`: the branch and the rates are reconciled within
+;; the Fréchet bounds (ConsistentTriple), the rule applying with what remains.
+;; `learned-rates`: the branch is a truth learned from the rule's instances,
+;; which are the members the rates count, so they already moved it by their
+;; evidence; reconciling would count them again, so only the negative branch
+;; is reconciled. `deferred-rates`: the application resolves the likelihoods
+;; itself (rule-likelihood-read).
+(: RateUse Type)
+(: reconciled-rates RateUse)
+(: learned-rates RateUse)
+(: deferred-rates RateUse)
+
 ;; Rules stored with an STV need a CTV derived from antecedent/consequent base
 ;; rates before modus ponens can use them. An explicit CTV already carries both
 ;; directions and therefore needs no runtime base-rate scans. `$value` is the
 ;; truth the rule applies with, of its stored truth's kind: the stored truth,
 ;; or a refined rule's resolved truth.
 (: compile-implication-ctv-execs
-   (-[semidet]-> KB (List Variable) Statement Statement TV Atom Bool
+   (-[semidet]-> KB (List Variable) Statement Statement TV Atom RateUse
        ((List Goal) CTVType LikelihoodRead)))
-(= (compile-implication-ctv-execs $_kb $_params $_a $_b (CTV $original-pos $original-neg) $value $_defer)
+(= (compile-implication-ctv-execs $_kb $_params $_a $_b (CTV $original-pos $original-neg) $value $_use)
    (data () (the CTVType $value)
       (likelihood-read (the CTVType $value) (the CTVType $value) (stated (CTV $original-pos $original-neg)))))
-(= (compile-implication-ctv-execs $kb $params $a $b (STV $_s $_c) $value $defer)
-   (implication-ctv-goals $kb $params $a $b $value $defer))
+(= (compile-implication-ctv-execs $kb $params $a $b (STV $_s $_c) $value $use)
+   (implication-ctv-goals $kb $params $a $b $value $use))
 
 ;; The goals deriving a CTV from the positive branch `$value` and the base
 ;; rates of both sides; a rule's instance fold and its refined truth derive
 ;; theirs the same way.
 (: implication-ctv-goals
-   (-[det]-> KB (List Variable) Statement Statement Atom Bool ((List Goal) CTVType LikelihoodRead)))
-(= (implication-ctv-goals $kb $params $a $b $value $defer)
+   (-[det]-> KB (List Variable) Statement Statement Atom RateUse ((List Goal) CTVType LikelihoodRead)))
+(= (implication-ctv-goals $kb $params $a $b $value $use)
    (let* (($a1 (rule-base-rate-pattern $params $a))
           ($b1 (rule-base-rate-pattern $params $b))
           ($rates (append-goals (antecedent-rate-premises $kb $a1 $rule-atv) (base-rate-premises $kb $b1 $rule-btv)))
-          ($centre (unknown-branch-centre $kb $b)))
-         (if $defer
+          ($centre (unknown-branch-centre $kb $b))
+          ($formula (CPU ImplicationLikelihoodsFormula (quote ($rule-atv $rule-btv $value $centre)) $reconciled)))
+      (case $use (
+         (deferred-rates
             (let* (($ctv (CTV (the STVType $value) (STV $centre 0)))
                    ($a-plan (base-rate-read-plan $kb $a1))
                    ($b-plan (base-rate-read-plan $kb $b1)))
@@ -123,13 +138,19 @@
                         ((CPU ReadRate (quote ($kb $a1 $rule-atv $a-plan false)) (rate-read $admissible-a $_read-a))
                          (CPU ReadRate (quote ($kb $b1 $rule-btv $b-plan false)) (rate-read $admissible-b $_read-b))))
                   $ctv (likelihood-read $ctv $ctv
-                     (negative-source (the OptionalSTV $admissible-a) (the OptionalSTV $admissible-b) (the STVType $value)))))
+                     (negative-source (the OptionalSTV $admissible-a) (the OptionalSTV $admissible-b) (the STVType $value))))))
+         (reconciled-rates
             (data
                (append-goals $rates
-                  (cons (CPU ImplicationLikelihoodsFormula
-                           (quote ($rule-atv $rule-btv $value $centre)) $likelihoods)
-                     ((CPU likelihood-read-tv (quote ($likelihoods)) $rule-ctv))))
-               (the CTVType $rule-ctv) (the LikelihoodRead $likelihoods)))))
+                  (cons $formula ((CPU likelihood-read-tv (quote ($reconciled)) $rule-ctv))))
+               (the CTVType $rule-ctv) (the LikelihoodRead $reconciled)))
+         (learned-rates
+            (data
+               (append-goals $rates
+                  (cons $formula
+                     ((CPU with-positive-branch (quote ($value $reconciled)) $likelihoods)
+                      (CPU likelihood-read-tv (quote ($likelihoods)) $rule-ctv))))
+               (the CTVType $rule-ctv) (the LikelihoodRead $likelihoods)))))))
 
 ;; A rule concluding an implication, a → (x → y), holds as its exported form
 ;; (a ∧ x) → y (docs/metta/derived_implications.md): the conjuncts of its
@@ -153,9 +174,9 @@
       ((CTV $pos $neg) (CTV (AndMarginalProjection $pos) (AndMarginalProjection $neg))))))
 
 (: compile-consequent-implications
-   (-[nondet]-> KB KBContext Proof TV (List Goal) Atom (List Variable)
+   (-[nondet]-> KB KBContext Proof TV (List Goal) Atom RateUse (List Variable)
        Statement Statement CompiledAddition))
-(= (compile-consequent-implications $kb $shape-kb $prf $tv $truth-premises $value $params $a $b)
+(= (compile-consequent-implications $kb $shape-kb $prf $tv $truth-premises $value $use $params $a $b)
    (if (head-is? $b And)
       (let* (($children (statement-children (cdr-atom $b)))
              ($child (superpose $children))
@@ -164,7 +185,7 @@
                 (append-goals $truth-premises
                    ((CPU consequent-projection-tv ($value) $projected-tv)))))
          (compile-consequent-implications $kb $shape-kb $projected-prf $tv
-            $projected-premises $projected-tv $params $a $child))
+            $projected-premises $projected-tv $use $params $a $child))
       (if (implication-type? $b)
          (let* ((($inner $last) (nested-implication-parts $b))
                 ($exported-a (brand Statement
@@ -175,14 +196,14 @@
                (if (head-is? $prf consequent-projection)
                   (superpose (
                      (compile-implication-forward-rules $kb $shape-kb $prf $tv
-                        $truth-premises $value $params $exported-a $last
+                        $truth-premises $value $use $params $exported-a $last
                         (implication-antecedent-free-vars $exported-a)
                         (antecedent-lowerings $shape-kb $exported-a))
                      (let $producers (producers $shape-kb $exported-a) (superpose $producers))))
                   (empty))
                ;; Another conjunction can hide a further conditional.
                (compile-consequent-implications $kb $shape-kb $prf $tv
-                  $truth-premises $value $params $exported-a $last))))
+                  $truth-premises $value $use $params $exported-a $last))))
          (empty))))
 
 ;; Emit the forward rules plus the conclusion's projections: one forward
@@ -195,11 +216,11 @@
 ;; conclusion that is an implication is a CTV: its rule's CTV is the exported
 ;; rule's, and the statement keeps that CTV's negative branch.
 (: compile-implication-forward-rules
-   (-[nondet]-> KB KBContext Proof TV (List Goal) Atom (List Variable)
+   (-[nondet]-> KB KBContext Proof TV (List Goal) Atom RateUse (List Variable)
        Statement Statement (List Variable) (List CompiledPremises)
        CompiledAddition))
 (= (compile-implication-forward-rules $kb $shape-kb $prf $tv
-      $truth-premises $value $params $a $b $antecedent-vars $antecedents)
+      $truth-premises $value $use $params $a $b $antecedent-vars $antecedents)
    (let* ((($inner $last) (nested-implication-parts $b))
           ($rate-a (if (== $inner ()) $a (brand Statement (cons And (append (implication-side-conjuncts $a) $inner)))))
           ($mp (if (== $inner ()) CTVModusPonensFormula ImplicationModusPonensFormula))
@@ -210,7 +231,7 @@
          (let*
             (($proof-token (implication-proof-token $proofs))
               (($ctv-execs $rule-ctv $rule-likelihoods)
-                 (compile-implication-ctv-execs $kb $params $rate-a $last $tv $value false))
+                 (compile-implication-ctv-execs $kb $params $rate-a $last $tv $value $use))
               ($allargs
                  (append-goals
                     $truth-premises
@@ -633,7 +654,7 @@
                             $fold-tv))
                       ($positive (CPU InstanceEvidenceFormula ($fold-tv) $instance-tv))
                       (($ctv-goals $instance-ctv $_instance-likelihoods)
-                         (implication-ctv-goals $kb () $antecedent $consequent $instance-tv false))
+                         (implication-ctv-goals $kb () $antecedent $consequent $instance-tv learned-rates))
                       ($fold-premises
                          (cons $fold
                             (if $negated (cons (CPU opposite-instance-tv ($fold-tv) $opposite-tv) ())
@@ -770,7 +791,7 @@
              (cons (: $kc $prior-prf (brand Statement $prior) $raw-atv)
                 ((CPU instance-prior-tv (quote ($kb $prior-prf $raw-atv)) $atv)))))
        (($ctv-execs $rule-ctv $rule-likelihoods)
-          (compile-implication-ctv-execs $kb $params $a $b $tv $value true))
+          (compile-implication-ctv-execs $kb $params $a $b $tv $value deferred-rates))
        (($read-goals $read-likelihoods)
           (likelihood-read-premises $kb $prf $a-rate-pattern $b-rate-pattern $tv $rule-likelihoods))
        ($prior-token (if $population cpu $prior-prf)))
@@ -836,7 +857,7 @@
                    ($antecedent-rate-pattern (rule-base-rate-pattern $params $full))
                    ($consequence-rate-pattern (rule-base-rate-pattern $params $consequent))
                    (($rule-execs $rule-ctv $rule-likelihoods)
-                      (compile-implication-ctv-execs $kb $params $full $consequent $tv $value true))
+                      (compile-implication-ctv-execs $kb $params $full $consequent $tv $value deferred-rates))
                    (($read-goals $read-rule-likelihoods)
                       (likelihood-read-premises $kb $prf $antecedent-rate-pattern $consequence-rate-pattern
                          $tv $rule-likelihoods))
@@ -1074,7 +1095,7 @@
                    ($ctv (the TV (CTV $pos $neg))))
                (superpose (
                   (compile-implication-forward-rules $kb $shape-kb (brand Proof $statement-prf) $ctv
-                     (cons (: $shape-kb $source-prf (Implication $x $y) $ctv) ()) $ctv ()
+                     (cons (: $shape-kb $source-prf (Implication $x $y) $ctv) ()) $ctv reconciled-rates ()
                      (brand Statement $x) (brand Statement $y)
                      (list_to_set (extract-vars (Implication $x $y)))
                      (antecedent-lowerings $shape-kb (brand Statement $x)))
@@ -1128,6 +1149,7 @@
                       ())
                    ()))
              ($value (if $refine? $truth-tv $tv))
+             ($use (if $refine? learned-rates reconciled-rates))
              ($_equivalence (if $refine? () (register-equivalence-rule! $kb $prf $tv $a $b))))
             (superpose (
                ;; Stated positive judgments stay private. A CTV is already
@@ -1164,7 +1186,7 @@
                            (let* (($rate-a (if (== $inner ()) $a
                                      (brand Statement (cons And (append (implication-side-conjuncts $a) $inner)))))
                                   (($ctv-execs $source-ctv $_source-likelihoods)
-                                     (compile-implication-ctv-execs $kb $params $rate-a $last $tv $tv false)))
+                                     (compile-implication-ctv-execs $kb $params $rate-a $last $tv $tv reconciled-rates)))
                               (superpose (
                                  (brand CompiledAddition
                                     (() |- (: $source-kb $prf $source-type $tv)))
@@ -1177,9 +1199,9 @@
                      (let* (($bound (\== (list_to_set (extract-vars $source-b)) (append $params $antecedent-vars)))
                             ($source (sealed $bound (: $source-kb $prf $source-type $tv))))
                         (compile-consequent-implications $kb $shape-kb $prf $tv
-                           (cons $source $truth-premises) $value $params $a $b)))))
+                           (cons $source $truth-premises) $value $use $params $a $b)))))
                (compile-implication-forward-rules
-                  $kb $shape-kb $prf $tv $truth-premises $value $params
+                  $kb $shape-kb $prf $tv $truth-premises $value $use $params
                   $a $b $antecedent-vars $antecedents)
                (if (is-var $a) (empty) (let $producers (producers $shape-kb $a) (superpose $producers)))
                ;; The stored truth is the goal's axiom, and the rule's

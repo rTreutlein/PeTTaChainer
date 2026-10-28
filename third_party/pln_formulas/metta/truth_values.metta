@@ -442,6 +442,15 @@
 (: likelihood-read-tv (-[det]-> LikelihoodRead CTVType))
 (= (likelihood-read-tv (likelihood-read $_raw $read $_support)) $read)
 
+;; The likelihoods derived from the truth `$itv`, an STV's positive branch kept
+;; in place of its reconciled one: the rates derive only the negative branch.
+;; A CTV is stated whole.
+(: with-positive-branch (-[det]-> (| STVType CTVType) LikelihoodRead LikelihoodRead))
+(= (with-positive-branch (STV $s $c)
+      (likelihood-read (CTV $_raw-positive $negative) (CTV $_read-positive $read-negative) $origin))
+   (likelihood-read (CTV (STV $s $c) $negative) (CTV (STV $s $c) $read-negative) $origin))
+(= (with-positive-branch (CTV $pos $neg) $derived) $derived)
+
 ;; `$centre` is the strength of a negative branch the rates leave unknown.
 (: ImplicationLikelihoodsFormula
    (-[det]-> OptionalSTV OptionalSTV (| STVType CTVType) Number LikelihoodRead))

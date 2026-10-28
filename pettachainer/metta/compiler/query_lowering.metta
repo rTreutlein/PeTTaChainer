@@ -171,7 +171,7 @@
 (: rule-truth-query-adds (-[det]-> KB Atom Atom Atom (List CompiledAddition)))
 (= (rule-truth-query-adds $kb $Type $antecedent $consequent)
    (let* ((($ctv-goals $ctv $_likelihoods)
-             (implication-ctv-goals $kb () (brand Statement $antecedent) (brand Statement $consequent) $truth-tv false))
+             (implication-ctv-goals $kb () (brand Statement $antecedent) (brand Statement $consequent) $truth-tv learned-rates))
           ($premises (cons (: (kbctx $kb) $truth-prf (RuleTruth $Type) $truth-tv) $ctv-goals)))
       (cons
          (brand CompiledAddition
@@ -478,7 +478,7 @@
                   (collapse
                      (compile-implication-forward-rules
                         $kbid $shape-kb
-                        $ctxprf $tv () $tv () $a (brand Statement $consequent)
+                        $ctxprf $tv () $tv reconciled-rates () $a (brand Statement $consequent)
                         (list_to_set (extract-vars $a))
                         (antecedent-lowerings $shape-kb (brand Statement $antecedent))))
                   (collapse (let $producers (producers $shape-kb $a) (superpose $producers))))))

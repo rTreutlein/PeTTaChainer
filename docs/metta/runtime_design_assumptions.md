@@ -1025,7 +1025,10 @@ estimate a population: they carry neither member evidence nor member
 dependencies, like a prior, and are proved by `cpu`. An implication instance
 fold is a tally of its samples' contributions too, proved by `cpu`. It carries
 no member evidence either, so its estimate revises with a rule's stated truth,
-and no member dependencies. Its samples read no value that depends on a
+and no member dependencies. The base rates of the rule's sides count its
+samples too, so a truth learned from them is not reconciled with those rates
+(`learned-rates` in `implication-ctv-goals`): its positive branch applies as
+it is, and the rates derive only its negative branch (#147). Its samples read no value that depends on a
 refined rule's truth, since another hypothesis's prediction is no
 observation of the consequent, nor one derived through the implication they
 sample. Each branch of the tally keeps its samples as regimes of the rule's

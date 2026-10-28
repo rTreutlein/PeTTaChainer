@@ -596,7 +596,13 @@ so a proof through the axiom and a proof through the rule are dependent and
 never revise twice.
 
 An STV rule's truth merges as an STV and is converted through base rates
-where it is applied. A CTV rule's fold learns both branches as an implication
+where it is applied. Its instances are members those rates count, and they
+have already moved the truth by their evidence, so the truth applies as it is
+and the rates derive only its negative branch: reconciling it with them (see
+the Fréchet bounds below) would count its instances again and drain its prior.
+A rule stated with frequency .8 at count 8 and twelve instances that all hold
+answers .92 at count 20, as its truth goal, as an implication query and
+applied to a new instance. A CTV rule's fold learns both branches as an implication
 query does: P(B|A) from the instances where A holds and P(B|not A) from those
 where it fails, or from the base rates of A and B while there are none. An
 implication query of a refined rule's shape answers through the goal (proof
@@ -767,7 +773,10 @@ violate them, the least evidence that restores them is dropped first, either
 drained from all three or by giving up the one with the least evidence
 entirely, and the rule applies with what remains, at lower confidence. So a
 rate estimated from one observation gives way to a well-supported rule rather
-than overriding it.
+than overriding it. A truth learned from instances (a refined rule's, or an
+implication query's instance fold) keeps its positive branch: the rates count
+those instances, which it already holds, and only its negative branch is
+reconciled.
 
 ### Antecedent completion
 
