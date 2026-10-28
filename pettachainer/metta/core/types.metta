@@ -74,6 +74,7 @@
 (: existential-source (-[det]-> Atom Statement))
 (: pattern-shape (-[det]-> Atom Atom))
 (: member-canon (-[det]-> $statement $statement))
+(: source-tv-canon (-[det]-> $statement $statement))
 (: member-shape (-[semidet]-> Atom Atom Atom))
 (: reserved-head? (-[det]-> Atom Bool))
 (: declared-head! (-[det]-> Atom Bool))

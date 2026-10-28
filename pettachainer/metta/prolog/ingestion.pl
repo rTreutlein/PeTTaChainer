@@ -66,6 +66,34 @@ ingestion_negation(Type, TV) :-
                      context(compileadd/2, 'a negated statement takes an STV'))) )
     ; true ).
 
+% The kind a truth value states (LANGUAGE_SPEC, "PTV and FTV"): (PTV s c),
+% the probability of a ground statement's event, and (FTV s c), the degree or
+% frequency a rule states. An STV is the kind its statement takes by default,
+% so each explicit kind reads as the STV of a statement of that kind, and a
+% kind the statement does not take is rejected. A statement takes the kind of
+% what the compiler builds of it: under its negations (stored at the
+% statement they negate), a rule, a bidirectional implication (two rules) or
+% a class link (a rule) is a frequency; anything else is an event.
+'source-tv-canon'(Source, Canonical) :-
+    (   nonvar(Source), Source = [':', Name, Statement, Value]
+    ->  tv_canon(Statement, Value, Canon), Canonical = [':', Name, Statement, Canon]
+    ;   Canonical = Source ).
+
+tv_canon(Statement, Value, Canon) :-
+    (   nonvar(Value), Value = [Kind, S, C], nonvar(Kind), memberchk(Kind, ['PTV', 'FTV'])
+    ->  ( tv_frequency(Statement) -> Takes = 'FTV' ; Takes = 'PTV' ),
+        (   Kind == Takes -> Canon = ['STV', S, C]
+        ;   throw(error(domain_error(tv_kind, [Kind, Statement]),
+                        context(compileadd/2, 'a PTV states a ground statement, an FTV a rule'))) )
+    ;   Canon = Value ).
+
+tv_frequency(Statement) :-
+    nonvar(Statement),
+    (   Statement = [Head, Inner], Head == 'Not' -> tv_frequency(Inner)
+    ;   ingestion_rule(Statement) -> true
+    ;   Statement = [Head, _, _], atom(Head),
+        ( Head == 'Inheritance' ; 'bidirectional-implication-form?'(Head, true) ) ).
+
 % Heads must be inspected without unification: a variable predicate is data,
 % never an Implication, a wrapper, or a binder merely because it could fit one.
 'source-rule?'(Type, Result) :-
@@ -121,8 +149,8 @@ ingestion_exists(Type) :-
 % else is rejected rather than read as a certain fact or a colon-headed
 % predicate.
 'weighted-assumption'(Annotation, [Statement, TV]) :-
-    ( Annotation = [':', Name, Source, Value], ground(Name), nonvar(Source), nonvar(Value),
-      weighted_assumption(Source, Value, Statement, TV)
+    ( Annotation = [':', Name, Source, Stated], ground(Name), nonvar(Source), nonvar(Stated),
+      tv_canon(Source, Stated, Value), weighted_assumption(Source, Value, Statement, TV)
     -> true
     ; annotation_error(Annotation) ).
 

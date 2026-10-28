@@ -21,7 +21,7 @@
 (: compileadd (-[nondet]-> KB AnnotatedStatement CompiledAddition))
 (= (compileadd $kb $stmt)
    (let*
-      (($source (member-canon (materialize-stmt-lambdas $stmt)))
+      (($source (source-tv-canon (member-canon (materialize-stmt-lambdas $stmt))))
        ($_valid (validate-ingestion! $kb $source))
        ($_heads (source-heads-free! $kb $source))
        ($iatoms (list_to_set (collapse (mm2compile $kb $source))))

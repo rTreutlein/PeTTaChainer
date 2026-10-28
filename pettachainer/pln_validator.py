@@ -7,8 +7,11 @@ round trip through the MeTTa runtime to be validated.
 import re
 
 # Truth-value heads and their accepted argument counts; a CTV holds two STVs.
+# PTV and FTV are an STV's two kinds written explicitly (LANGUAGE_SPEC).
 TV_ARITIES = {
     "STV": {2},
+    "PTV": {2},
+    "FTV": {2},
     "CTV": {2},
     "NatDist": {1},
     "FloatDist": {1},

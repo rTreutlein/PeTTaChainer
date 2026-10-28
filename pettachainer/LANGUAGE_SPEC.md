@@ -66,6 +66,22 @@ Simple truth value:
 For example, `(STV 1.0 0.5)` means low confidence that a fact is true,
 not "value is around X".
 
+### PTV and FTV
+
+The two kinds an STV can state, written explicitly:
+
+```metta
+(PTV strength confidence)   ; a ground statement: the probability its event holds
+(FTV strength confidence)   ; a rule: the degree or frequency it states
+```
+
+An STV takes its statement's kind: a ground statement is an event (PTV), a
+rule (`Implication`, `ForAll` or `WithPrior` over one) a frequency (FTV). An
+explicit kind reads as that STV; a kind the statement does not take is
+rejected with `domain_error(tv_kind, [Kind, Statement])` (degrees of ground
+statements come later, with FTV compound evidence). The same holds for the
+weighted facts of an `Assuming` query.
+
 ### Distribution TVs
 
 - Exact discrete:
