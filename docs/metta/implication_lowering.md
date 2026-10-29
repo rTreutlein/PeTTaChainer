@@ -73,12 +73,13 @@ Ordinary materialization is unchanged.
 
 ## Scheduling and validation
 
-`term-confidence` reads ordinary premise TV confidence without the former
-open-proof multiplier. CPU policies, including zero search priority for
-settled steps, remain unchanged. The relaxed gate permits scheduler and proof
-presentation changes with unchanged test TVs; duplicate evidence and changed
-logical answer sets still block. `MERGE1B_REPORT.md` records moved pins, token
-counts, symbol audit, final gates and finite-budget benchmark differences.
+`term-confidence` retains master's 0.99 multiplier for an open proof, tested
+without binding it, so a bound premise's expansion wins the priority tie.
+Removing this discount alone delayed paid conditioning for fuzzer seed
+22000162, `(D b)`, at budget 2000. CPU policies, including zero search priority
+for settled steps, remain unchanged. Duplicate evidence and changed logical
+answer sets still block. `MERGE1B_REPORT.md` records moved pins, token counts,
+symbol audit, final gates and finite-budget benchmark differences.
 
 Exists claim/witness folds, Boolean-event conditional planning, compound
 outputs and connective canonicalization retain their existing semantics.
