@@ -33,7 +33,11 @@
              ;; way to, so it drives no search of its own: it reads the
              ;; nodes other joins expand and the facts read at once.
              (if (== $fun SettlesFormula) 0.0 $base)))
-       (($_type ($_kbid $_ctx $_vars) $_prf $tv) (tv-confidence $tv))
+       (($_type ($_kbid $_ctx $_vars) $prf $tv)
+          ;; An open proof is discounted and tested without being bound: it
+          ;; can match any derivation of its statement, so the search orders a
+          ;; bound premise's expansion first (a search order, no value).
+          (if (is-var $prf) (* 0.99 (tv-confidence $tv)) (tv-confidence $tv)))
        ($_other 0.0))))
 
 ;; Forward beam width is independent of the invocation's remaining budget.
