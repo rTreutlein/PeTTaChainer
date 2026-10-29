@@ -482,6 +482,8 @@ node_subset([_|Xs], Ys) :- node_subset(Xs, Ys).
 
 'sk-force-reset!'([]) :-
     retractall(event_graph_memo(_, _, _)),
+    retractall(event_graph_scope(_, _, _, _)),
+    retractall(event_graph_plan(_, _, _, _, _)),
     ( context_active(C) -> true ; C=main ),
     forall(retract(sk_forced_seen(C,Trie)),trie_destroy(Trie)).
 

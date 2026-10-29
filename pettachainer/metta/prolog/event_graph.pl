@@ -3,14 +3,43 @@
 % Roots are count parameters; reports on rule conclusions are likelihoods.
 % Every world selects one branch of each rule, sharing its parent's bit.
 :- use_module(library(ugraphs)).
+% Structural plans are evaluation-local. Scope and row generation keep
+% hypothetical worlds and newly admitted skeleton rows distinct.
+:- dynamic event_graph_scope/4, event_graph_plan/5.
 'event-network-read'(Key, Exclude, Value, Out) :-
-    (   Key = ['sk-key', Goal, Scope], ground(Key), Scope = [KB, Context, Parameters],
-        ( member(Head, ['And', 'Or']),
-          ( '&kb'([Head|_], Scope, _, ['STV', _, C])
-          ; Context \== 'MAIN', '&kb'([Head|_], [KB, 'MAIN', Parameters], _, ['STV', _, C]) ), C > 0
-        ; Context == 'MAIN', context_active(World),
-          context_seed(_, World, [[Head|_], Scope, _, ['STV', _, C]]),
-          memberchk(Head, ['And', 'Or']), C > 0 ),
+    (   graph_plan(Key, graph(Models, Factors, Vars)),
+        Key = ['sk-key', Goal, Scope],
+        forall(member([Type|_], Factors), ( 'index-hash'(['sk-key', Type, Scope], H), \+ memberchk(H, Exclude) )),
+        forall(member(model(Type, _, _), Models),
+               ( Type == Goal -> true ; 'index-hash'(['sk-key', Type, Scope], H), \+ memberchk(H, Exclude) ))
+    ->  graph_answer(Models, Factors, Goal, Vars, TV),
+        graph_proof(Models, Factors, Scope, Proof, Evidence, Deps),
+        forall(( member(model(Type, _, _), Models) ; member([Type|_], Factors) ),
+               ( Type == Goal -> true ; 'sk-add-use!'(['sk-key', Type, Scope], Key, _) )),
+        Out = ['sk-val', [Goal, Scope, Proof, TV], Evidence, Deps]
+    ;   Out = Value ).
+
+graph_plan(Key, Plan) :-
+    Key = ['sk-key', _, Scope], ground(Key), Scope = [KB, Context, Parameters],
+    ( context_active(Frame) -> true ; Frame = main ),
+    term_hash(Scope, SH),
+    ( event_graph_scope(SH, Frame, Scope, Available) -> true
+    ; ( member(Head, ['And', 'Or']),
+        ( '&kb'([Head|_], Scope, _, ['STV', _, C])
+        ; Context \== 'MAIN', '&kb'([Head|_], [KB, 'MAIN', Parameters], _, ['STV', _, C]) ), C > 0
+      ; Context == 'MAIN', Frame \== main,
+        context_seed(_, Frame, [[Head|_], Scope, _, ['STV', _, C]]),
+        memberchk(Head, ['And', 'Or']), C > 0 )
+    -> Available = true, assertz(event_graph_scope(SH, Frame, Scope, true))
+    ; Available = false, assertz(event_graph_scope(SH, Frame, Scope, false)) ),
+    Available == true,
+    term_hash(Key, Hash), 'search-id-value'(sk_row_seq, Generation),
+    ( event_graph_plan(Hash, Frame, Generation, Key, Cached) -> true
+    ; ( graph_model(Key, Model) -> Cached = Model ; Cached = none ),
+      assertz(event_graph_plan(Hash, Frame, Generation, Key, Cached)) ),
+    Plan = Cached.
+
+graph_model(['sk-key', Goal, Scope], graph(Models, Factors, Vars)) :-
         graph_observations([Goal], Scope, [], [], Compounds), Compounds \== [],
         node_formula(['And'|Compounds], _, [], Seeds),
         graph_atoms(Seeds, Scope, [], Models),
@@ -24,16 +53,7 @@
         length(Vars, NV), NV =< 12,
         findall(Fact, ( member(Type, Compounds), graph_sources(Type, Scope, Fs), member(Fact, Fs) ), CompoundFacts),
         findall(Fact, ( member(model(_, conditional(_, _, _, _), Fs), Models), member(Fact, Fs) ), Reports),
-        append(CompoundFacts, Reports, Factors0), sort(Factors0, Factors),
-        forall(member([Type|_], Factors), ( 'index-hash'(['sk-key', Type, Scope], H), \+ memberchk(H, Exclude) )),
-        forall(member(model(Type, _, _), Models),
-               ( Type == Goal -> true ; 'index-hash'(['sk-key', Type, Scope], H), \+ memberchk(H, Exclude) ))
-    ->  graph_answer(Models, Factors, Goal, Vars, TV),
-        graph_proof(Models, Factors, Scope, Proof, Evidence, Deps),
-        forall(( member(model(Type, _, _), Models) ; member([Type|_], Factors) ),
-               ( Type == Goal -> true ; 'sk-add-use!'(['sk-key', Type, Scope], Key, _) )),
-        Out = ['sk-val', [Goal, Scope, Proof, TV], Evidence, Deps]
-    ;   Out = Value ).
+        append(CompoundFacts, Reports, Factors0), sort(Factors0, Factors).
 
 % Follow only skeleton structure already admitted by the query's search.
 % Inversion rows expose children, node rows their observation key. This is
@@ -54,14 +74,14 @@ graph_atoms([Type|Rest], Scope, M0, Models) :-
     (   memberchk(model(Type, _, _), M0)
     ->  graph_atoms(Rest, Scope, M0, Models)
     ;   length(M0, N), N < 12,
+        ( Type = [Head|_] -> 'reserved-head?'(Head, false) ; true ),
         findall(edge(Id, Parent, Name, Pos, Neg),
                 ( ccls_index([Type, Scope, [by, Name, _], _], Id, Ps),
                   'rule-live?'(Id, true),
                   exclude([P]>>(P = ['CPU', 'ContextRule'|_]), Ps,
                           [[Parent, Scope, _, PTV], ['CPU', 'CTVModusPonensFormula', [PTV, ['CTV', Pos, Neg]], _]]),
                   'context-rule-visible?'(Id, true),
-                  ground([Parent, Pos, Neg]),
-                  \+ ( Parent = [PH|_], memberchk(PH, ['Not', 'And', 'Or']) ) ), Edges),
+                  ground([Parent, Pos, Neg]) ), Edges),
         graph_sources(Type, Scope, Facts),
         (   Edges = [edge(Id, Parent, Name, Pos, Neg)]
         ->  Model = conditional(Parent, Id-Name, Pos, Neg), Next = [Parent|Rest]

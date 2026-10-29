@@ -35,9 +35,13 @@ remain uniform, including when a zero-confidence fact was omitted.
 The output subscribes to the model's keys, including children without a report,
 so a late observation can wake its readers. Its dependency set holds raw roots
 and observations; internal inferred marginals do not become primitive inputs.
-Rule-owner references retain withdrawal identity. A numerical memo is local to
-an evaluation, keyed by the full model and sources, and cleared with forcing
-state. It holds no proofs.
+Rule-owner references retain withdrawal identity. Structural discovery is cached
+per scope and overlay world; plans, including unsupported results, are also keyed
+by the skeleton row generation. This avoids rediscovering the same graph at every
+read while letting new rows change the plan. Numerical results are keyed by the
+full model and sources. All three caches clear with evaluation forcing state.
+They hold source data rather than output proof DAGs. Compiler forms, including
+frequency-valued implication conjuncts, retain their existing readers.
 
 ## Compound readers and merging
 
