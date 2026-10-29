@@ -633,9 +633,44 @@ A key's value merges its stored facts and one view per row:
   otherwise it is `(STV 0.5 0)`, or `(STV 0 0)` for a complete conclusion
   (`complete_predicates.md`). Modus ponens must preserve zero confidence
   when selecting an unknown branch, without its numerical confidence floor;
-- an identical proof pools its evidence; a marginal projection gives way to its
-  full proof, and a settled step to its complete step, before the views merge,
-  so neither stands for its full proof in a merge with a third view;
+- an identical proof pools its evidence; a settled step gives way to its
+  complete step, and a compound's joint row to the conjunction, disjunction or
+  conditioned view of the same parts, before the views merge, so neither
+  stands for its full proof in a merge with a third view. Joint rows exist for
+  every order of every subset of two or more of a compound's (at most four)
+  parts (`node-joint-goals`: up to 119 rows for four parts); within a
+  conditioning branch on a compound pin, its parts are read in turn, each
+  given the pin and the parts before it (`sk-chain-value`), and a pin that
+  cannot mix does not make its parts pins of their own (`sk-pin-parts`);
+- a predicted compound's update of a part (`node-jeffrey`) is not a view to
+  revise: the key's other views merge first, observations included, then each
+  update moves the merged value by probability kinematics to the prediction
+  revised with the parts' own estimate (`jeffrey-posterior`), in the order of
+  what the updates carry (`jeffrey-order`), so the value does not depend on
+  arrival order, evidence entries included. An update's own evidence is its
+  compound's (`proof-term-evidence` of its source), expanded to raw sources:
+  its count is capped by the count of its uncertain sources the value lacks
+  (`evidence-unique-count`, an unreadable source counting nothing) and the
+  update is dropped when the value holds all of it; so is a message or update
+  an antecedent completion already counts, alone or within a revision or a
+  factored update (`sk-message-counted?`). A compound is a node over its
+  distinct atoms (`node-formula`): nested compounds and repeated atoms are one
+  node, and inner compounds are its joint rows. A key's observed compounds'
+  messages (`node-message`, likelihoods carrying the formula and the atoms'
+  keys and distributions) act together on the key's merged value, or its
+  prior where it has none (`sk-messages-on`, `pearl-moments`): messages over
+  distinct literals that share no atom multiply as independent factors (mean
+  by plug-in, variance by a tensor Gauss-Jacobi rule over the prior and each
+  uncertain atoms' product, two moments, log space, refined until two rules
+  agree or else the bound, s(1 - s) taken unrounded), and messages that share
+  an atom are one node over the union of their atoms (`event_node_moments`,
+  its conservative policies). The prior is the key's cavity rate
+  (`sk-part-prior`: the population's source facts, materialized rows and
+  forward copies left out, without those the messages' or updates' evidence
+  holds or the reader excludes, a set rate as set), a stored count
+  read once as its Laplace Beta; a stored base is likewise its Beta. Endpoint
+  exactness holds only at confidence 1 (`pearl_factor`); below it a message
+  uses K's predictive strength;
 - before lifting or other aggregation, original applicable rule views are
   compared by syntactic containment (reversed for complements), including
   mined parent/child rules. Counts and confidence do not rank conditions;
@@ -868,14 +903,21 @@ facts and views that share none; a shared rule is not a clash, except a rule
 the row excludes: an implication instance sample excludes the rules restating
 its implication, so it reads the consequent's other proofs. Premises are taken greedily in order; when every
 value of a premise clashes, the row reads again on a fresh copy, taking
-compatible stored facts first. Projections of one stored `(And ...)` source pool
-back into that source instead of multiplying shared evidence, and
-compiler-marked joins may share source evidence deliberately. A projection of
-a compound onto one part reads the other parts as evidence apart from the
-compound, so it reads none of their views that depend on the compound's key:
-P(A) = P(ABC) / P(BC) with P(BC) read off ABC would be 1. A projection that leaves the
-part undetermined (a true disjunct, a false conjunct) gives no value rather
-than one of confidence 0. A child of an inverted pure `And` or `Or`
+compatible stored facts first. Compiler-marked joins may share source evidence
+deliberately. A compound's node row for one part reads the other parts at
+their cavities, `(cavity K target)`: their values without the views that
+depend on K's key or on the target part, so K's own messages to them never
+come back to the target (`sk-evidence-apart`). The read is optional: a part
+with no value is the uniform prior, and one whose value arrives later wakes
+the row. The sibling's search starts as a child at a hundredth of the
+join's worth and its key is needed one level further (`sk-fold-child!`,
+`sk-need-below!`), so it takes only what budget the direct work leaves:
+anytime, and #81's one-step filtering is unchanged. Premises sharing one compound's node views condition on the
+compound: under the condition its parts' messages are those of the
+observation, rows reading the given statement that had no view in MAIN
+included (`sk-given-merge`). A node row that leaves the part undetermined (a
+true disjunct, a false conjunct) gives no value rather than one of
+confidence 0. A child of an inverted pure `And` or `Or`
 antecedent is recovered by completion, not projection: the completion is
 Bayes' rule over the child's base rate with the other parts at their values
 (`prior_factored_merge.md`); a part with no value of its own is read where
@@ -901,11 +943,10 @@ mandatory input of the row. M's prior becomes P(M | e_K), the base of the
 completion's proof e_K's proof, the sibling's value its posterior given e_K
 where M leaves K open, and the siblings read none of K's views
 (`prior_factored_merge.md`, "The connective's own evidence"). Known limits: a
-part is conditioned on its connective's evidence only through a completion,
-so a stored `(And G H)` with no rule over it still leaves G a PLN projection
-(`AndProjection`, `AndMarginalProjection`: K's strength read as the joint
-marginal), and the projection still wins where K's own value holds its
-inversion from C; two completions through one compound combine as if each
+part with a completion is conditioned on its connective's evidence through
+the completion alone (K's node message to it is then dropped), and a stored
+`(And G H)` with no rule over it reaches G as its node message only; two
+completions through one compound combine as if each
 alone moved the sibling; an uncertain e_K is lost once M has independent
 evidence of its own, which the completion's update merges with as if e_K were
 not in its prior (Q1: 0.94 against an exact 0.979, as on master); an assumed

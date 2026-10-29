@@ -296,8 +296,84 @@ consequent. Write `And` explicitly when either side is a conjunction:
 
 A singleton side is written directly, without a unary `And`. There is only one
 source form for an implication. Multiple conclusions form one explicit joint
-consequent such as `(And conclusion1 conclusion2)` and retain the normal
-compound-output projection semantics.
+consequent such as `(And conclusion1 conclusion2)`, whose value moves its
+parts as below.
+
+### What a compound's value says about its parts
+
+A compound K, an `And` or `Or` stored or concluded, is an event node over its
+distinct atoms: K is a formula over them (nested `And`, `Or` and `Not`
+included), an atom it repeats is one parameter, and each atom is an
+independent parameter at its value read apart from K, its cavity (its views
+without K's own and without the atom being computed; an atom with no such view
+is the uniform prior). A stored atom enters as the Beta of its count (n s + 1,
+n (1 - s) + 1), a derived one with its own variance; only confidence 1 makes
+an atom a point. K's value reaches its atoms in one of two ways:
+
+- Observed: a stored fact, a revision of stored facts, or a certain value
+  (confidence 1, a K given under a condition included). This is Pearl
+  evidence at K's predictive strength m = (n s + 1)/(n + 2), n = k c/(1 - c):
+  each world of the atoms where K holds has likelihood m, the others 1 - m.
+  Only at confidence 1 is the evidence exact: a report of strength 0 or 1
+  then determines an atom where K does. An observed K at strength .5 below
+  confidence 1 says nothing about its atoms.
+- Predicted: anything else derived. This is probability kinematics
+  (Jeffrey). The prediction s at confidence c is first revised with the atoms'
+  own estimate of K, P* = (n_parts P_parts + n_rule s)/(n_parts + n_rule), with
+  n_rule = k c/(1 - c) and n_parts the moment count of P_parts at its exact
+  variance (two uniform atoms of an And: P_parts = 1/4 at variance 7/144,
+  n_parts = 20/7). An atom's value p, its other views (observations included)
+  merged first, then moves to
+  P* p f1/P_parts + (1 - P*) p (1 - f1)/(1 - P_parts), where f1 = P(K | atom),
+  f0 = P(K | not atom) and P_parts = p f1 + (1 - p) f0. A prediction at
+  confidence 0 leaves the atom as it was; one near certain adopts s. With B
+  and C at .9 and .6 (confidence .9), K = (And B C) predicted at .8 moves C to
+  .603 at confidence .1 and to .806 at .99. Several predictions of one atom
+  apply one after the other in an order fixed by what they carry, their
+  evidence included, whatever order they arrived in. An update's evidence is
+  its compound's, as raw sources (facts and rules): what the atom's value
+  already holds counts once, so the prediction's count is at most the count
+  of its uncertain sources that are new, and one with none new is dropped.
+
+All of an atom's messages are read together, as one node, on the atom's
+prior. Messages whose compounds share no other atom are independent given it:
+their likelihoods multiply (in log space), the mean is exact, and the variance
+integrates the prior and each message's other atoms (their product taken by
+its two moments). Messages that share an atom are one node over the union of
+their atoms, enumerated exactly: Or(A, B) and Or(A, Not B) at (.9, .9) make A
+m = .8999 whatever B is, and Or(A, B) and Or(A, C) with B and C false make it
+.9878. The prior is A's population rate read apart from the node (without the
+members whose values rest on the messages' own observations), or a rate set on
+the population with `set-base-rate`, as a stored count; with neither it is the
+uniform prior, whose variance the answer keeps, so a message about an atom
+nothing else informs claims little confidence. An update or message that an
+antecedent completion of the atom already counts (the completion's prior was
+formed under K's evidence, alone or within a revision) is not applied again.
+
+An `And` or `Or` over two or more of K's children or of its atoms, in any
+order, and each compound inside K, is a joint row of K's node over at most four
+atoms, the node's own posterior; it takes the place of the conjunction or
+disjunction of the parts' values, so (And A B) and (And B A) agree, and in
+S -> (And A (And B C)) both (And A B) and (And B C) are P* + (1 - P*)/7. K's
+own connective over all its children is K, at K's value. Any other connective
+over parts of one K is conditioned on K, given true and false; within each
+branch K's children are read jointly, each given K and the children before
+it.
+
+A part's other parts are read at their values without searching them first;
+their searches run as low-priority children of the part's search, on the
+budget the direct work leaves, so a part read cold improves with budget.
+
+Limits: the node's variance is exact only where its quadrature settles: each
+rule twice as fine until two agree within 1 % (a factor constant to 1e-9 is a
+point; one broad dimension is integrated on intervals graded toward its
+endpoints, so a boundary layer as thin as 1e-12 is resolved), within 257
+nodes a dimension and 70000 points, the prior and up to four uncertain
+dimensions for independent messages; elsewhere, and past twelve atoms, the
+answer claims the bound s(1 - s), confidence 0, tested before any rounding;
+joint rows exist for at most four atoms; parts derived from each other by
+rules inside the node (rule-derived atoms with their own observations) are
+read as independent, and are then underconfident.
 
 An `And` or `Or` premise, an antecedent or a queried compound, combines the
 truth values of all its parts with `AndFormula` (`s1 s2`) or `OrFormula`
@@ -381,9 +457,10 @@ population without treating it as complete:
 
 `KnownExistential` folds the matching witness TVs with `OrFormula` to produce
 the currently enumerated disjunction D. `ExistentialResidual` also consumes the
-corresponding direct `ExistentialClaim` E and calculates the remaining U from
-`E = D or U`. The latter uses variance-based confidence propagation rather than
-copying the existential confidence onto U. Both forms are lazy FoldAll-backed
+corresponding direct `ExistentialClaim` E and reads the remaining U off the
+event node of `E = D or U`: E's message to U when E is observed (stored), its
+Jeffrey update of U's uniform prior when E is derived (see "What a compound's
+value says about its parts"). Both forms are lazy FoldAll-backed
 premises and their bound variables do not escape into the conclusion.
 
 ### Premises that reuse evidence
@@ -414,11 +491,9 @@ assumptions, not evidence: the evidence of the proof counts `a` once, through
 the weight `a` at the head.
 
 A premise that reads the conditioned statement itself reads it as known, so
-`(And K K)` is K. Conditioning is not used in these cases:
-- for projections of one conjunction, which pool;
-- for rules whose conclusion is not a simple truth value.
-
-In both cases the premise is refused, as before. Folds read under a
+`(And K K)` is K. Premises sharing a compound's node views condition on the
+compound, given true and false. Conditioning is not used for rules whose
+conclusion is not a simple truth value; their premise is refused, as before. Folds read under a
 condition take their ordinary values. A query or forward run pays for
 conditioning from its evaluation allowance (see
 `docs/metta/runtime_design_assumptions.md`), so a small one may leave such a
@@ -737,9 +812,8 @@ reconstructs variable bindings.
 
 The compiler-generated TV computation for a pure top-level `Or` does not
 trigger that veto. A rule such as `(Or A B) -> C` may be inverted from `C` to
-the whole `Or`; the normal compound-output adapters can then project `A` given
-`B`, or vice versa. OR projection uses the noisy-OR inverse and propagates
-variance from both the reconstructed total and the known alternative. Ordinary
+the whole `Or`, whose predicted value then moves `A` given `B`, or vice versa
+(see "What a compound's value says about its parts"). Ordinary
 multi-premise `And` rules reconstruct no variable bindings unless they contain
 a supported reversible `Compute`; their children are instead proved directly
 by antecedent completion.

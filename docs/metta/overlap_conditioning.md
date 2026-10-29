@@ -319,9 +319,8 @@ budget 50): 59 s against 10 s, for no gain. Paid from the allowance, fuzzer
 seed 12000203's E <- D over a closed D <- (Or B C E) with C <- B is exact
 at budget 2000 (0.8975) and keeps the independent value at 100 (0.8179).
 
-Rows reading a fold read its members as data, compiler-marked joins share
-their sources by design, and projections of one source pool into it; none of
-them is checked. Inversions and completions have their own reading of their
+Rows reading a fold read its members as data and compiler-marked joins share
+their sources by design; neither is checked. Inversions and completions have their own reading of their
 premises and are not checked either. A row whose greedy read finds premises
 entangled reads again on a fresh copy, taking stored facts first, as for a
 clash: a sample (Tall alice) and (Female alice) whose merged value derives

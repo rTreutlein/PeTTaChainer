@@ -233,7 +233,7 @@ and the witnesses currently enumerable from the KB:
 | Form | Meaning |
 |---|---|
 | `(KnownExistential ($x ...) $body)` | Fold the truth values of matching body instances with `OrFormula`. This is the currently enumerated witness disjunction D, not a proof that the population is complete. |
-| `(ExistentialResidual ($x ...) $body)` | Match the corresponding direct `ExistentialClaim`, build D, and calculate U from E = D or U using `ExistentialResidualFormula`. Its confidence is propagated from both E and D. |
+| `(ExistentialResidual ($x ...) $body)` | Match the corresponding direct `ExistentialClaim`, build D, and read U off the event node of E = D or U: E's message to U when E is observed, its Jeffrey update of U's uniform prior when E is predicted. |
 
 Both are lazy, budgeted FoldAll producers. An empty `KnownExistential` has no
 value. For `ExistentialResidual` only, empty D is `(STV 0 1)`: no known witness

@@ -76,8 +76,9 @@ settled step agree.
   exist. Their evidence normally shows the complete one containing the
   settled one, but a known statement under a condition, or an assumption
   context, reads with no evidence, and the two would revise. So a settled
-  step gives way to the complete step it settles, as a marginal projection
-  gives way to its full projection (`proof-dominates?`, `settled-within?`).
+  step gives way to the complete step it settles, as a compound's joint row
+  takes the place of the conjunction of its parts (`proof-dominates?`,
+  `settled-within?`).
 - Self-support. A settled row depends on its part's key only; cycle
   exclusion applies to it as to any row. Settling to true needs a certain
   part, so a loop disjunct cannot settle its own Or: without stock, nothing
@@ -89,11 +90,12 @@ settled step agree.
   result modus ponens reads next" by unification, which bound the rule's CTV
   to a settled ground value; it now compares by identity.
 - Projections. A settled `Or` key gives its other disjunct no value: P(B) is
-  undetermined when A is certain, and `OrProjection` (like `AndProjection`
-  for a false conjunct) yields nothing rather than a value of confidence 0,
-  which would have replaced what else is known of B (a fuzzer repro answered
-  0 for a disjunct whose population prior is 0.73). The same holds for a
-  stored certain `Or` with a certain disjunct.
+  undetermined when A is certain, and the compound's event node (like a false
+  conjunct's) yields no message where the other atoms settle it whatever the
+  part is (`settled_by_siblings`, `runtime_helpers.pl`), rather than a value
+  of confidence 0, which would have replaced what else is known of B (a
+  fuzzer repro answered 0 for a disjunct whose population prior is 0.73). The
+  same holds for a stored certain `Or` with a certain disjunct.
 - Dormancy. The dormancy analysis mirrors the settled join: a settled rule
   supports its conclusion only through a certain stored fact that settles
   the compound (`dormancy_settles`, `runtime_helpers.pl`). Counting it as an

@@ -294,14 +294,15 @@ reads the same conjunction TV as the exactly matched ground query. Its public
 answer retains a lexical binder; the concrete witness stays inside the search.
 Both source proofs survive, and acceptance and derived event values remain local.
 
-Conjunction pooling keeps individual premise parts until their source
-computations have run. A lowered `Not` complements its last fact read before
-pooling, so a later `AndFormula` does not restore the uncomplemented TV. This
-also applies to ordinary conjunction queries, in every conjunct order. An
-ordinary `Or` with a negated, nested or computed disjunct folds its parts with
-`OrFormula` in one query-local bundle (#85). Raw
-projection source names are resolved in the premise's own KB context; a source
-with the same name in another KB cannot supply its pooling TV.
+A lowered `Not` complements its fact read, so a later `AndFormula` reads the
+complemented TV, in every conjunct order. A conjunction query over a stored
+compound's parts reads them through the compound's node: in the compound's
+own connective over all its parts, in any order, it is the compound's value,
+and over some of them, conditioned on the compound, the parts are read
+jointly (`LANGUAGE_SPEC.md`, "What a compound's value says about its parts").
+An ordinary `Or` with a negated, nested or computed disjunct folds its parts
+with `OrFormula` in one query-local bundle (#85). Source names are resolved
+in the premise's own KB context.
 
 `Assuming` is only the query's outermost statement. Anywhere else (its goal,
 its facts, a conjunct, a `Not`) it raises `domain_error(nested_assuming, ...)`

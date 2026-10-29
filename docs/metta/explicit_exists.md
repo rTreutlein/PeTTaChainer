@@ -60,8 +60,12 @@ completion is stage 4.
 `ExistentialClaim` remains a direct-claim view, not a witness aggregate.
 
 `KnownExistential` also has no value when empty. `ExistentialResidual` is
-different: its witness contribution D defaults to (0,1), so E=0.9 and no known
-witnesses gives residual strength U=0.9. The direct claim binds outer arguments
+different: its witness contribution D defaults to (0,1), so a stored E=0.9 and
+no known witnesses gives U=0.9 (E's message at its predictive strength,
+.89989). U is read off E's event node, E = D or U: E's message to U when E is
+stored (observed), and when E is derived (predicted) its Jeffrey update of U's
+uniform prior, which keeps that prior's variance and so little confidence
+(`LANGUAGE_SPEC.md`, "What a compound's value says about its parts"). The direct claim binds outer arguments
 before the residual's scalar witness fold, including groups with no witnesses.
 A later witness refines D and U through the existing formula. The empty identity
 does not assert that Exists is false or that its population is complete.
