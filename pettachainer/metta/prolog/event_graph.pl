@@ -16,7 +16,7 @@
         'deps-join'([D0|Ds], Deps),
         graph_answer(Models, Factors, Goal, Vars, TV),
         Fact = [Goal, Scope, [node, [conjunction|All]], TV],
-        'sk-fact-matches?'(Filter, Fact, true)
+        'sk-admits?'(Filter, Exclude, ['sk-val', Fact, Evidence, Deps], true)
     ->  forall(( member(model(Type, _, _), Models) ; member([Type|_], Factors) ),
                ( Type == Goal -> true ; 'sk-add-use!'(['sk-key', Type, Scope], Key, _) )),
         Out = ['sk-val', Fact, Evidence, Deps]

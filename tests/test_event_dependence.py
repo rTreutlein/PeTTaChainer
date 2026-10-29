@@ -115,6 +115,30 @@ class EventReviewRegressionTests(unittest.TestCase):
         mu = prior['M']
         self.assertAlmostEqual(out[1][3][1], mu / (mu + .2 * (1 - mu)), delta=1e-12)
 
+    def test_excluded_population_fold_keeps_the_graph_fallback(self):
+        h = PeTTaChainer()
+        h.add_atoms_no_check([
+            '(: rB (Implication (A $x) (B $x)) (CTV (STV 0.9 1) (STV 0.2 1)))',
+            '(: k0 (Or (A a) (B a)) (STV 1 1))',
+        ])
+        h._call('set-base-rate', [f'{h.kb} (A $x) (STV 0 1)'])
+        h.query_many_refs(['(: $p (A a) $tv)'], steps=1000)
+        result = janus.query_once(
+            "_Key=['sk-key',['A',a],[Kb,'MAIN','Nil']],"
+            " 'base-rate-fold'(Kb,['A',_],_,_Fold),"
+            " 'sk-direct-key-step'([],_Fold,[_FoldKey]),'index-hash'(_FoldKey,F),"
+            " 'event-network-read'(_Key,'sk-any-filter',[],['ev-set',0],fallback,"
+            " _Value),_Value=['sk-val',[_,_,_,TV],_,_Deps],"
+            " 'deps-has?'(_Deps,F,true),"
+            " 'sk-admits?'('sk-any-filter',[F],_Value,false),"
+            " 'event-network-read'(_Key,'sk-any-filter',[F],['ev-set',0],fallback,_Out),"
+            " copy_term(_Out,Out),term_variables(Out,_Vars),maplist(=(test_variable),_Vars)",
+            {'Kb': h.kb})
+        self.assertTrue(result['truth'])
+        self.assertEqual(result['TV'], ['STV', 0.0, .9999])
+        self.assertEqual(result['Out'], 'fallback')
+        self.assertEqual(self.graph_read(h)[1][3], result['TV'])
+
     def test_population_prior_excludes_the_consumers_evidence(self):
         h = PeTTaChainer()
         h.add_atoms_no_check([
