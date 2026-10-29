@@ -8,16 +8,12 @@
 (: forward-output-key (-[det]-> KBContext Statement ForwardOutputKey))
 
 (: forward-base-rate-identity
-   (-[det]-> KB Statement ExtractTV BaseRateEvidenceState
-       (-[semidet]-> $accumulator $value $accumulator) BaseRateFinish AggregateTVMode
-       ForwardAggregateIdentityKey))
+   (-[det]-> KB Statement ForwardAggregateIdentityKey))
 
 (: forward-class-link-identity (-[det]-> KB Term Term ForwardAggregateIdentityKey))
 
 (: forward-base-rate-descriptor
-   (-[det]-> KB Statement ExtractTV BaseRateEvidenceState
-       (-[semidet]-> $accumulator $value $accumulator) BaseRateFinish
-       ForwardAggregateDescriptor))
+   (-[det]-> KB Statement ForwardAggregateDescriptor))
 
 ;; A class link's instance fold, by its skeleton key.
 (: forward-class-link-descriptor
