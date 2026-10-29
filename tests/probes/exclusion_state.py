@@ -172,7 +172,8 @@ class ExclusionStateTests(unittest.TestCase):
         self.assert_rejection_restricts_reuse(
             "once(('&sk_instance_tally'(Excluded,['sk-fold',_Args],_), _Args=[Kb|_])), "
             "once('&sk_instance_read'(_Read,Excluded,_,_)), sort([Excluded,_Read],_Exclusions)",
-            "'sk-left-out-view'(Excluded,['sk-fold',_Args],'sk-any-filter',_Exclusions,0,Rejected)",
+            "'sk-admit-step'(Excluded,['sk-fold',_Args],'sk-any-filter',_Exclusions,[],['sk-version',0,0,'sk-none'],_Kept), "
+            "(_Kept=[] -> Rejected='sk-none' ; Rejected=admitted)",
         )
 
     def test_query_clears_interrupted_frame_and_prolog_query_ends_reader(self):

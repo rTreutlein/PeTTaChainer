@@ -9,7 +9,7 @@ was changed.
 
 The native trace in
 `/nexus/Dev/OpenCog/bench/results/history-bug/round4/trace.log` catches the
-first excluded dependency before conditioning: `sk-given-value` returns the
+first excluded dependency before conditioning: `sk-calibrated-value` returns the
 stored `producing-mine-t5` fact while its own key is excluded. That value
 passes through the closed read of `FuelArrived t5`, then into the rebuilt
 `Fuelled power-plant t5` view. The cache faithfully stores this inadmissible

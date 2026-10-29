@@ -183,7 +183,7 @@ Built as designed, with these findings from probing the existing code:
   - a rule applied to an instance whose own sample is in the fold (an
     observed but uncertain consequent, or one derived by given rules) reads
     the truth folded again without the samples depending on it (leave one
-    out, `sk-left-out-view`), instead of an older version;
+    out, `sk-admit-step`), instead of an older version;
   - a rule application depends on its truth's key, not on the samples
     below it, so views through rules learned from one history are not
     dependent through that history (SupplyNet learned rules: the storm

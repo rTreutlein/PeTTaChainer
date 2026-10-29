@@ -25,8 +25,8 @@
 ;; in the result, exactly as merging a, b, d without the overlapping c.
 !(test
    (let* (((cons $a (cons $b (cons $_c (cons $d ())))) (fallback-views))
-          ($expected (sk-merge-step true () (sk-merge-step true () $a $b) $d)))
-      (== $expected (sk-key-fallback () () (fallback-views)))) true)
+          ($expected (sk-merge-step (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) true () (sk-merge-step (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) true () $a $b) $d)))
+      (== $expected (sk-key-fallback (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) () () (fallback-views)))) true)
 
 ;; All 24 orders give the identical proof, TV, evidence and dependencies.
 (: fallback-permutations (-[det]-> (List SkeletonValue) (List (List SkeletonValue))))
@@ -62,9 +62,9 @@
    (if $ok
       (let* (($key (sk-key (Target q) (fallbackKb MAIN Nil)))
              ($actual (sk-merge-key (index-hash $key) $key sk-any-filter () () $order)))
-         (if (== $expected (sk-key-fallback () () $order)) (== $expected $actual) false))
+         (if (== $expected (sk-key-fallback (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) () () $order)) (== $expected $actual) false))
       false))
-!(test (fold-semidet (fallback-order-step (sk-key-fallback () () (fallback-views))) true
+!(test (fold-semidet (fallback-order-step (sk-key-fallback (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) () () (fallback-views))) true
          (fallback-permutations (fallback-views))) true)
 
 ;; A low-confidence bridge still joins both components after it loses the
@@ -79,7 +79,7 @@
           ($c (fallback-view (brand Proof c) 0.4 0.2 (deps-union $q $r)))
           ($d (fallback-view (brand Proof d) 0.3 0.8 0))
           ($values (cons $a (cons $b (cons $c (cons $d ())))))
-          ($expected (sk-key-fallback () () (cons $b (cons $d ())))))
+          ($expected (sk-key-fallback (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) () () (cons $b (cons $d ())))))
       (fold-semidet (fallback-order-step $expected) true (fallback-permutations $values))) true)
 
 ;; Direct claims and an update form components apart. a reads q and b reads r;
@@ -94,7 +94,7 @@
           ($a (fallback-view (brand Proof claim-a) 0.3 0.9 $q))
           ($b (fallback-view (brand Proof claim-b) 0.4 0.9 $r))
           ($k (fallback-view (brand Proof ((antecedent-completion sys 0 with cpu (prior (STV 0.5 0.9))) observation-w)) 0.8 0.5 (deps-union $q $r)))
-          ((sk-val $_fact $ev $_deps) (sk-key-fallback () () (cons $a (cons $b (cons $k ())))))
+          ((sk-val $_fact $ev $_deps) (sk-key-fallback (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) () () (cons $a (cons $b (cons $k ())))))
           ((sk-val $_fa $ev-a $_da) $a)
           ((sk-val $_fb $ev-b $_db) $b))
       (if (evidence-subset? $ev-a $ev) (evidence-subset? $ev-b $ev) false))
@@ -108,6 +108,6 @@
    (let* (($q (deps-key (index-hash (sk-key (Shared q) (fallbackKb MAIN Nil)))))
           ($a (fallback-view (brand Proof (by rule-a premise-a)) 0.3 0.8 $q))
           ($b (fallback-view (brand Proof (by rule-b premise-b)) 0.6 0.9 $q))
-          ((sk-val ($_t $_c $_p $tv) $_ev $_deps) (sk-dependent-merge false $a $b)))
+          ((sk-val ($_t $_c $_p $tv) $_ev $_deps) (sk-dependent-merge (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) false $a $b)))
       $tv)
    (STV 0.5076923076923076 0.4))

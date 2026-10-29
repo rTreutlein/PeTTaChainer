@@ -232,10 +232,12 @@ class DeepConditioningTests(unittest.TestCase):
                         f"_D={degraded}, _S1={storm_t1_key}, _Sk={storm_k_key}, "
                         f"'index-hash'(_S1,H1), 'index-hash'(_Sk,Hk), {excluded}, "
                         "'change-state!'(sk_eval_budget,100000,_), "
-                        "setup_call_cleanup('sk-open-claim!'(_), "
-                        f"'sk-given-value'([['sk-given',H1,_S1,{'true' if storm_t1 else 'false'}],"
-                        f"['sk-given',Hk,_Sk,{'true' if storm_k else 'false'}]],_D,'sk-any-filter',{exclude},"
-                        "['sk-val',[_,_,_,['STV',Strength,_]],_,Deps]), 'sk-close-claim!'(_)), "
+                        f"Pins=[['sk-given',H1,_S1,{'true' if storm_t1 else 'false'}],"
+                        f"['sk-given',Hk,_Sk,{'true' if storm_k else 'false'}]], "
+                        "setup_call_cleanup('sk-open-claim!'(_), ("
+                        f"'sk-pinned-value'(Pins,_D,'sk-any-filter',{exclude},Raw), "
+                        f"'sk-calibrated-value'(Pins,_D,'sk-any-filter',{exclude},Raw,"
+                        "['sk-val',[_,_,_,['STV',Strength,_]],_,Deps])), 'sk-close-claim!'(_)), "
                         "'deps-has?'(Deps,Hk,ReadsPin)",
                         {'Kb': handler.kb},
                     )
@@ -276,7 +278,8 @@ class DeepConditioningTests(unittest.TestCase):
             "'index-hash'(_Pin,_P), 'index-hash'(_Z,_E), "
             "'change-state!'(sk_eval_budget,1000,_), "
             "setup_call_cleanup('sk-open-claim!'(_), ("
-            "'sk-given-value'([['sk-given',_P,_Pin,true]],_Key,'sk-any-filter',[_E], "
+            "'sk-pinned-value'([['sk-given',_P,_Pin,true]],_Key,'sk-any-filter',[_E],_Raw), "
+            "'sk-calibrated-value'([['sk-given',_P,_Pin,true]],_Key,'sk-any-filter',[_E],_Raw, "
             " ['sk-val',[_,_,_,['STV',Strength,_]],_,_Deps]), "
             "'deps-meet?'([_E],_Deps,ReadsExcluded)), 'sk-close-claim!'(_))",
             {'Kb': handler.kb},

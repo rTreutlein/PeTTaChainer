@@ -133,7 +133,7 @@ class SpecificityTests(unittest.TestCase):
                     self.assertLessEqual(float(answer.tv[2]), 0.99)
                     key = f"(sk-key (T fresh) ({self.h.kb} MAIN Nil))"
                     key_hash = self.h._call("index-hash", [key])[0]
-                    views = parse_term(self.h._call("sk-admitted", [f"{key_hash} {key} sk-any-filter ()"])[0])
+                    views = parse_term(self.h._call("map-flat", [f"sk-version-view (sk-admitted-versions {key_hash} {key} sk-any-filter ())"])[0])
                     for permutation in itertools.permutations(views):
                         merged = parse_term(self.h._call("sk-merge-key", [
                             f"{key_hash} {key} sk-any-filter () () {render(list(permutation))}"
@@ -189,7 +189,7 @@ class SpecificityTests(unittest.TestCase):
                 self.assertIn(name, proof)
             key = f"(sk-key (T fresh) ({self.h.kb} MAIN Nil))"
             khash = self.h._call("index-hash", [key])[0]
-            views = parse_term(self.h._call("sk-admitted", [f"{khash} {key} sk-any-filter ()"])[0])
+            views = parse_term(self.h._call("map-flat", [f"sk-version-view (sk-admitted-versions {khash} {key} sk-any-filter ())"])[0])
             for permutation in itertools.permutations(views):
                 merged = parse_term(self.h._call("sk-merge-key", [f"{khash} {key} sk-any-filter () () {render(list(permutation))}"])[0])
                 self.assertAlmostEqual(float(merged[1][3][1]), expected, places=10)
@@ -206,10 +206,10 @@ class SpecificityTests(unittest.TestCase):
         self.assertIn("conditioned", self.h.expand_proof(answer.proof))
         key = f"(sk-key (T fresh) ({self.h.kb} MAIN Nil))"
         key_hash = self.h._call("index-hash", [key])[0]
-        views = parse_term(self.h._call("sk-admitted", [f"{key_hash} {key} sk-any-filter ()"])[0])
+        views = parse_term(self.h._call("map-flat", [f"sk-version-view (sk-admitted-versions {key_hash} {key} sk-any-filter ())"])[0])
         expected = None
         for order in itertools.permutations(views):
-            result = parse_term(self.h._call("sk-key-fallback", [f"() () {render(list(order))}"])[0])
+            result = parse_term(self.h._call("sk-key-fallback", [f"(sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) () () {render(list(order))}"])[0])
             strength = float(result[1][3][1])
             if expected is None:
                 expected = strength

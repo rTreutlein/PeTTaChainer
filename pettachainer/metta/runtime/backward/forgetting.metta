@@ -158,7 +158,7 @@
 ;; off enters with shrinking weight.
 (: sk-freeze! (-[semidet]-> Number Atom (Number SkeletonKey Bool) Atom))
 (= (sk-freeze! $epoch $_acc ($hash $key $replay))
-   (let* (($value (fold-semidet (sk-merge-step true (sk-unifier-hashes $hash $key)) sk-none (sk-admitted $hash $key sk-any-filter ())))
+   (let* (($value (fold-semidet (sk-merge-step (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) true (sk-unifier-hashes $hash $key)) sk-none (map-flat sk-version-view (sk-admitted-versions $hash $key sk-any-filter ()))))
           ($near (sk-near-hashes-step (cons $hash ()) $hash))
           ($window (fold-semidet sk-near-hashes-step $near $near))
           ($deps (deps-join (map-flat deps-key (hash-set $window))))

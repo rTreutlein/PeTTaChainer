@@ -53,7 +53,7 @@ class SiblingSeparatorTests(unittest.TestCase):
                 self.assertIn("prior (STV 0.5", proof)
                 key = f"(sk-key (T fresh) ({self.h.kb} MAIN Nil))"
                 khash = self.h._call("index-hash", [key])[0]
-                views = parse_term(self.h._call("sk-admitted", [f"{khash} {key} sk-any-filter ()"])[0])
+                views = parse_term(self.h._call("map-flat", [f"sk-version-view (sk-admitted-versions {khash} {key} sk-any-filter ())"])[0])
                 for permutation in itertools.permutations(views):
                     merged = parse_term(self.h._call("sk-merge-key", [
                         f"{khash} {key} sk-any-filter () () {render(list(permutation))}"

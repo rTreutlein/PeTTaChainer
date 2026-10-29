@@ -27,7 +27,7 @@
 
 ;; A rule premise read from the stored facts matches their merged value
 ;; (sk-stored-premise-step): its evidence is the facts'.
-!(test (case (collapse (sk-stored-premise-step (evidence-set ())
+!(test (case (collapse (sk-stored-premise-step (sk-value-reader sk-value) (evidence-set ())
                ((P a) (mergeKb MAIN Nil) (merge/revision a1 a2) (STV 0.6 0.6666666666666666)))) (
           ((cons $ev ()) (== $ev (evidence-set ())))
           ($other $other)))

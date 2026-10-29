@@ -78,7 +78,7 @@ class BaseRateReadNotificationTests(unittest.TestCase):
             "'space-row-present?'('&ctx_sk_dirty',[_OH,_Other],Other)"
         )
         janus.query_once(self.frame +
-                         "'sk-fold-view'(_H,_Args,_), 'sk-fold-view'(_OH,_OtherArgs,_), " +
+                         "'sk-fold-view'(['sk-value-reader','sk-value'],_H,_Args,_), 'sk-fold-view'(['sk-value-reader','sk-value'],_OH,_OtherArgs,_), " +
                          self.clean + 'true', {'Kb': self.handler.kb})
 
     def tearDown(self):
@@ -90,7 +90,7 @@ class BaseRateReadNotificationTests(unittest.TestCase):
             "'store-produced-base-rate!'(Kb,_Pattern,['STV',0.8,0.5],'base-rate',_), " +
             self.clean +
             "'sk-rate-dirty!'(_Fold,['sk-key',['P',a],_Scope],_), "
-            "'sk-fold-view'(_H,_Args,['sk-goal-val',"
+            "'sk-fold-view'(['sk-value-reader','sk-value'],_H,_Args,['sk-goal-val',"
             " ['CPU','FoldAllCompiled',_,['STV',Strength,_]],_,_,_]), " +
             self.dirty, {'Kb': self.handler.kb})
         self.assertAlmostEqual(result['Strength'], .2)
@@ -100,7 +100,7 @@ class BaseRateReadNotificationTests(unittest.TestCase):
         result = janus.query_once(self.frame +
             "'store-produced-base-rate!'(Kb,_Pattern,['STV',0.8,0.5],'base-rate',_), "
             "'sk-rate-dirty!'(_Fold,['sk-key',['P',a],_Scope],_), "
-            "'sk-fold-view'(_H,_Args,_), " + self.dirty, {'Kb': self.handler.kb})
+            "'sk-fold-view'(['sk-value-reader','sk-value'],_H,_Args,_), " + self.dirty, {'Kb': self.handler.kb})
         self.assertEqual((result['Own'], result['Other']), ('true', 'true'))
 
     def test_open_key_collision_survives_a_taking_read(self):
@@ -114,7 +114,7 @@ class BaseRateReadNotificationTests(unittest.TestCase):
             " 'BaseRateAcc','base-rate','result-tv']], "
             "'context-add!'('&sk_dirty',[_H,_Alias],_), "
             "'sk-rate-dirty!'(_Fold,['sk-key',['P',a],_Scope],_), "
-            "'sk-fold-view'(_H,_Args,_), "
+            "'sk-fold-view'(['sk-value-reader','sk-value'],_H,_Args,_), "
             "aggregate_all(count,('&ctx_sk_dirty'(_H,_Own),_Own =@= _Fold),Own), "
             "aggregate_all(count,('&ctx_sk_dirty'(_H,_Kept),_Kept =@= _Alias),Alias), "
             "'remove-variant-row!'('&sk_dirty',[_H,_Alias],_)",
@@ -131,7 +131,7 @@ class BaseRateReadNotificationTests(unittest.TestCase):
     def test_user_set_and_clear_notify_both_folds(self):
         result = janus.query_once(self.frame +
             "'set-base-rate'(Kb,_Pattern,['STV',0.7,0.5],_), "
-            "'sk-fold-view'(_H,_Args,['sk-goal-val',"
+            "'sk-fold-view'(['sk-value-reader','sk-value'],_H,_Args,['sk-goal-val',"
             " ['CPU','FoldAllCompiled',_,['STV',Strength,_]],_,_,_]), " +
             self.dirty, {'Kb': self.handler.kb})
         self.assertEqual(result['Strength'], .7)

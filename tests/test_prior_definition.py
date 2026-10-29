@@ -173,7 +173,7 @@ class PriorDefinitionTests(unittest.TestCase):
         current = f'(evidence-set ((fact-ev {scope} observation (B now))))'
         sources = self.h._call('observation-sources', [f'(evidence-union {samples} {current})'])[0]
         centre = self.formula('sk-computed-centre',
-                              f'{self.h.kb} (B $x) {sources} ()')
+                              f'(sk-value-reader sk-value) {self.h.kb} (B $x) {sources} ()')
         self.assertEqual(centre[0], 'STV')
         self.assertEqual(float(centre[1]), 0)
         self.assertAlmostEqual(float(centre[2]), 6/806)
@@ -194,7 +194,7 @@ class PriorDefinitionTests(unittest.TestCase):
             self.answer('(A now)')  # subscribe and maintain the incremental B fold
             facts = ' '.join(f'(fact-ev ({name} MAIN Nil) b{i} (B x{i}))' for i in range(len(strengths)))
             sources = self.h._call('observation-sources', [f'(evidence-set ({facts}))'])[0]
-            tv = self.formula('sk-computed-centre', f'{name} (B $x) {sources} ()')
+            tv = self.formula('sk-computed-centre', f'(sk-value-reader sk-value) {name} (B $x) {sources} ()')
             return [float(value).hex() for value in tv[1:]]
 
         # These names gave three different centres before the order was fixed.

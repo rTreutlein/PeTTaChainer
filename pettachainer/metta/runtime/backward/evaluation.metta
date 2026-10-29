@@ -26,7 +26,7 @@
           ;; requests before recomputing; a fresh request survives publication.
           ($_policy (collapse (once (match &ctx_sk_merged ($hash $stored $_deps $_value $cached-root)
              (if (=alpha $stored $key) (if (== $root $cached-root) () (sk-drop-merged! $key)) (empty))))))
-          ($views (sk-admitted $hash $key $filter ()))
+          ($views (map-flat sk-version-view (sk-admitted-versions $hash $key $filter ())))
           ($leaves (sk-leaf-views $hash $key $filter ()))
           ($source-deps (fold-semidet sk-view-deps-step 0 (append-flat $leaves $views)))
           ($value (sk-merge-key $hash $key $filter () () $views))
@@ -219,7 +219,7 @@
                 ($before (search-id-value sk_representative_budget))
                 ($room (min 128 $before))
                 ($_slice (change-state! sk_representative_budget $room))
-                ($waiting (fold-semidet (sk-merge-step true $ignore) sk-none
+                ($waiting (fold-semidet (sk-merge-step (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) true $ignore) sk-none
                    (collapse (match &ctx_sk_given_pending ($hash $rhash $_cost)
                       (match &sk_row ($hash $stored $rhash $row)
                          (if (=alpha $stored $key)

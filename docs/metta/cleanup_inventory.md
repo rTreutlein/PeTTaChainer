@@ -90,9 +90,9 @@ it must not conflate these existing reader obligations:
 
 | Reader | Entry points | Caller / distinguishing policy |
 | --- | --- | --- |
-| Ordinary/filtered | `sk-value`, `sk-open-value`, `sk-admitted-merge` | row and key reads; whole merge then filtered alternatives; cached root eligibility |
+| Ordinary/filtered | `sk-value`, `sk-open-value`, `sk-merge-key` | row and key reads; whole merge then filtered alternatives; cached root eligibility |
 | Exclusion rebuild | `sk-rebuild-view`, `sk-branch-values` | rejected ordinary views; paid deferred slice, immutable exclusion cuts, settled/unfinished state |
-| Conditioned | `sk-given-value`, `sk-given-merge`, `sk-pinned-value` | row/key claims; shared-statement pins, no evidence for givens, actual-row payment |
+| Conditioned | `sk-calibrated-value`, `sk-given-merge`, `sk-pinned-value` | row/key claims; shared-statement pins, no evidence for givens, actual-row payment |
 | Closed | `sk-closed-read` | complete premises; settlement certificate and unfounded conclusion pins |
 | Representative | `sk-representative-value`, `sk-representative-row` | unanswered public roots/closed fallback; bounded replay, no expansion/conditioning/materialization |
 | Reference diagnostic | `sk-summary-version`, `sk-cached-summary-version` | filtered premise confidence; endpoint certificate only, not ordinary re-evaluation |

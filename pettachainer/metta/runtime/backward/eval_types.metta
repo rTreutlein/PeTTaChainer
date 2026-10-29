@@ -218,3 +218,9 @@
 
 ;; Proof-indexed subsumption preserves root order (runtime_helpers.pl).
 (: prune_answer_instances (-[det]-> (List RuntimeResult) (List RuntimeResult)))
+
+;; Nominal capabilities keep reads lazy across the compiler specialization boundary.
+(datatype SkeletonValueReader (sk-value-reader (-[semidet]-> SkeletonKey SkeletonFilter (List Number) SkeletonValue)))
+(datatype SkeletonModeReader (sk-mode-reader (-[semidet]-> KB Statement Atom)))
+(datatype SkeletonRowReader (sk-row-reader (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey Number SkeletonRow SkeletonValue)))
+(datatype SkeletonPremiseReader (sk-premise-reader (-[semidet]-> (List SkeletonGiven) (List SkeletonGiven) (List Number) Bool Bool SkeletonReadPolicy SkeletonRowState SkPattern SkeletonRowState)))
