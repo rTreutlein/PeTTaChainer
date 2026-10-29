@@ -716,12 +716,29 @@
 
 ;; A fold premise of a join is searched as a child of the join's owner, scored
 ;; by what the join is worth, and a compound's prior through the folds it
-;; reads (#142); a forward run notes them instead.
+;; reads (#142); a forward run notes them instead. So is the statement a node
+;; row's sibling read takes, at a small share of the join's worth: the row
+;; does not wait for it, and its search takes what budget the direct work
+;; leaves, so the sibling's value improves with budget instead of costing
+;; every query.
+(: sk-evidence-statement (-[det]-> $spec SkPattern))
+(= (sk-evidence-statement ($_kb $statement $_target $kbctx)) (assemble-stored-runtime-fact $statement $kbctx $_proof $_tv))
+
+(: sk-cavity-read? (-[det]-> $spec Bool))
+(= (sk-cavity-read? $args)
+   (case $args ((($_kb $_statement (cavity $_compound $_target) $_kbctx) true) ($_completion false))))
+
 (: sk-fold-child! (-[semidet]-> SkPattern Number SkFact (List SkPattern) Atom SkPattern Atom))
 (= (sk-fold-child! $owner $rule $concl $remaining $_acc $premise)
    (case $premise (
       ((CPU CompoundRate $rate-args $_rate)
          (fold-semidet (sk-fold-child! $owner $rule $concl $remaining) () (compound-rate-goals $rate-args true $_inner)))
+      ((CPU CompoundEvidence $evidence-args $_res)
+         (if (if (== (search-id-value sk_forward_run) 1) true (not (sk-cavity-read? $evidence-args))) ()
+            (let* (($child (sk-evidence-statement $evidence-args))
+                   ($digest (link-digest (sk-child-link $owner $child)))
+                   ($_kept (sk-keep-child! $digest $concl)))
+               (sk-add-child! $owner $child (* 0.01 (sk-join-score $owner $rule $remaining)) $digest))))
       ((CPU FoldAllCompiled $args $_res)
          (if (== (search-id-value sk_forward_run) 1) (sk-forward-note-fold! $premise)
             (let $score (sk-fold-child-score $args (sk-join-score $owner $rule $remaining) (sk-rate-entries $args))
@@ -756,8 +773,9 @@
                            ()
                            (collapse (cpu-call 0 $fun $args)))
                         ;; Truth-value formulas run during evaluation.
-                        (sk-advance!
-                           (sk-partial $owner $rule $concl (cons $premise $done) $rest $keys))))))
+                        (let $_child (if (== $fun CompoundEvidence) (sk-fold-child! $owner $rule $concl $remaining () $premise) ())
+                           (sk-advance!
+                              (sk-partial $owner $rule $concl (cons $premise $done) $rest $keys)))))))
             ;; A forward run reads a premise from what exists, never waiting.
             ($_fact
                (if (== (search-id-value sk_forward_run) 1)
@@ -1231,7 +1249,22 @@
                   (empty)))))
       (sk-judgment-main-rule-match $goal)))))
 
-;; Fixed source-fact projections are compiled in MAIN. Reuse their logic in
+;; A compound's node row: a part's message or update from the compound, or a
+;; joint of its parts, under any negations.
+(: sk-node-row? (-[det]-> Atom Bool))
+(= (sk-node-row? $proof)
+   (if (if (is-expr $proof) (not (== $proof ())) false)
+      (let $head (car-atom $proof)
+         (if (is-var $head) false
+            (if (== $head negated) (sk-node-row? (car-atom (cdr-atom $proof)))
+            (if (== $head node-message) true
+               (case (copy_term $head) (
+                  ((node-joint $_spec $_joint-source) true)
+                  ((node-jeffrey $_j-idx $_j-source $_j-prediction $_j-conditionals) true)
+                  ($_other false)))))))
+      false))
+
+;; Fixed source-fact node rows are compiled in MAIN. Reuse their logic in
 ;; the judgment, with contextual premises, rather than importing a MAIN view
 ;; that might depend on the overridden assumption. Polymorphic rules already
 ;; match the private goal normally and must not be started a second time.
@@ -1241,17 +1274,12 @@
       (let $lookup (copy_term (data $type (data $kbid MAIN Nil) $proof $tv))
          (match ccls_index ($lookup $id $args)
             (match rules (runtime-rule-row $id ($_type ($_kb $stored-ctx $_vars) $_prf $_tv) $_args)
-               (if (if (== $stored-ctx MAIN)
-                        (case $_prf (
-                           ((marginal-proj $_idx $_base) true)
-                           (((proj $_idx $_base) $_siblings) true)
-                           ((proj $_idx $_base) true)
-                           ($_other-proof false))) false)
+               (if (if (== $stored-ctx MAIN) (sk-node-row? $_prf) false)
                   (if (= $lookup (data $type (data $kbid MAIN Nil) $proof $tv))
                      (let* (($scope (make-kb-context (brand KB $kbid) $ctx $vars))
                             ($goal (assemble-stored-runtime-fact $type $scope $proof $tv))
                             ($scoped (map-flat (sk-judgment-main-premise $scope) $args)))
-                        ;; Matching a fixed projection may specialize an open
+                        ;; Matching a fixed node row may specialize an open
                         ;; reader to the target; do not import that instance.
                         (if (judgment-consequent? true $type $scope) (empty)
                            (sk-match $id (contextualize-rule-args $goal $scoped) $goal)))

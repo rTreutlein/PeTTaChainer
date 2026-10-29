@@ -162,12 +162,25 @@
       ;; A shared subproof counts once, at its first occurrence.
       ((shared $_id $shared-proof) (proof-term-evidence $mode (brand Proof $shared-proof)))
       ((shared $_id) (ev-set 0))
-      ;; A projection position is metadata, not a source of evidence.
-      ((marginal-proj $_index $source) (proof-term-evidence $mode (brand Proof $source)))
-      (((proj $_index $source) $siblings)
+      ;; A node row's evidence is its compound's and its parts'; the position,
+      ;; the goal and the population prior a message updates are none.
+      ((node-message $_index $source $parts $_likelihood)
          (evidence-union
             (proof-term-evidence $mode (brand Proof $source))
-            (proof-term-evidence $mode (brand Proof $siblings))))
+            (proof-term-evidence $mode (brand Proof $parts))))
+      (((node-jeffrey $_j-index $j-source $_j-prediction $_j-conditionals) $j-parts)
+         (evidence-union
+            (proof-term-evidence $mode (brand Proof $j-source))
+            (proof-term-evidence $mode (brand Proof $j-parts))))
+      ;; A part's view after a predicted compound's update: both proofs' evidence.
+      ((jeffrey-update $j-base $j-update)
+         (evidence-union
+            (proof-term-evidence $mode (brand Proof $j-base))
+            (proof-term-evidence $mode (brand Proof $j-update))))
+      (((node-joint $_spec $source) $parts)
+         (evidence-union
+            (proof-term-evidence $mode (brand Proof $source))
+            (proof-term-evidence $mode (brand Proof $parts))))
       ;; A completion conditioned on its connective's own evidence updates a
       ;; prior based on that evidence, which it holds (#142).
       (((antecedent-completion $_rule $_idx with $base $_prior) $witness)
@@ -243,8 +256,8 @@
 ;; Ordinary conjunction premises cannot reuse the same uncertain fact
 ;; evidence. This check excludes rule applications from the compared evidence
 ;; sets, except the rules the row excludes, which no premise may use.
-;; Projection pooling and compiler-marked shared-evidence joins decide their
-;; exceptions at the consumer before accepting a premise.
+;; Compiler-marked shared-evidence joins decide their exceptions at the
+;; consumer before accepting a premise.
 (: premise-evidence-overlap? (-[det]-> EvidenceSet EvidenceSet Bool))
 (= (premise-evidence-overlap? $seen $pev)
    (if (fold-flat uncertain-evidence-step false (evidence-shared-facts $seen $pev))
@@ -347,27 +360,36 @@
 (= (stored-list-member? $needle (cons $first $rest))
    (if (== $needle $first) true (stored-list-member? $needle $rest)))
 
-;; A proof that gives way to another: a marginal projection to the full
-;; projection of the same source, a settled step to the complete step it
-;; settles, which reads the settling part with the compound's other parts.
+;; A proof that gives way to another: a connective's formula over its parts
+;; (a conjunction, disjunction or conditioned reading) to a compound node's
+;; joint posterior of the same key, which reads every part apart from the
+;; compound; a settled step to the complete
+;; step it settles, which reads the settling part with the compound's other
+;; parts.
 (: sk-step-proof (-[det]-> Proof Proof))
 (: proof-dominates? (-[det]-> Proof Proof Bool))
 (= (proof-dominates? $prf-a $prf-b)
-   (case $prf-a (
-      (((proj $idx $base) $_evidence) (== $prf-b (marginal-proj $idx $base)))
-      ($_
-         (if (settled-within? $prf-b $prf-a) true
-            ;; Applying an implication statement to its query's certain
-            ;; assumption restates that statement's positive branch. This is
-            ;; the same source even when a certain rule has no evidence id.
-            (case (sk-step-proof $prf-b) (
-               ((conditional-implication $inner)
-                  (case (sk-step-proof (brand Proof $inner)) (
-                     ((by $statement $assumption)
-                        (if (assumption-proof? (sk-step-proof (brand Proof $assumption)))
-                           (== (sk-step-proof $prf-a) (sk-step-proof (brand Proof $statement))) false))
-                     ($_other-inner false))))
-               ($_other-proof false))))))))
+   (if (case $prf-a (
+          (((node-joint $_spec $_source) $_parts)
+             (case (sk-step-proof $prf-b) (
+                ((cons conjunction $_conjuncts) true)
+                ((cons disjunction $_disjuncts) true)
+                ((conditioned $_weight $_yes $_no) true)
+                ($_reading false))))
+          ($_joint false)))
+      true
+   (if (settled-within? $prf-b $prf-a) true
+      ;; Applying an implication statement to its query's certain
+      ;; assumption restates that statement's positive branch. This is
+      ;; the same source even when a certain rule has no evidence id.
+      (case (sk-step-proof $prf-b) (
+         ((conditional-implication $inner)
+            (case (sk-step-proof (brand Proof $inner)) (
+               ((by $statement $assumption)
+                  (if (assumption-proof? (sk-step-proof (brand Proof $assumption)))
+                     (== (sk-step-proof $prf-a) (sk-step-proof (brand Proof $statement))) false))
+               ($_other-inner false))))
+         ($_other-proof false))))))
 
 ;; The stored facts a rule application reads directly, or none when it reads
 ;; a derived premise.

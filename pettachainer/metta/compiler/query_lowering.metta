@@ -115,13 +115,16 @@
              (judgment-query-side-basic $kb $mvars false false $assumptions $consequent))
           (($kbid $ctx $vars) $scope)
           ($priors (list_to_set (collapse (disjunction-judgment-prior $kb $ctx $mvars $event))))
-          ;; The probability read retains the source event's key. Its joint
-          ;; uses Boolean normal form, including negated compounds.
-          ($normal-event (query-assumption-nnf $event))
-          ($joint (brand Statement (And $consequent $normal-event)))
+          ;; The probability read and the joint read the event at its own key,
+          ;; as the consequent's rules read it: a negated compound's normal form
+          ;; is another key, whose parts the compound's own messages inform, and
+          ;; its worlds would not agree with the compound's.
+          ($joint (brand Statement (And $consequent $event)))
           ($result (brand Statement (JudgmentConditioned $antecedent $consequent)))
           ($rates (base-rate-premises $kb (rule-base-rate-pattern () $event) $rate))
           ($result-premises (cons (: $scope $joint-proof $joint $joint-tv)
+             ;; The conditional is the quotient P(B and D)/P(D): AndProjection
+             ;; divides the joint by the event's rate; it projects no compound.
              (append-goals $rates ((CPU AndProjection ($joint-tv $rate) $result-tv)))))
           ($result-add (brand CompiledAddition
              ($result-premises |-

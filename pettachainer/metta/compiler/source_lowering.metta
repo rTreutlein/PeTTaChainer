@@ -46,6 +46,16 @@
 (= (prepend-reversed-proofs (cons $head $tail) $acc)
    (prepend-reversed-proofs $tail (cons $head $acc)))
 
+(: prepend-reversed-tvs (-[det]-> (List TV) (List TV) (List TV)))
+(= (prepend-reversed-tvs () $acc) $acc)
+(= (prepend-reversed-tvs (cons $head $tail) $acc)
+   (prepend-reversed-tvs $tail (cons $head $acc)))
+
+(: prepend-reversed-atoms (-[det]-> (List Atom) (List Atom) (List Atom)))
+(= (prepend-reversed-atoms () $acc) $acc)
+(= (prepend-reversed-atoms (cons $head $tail) $acc)
+   (prepend-reversed-atoms $tail (cons $head $acc)))
+
 (: prepend-reversed-compiled-additions
    (-[det]-> (List CompiledAddition) (List CompiledAddition)
        (List CompiledAddition)))
@@ -401,10 +411,6 @@
 (: premise-bundle
    (-[det]-> (List Goal) TV Proof PremiseBundle))
 
-;; Emit projection adapters recursively for every child of a configured
-;; compound output. The strong projection uses the other children as evidence;
-;; And additionally exposes a weak marginal projection so independently queried
-;; conjuncts can later be pooled back to their common source.
 (: statement-children
    (-[det]-> Expression (List Statement)))
 (= (statement-children ()) ())
@@ -417,45 +423,120 @@
 (: lower-all (-[semidet]-> (-[semidet]-> KBContext Statement PremiseBundle) KBContext Atom
    (List Statement) PremiseBundle))
 
-(: compile-output-children
-   (-[nondet]-> KBContext Statement Atom (List Statement)
-       Number (List Statement)
-       CompiledAddition))
-(= (compile-output-children $kb $type $head $children
-      $idx (cons $elem $rest))
+;; A compound K is an event moment node over its distinct atoms
+;; (bench/results/fresh-design/event-moment-node.md, node-formula): a nested
+;; compound is one node, an atom it repeats one parameter, and each atom is
+;; read apart from K (a node row's premises after K exclude K's views,
+;; sk-row-state; K's read excludes its views that depend on the atom, so a K
+;; computed from its parts never updates them). An observed K (stored facts)
+;; is Pearl evidence: each atom gets K's message, its likelihood over the
+;; atom's two values with the other atoms at their values, which the merge
+;; reads with the atom's other messages on its prior. A predicted K (derived)
+;; moves its probability by probability kinematics (Jeffrey) to the revision
+;; of the prediction with the atoms' own estimate: each atom gets an update
+;; carrying the prediction and K's probability given the atom true and false
+;; (the other atoms at their values), which the merge applies to the atom's
+;; other views, its observations first (sk-merge-key); alone, to the uniform
+;; prior. Either row fails for the other kind of K. The other atoms are read
+;; optionally (lower-node-siblings): one with no value is the uniform prior.
+;; A K over at most four atoms has joint rows (node-joint-goals): each
+;; compound inside it and each And and Or over two or more of its children,
+;; the node's posterior with every atom at its value.
+(: compile-node-rows
+   (-[nondet]-> KBContext Statement Atom (List Statement) Number (List Statement) CompiledAddition))
+(= (compile-node-rows $kb $type $formula $atoms $idx (cons $elem $rest))
    (superpose (
-      (let $others (remove-index $idx $children)
-         (if (== $others ())
-            (canonical-addition $kb
-               ((: $kb $prf $type $tvin) (CPU (atom_concat $head Projection) ($tvin) $tvout))
-               (brand Proof (proj $idx $prf)) $elem $tvout)
-            (let (premise-bundle $execs $evidence-tv $evidence-proof)
-                 (lower-all lower $kb $head $others)
-               (canonical-addition $kb
-                  (cons (: $kb $prf $type $tvin)
-                     (append-goals $execs
-                        ((CPU (atom_concat $head Projection) ($tvin $evidence-tv) $tvout))))
-                  (brand Proof ((proj $idx $prf) $evidence-proof)) $elem $tvout))))
-      (if (== $head And)
+      (let ($goals $tvs $proofs $tokens $keys) (lower-node-siblings $kb $type $elem (remove-index $idx $atoms) true)
          (canonical-addition $kb
-            ((: $kb $prf $type $tvin) (CPU AndMarginalProjection ($tvin) $tvout))
-            (brand Proof (marginal-proj $idx $prf)) $elem $tvout)
-         (empty))
-      (compile-outputs (: $kb $childprf $elem $childtv))
-      (compile-output-children
-         $kb $type $head $children (+ $idx 1) $rest))))
+            (cons (: $kb $prf $type $tvin)
+               (append-goals (the (List Goal) $goals)
+                  ((CPU EventNodeMessage (quote ($formula $idx $prf $tvin $tvs $proofs $keys))
+                      (node-message-result $tvout $likelihood)))))
+            (brand Proof (node-message $idx $prf (implication-proof-token (the (List Proof) $tokens)) $likelihood))
+            $elem $tvout))
+      (let ($goals $tvs $proofs $tokens $keys) (lower-node-siblings $kb $type $elem (remove-index $idx $atoms) false)
+         (canonical-addition $kb
+            (cons (: $kb $prf $type $tvin)
+               (append-goals (the (List Goal) $goals)
+                  ((CPU EventNodeJeffrey (quote ($formula $idx $prf $tvin $tvs $proofs $keys))
+                      (node-jeffrey-result $tvout $conditionals)))))
+            (brand Proof ((node-jeffrey $idx $prf (prediction $tvin) $conditionals)
+                          (implication-proof-token (the (List Proof) $tokens))))
+            $elem $tvout))
+      (compile-node-rows $kb $type $formula $atoms (+ $idx 1) $rest))))
 
+;; A node row's other atoms, each read apart from K and the target (a joint
+;; row's atoms apart from K alone, the target (node-joint-part)), its cavity:
+;; its value at its canonical key without K's views or the target's, or no-evidence
+;; where it has none (CompoundEvidence, an optional read, so an atom with no
+;; value is the uniform prior and an atom whose value arrives later wakes the
+;; row), with its key (an atom read in several nodes is one parameter where
+;; their messages meet) and its read's proof, which takes a cpu token of the
+;; row's proof. A computation part is read as it
+;; lowers. An implication part is read at its probability (implications true) or, for a predicted compound, not at all:
+;; a rule's implication conjunct is read off the same rule (consequent
+;; projection), no evidence of its own about its siblings, so it is unknown.
+(: lower-node-siblings (-[semidet]-> KBContext Statement Statement (List Statement) Bool Atom))
+(= (lower-node-siblings $kb $compound $target $siblings $implications)
+   (let* ((($compound-key $_compound-odd) (canon $compound))
+          (($target-key $_target-odd) (canon $target))
+          (($goals $tvs $proofs $tokens $keys)
+             (fold-semidet (lower-node-sibling $kb (cavity $compound-key $target-key) $implications) (data () () () () ()) $siblings))
+          ($ordered-goals (prepend-reversed-goals (the (List Goal) $goals) ()))
+          ($ordered-tvs (prepend-reversed-tvs (the (List TV) $tvs) ()))
+          ($ordered-proofs (prepend-reversed-proofs (the (List Proof) $proofs) ()))
+          ($ordered-tokens (prepend-reversed-proofs (the (List Proof) $tokens) ()))
+          ($ordered-keys (prepend-reversed-atoms (the (List Atom) $keys) ())))
+      (data $ordered-goals $ordered-tvs $ordered-proofs $ordered-tokens $ordered-keys)))
+
+(: lower-node-sibling (-[semidet]-> KBContext Atom Bool Atom Statement Atom))
+(= (lower-node-sibling $kb $cavity $implications ($goals $tvs $proofs $tokens $keys) $part)
+   (if (if (implication-type? $part) $implications
+          ;; a computation (Compute, a fold, a residual) lowers to its CPU goals
+          (let ($key $_odd) (canon $part)
+             (if (is-expr $key)
+                (let $head (car-atom $key) (if (is-var $head) false (source-computation-head? $head)))
+                false)))
+      (let (premise-bundle $part-goals $tv $proof) (lower-part $kb $part)
+         (let $reversed (prepend-reversed-goals $part-goals (the (List Goal) $goals))
+            (data $reversed (cons $tv $tvs) (cons $proof $proofs) (cons $proof $tokens) (cons $part $keys))))
+   (if (implication-type? $part)
+      (data $goals (cons (STV 0.5 0.0) $tvs) (cons (brand Proof unknown-part) $proofs)
+         (cons (brand Proof unknown-part) $tokens) (cons $part $keys))
+      (let* ((($key $_odd) (canon $part))
+             ($kbid (car-atom $kb))
+             ($read (CPU CompoundEvidence (quote ($kbid $key $cavity $kb)) (key-evidence $tv $_formed $proof))))
+         (data (cons $read $goals) (cons $tv $tvs) (cons $proof $proofs) (cons (brand Proof cpu) $tokens)
+            (cons $key $keys))))))
+
+(: compile-node-joints
+   (-[nondet]-> KBContext Statement Atom (List Statement) Expression CompiledAddition))
+(= (compile-node-joints $kb $type $formula $atoms (cons ($spec $goal) $rest))
+   (superpose (
+      (let ($goals $tvs $proofs $tokens $keys) (lower-node-siblings $kb $type (node-joint-part) $atoms true)
+         (canonical-addition $kb
+            (cons (: $kb $prf $type $tvin)
+               (append-goals (the (List Goal) $goals)
+                  ((CPU EventNodeJoint (quote ($formula $spec $prf $tvin $tvs $proofs $keys)) $tvout))))
+            (brand Proof ((node-joint $spec $prf) (implication-proof-token (the (List Proof) $tokens))))
+            (brand Statement $goal) $tvout))
+      (compile-node-joints $kb $type $formula $atoms $rest))))
+
+;; A compound's outputs: its node rows (a message or update to each atom) and
+;; its joint rows, under ProjectAll. A negated compound is a node at its
+;; canonical key.
 (: compile-outputs (-[nondet]-> Goal  CompiledAddition))
 (= (compile-outputs (: $kb $NNprf $type $NNtv))
-   (if (compound-source? $type)
-      (let*
-         (($head (car-atom $type))
-          ($children (statement-children (cdr-atom $type))))
-         (if (= (configured-compound-output-mode $head) ProjectAll)
-            (compile-output-children
-               $kb $type $head $children 0 $children)
-            (empty)))
-      (empty)))
+   (if (head-is? $type Not)
+      (compile-outputs (: $kb $NNprf (car-atom (cdr-atom $type)) $NNtv))
+      (if (compound-source? $type)
+         (if (= (configured-compound-output-mode (car-atom $type)) ProjectAll)
+            (let* ((($formula $atom-list) (node-formula $type))
+                   ($atoms (statement-children $atom-list)))
+               (superpose ((compile-node-rows $kb $type $formula $atoms 0 $atoms)
+                           (compile-node-joints $kb $type $formula $atoms (node-joint-goals $type)))))
+            (empty))
+         (empty))))
 
 ;; CPU goals normally constrain values and therefore contribute unit evidence.
 ;; These formulas instead compute a TV which must participate in the enclosing
@@ -630,9 +711,9 @@
 ;; A connective's part. Its formula reads an implication part at the
 ;; implication's probability, which the chainer judges in the implication's
 ;; query scaffold, and a negated part as the complement of its statement read
-;; so. A rule's own conclusion is never read so: its projections would take a
+;; so. A rule's own conclusion is never read so: its node rows would take a
 ;; part judged from the same rule as evidence for its siblings (see
-;; compile-output-children).
+;; compile-node-rows).
 (: lower-part (-[semidet]-> KBContext Statement PremiseBundle))
 (= (lower-part $kc $part)
    (if (implication-type? $part)
@@ -850,8 +931,11 @@
             (existential-claim-statement $binder $body))
          (brand Statement $valid))))
 
-;; Compare the direct existential proposition with the OR of the witnesses
-;; currently enumerable from the body. The direct proposition uses canonical
+;; The unknown witness U of a direct existential proposition E = D or U, with D
+;; the OR of the witnesses currently enumerable from the body: U's value from
+;; E's event moment node alone (EventNodeValue), D the other child; E's message
+;; to U when E is observed, its Jeffrey update of U's uniform prior when E is
+;; predicted. The direct proposition uses canonical
 ;; slots, so matching it cannot bind the witness variable and accidentally
 ;; restrict the following fold to one object. The direct premise binds outer
 ;; arguments before the scalar fold, including groups without witnesses. Only
@@ -872,8 +956,7 @@
                (: $scope $direct-proof $claim $direct-tv)
                (append-goals
                   $fold-execs
-                  ((CPU ExistentialResidualFormula
-                       ($direct-tv $known-tv) $residual-tv))))
+                  ((CPU EventNodeValue (quote ((Or 0 1) 1 $direct-proof $direct-tv ($known-tv) (cpu) (known))) $residual-tv))))
             $residual-tv
             (conjunction $direct-proof cpu)))))
 

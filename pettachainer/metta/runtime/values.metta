@@ -174,3 +174,29 @@
 (: cpu-expected-confidence (-[det]-> $formula $arguments Number))
 (= (cpu-expected-confidence $fun $args)
    (let $res (first-cpu-expected-tv $fun $args) (if (== $res ()) 1.0 (tv-confidence $res))))
+
+;; The event moment node's answers (prolog/runtime_helpers.pl, event-node-*),
+;; STVs; a node with no possible world gives no answer. K is a formula over
+;; its atoms; the other atoms come as their reads, proofs and keys. An
+;; observed K's message to an atom: (node-message-result TV likelihood), the
+;; atom's value from K alone on the uniform prior, and K's likelihood of the
+;; atom's two values, which the merge reads with the atom's other messages on
+;; its prior.
+(: EventNodeMessage (-[semidet]-> Atom Number Proof TV Expression Expression Expression Atom))
+(= (EventNodeMessage $formula $index $kproof $ktv $siblings $proofs $keys)
+   (event-node-message $formula $index (evidence-confidence-k) (data $kproof $ktv) $siblings $proofs $keys))
+
+(: EventNodeValue (-[semidet]-> Atom Number Proof TV Expression Expression Expression Atom))
+(= (EventNodeValue $formula $index $kproof $ktv $siblings $proofs $keys)
+   (event-node-value $formula $index (evidence-confidence-k) (data $kproof $ktv) $siblings $proofs $keys))
+
+;; A predicted K's update of an atom: (node-jeffrey-result TV conditionals),
+;; its value alone (applied to the uniform prior) and K's probability given
+;; the atom true and false, which the merge applies to the atom's other views.
+(: EventNodeJeffrey (-[semidet]-> Atom Number Proof TV Expression Expression Expression Atom))
+(= (EventNodeJeffrey $formula $index $kproof $ktv $siblings $proofs $keys)
+   (event-node-jeffrey $formula $index (evidence-confidence-k) (data $kproof $ktv) $siblings $proofs $keys))
+
+(: EventNodeJoint (-[semidet]-> Atom Expression Proof TV Expression Expression Expression Atom))
+(= (EventNodeJoint $formula $goal $kproof $ktv $atoms $proofs $keys)
+   (event-node-joint $formula $goal (evidence-confidence-k) (data $kproof $ktv) $atoms $proofs $keys))

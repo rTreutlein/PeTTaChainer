@@ -869,7 +869,7 @@
                       (append-goals $truth-premises
                          (append-goals $others-execs
                             (append-goals $consequent-execs
-                            (cons (CPU CompoundEvidence (quote ($kb $key $consequent $shape-kb)) (key-evidence $key-tv $key-formed))
+                            (cons (CPU CompoundEvidence (quote ($kb $key $consequent $shape-kb)) (key-evidence $key-tv $key-formed $_key-proof))
                             (append-goals (append-goals $rule-execs $read-goals)
                                (append-goals
                                   (prior-base-rate-premises $kb

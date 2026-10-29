@@ -32,15 +32,12 @@
              ;; A settled step adds nothing beyond the complete step it gives
              ;; way to, so it drives no search of its own: it reads the
              ;; nodes other joins expand and the facts read at once.
-             (if (== $fun SettlesFormula) 0.0
-                (if (== $fun AndMarginalProjection) (* 0.99 $base) $base))))
+             (if (== $fun SettlesFormula) 0.0 $base)))
        (($_type ($_kbid $_ctx $_vars) $prf $tv)
-          ;; A marginal projection, or an open proof that may become one, is
-          ;; discounted; an open proof is tested without being bound.
-          (if (is-var $prf) (* 0.99 (tv-confidence $tv))
-             (case $prf (
-                ((marginal-proj $_idx $_inner) (* 0.99 (tv-confidence $tv)))
-                ($_other (tv-confidence $tv))))))
+          ;; An open proof is discounted and tested without being bound: it
+          ;; can match any derivation of its statement, so the search orders a
+          ;; bound premise's expansion first (a search order, no value).
+          (if (is-var $prf) (* 0.99 (tv-confidence $tv)) (tv-confidence $tv)))
        ($_other 0.0))))
 
 ;; Forward beam width is independent of the invocation's remaining budget.
