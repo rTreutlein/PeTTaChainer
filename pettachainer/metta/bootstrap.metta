@@ -6,6 +6,7 @@
 !(import! &self (library lib_import))
 
 !(import! &self core/types)
+!(import! &self lib/collections)
 !(import! &self core/logic_config)
 
 !(use-module! heaps)

@@ -1,7 +1,7 @@
 import unittest
 
 from pettachainer import PeTTaChainer
-from pettachainer.query_diagnostics import _parse
+from pettachainer.metta_syntax import parse_term
 
 
 class BayesPriorTests(unittest.TestCase):
@@ -18,7 +18,7 @@ class BayesPriorTests(unittest.TestCase):
         return float(self.h._call("bayes-prior-weight", [str(confidence)])[0])
 
     def formula(self, name, args):
-        return _parse(self.h._call(name, [args])[0])
+        return parse_term(self.h._call(name, [args])[0])
 
     def read(self, raw, centre='(STV 0.5 1)'):
         return self.h._call('read-likelihoods', [f'{raw} (CTV {centre} {centre}) test-support'])[0]

@@ -14,8 +14,6 @@
 (: chainer-first-or (-[det]-> $value (List $value) $value))
 (= (chainer-first-or $fallback ()) $fallback)
 (= (chainer-first-or $_fallback (cons $value $_rest)) $value)
-(: space-row-present? (-[det]-> $space $row Bool))
-(= (space-row-present? $space $row) (not (== (collapse (once (match $space $row true))) ())))
 
 ;; A stated implication carries the same rule evidence as its applications,
 ;; including when query lowering reads it in a private namespace. Other stored
@@ -62,10 +60,6 @@
 
 (: proof-atom-proof (-[det]-> (Statement KBContext Proof TV) Proof))
 (= (proof-atom-proof ($_type $_kb $prf $_tv)) $prf)
-
-(: foreach-flat (-[$e]-> (-[$e]-> $item $effect) (List $item) (List $none)))
-(= (foreach-flat $f ()) ())
-(= (foreach-flat $f (cons $x $xs)) (progn ($f $x) (foreach-flat $f $xs)))
 
 (: chainer-acyclic-term? (-[det]-> $term Bool))
 (= (chainer-acyclic-term? $term) (== (collapse (callPredicate (Predicate (cyclic_term $term)))) ()))
@@ -264,11 +258,6 @@
       true
       (evidence-excludes? $seen $pev)))
 
-(: proof-term-contains-negated-list? (-[det]-> (List Proof) Bool))
-(= (proof-term-contains-negated-list? ()) false)
-(= (proof-term-contains-negated-list? (cons $child $rest))
-   (if (proof-term-contains-negated? $child) true (proof-term-contains-negated-list? $rest)))
-
 (: proof-term-contains-negated? (-[det]-> Proof Bool))
 (= (proof-term-contains-negated? $prf)
    (if (is-var $prf) false
@@ -277,7 +266,7 @@
             (case $prf (
                ((proof-ref $pid) (proof-ref-negated? $pid))
                ($_other
-                  (proof-term-contains-negated-list?
+                  (any-flat? proof-term-contains-negated?
                      (proof-term-children-mode proof-walk-in-kb $prf)))))
             false))))
 
@@ -354,11 +343,6 @@
                (if (named-rule? $typed-kbid $name)
                   (evidence-union $base (evidence-set (cons (rule-ev $typed-kbid $name) ())))
                   $base)))))))
-
-(: stored-list-member? (-[det]-> $item (List $item) Bool))
-(= (stored-list-member? $_needle ()) false)
-(= (stored-list-member? $needle (cons $first $rest))
-   (if (== $needle $first) true (stored-list-member? $needle $rest)))
 
 ;; A proof that gives way to another: a connective's formula over its parts
 ;; (a conjunction, disjunction or conditioned reading) to a compound node's

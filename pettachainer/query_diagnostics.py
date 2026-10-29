@@ -1,10 +1,8 @@
 """Compact snapshots of the skeleton the last query left, never a second reasoner."""
 
 import json
-import re
+from .metta_syntax import parse_term, render
 
-
-_TOKEN = re.compile(r'\s*(\(|\)|"(?:\\.|[^"\\])*"|[^\s()]+)')
 
 _INTERPRETATION = (
     "Observed search only. Empty agenda does not prove logical completeness or falsity. "
@@ -14,30 +12,6 @@ _INTERPRETATION = (
     "Variables are scoped per record. Temporary query scaffolds are not included. Counts are lower bounds "
     "when traversal is truncated. Agenda entries count work the budget left, not queued nodes."
 )
-
-
-def _parse(text):
-    # Parse only native-projected inert terms. Quoted tokens remain quoted so
-    # rendering preserves symbols, strings and their original distinction.
-    stack, result = [], []
-    for token in _TOKEN.findall(text):
-        if token == "(":
-            node = []
-            (stack[-1] if stack else result).append(node)
-            stack.append(node)
-        elif token == ")":
-            if not stack:
-                raise RuntimeError("Malformed native diagnostic expression")
-            stack.pop()
-        else:
-            (stack[-1] if stack else result).append(token)
-    if stack or len(result) != 1:
-        raise RuntimeError("Malformed native diagnostic expression")
-    return result[0]
-
-
-def _render(value):
-    return "(" + " ".join(map(_render, value)) + ")" if isinstance(value, list) else value
 
 
 def _size(value):
@@ -62,7 +36,7 @@ def snapshot(chainer, metrics, max_goals, max_routes, max_bytes):
     """Walk the latest query's skeleton from its roots, breadth first, reading
     at most ``max_goals`` nodes and never inferring anything."""
     (search,) = chainer.handler.process_metta_string("!(query-diagnostic-search)")
-    _, roots, pending_roots, queued, remaining = _parse(search)
+    _, roots, pending_roots, queued, remaining = parse_term(search)
     queue, ids = [], {}
 
     def register(term, depth):
@@ -78,14 +52,14 @@ def snapshot(chainer, metrics, max_goals, max_routes, max_bytes):
     while cursor < len(queue) and cursor < max_goals:
         term, gid, depth = queue[cursor]
         cursor += 1
-        (record,) = chainer._call("query-diagnostic-node", [_render(term)])
-        _, expanded, work, supported, children, node_routes = _parse(record)
+        (record,) = chainer._call("query-diagnostic-node", [render(term)])
+        _, expanded, work, supported, children, node_routes = parse_term(record)
         if term[0] != "CPU":
             goals.append(
                 dict(
                     id=gid,
                     depth=depth,
-                    expression=_render(term[0]),
+                    expression=render(term[0]),
                     expanded=expanded == "true",
                     work_requested=work == "true",
                     proof_count=int(supported),
@@ -103,18 +77,18 @@ def snapshot(chainer, metrics, max_goals, max_routes, max_bytes):
             support = []
             for entry in entries:
                 item = (
-                    dict(kind="fact", name=_render(entry[2]), expression=_render(entry[3]))
+                    dict(kind="fact", name=render(entry[2]), expression=render(entry[3]))
                     if entry[0] == "fact-ev"
-                    else dict(kind="rule", name=_render(entry[2]))
+                    else dict(kind="rule", name=render(entry[2]))
                 )
                 if item not in support:
                     support.append(item)
             route = dict(
                 parent_id=gid,
                 child_id=register(child, depth + 1),
-                conclusion=_render(conclusion),
-                rule_proof=_render(proof),
-                remaining_premises=list(map(_render, remaining_premises)),
+                conclusion=render(conclusion),
+                rule_proof=render(proof),
+                remaining_premises=list(map(render, remaining_premises)),
                 supported_evidence=support,
                 origin=origin,
             )

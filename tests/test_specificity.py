@@ -2,7 +2,7 @@ import itertools
 import unittest
 
 from pettachainer import PeTTaChainer
-from pettachainer.query_diagnostics import _parse, _render
+from pettachainer.metta_syntax import parse_term, render
 
 
 class SpecificityTests(unittest.TestCase):
@@ -133,10 +133,10 @@ class SpecificityTests(unittest.TestCase):
                     self.assertLessEqual(float(answer.tv[2]), 0.99)
                     key = f"(sk-key (T fresh) ({self.h.kb} MAIN Nil))"
                     key_hash = self.h._call("index-hash", [key])[0]
-                    views = _parse(self.h._call("sk-admitted", [f"{key_hash} {key} sk-any-filter ()"])[0])
+                    views = parse_term(self.h._call("sk-admitted", [f"{key_hash} {key} sk-any-filter ()"])[0])
                     for permutation in itertools.permutations(views):
-                        merged = _parse(self.h._call("sk-merge-key", [
-                            f"{key_hash} {key} sk-any-filter () () {_render(list(permutation))}"
+                        merged = parse_term(self.h._call("sk-merge-key", [
+                            f"{key_hash} {key} sk-any-filter () () {render(list(permutation))}"
                         ])[0])
                         self.assertAlmostEqual(float(merged[1][3][1]), strength, places=12)
 
@@ -189,9 +189,9 @@ class SpecificityTests(unittest.TestCase):
                 self.assertIn(name, proof)
             key = f"(sk-key (T fresh) ({self.h.kb} MAIN Nil))"
             khash = self.h._call("index-hash", [key])[0]
-            views = _parse(self.h._call("sk-admitted", [f"{khash} {key} sk-any-filter ()"])[0])
+            views = parse_term(self.h._call("sk-admitted", [f"{khash} {key} sk-any-filter ()"])[0])
             for permutation in itertools.permutations(views):
-                merged = _parse(self.h._call("sk-merge-key", [f"{khash} {key} sk-any-filter () () {_render(list(permutation))}"])[0])
+                merged = parse_term(self.h._call("sk-merge-key", [f"{khash} {key} sk-any-filter () () {render(list(permutation))}"])[0])
                 self.assertAlmostEqual(float(merged[1][3][1]), expected, places=10)
 
     def test_unpaid_sibling_overlap_retains_both_rules(self):
@@ -206,16 +206,16 @@ class SpecificityTests(unittest.TestCase):
         self.assertIn("conditioned", self.h.expand_proof(answer.proof))
         key = f"(sk-key (T fresh) ({self.h.kb} MAIN Nil))"
         key_hash = self.h._call("index-hash", [key])[0]
-        views = _parse(self.h._call("sk-admitted", [f"{key_hash} {key} sk-any-filter ()"])[0])
+        views = parse_term(self.h._call("sk-admitted", [f"{key_hash} {key} sk-any-filter ()"])[0])
         expected = None
         for order in itertools.permutations(views):
-            result = _parse(self.h._call("sk-key-fallback", [f"() () {_render(list(order))}"])[0])
+            result = parse_term(self.h._call("sk-key-fallback", [f"() () {render(list(order))}"])[0])
             strength = float(result[1][3][1])
             if expected is None:
                 expected = strength
             self.assertAlmostEqual(strength, expected, places=12)
-            self.assertIn("combination", _render(result))
-            proof = self.h.expand_proof(_render(result[1][2]))
+            self.assertIn("combination", render(result))
+            proof = self.h.expand_proof(render(result[1][2]))
             self.assertIn("first", proof)
             self.assertIn("second", proof)
             self.assertLessEqual(float(result[1][3][2]), min(float(v[1][3][2]) for v in views))

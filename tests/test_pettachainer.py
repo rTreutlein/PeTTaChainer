@@ -7,7 +7,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from pettachainer import PeTTaChainer
-from pettachainer.query_diagnostics import _parse
+from pettachainer.metta_syntax import parse_term
 
 
 class TestPeTTaChainer(unittest.TestCase):
@@ -27,9 +27,9 @@ class TestPeTTaChainer(unittest.TestCase):
         for timeout_sec in (0, 30):
             with self.subTest(timeout_sec=timeout_sec):
                 self.assertEqual(
-                    [_parse(row) for row in handler.query(
+                    [parse_term(row) for row in handler.query(
                         "(: $prf (Leak q) $tv)", steps=400, timeout_sec=timeout_sec)],
-                    [_parse("(: ((inverted sensor with cpu (prior (STV 0.11904761904761901 0.8))) aq) "
+                    [parse_term("(: ((inverted sensor with cpu (prior (STV 0.11904761904761901 0.8))) aq) "
                             "(Leak q) (STV 0.37815126050420156 0.5514604290276861))")],
                 )
 

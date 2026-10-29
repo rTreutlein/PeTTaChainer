@@ -21,7 +21,7 @@
 (= (smoothed-base-rate-tv $kb $tv)
    (case $tv (
       ((STV $s $c)
-         (if (== (collapse (once (match &base_rate_smoothing ($kb true) true))) ()) $tv
+         (if (not (space-row-present? &base_rate_smoothing (quote ($kb true)))) $tv
             (let* (($n (confidence-to-count $c)) ($k (evidence-confidence-k)))
                (STV (/ (+ (* $s $n) (* 0.5 $k)) (+ $n $k)) $c))))
       ($_other $tv))))
@@ -95,11 +95,6 @@
 (: base-rate-entry-user? (-[det]-> BaseRateEntry Bool))
 (= (base-rate-entry-user? (base-rate $_kbid $_stored $_tv $source $_mode)) (== $source user))
 
-(: base-rate-cache-user-present? (-[det]-> (List BaseRateEntry) Bool))
-(= (base-rate-cache-user-present? ()) false)
-(= (base-rate-cache-user-present? (cons $entry $rest))
-   (if (base-rate-entry-user? $entry) true (base-rate-cache-user-present? $rest)))
-
 (: cached-base-rate (-[nondet]-> KB Statement (List TV)))
 (= (cached-base-rate $kbid $pattern)
    (case (base-rate-cache-entries $kbid (brand Statement (member-canon $pattern))) (
@@ -118,7 +113,7 @@
 (= (store-produced-base-rate! $kbid $pattern $tv $mode)
    (if (== $tv no-evidence) ()
       (let $entries (base-rate-cache-entries-for-mode $kbid $pattern $mode)
-         (if (base-rate-cache-user-present? $entries)
+         (if (any-flat? base-rate-entry-user? $entries)
             ()
             (let* (($stored (copy_term $pattern))
                    ($hash (base-rate-cache-hash $kbid $pattern))

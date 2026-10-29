@@ -4,7 +4,7 @@ The checks are syntactic, so they read the text in Python: a query costs no
 round trip through the MeTTa runtime to be validated.
 """
 
-import re
+from .metta_syntax import parse_source
 
 # Truth-value heads and their accepted argument counts; a CTV holds two STVs.
 # PTV and FTV are an STV's two kinds written explicitly (LANGUAGE_SPEC).
@@ -21,34 +21,10 @@ TV_ARITIES = {
     "ParticleFromPairs": {1},
 }
 
-_TOKEN = re.compile(r'\s+|;[^\n]*|"(?:\\.|[^"\\])*"|\(|\)|[^\s()";]+')
-
-
-def _parse(text: str):
-    """The top-level expressions of MeTTa source as nested lists of tokens,
-    or None when it does not read as balanced expressions."""
-    stack = [[]]
-    position = 0
-    for match in _TOKEN.finditer(text):
-        if match.start() != position:
-            return None
-        position = match.end()
-        token = match.group()
-        if token == "(":
-            stack.append([])
-        elif token == ")":
-            if len(stack) == 1:
-                return None
-            item = stack.pop()
-            stack[-1].append(item)
-        elif not token.isspace() and not token.startswith(";"):
-            stack[-1].append(token)
-    return stack[0] if len(stack) == 1 and position == len(text) else None
-
 
 def _annotation(text: str):
     """The parts ``(proof statement tv)`` of ``(: proof statement tv)``, or None."""
-    forms = _parse(text.strip())
+    forms = parse_source(text.strip())
     if not forms or len(forms) != 1:
         return None
     form = forms[0]

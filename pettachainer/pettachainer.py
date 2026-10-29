@@ -17,6 +17,7 @@ import __main__
 from petta import PeTTa
 
 from .pln_validator import check_query, check_stmt
+from .metta_syntax import render
 
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -103,15 +104,6 @@ class Answer(NamedTuple):
     statement: object
     tv: object
 
-
-def _metta_text(term) -> str:
-    """MeTTa source for a term as ``Answer`` holds it."""
-    if isinstance(term, list):
-        return "(" + " ".join(_metta_text(item) for item in term) + ")"
-    if isinstance(term, float):
-        mantissa, exponent, power = repr(term).partition("e")
-        return mantissa + (".0" if exponent and "." not in mantissa else "") + exponent + power
-    return str(term)
 
 
 def _group_query_many_results(rows: List[str], count: int) -> List[List[str]]:
@@ -763,7 +755,7 @@ class PeTTaChainer:
     def expand_proof(self, proof) -> str:
         """The full proof of an ``Answer``'s proof, each shared subproof
         printed once."""
-        return self._call("expand-proof", [_metta_text(proof)])[0]
+        return self._call("expand-proof", [render(proof)])[0]
 
     @_timed
     def query_many_materialization(

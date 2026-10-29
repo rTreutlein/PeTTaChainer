@@ -589,7 +589,7 @@
    (let* (($permanent (< $id 1000000000))
           ($_input (if $permanent (sk-input-changed! (brand KB (car-atom $kbctx))) ()))
           ($woken (if $permanent (rule-dormancy-reset!) (rule-dormancy-wake! $type))))
-      (if (not (== (collapse (once (match &sk_expanded ($_hash $_pattern) true))) ()))
+      (if (space-row-present? &sk_expanded (quote ($_hash $_pattern)))
          (foreach-flat sk-pend-rule! (cons $id $woken))
          ())))
 
@@ -604,7 +604,7 @@
           ($_input (sk-input-changed! (brand KB (car-atom $kbctx))))
           ($_cap-cleared (sk-clear-root-cap! (index-hash $key) $key))
           ($_retired (sk-retire-known! $type $kbctx))
-          ($expanded (not (== (collapse (once (match &sk_expanded ($_hash $_pattern) true))) ())))
+          ($expanded (space-row-present? &sk_expanded (quote ($_hash $_pattern))))
           ($_pending
              (if $expanded
                 (let $_pending-row (add-atom &sk_pending_facts (sk-pending-fact $key)) ())
@@ -615,8 +615,8 @@
              ;; produced a version. Empty and fact-only merges need the same
              ;; dirty-key refresh as row readers; both existence probes stop
              ;; at their first entry, so ingestion stays constant cost.
-             (if (if (not (== (collapse (once (match &ctx_sk_latest ($_hash $_key $_version) true))) ())) true
-                     (not (== (collapse (once (match &ctx_sk_merged ($_mhash $_mkey $_deps $_value $_root) true))) ())))
+             (if (if (space-row-present? &ctx_sk_latest (quote ($_hash $_key $_version))) true
+                     (space-row-present? &ctx_sk_merged (quote ($_mhash $_mkey $_deps $_value $_root))))
                 (sk-dirty! $key)
                 ())))
       ()))

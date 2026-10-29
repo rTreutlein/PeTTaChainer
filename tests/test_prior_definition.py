@@ -4,7 +4,7 @@ import unittest
 import janus_swi as janus
 
 from pettachainer import PeTTaChainer
-from pettachainer.query_diagnostics import _parse
+from pettachainer.metta_syntax import parse_term
 
 
 class PriorDefinitionTests(unittest.TestCase):
@@ -18,7 +18,7 @@ class PriorDefinitionTests(unittest.TestCase):
         self.h.set_bayes_prior_count(0.2)
 
     def formula(self, name, args):
-        return _parse(self.h._call(name, [args])[0])
+        return parse_term(self.h._call(name, [args])[0])
 
     def answer(self, goal):
         rows = self.h.query_many_refs([f'(: $p {goal} $tv)'], steps=600)[0]
@@ -224,7 +224,7 @@ class PriorDefinitionTests(unittest.TestCase):
         ])
         live = self.h.query('(: $p (A now) $tv)', steps=600, timeout_sec=0)
         timed = self.h.query('(: $p (A now) $tv)', steps=600, timeout_sec=60)
-        self.assertEqual([_parse(row)[3] for row in live], [_parse(row)[3] for row in timed])
+        self.assertEqual([parse_term(row)[3] for row in live], [parse_term(row)[3] for row in timed])
 
     def test_bayes_without_branch_provenance_uses_neutral(self):
         for k, expected in ((800, 0.818173783490), (1, 0.811881188119)):
@@ -241,7 +241,7 @@ class PriorDefinitionTests(unittest.TestCase):
                 self.h.set_evidence_confidence_k(k)
                 centres = self.h._call('likelihood-centres', [
                     f'(CTV (STV 0.9 0.9) (STV 0.2 0.9)) (support-counts 18 9 9 0 0)'])[0]
-                self.assertEqual(_parse(centres),
+                self.assertEqual(parse_term(centres),
                     ['CTV', ['STV', '0.2', '0.9'], ['STV', '0.9', '0.9']])
                 read = self.h._call('read-likelihoods', [
                     f'(CTV (STV 0.9 0.9) (STV 0.2 0.9)) {centres} disjoint'])[0]
@@ -352,7 +352,7 @@ class PriorDefinitionTests(unittest.TestCase):
             rows = self.h.handler.process_metta_string(
                 f'!(likelihood-centres (CTV (STV 0.9 0.9) (STV 0.2 0.9)) (likelihood-support-counts {fold}))')
             self.assertEqual(len(rows), 1)
-            return _parse(rows[0])
+            return parse_term(rows[0])
 
         neutral = ['CTV', ['STV', '0.5', '1'], ['STV', '0.5', '1']]
         update(1, one, 1, 0)
@@ -515,7 +515,7 @@ class PriorDefinitionTests(unittest.TestCase):
             rows = self.h.handler.process_metta_string(
                 f'!(likelihood-centres (CTV (STV 0.9 0.9) (STV 0.2 0.9)) (likelihood-support-counts {fold}))')
             self.assertEqual(len(rows), 1)
-            return _parse(rows[0])
+            return parse_term(rows[0])
 
         scope = f'({self.h.kb} MAIN Nil)'
         neutral = ['CTV', ['STV', '0.5', '1'], ['STV', '0.5', '1']]

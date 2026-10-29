@@ -3,7 +3,7 @@ import itertools
 import unittest
 
 from pettachainer import PeTTaChainer
-from pettachainer.query_diagnostics import _parse
+from pettachainer.metta_syntax import parse_term
 
 
 class FalseAntecedentTests(unittest.TestCase):
@@ -96,13 +96,13 @@ class FalseAntecedentTests(unittest.TestCase):
                       'no-evidence (STV 0.7 0.9)', '(STV 0 0) (STV 1 0)',
                       '(STV 1 0.001) (STV 1 0.002)'):
             with self.subTest(rates=rates):
-                result = _parse(h._call('ImplicationLikelihoodsFormula',
+                result = parse_term(h._call('ImplicationLikelihoodsFormula',
                                        [rates + ' (STV 0.5 0.9) 0.5'])[0])[2]
                 self.assertEqual(result[2], ['STV', '0.5', '0.0'])
 
     def test_informative_rates_still_estimate_negative_branch(self):
         h = PeTTaChainer()
-        result = _parse(h._call('ImplicationLikelihoodsFormula',
+        result = parse_term(h._call('ImplicationLikelihoodsFormula',
                                ['(STV 0.25 0.9) (STV 0.5 0.9) (STV 0.8 0.9) 0.5'])[0])[2]
         # #89 reads the raw .4/.225 complement once at neutral .5.
         count = 800 * .225 / (1 - .225)

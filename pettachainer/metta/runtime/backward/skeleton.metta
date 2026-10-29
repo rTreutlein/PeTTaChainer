@@ -312,7 +312,7 @@
 ;; rows runs only when some materialization happened.
 (: sk-leaf-facts (-[det]-> Statement KBContext SkeletonFilter (List SkFact)))
 (= (sk-leaf-facts $type $kbctx $filter)
-   (let* (($plain (== (collapse (once (match &materialized_facts (materialized-row $_hash $_type $_kb $_fact $_ev) true))) ()))
+   (let* (($plain (not (space-row-present? &materialized_facts (quote (materialized-row $_hash $_type $_kb $_fact $_ev)))))
           ($local (foldr-flat (sk-leaf-fact-step $plain $filter) () (kb-facts $type $kbctx))))
       (case $kbctx (
             (($kbid $ctx $vars)
@@ -587,7 +587,7 @@
 ;; reader to schedule.
 (: sk-mark-dirty! (-[det]-> SkeletonKey Atom))
 (= (sk-mark-dirty! $key)
-   (if (not (== (collapse (once (match &ctx_sk_latest ($_hash $_key $_version) true))) ()))
+   (if (space-row-present? &ctx_sk_latest (quote ($_hash $_key $_version)))
       (sk-dirty! $key)
       ()))
 
@@ -903,7 +903,7 @@
       (let* (($hash (sk-node-hash $owner))
              ($join (sk-join (sk-partial $owner $rule $concl $done $remaining $keys) $key))
              ($jhash (index-hash $join)))
-         (if (== (collapse (once (match &sk_deferred_joins ($hash $jhash $_join) true))) ())
+         (if (not (space-row-present? &sk_deferred_joins (quote ($hash $jhash $_join))))
             (let* (($_deferred (add-atom &sk_deferred_joins ($hash $jhash $join)))
                    ($_pending (sk-work! $hash $owner 1))
                    ($_counted (query_metric_increment joins-deferred)))
@@ -1083,7 +1083,7 @@
                (sk-row-answer! $owner $key $proof))
             ;; A row waits once, however often its join completes meanwhile.
             (let $hash (sk-node-hash $owner)
-               (if (== (collapse (once (match &sk_deferred ($hash $rhash $_deferred) true))) ())
+               (if (not (space-row-present? &sk_deferred (quote ($hash $rhash $_deferred))))
                   (let* (($_deferred
                             (add-atom &sk_deferred ($hash $rhash (sk-deferred $owner $rule $concl $premises $keys))))
                          ($_pending (sk-work! $hash $owner 1))
@@ -1299,12 +1299,10 @@
 ;; so they arrive as raw terms: a statement and Nil or a variable list.
 (: context-vars-in-type? (-[det]-> Atom Atom Bool))
 (= (context-vars-in-type? $type $vars)
-   (if (== $vars Nil) false (sk-any-member? (extract-vars $type) $vars)))
-
-(: sk-any-member? (-[det]-> (List Variable) Atom Bool))
-(= (sk-any-member? $_type-vars ()) false)
-(= (sk-any-member? $type-vars (cons $var $rest))
-   (if (stored-list-member? $var $type-vars) true (sk-any-member? $type-vars $rest)))
+   (if (== $vars Nil) false
+      (let $type-vars (extract-vars $type)
+         (any-flat? (|-> ($var) (stored-list-member? $var $type-vars))
+            (the (List Variable) $vars)))))
 
 ;; MAIN's observation of B is not evidence of B under the assumed A. Match
 ;; query-local target metadata on copies, retaining the original reader shape:
@@ -1429,11 +1427,6 @@
          ;; their ordinary join subscriptions instead of caching an empty search.
          ($_fact false)))))
 
-(: prefilter-prunes-walk (-[det]-> (List SkPattern) Bool))
-(= (prefilter-prunes-walk ()) false)
-(= (prefilter-prunes-walk (cons $prem $rest))
-   (if (prefilter-premise-blocks? $prem) true (prefilter-prunes-walk $rest)))
-
 ;; --- Complete predicates (docs/metta/complete_predicates.md) ----------------
 
 ;; Whether a statement, or a part of a compound one, has a complete predicate.
@@ -1494,7 +1487,7 @@
                 (($type $kbctx $proof $_tv)
                    (if (derivation-proof? $type $proof) (complete-statement? $type $kbctx) false))))
              false
-             (prefilter-prunes-walk (copy_term $premises)))
+             (any-flat? prefilter-premise-blocks? (copy_term $premises)))
          ()
          (sk-advance! (sk-partial $owner $rule $goal () $premises ())))
       ()))
@@ -1765,7 +1758,7 @@
 ;; the inversions waiting there of every other rule.
 (: sk-start-deferred! (-[semidet]-> Number Number Atom))
 (= (sk-start-deferred! $hash $reader-id)
-   (if (== (collapse (once (match &sk_deferred_inversion ($hash $_r $_o $_m) true))) ()) ()
+   (if (not (space-row-present? &sk_deferred_inversion (quote ($hash $_r $_o $_m)))) ()
       (let* (($reader (if (< $reader-id 0) none (sk-rule-name $reader-id)))
              ($_started (collapse (match &sk_deferred_inversion ($hash $rule $owner $match)
                 (if (== $rule $reader) (empty)

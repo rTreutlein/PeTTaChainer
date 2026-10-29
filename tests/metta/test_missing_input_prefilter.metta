@@ -12,12 +12,12 @@
 ;; A missing input is not an impossible computation: the durable join must
 ;; subscribe to it so a later fact can complete the rule.
 !(test
-   (prefilter-prunes-walk
+   (any-flat? prefilter-premise-blocks?
       (cons (structural-prefilter-goal (MissingThing)) ()))
    false)
 
 !(compileadd structuralPrefilterKb (: seed0 (Seed one) (STV 1.0 1.0)))
 !(test
-   (prefilter-prunes-walk
+   (any-flat? prefilter-premise-blocks?
       (cons (structural-prefilter-goal (Seed one)) ()))
    false)

@@ -3,7 +3,6 @@ import re
 import unittest
 
 from pettachainer import PeTTaChainer
-from pettachainer.query_diagnostics import _parse, _render
 
 
 class QueryDiagnosticsTests(unittest.TestCase):
@@ -181,12 +180,6 @@ class QueryDiagnosticsTests(unittest.TestCase):
         self.assertEqual(d["routes"], [])
         self.assertEqual([g["expression"] for g in d["goals"]], ["(Unrelated)"])
 
-    def test_term_parser_preserves_strings_and_nested_terms(self):
-        for text in ['(A "two words" (B $x))', '(A "escaped \\" quote")']:
-            self.assertEqual(_render(_parse(text)), text)
-        for text in ["(", ")", "A B"]:
-            with self.assertRaises(RuntimeError):
-                _parse(text)
 
 
 if __name__ == "__main__":

@@ -27,10 +27,6 @@
 (: kb-fact-open-hash (-[det]-> $statement Number))
 (: kb-fact-open-probes (-[det]-> $statement (List Number)))
 
-(: append-flat (-[det]-> (List $a) (List $a) (List $a)))
-(= (append-flat () $right) $right)
-(= (append-flat (cons $head $tail) $right) (cons $head (append-flat $tail $right)))
-
 (: normalize-expected-stv (-[det]-> $truth-value STVType))
 (= (normalize-expected-stv $tv)
    (if (is-var $tv) (STV 1.0 1.0)

@@ -19,16 +19,6 @@
 (: compilation-plan
    (-[det]-> Goal (List CompiledAddition) CompilationPlan))
 
-;; The strict determinism checker rejects the library folds over a semidet
-;; step; these are their semidet forms, shared by the compiler and runtime.
-(: fold-semidet (-[semidet]-> (-[semidet]-> $acc $item $acc) $acc (List $item) $acc))
-(= (fold-semidet $_fun $acc ()) $acc)
-(= (fold-semidet $fun $acc (cons $item $rest)) (fold-semidet $fun ($fun $acc $item) $rest))
-
-(: map-semidet (-[semidet]-> (-[semidet]-> $input $output) (List $input) (List $output)))
-(= (map-semidet $_fun ()) ())
-(= (map-semidet $fun (cons $item $rest)) (cons ($fun $item) (map-semidet $fun $rest)))
-
 (: atom_concat (-[det]-> Atom Atom Atom))
 (: term_hash (-[det]-> $expression Number))
 
@@ -39,22 +29,6 @@
 (= (prepend-reversed-goals () $acc) $acc)
 (= (prepend-reversed-goals (cons $head $tail) $acc)
    (prepend-reversed-goals $tail (cons $head $acc)))
-
-(: prepend-reversed-proofs
-   (-[det]-> (List Proof) (List Proof) (List Proof)))
-(= (prepend-reversed-proofs () $acc) $acc)
-(= (prepend-reversed-proofs (cons $head $tail) $acc)
-   (prepend-reversed-proofs $tail (cons $head $acc)))
-
-(: prepend-reversed-tvs (-[det]-> (List TV) (List TV) (List TV)))
-(= (prepend-reversed-tvs () $acc) $acc)
-(= (prepend-reversed-tvs (cons $head $tail) $acc)
-   (prepend-reversed-tvs $tail (cons $head $acc)))
-
-(: prepend-reversed-atoms (-[det]-> (List Atom) (List Atom) (List Atom)))
-(= (prepend-reversed-atoms () $acc) $acc)
-(= (prepend-reversed-atoms (cons $head $tail) $acc)
-   (prepend-reversed-atoms $tail (cons $head $acc)))
 
 (: prepend-reversed-compiled-additions
    (-[det]-> (List CompiledAddition) (List CompiledAddition)
@@ -76,7 +50,7 @@
       ($reversed-execs $reversed-proofs $tv))
    (data
       (prepend-reversed-goals $reversed-execs ())
-      (prepend-reversed-proofs $reversed-proofs ())
+      (reverse-onto $reversed-proofs ())
       $tv))
 
 (: union-compiled-additions
@@ -184,14 +158,7 @@
                      ()))))
          false)))
 
-(: contains-head-list?
-   (-[det]-> (-[det]-> Atom Bool) (List Atom) Bool))
 (: contains-head? (-[det]-> (-[det]-> Atom Bool) Atom Bool))
-(= (contains-head-list? $_predicate ()) false)
-(= (contains-head-list? $predicate (cons $head $rest))
-   (if (contains-head? $predicate $head)
-      true
-      (contains-head-list? $predicate $rest)))
 
 (= (contains-head? $predicate $term)
    (if (== $term ()) false
@@ -200,7 +167,7 @@
             (let $head (car-atom $term)
                (if (if (is-var $head) false ($predicate $head))
                   true
-                  (contains-head-list? $predicate (cdr-atom $term))))
+                  (any-flat? (contains-head? $predicate) (cdr-atom $term))))
             false))))
 
 (: contains-explicit-exists? (-[det]-> Atom Bool))
@@ -483,10 +450,10 @@
           (($goals $tvs $proofs $tokens $keys)
              (fold-semidet (lower-node-sibling $kb (cavity $compound-key $target-key) $implications) (data () () () () ()) $siblings))
           ($ordered-goals (prepend-reversed-goals (the (List Goal) $goals) ()))
-          ($ordered-tvs (prepend-reversed-tvs (the (List TV) $tvs) ()))
-          ($ordered-proofs (prepend-reversed-proofs (the (List Proof) $proofs) ()))
-          ($ordered-tokens (prepend-reversed-proofs (the (List Proof) $tokens) ()))
-          ($ordered-keys (prepend-reversed-atoms (the (List Atom) $keys) ())))
+          ($ordered-tvs (reverse-onto (the (List TV) $tvs) ()))
+          ($ordered-proofs (reverse-onto (the (List Proof) $proofs) ()))
+          ($ordered-tokens (reverse-onto (the (List Proof) $tokens) ()))
+          ($ordered-keys (reverse-onto (the (List Atom) $keys) ())))
       (data $ordered-goals $ordered-tvs $ordered-proofs $ordered-tokens $ordered-keys)))
 
 (: lower-node-sibling (-[semidet]-> KBContext Atom Bool Atom Statement Atom))
@@ -739,7 +706,7 @@
              (fold-semidet (lower-all-step $read $kc (atom_concat $head Formula))
                 (data (prepend-reversed-goals $goals ()) ($proof) $tv) $rest)))
       (premise-bundle (prepend-reversed-goals $reversed-goals ())
-         $all-tv (implication-proof-token (prepend-reversed-proofs $reversed-proofs ())))))
+         $all-tv (implication-proof-token (reverse-onto $reversed-proofs ())))))
 
 ;; Compound settling: a part known with certainty at its connective's settling
 ;; value (`set-compound-settling`) decides the compound without the other
@@ -1087,13 +1054,7 @@
 
 (: context-polymorphic-facts? (-[det]-> KB Bool))
 (= (context-polymorphic-facts? $kb)
-   (not
-      (==
-         (collapse
-            (once
-               (match &context_polymorphic_facts
-                  ($kb true) true)))
-         ())))
+   (space-row-present? &context_polymorphic_facts (quote ($kb true))))
 
 ;; Base-rate scans must leave ordinary open expressions intact while replacing
 ;; compiler-generated existential witnesses with query variables, one per
