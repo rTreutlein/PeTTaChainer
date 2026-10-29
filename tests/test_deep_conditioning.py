@@ -711,7 +711,7 @@ print(json.dumps({'tv': [r.tv for r in rows], 'metrics': metrics}, sort_keys=Tru
             'evidence-set'([['fact-ev',[Kb,'MAIN','Nil'],three,['P',three]]],_Ev),
             copy_term([_Goals,_Result],[_ReadGoals,_Rate]),
             'sk-premise-step'([],[],[],false,false,'sk-representative-read',
-                ['sk-acc',[],_Ev,[],[]],
+                ['sk-acc',[],_Ev,[]],
                 ['CPU','ReadRate',[Kb,['P',_T],Raw,
                     ['rate-plan',_ReadGoals,_Rate],false],
                     ['rate-read',Admissible,Read]],_State)

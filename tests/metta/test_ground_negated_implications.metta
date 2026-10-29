@@ -209,8 +209,10 @@
    (CTV (STV 0.9 0.9) (STV 0.2 0.9))))
 !(compileadd compoundReadCtx (: (no_inverse bridge)
    (Implication (Y) (Z)) (CTV (STV 1 1) (STV 0 1))))
+;; The implication instance fold over the one ground instance merges at
+;; negligible weight (5e-8 here).
 !(test (let (: $p $type (STV $s $c))
-   (query 100 compoundReadCtx (: $q (Implication (And (G) (H)) (Z)) $tv)) (<= (abs-math (- $s 0.2)) 1e-12)) true)
+   (query 100 compoundReadCtx (: $q (Implication (And (G) (H)) (Z)) $tv)) (<= (abs-math (- $s 0.2)) 1e-6)) true)
 !(test (let (: $p $type (STV $s $c))
    (query 100 compoundReadCtx (: $q (Implication (Not (And (G) (H))) (Z)) $tv)) (<= (abs-math (- $s 0.9)) 1e-12)) true)
 

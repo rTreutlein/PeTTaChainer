@@ -77,7 +77,7 @@ class SoftReportTests(unittest.TestCase):
             "'sk-target-value'([['sk-given',PH,Pin,false]],Target,['sk-val',[_,_,_,['STV',No,_]],NE,_]), "
             "'evidence-union'(YE,NE,Branch), 'evidence-negated'(Branch,Negative), "
             "'evidence-union'(Branch,Negative,Both), "
-            "'sk-compatible-value'([],Pin,'sk-any-filter',[],Both,[],true, "
+            "'sk-compatible-value'([],Pin,'sk-any-filter',[],Both,true, "
             " ['sk-val',[_,_,_,['STV',Weight,_]],_,_]), "
             "'sk-mix-on'([],Target,[],[Pin],[['sk-val',[_,_,_,['STV',Mixed,_]],_,_]])), "
             "'sk-close-claim!'(_))", {'Kb': h.kb})

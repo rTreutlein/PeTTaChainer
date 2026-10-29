@@ -36,10 +36,15 @@
 !(test (query 100 notNotKb (: $p (Not (Not (A a))) $tv))
    (: (negated (negated (by r g))) (Not (Not (A a))) (STV 0.5742 0.9999350619568963)))
 
-;; A projection onto a negated child concludes the child's statement.
+;; A compound's message to a negated child concludes the child's statement.
+;; The certain (And (A a) (Not (B a))) at .6 is Pearl evidence (.6, .4) on its
+;; worlds, A unknown: P(not B) = .25 / (.25 .6 + .75 .4) = 5/9, so B = 4/9.
+;; Read on B's uniform prior with A's uniform Beta, the one soft observation
+;; leaves nearly the prior's variance (n = 2, c = 2/802). The compound's atoms
+;; are A and B, so the message reaches B's statement directly.
 !(compileadd projKb (: both (And (A a) (Not (B a))) (STV 0.6 1)))
-!(test (query 100 projKb (: $p (B a) $tv))
-   (: (negated (marginal-proj 1 both)) (B a) (STV 0.4 0.9998333611064822)))
+!(test (let (: (node-message 1 both cpu $_likelihood) (B a) $tv) (query 100 projKb (: $p (B a) $tv)) $tv)
+   (STV 0.4444444444444444 0.002492276053497211))
 
 ;; A negated root reads its statement's stored value at budget zero, and its
 ;; written truth-value pattern constrains the complemented answer.

@@ -39,7 +39,10 @@ class TestAssumingExistsJoin(unittest.TestCase):
                             self.assertIn(source, proof)
                         self.assertEqual(proof.count('src_rule'), 1, proof)
                         self.assertEqual(proof.count('src_meta'), 1, proof)
-                    self.assertEqual(first.tv[1], 1)
+                    # The certain rule's conclusion carries c .99983 through modus
+                    # ponens, a prediction: its parts move by Jeffrey to 1 - O(1e-7)
+                    # (P* = (n_parts P_parts + n_rule)/(n_parts + n_rule), n_rule 4.8e6).
+                    self.assertAlmostEqual(first.tv[1], 1, places=6)
                     self.assertGreater(first.tv[2], .99)
                     # Existential binders stay local; concrete witnesses do
                     # not replace the public body variable.

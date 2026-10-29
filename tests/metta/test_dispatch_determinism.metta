@@ -17,7 +17,6 @@
       (Payload (: a b c d) (data (x y z) p value)) (STV 1.0 1.0)))
 
 ;; Fixed-input dispatch helpers must each reduce to exactly one result.
-!(test (collapse (term-confidence (Goal (kb MAIN Nil) (marginal-proj 0 proof) (STV 1.0 0.5)))) (0.495))
 !(test (collapse (term-confidence (Goal (kb MAIN Nil) proof (STV 1.0 0.5)))) (0.5))
 !(test (collapse (base-rate-finish? base-rate)) (true))
 !(test (collapse (base-rate-finish? other-finish)) (false))

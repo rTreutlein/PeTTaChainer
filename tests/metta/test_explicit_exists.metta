@@ -214,7 +214,11 @@
    ())
 
 ;; A direct existential claim and the disjunction of known witnesses retain
-;; separate estimates. Their difference is exposed as an explicit residual.
+;; separate estimates. Their difference is exposed as an explicit residual. The
+;; direct claim E = D or U is derived, a prediction, so it moves the unknown
+;; witness U from its uniform prior by probability kinematics: P(U | E) .5/P(E)
+;; at E's strength, P(U | not E) = 0. U keeps the uniform prior's variance (n = 2),
+;; hence its low confidence.
 !(compileadd existentialResidualKb
    (: fidoDog (Dog fido) (STV 1.0 1.0)))
 !(compileadd existentialResidualKb
@@ -274,7 +278,7 @@
 !(test
    (query 300 existentialResidualKb
       (: $proof (OtherWitnessEstimate fido) $tv))
-   (: (by exposeOtherWitness (conjunction (by dogChasesCat fidoDog) (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna)))) (OtherWitnessEstimate fido) (STV 0.9474016410687987 0.8948358186950726)))
+   (: (by exposeOtherWitness (conjunction (by dogChasesCat fidoDog) (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna)))) (OtherWitnessEstimate fido) (STV 0.9051491256731928 0.04096823867399197)))
 
 ;; Adding a stronger known witness leaves the direct existential proof intact,
 ;; increases D, and refines the residual estimate downward.
@@ -292,7 +296,7 @@
 !(test
    (query 300 existentialResidualKb
       (: $proof (OtherWitnessEstimate fido) $tv))
-   (: (by exposeOtherWitness (conjunction (by dogChasesCat fidoDog) (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna) (conjunction felixCat fidoOftenChasesFelix)))) (OtherWitnessEstimate fido) (STV 0.8685041026719965 0.7430346473004866)))
+   (: (by exposeOtherWitness (conjunction (by dogChasesCat fidoDog) (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna) (conjunction felixCat fidoOftenChasesFelix)))) (OtherWitnessEstimate fido) (STV 0.5863654773302238 0.0032500038674315303)))
 
 ;; The witness fold keeps one view per grounded output group. The outer
 ;; strength floor has a separate view per group. A zero-budget

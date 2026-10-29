@@ -30,7 +30,10 @@ class TestBridgeQueryOrder(unittest.TestCase):
                                 self.assertEqual(rows[0].tv, expected[-1])
                 self.assertEqual(expected[0], expected[1])
                 if confidence == 0.9:
-                    self.assertAlmostEqual(expected[0][2], 0.811765274435159)
+                    # The identity is an observation read at its Pearl factor (exact
+                    # only at confidence 1), its parts read conditioned on it with
+                    # the bridge's conditional.
+                    self.assertAlmostEqual(expected[0][2], 0.8177148713822444)
                 for first, second in ((0, 1), (1, 0)):
                     h = PeTTaChainer()
                     h.add_atoms_no_check(atoms)

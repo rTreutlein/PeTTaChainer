@@ -34,12 +34,20 @@ class TestSourceGateJudgment(unittest.TestCase):
         if gates:
             self.assertEqual(gates[0].tv, ['STV', 1, 1])
 
+    # C is the Jeffrey update of the predicted And(B, C), B unknown, from C's
+    # uniform prior: the prediction revised with the parts' own estimate
+    # (n = 20/7 from their exact variance 7/144, P(K) = .25), C = P* + (1 - P*)(1/3).
+    # A certain rule's prediction (n = 800 c/(1 - c) for its c .99983) leaves
+    # 1 - 3e-7 (variance 1.17e-13 against s(1 - s) = 2.98e-7: n = 2.55e6,
+    # c .99969); at .8 (c .6, or .5455 wrapped in the Metadata conjunction)
+    # P* = .7987, C = .8658 (.8656).
+    GATED = {False: (0.8657957244652751, 0.04001674008863015), True: (0.8655786350145539, 0.03980772466060817)}
+
     def test_observed_gate_fresh_and_warm(self):
         for wrapped in (False, True):
             for tv, strength, confidence in (
-                ('(STV 1 1)', 1, 0.9998333610925979),
-                ('(STV 0.8 0.6)', 0.8,
-                 0.4897959182395719 if wrapped else 0.5454545452961622),
+                ('(STV 1 1)', 0.9999997023811048, 0.999686126673656),
+                ('(STV 0.8 0.6)', *self.GATED[wrapped]),
             ):
                 for individual in ('$x', 'a'):
                     with self.subTest(wrapped=wrapped, tv=tv, individual=individual):
@@ -62,11 +70,11 @@ class TestSourceGateJudgment(unittest.TestCase):
                     h.add_atoms_no_check([self.source(wrapped, '(STV 0.8 0.6)')])
                     statement = f'(Implication (A {individual}) (C {individual}))'
                     gated = f'(Implication (AcceptSource S) {statement})'
-                    confidence = 0.4897959182395719 if wrapped else 0.5454545452961622
+                    strength, confidence = self.GATED[wrapped]
                     for repeat in range(2):
                         with self.subTest(repeat=repeat):
                             self.assertEqual(self.answers(h, statement), [])
-                            self.assert_judgment(h, gated, 0.8, confidence, False)
+                            self.assert_judgment(h, gated, strength, confidence, False)
                             # A previous hypothetical gate never accepts the source.
                             self.assertEqual(self.answers(h, statement), [])
                             self.assert_no_main_leakage(h, False)
@@ -74,7 +82,7 @@ class TestSourceGateJudgment(unittest.TestCase):
                     h.add_atoms_no_check(['(: accepted (AcceptSource S) (STV 1 1))'])
                     for repeat in range(2):
                         with self.subTest(late_repeat=repeat):
-                            self.assert_judgment(h, statement, 0.8, confidence, True)
+                            self.assert_judgment(h, statement, strength, confidence, True)
                             self.assert_no_main_leakage(h, True)
 
     def test_observed_gate_does_not_make_assumption_free_consequence_conditional(self):

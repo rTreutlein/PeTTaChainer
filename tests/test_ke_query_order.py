@@ -19,7 +19,11 @@ class KEQueryOrderTests(unittest.TestCase):
                 result = json.loads(run.stdout.splitlines()[-1])
                 proofs = result["proofs"]
                 self.assertEqual(len(proofs), 1, result)
-                self.assertTrue(proofs[0].endswith("(STV 1.0 0.9996667776435956))"), proofs)
+                # The gated conjunction is read conditioned on the gated compound:
+                # given it true its parts are certain; given it false they are
+                # read jointly from its node, so the mixture's confidence is a
+                # little under the compound's own .99967.
+                self.assertTrue(proofs[0].endswith("(STV 1.0 0.9984709741264072))"), proofs)
                 self.assertEqual(set(re.findall(r"src_[0-9a-f]+", proofs[0])), {
                     "src_d2acc8331d260378be524a14", "src_acb3faeae7e53c5cf8a75bc7",
                     "src_6c4b43ffc9cfdd9f6cc82137",

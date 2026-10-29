@@ -20,40 +20,29 @@
    (query 20 plnLogicKb (: $prf (Or (A) (B)) $tv))
    (: (settled a) (Or (A) (B)) (STV 1.0 1.0)))
 
+;; The observed (And (A) (B)) at (1, .9) is Pearl evidence at its mean m =
+;; 7201/7202 (exact only at confidence 1): with A unknown, lambda1 = .5 and
+;; lambda0 = 1 - m, so B = .5/(.5 + (1 - m)) = .99972 on its uniform prior,
+;; its variance the exact integral over B's prior and A's (2.20e-6, c .1354).
 !(compileadd plnProjectionNeedsEvidenceKb (: ab (And (A) (B)) (STV 1.0 0.9)))
 
 !(test
-   (query 20 plnProjectionNeedsEvidenceKb (: $prf (B) $tv))
-   (: (marginal-proj 1 ab) (B) (STV 1.0 0.9)))
+   (let (: (node-message 1 ab cpu $_likelihood) (B) $tv) (query 20 plnProjectionNeedsEvidenceKb (: $prf (B) $tv)) $tv)
+   (STV 0.9997223764575236 0.13535810664952025))
 
-!(compileadd plnMarginalProjectionKb (: ab (And (A) (B)) (STV 0.25 0.9)))
-
-!(test
-   (query 20 plnMarginalProjectionKb (: $prf (B) $tv))
-   (: (marginal-proj 1 ab) (B) (STV 0.25 0.6923076923076924)))
-
-!(test
-   (let* (($full (logic-test-runtime-fact (B) ((proj 1 ab) a) (STV 1.0 0.9)))
-          ($marginal (logic-test-runtime-fact (B) (marginal-proj 1 ab) (STV 1.0 0.9)))
-          ((sk-paired (sk-val $merged $_evidence $_deps))
-             (sk-merge-facts false ()
-                $full (proof-term-evidence proof-walk-in-kb ((proj 1 ab) a)) 0
-                $marginal (proof-term-evidence proof-walk-in-kb (marginal-proj 1 ab)) 0)))
-      $merged)
-   (logic-test-runtime-fact (B) ((proj 1 ab) a) (STV 1.0 0.9)))
-
+;; With A certain too, the message is lambda1 = m, lambda0 = 1 - m: B = m.
 !(compileadd plnProjectionKb (: ab (And (A) (B)) (STV 1.0 0.9)))
 !(compileadd plnProjectionKb (: a (A) (STV 1.0 1.0)))
 
 !(test
-   (query 20 plnProjectionKb (: $prf (B) $tv))
-   (: ((proj 1 ab) a) (B) (STV 1.0 0.9)))
+   (let (: (node-message 1 ab a $_likelihood) (B) $tv) (query 20 plnProjectionKb (: $prf (B) $tv)) $tv)
+   (STV 0.9998611496806441 0.3947855702686907))
 
 !(compileadd plnOrProjectionKb (: ab (Or (A) (B)) (STV 1.0 0.9)))
 !(compileadd plnOrProjectionKb (: a (A) (STV 1.0 1.0)))
 
-;; A true disjunct leaves the other undetermined: the projection gives no
-;; value rather than one of confidence 0.
+;; A true disjunct leaves the other undetermined: the message gives no value
+;; rather than one of confidence 0.
 !(test
    (query 20 plnOrProjectionKb (: $prf (B) $tv))
    ())

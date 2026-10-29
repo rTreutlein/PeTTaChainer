@@ -1,4 +1,4 @@
-"""Calibration oracles for the probes P1-P12 (bench/results/fresh-design/distributional-tv.md).
+"""Calibration oracles for the probes P1-P12 and P15-P17 (bench/results/fresh-design/distributional-tv.md).
 
 A probe is a small Boolean network on one instance `a`:
   atoms : instance atoms, in topological order
@@ -200,7 +200,7 @@ def beta_ppf(u, a, b):
 # ---- probes ---------------------------------------------------------------------
 
 def probes(cf, cc, rc):
-    """P1-P12 at fact, compound and rule confidence cf, cc, rc."""
+    """P1-P12, P15 (shared parent), P16 (chained observations) and P17 (overlapping part evidence) at fact, compound and rule confidence cf, cc, rc."""
     a = lambda w: w['A']
     b = lambda w: w['B']
     c = lambda w: w['C']
@@ -237,6 +237,24 @@ def probes(cf, cc, rc):
     P['P12'] = dict(atoms=['A', 'B', 'C'], roots=r3, rules={},
                     comps=[('(Or (A a) (B a))', OR, 1.0, cc),
                            ('(Or (A a) (C a))', lambda w: w['A'] | w['C'], 1.0, cc)], goals=abc)
+    # P15: two children of one parent (X = R, Y = R up to .95/.05), no evidence: answers that
+    # ignore the shared parent are wrong by up to 1/2 (XOR: about .1 against .5 when independent).
+    xr = ('R', (0.95, rc), (0.05, rc))
+    P['P15'] = dict(atoms=['R', 'X', 'Y'], roots={'R': (0.5, cf)}, rules={'X': xr, 'Y': xr}, comps=[],
+                    goals={'(Or (And (X a) (Not (Y a))) (And (Not (X a)) (Y a)))': lambda w: w['X'] ^ w['Y'],
+                           '(And (X a) (Y a))': lambda w: w['X'] & w['Y']})
+    # P16: a chain A -> B -> C with two observations, of B and of C (Pearl, .75): their joint
+    # weight is not the product of their separate predictive weights, since B and C are dependent.
+    P['P16'] = dict(atoms=['A', 'B', 'C'], roots={'A': (0.5, cf)},
+                    rules={'B': ('A', (0.95, rc), (0.05, rc)), 'C': ('B', (0.95, rc), (0.05, rc))},
+                    comps=[('(B a)', b, 0.75, cc), ('(C a)', c, 0.75, cc)], goals={'(A a)': a})
+    # P17: a compound whose parts' evidence overlaps: (And A X) reads fa, fb and (And Y C) reads
+    # fb, fc, X and Y both children of B; the shared fb must count once.
+    P['P17'] = dict(atoms=['A', 'B', 'C', 'X', 'Y'], roots=r3,
+                    rules={'X': ('B', (0.9, rc), (0.2, rc)), 'Y': ('B', (0.8, rc), (0.3, rc))},
+                    comps=[('(Or (And (A a) (X a)) (And (Y a) (C a)))',
+                            lambda w: (w['A'] & w['X']) | (w['Y'] & w['C']), 1.0, cc)],
+                    goals={'(A a)': a, '(B a)': b})
     return P
 
 

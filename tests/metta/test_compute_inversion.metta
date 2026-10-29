@@ -97,11 +97,19 @@
    (: observed-b-three (B 3) (STV 0.9 0.8)))
 
 ;; Observing B(3) runs 3 - 1 = 2, validates 2 + 1 = 3, applies ordinary CTV
-;; inversion, and projects A(2) from the reconstructed antecedent; the
-;; projection reads its computed sibling as the computation.
+;; inversion, and the predicted antecedent updates A(2) by probability
+;; kinematics, its computed sibling read as the computation (P(K | A) = 1,
+;; P(K | not A) = 0). With no other view A(2) starts at A's population rate
+;; apart from the update's evidence, .7 at c .001 (n = .8, its one member A(1)
+;; at .7), revised with the prediction's n = 800 c/(1 - c) = 13.3 towards
+;; .8757: (.8 .7 + 13.3 .8757)/14.1 = .8657.
 !(test
-   (query 300 computeInverseKb (: $proof (A 2) $tv))
-   (: ((proj 0 ((inverted addOne with cpu (prior (STV 0.6599999999940221 0.000999000998814564))) observed-b-three)) cpu) (A 2) (STV 0.8756835083726222 0.016391821879727795)))
+   (let (: (jeffrey-update (population-prior (A $_x))
+              ((node-jeffrey 0 ((inverted addOne with cpu (prior (STV 0.6599999999940221 0.000999000998814564))) observed-b-three)
+                 (prediction (STV 0.8756835083726222 0.016391821879727795)) (conditionals (1.0 0.0) (0.0 0.0))) cpu))
+           (A 2) $tv)
+      (query 300 computeInverseKb (: $proof (A 2) $tv)) $tv)
+   (STV 0.86573821579449 0.016957568892897037))
 
 ;; The same reversible computation remains executable when inversion is
 ;; disabled. The observations above demonstrate that its reverse would

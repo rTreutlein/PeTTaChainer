@@ -36,8 +36,14 @@ class TestAssumingExists(unittest.TestCase):
                     self.assertEqual(len(rows), 1, rows)
                     row = rows[0]
                     values.append(row.tv)
-                    self.assertEqual(row.tv[:2], ['STV', 1.0])
-                    self.assertAlmostEqual(row.tv[2], 0.7940382922989366)
+                    # The accepted event is a prediction (1, .9) of the compound, so its
+                    # parts move by Jeffrey from their uniform priors, the prediction
+                    # (n = 800 .9/.1 = 7200) revised with the parts' own estimate
+                    # (n = 152/37 = 4.1 from their exact variance, P(K) = .125):
+                    # 1 - (4.1 .875/7204) .571 = .99971.
+                    self.assertEqual(row.tv[0], 'STV')
+                    self.assertAlmostEqual(row.tv[1], 0.9997147918855503)
+                    self.assertAlmostEqual(row.tv[2], 0.8314684465816465)
                     proof = h.expand_proof(row.proof)
                     for token in ('assuming', 'src_event', 'src_rule'):
                         self.assertIn(token, proof)
@@ -94,7 +100,9 @@ class TestAssumingExists(unittest.TestCase):
                 with self.subTest(terms=terms, repeat=repeat):
                     rows = h.query_many_refs([f'(: $p {expression} $tv)'], steps=300)[0]
                     self.assertEqual(len(rows), 1, rows)
-                    # The pooled source counts once, with the complemented R.
+                    # P and Q are the bundle's parts, conditioned on it and read jointly
+                    # from its node: given it true both are 1, given it false they are
+                    # never both true, so .9; with the complemented R, times .7.
                     self.assertAlmostEqual(rows[0].tv[1], 0.9 * 0.7)
 
     def test_pooling_source_names_are_scoped_to_their_kb(self):

@@ -61,7 +61,7 @@ class CertainObservationOverlapTests(unittest.TestCase):
                         "Storm=['sk-key',['Storm',t19],Scope], "
                         "'index-hash'(Storm,H), 'deps-key'(H,D), "
                         "'evidence-set'([[Tag,Scope,report,Blocked]],Ev), "
-                        "'sk-clash-on'([],['sk-acc',[],Ev,[D],[]], "
+                        "'sk-clash-on'([],['sk-acc',[],Ev,[D]], "
                         " ['sk-val',[['Goal'],Scope,p,['STV',0.5,0.8]],Ev,D], "
                         " ['sk-clash',Keys,_])",
                         {'Kb': h.kb, 'Tag': 'not-fact-ev' if negative else 'fact-ev'},

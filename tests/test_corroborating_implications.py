@@ -34,6 +34,47 @@ def modus_ponens(antecedent, positive, negative=(.5, 0)):
     return s, max(.000001, observations / (observations + K))
 
 
+def node_stv(strength, var):
+    if var <= 0:
+        return strength, .9999
+    clipped = max(.000001, min(.999999, strength))
+    maxvar = clipped * (1 - clipped)
+    observations = maxvar / min(var, maxvar) - 1
+    return strength, max(.000001, observations / (observations + K))
+
+
+def jeffrey_part(prediction, siblings=2):
+    # A predicted (And part ...) moves a part with no value of its own from the
+    # uniform prior by probability kinematics (LANGUAGE_SPEC.md, "What a
+    # compound's value says about its parts"), its siblings uniform too:
+    # P(K | part) = E[sibling]^n, P(K | not part) = 0.
+    ps, pc = prediction
+    f1 = .5 ** siblings
+    v1 = (1 / 3) ** siblings - f1 * f1
+    p, vp, f0, v0 = .5, 1 / 12, 0.0, 0.0
+    # The exact variance of p f1 + (1 - p) f0 over independent p, f1, f0.
+    parts_var = (f1 - f0) ** 2 * vp + (p * p + vp) * v1 + ((1 - p) ** 2 + vp) * v0
+
+    def posterior(p, f1, f0, ps):
+        pp = p * f1 + (1 - p) * f0
+        n_parts = max(0.0, pp * (1 - pp) / parts_var - 1)
+        n_rule = K * pc / (1 - pc)
+        pstar = (n_parts * pp + n_rule * ps) / (n_parts + n_rule)
+        return pstar * p * f1 / pp + (1 - pstar) * p * (1 - f1) / (1 - pp)
+
+    inputs = [(p, vp), (f1, v1), (f0, v0), (ps, variance(ps, pc))]
+    strength = posterior(p, f1, f0, ps)
+    var = 0.0
+    for i, (x, vx) in enumerate(inputs):
+        up, down = min(1.0, x + 1e-6), max(0.0, x - 1e-6)
+        args_up = [v for v, _ in inputs]
+        args_down = list(args_up)
+        args_up[i], args_down[i] = up, down
+        slope = (posterior(*args_up) - posterior(*args_down)) / (up - down)
+        var += slope * slope * vx
+    return node_stv(strength, var)
+
+
 def revise(values):
     weights = [count(c) for _, c in values]
     total = sum(weights)
@@ -56,7 +97,8 @@ class CorroboratingImplicationTests(unittest.TestCase):
     def test_source_counts_polarities_and_worlds(self):
         # Includes both one-source baselines, two corroborating sources, a
         # three-source family, and both reproducer budgets. A gated compound
-        # event is projected without counting its source three times.
+        # event, a prediction, moves its part by Jeffrey without counting its
+        # source three times.
         for sources in (('R3',), ('R1',), ('R3', 'R1'), ('R3', 'R1', 'R2')):
             for negative, world, compound in itertools.product((False, True), repeat=3):
                 with self.subTest(sources=sources, negative=negative, world=world, compound=compound):
@@ -69,7 +111,7 @@ class CorroboratingImplicationTests(unittest.TestCase):
                         h.add_atom('(: ev3 (Implication (AcceptSource R3) '
                                    '(And (AnnouncedBy Event3 C3) (AnnouncedIn Event3 R3) '
                                    '(Member Event3 StockSplit))) (STV 1 0.9))')
-                        event_tv = modus_ponens((1, 1), event_tv)
+                        event_tv = jeffrey_part(modus_ponens((1, 1), event_tv))
                     else:
                         h.add_atom('(: event (Member Event3 StockSplit) (STV 1 0.9))')
                     accepted = tuple(dict.fromkeys(('R3', 'R1', *sources)))

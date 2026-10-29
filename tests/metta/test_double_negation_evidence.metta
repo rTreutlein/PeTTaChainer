@@ -12,10 +12,12 @@
    (evidence-set ((fact-ev (ev68Kb MAIN Nil) premise (Event)) (rule-ev ev68Kb source))))
    (evidence-set ((fact-ev (ev68Kb MAIN Nil) premise (Event)) (rule-ev ev68Kb source))))
 
-;; Projection positions identify proof structure, never an observation.
+;; Node positions and the population prior a message updates identify proof
+;; structure, never an observation.
 !(test (evidence-entries (proof-term-evidence proof-walk-in-kb
-   (negated (negated (conjunction (marginal-proj 0 src_event)
-      (marginal-proj 1 src_event) (marginal-proj 2 src_event))))))
+   (negated (negated (conjunction (node-message 0 src_event cpu (likelihood And 0 0.9 ((point 0.5) (point 0.5) (point 0.5))))
+      ((node-jeffrey 1 src_event (prediction (STV 0.9 0.9)) (conditionals (0.25 0.05) (0.0 0.0))) cpu)
+      (node-message 2 src_event cpu (likelihood And 2 0.9 ((point 0.5) (point 0.5) (point 0.5)))))))))
    (src_event))
 
 ;; A live judgment view must keep the observed world fact and applied rule.
@@ -33,8 +35,8 @@
         ($_cleared (clear-temp-query-adds)))
    (test (data $same-evidence $entries) (true ((fact-ev (ev68Kb MAIN Nil) src_event (StockSplit Split1)) (rule-ev ev68Kb src_bridge)))))
 
-;; The same bridge reads a projection of a compound world observation. Its
-;; evidence is the observation, never marginal-proj positions 0, 1, or 2.
+;; The same bridge reads a part of a compound world observation through the
+;; compound's message. Its evidence is the observation, never node positions.
 !(compileadd ev68CompoundKb (: src_event (And (AnnouncedBy Split1 Apple)
    (AnnouncedOn Split1 Date20200730) (Member Split1 StockSplit)) (STV 1 0.9)))
 !(compileadd ev68CompoundKb (: src_bridge (Implication
@@ -54,6 +56,11 @@
 
 ;; A stated conditional and both double-negated applications are one source.
 ;; Revision with those applications used to inflate confidence to 0.870943.
+;; The three parts of the stored conjunction are read conditioned on its event
+;; (given true they are certain, given false each is its compound's Jeffrey
+;; update), mixed by the stored fact (1, .9), an observation read by its
+;; Pearl factor at its mean (exact only at confidence 1): the compound counts
+;; once.
 !(compileadd ev68ExplicitKb (: src_event (And (AnnouncedBy Split1 Apple)
    (AnnouncedOn Split1 Date20200730) (Member Split1 StockSplit)) (STV 1 0.9)))
 !(compileadd ev68ExplicitKb (: src_conditional
@@ -62,9 +69,9 @@
    (query 300 ev68ExplicitKb (: $p (Exists ($e) (And
       (AnnouncedBy $e Apple) (AnnouncedOn $e Date20200730) (Member $e StockSplit)
       (Implication (Implemented $e) (Not (Dilutes $e))))) $value)) $tv)
-   (STV 1 0.8181611546663349))
+   (STV 1.0 0.8177594758263098))
 !(test (let (: $_proof $_statement $tv)
    (query 300 ev68ExplicitKb (: $p (Exists ($e) (And
       (AnnouncedBy $e Apple) (AnnouncedOn $e Date20200730) (Member $e StockSplit)
       (Implication (Implemented $e) (Not (Dilutes $e))))) $value)) $tv)
-   (STV 1 0.8181611546663349))
+   (STV 1.0 0.8177594758263098))
