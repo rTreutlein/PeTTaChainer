@@ -1065,14 +1065,10 @@
 
 ;; Normalize a public KB id to its default runtime shape. Query contexts already
 ;; arrive shaped as `(kbid ctx vars)` and must pass through unchanged.
-(: existing-kb-context (-[det]-> Atom KBContext))
-(= (existing-kb-context $kb)
-   (brand KBContext $kb))
-
 (: kbctx (-[det]-> Atom KBContext))
 (= (kbctx $kb)
    (if (is-expr $kb)
-      (existing-kb-context $kb)
+      (brand KBContext $kb)
       (make-kb-context (brand KB $kb) MAIN Nil)))
 
 (: set-context-polymorphic-facts (-[det]-> KB Bool Bool))
