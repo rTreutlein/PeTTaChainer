@@ -427,3 +427,106 @@ Data: `scratch/e3_fix_moment_diff.jsonl`; the comparison completed without error
 | P10 | F5 | `(And (C a) (A a))` | 0.00029225544862326869 | 0.00029225544862421238 | 0.00029225544862471198 |
 | P17 | F5 | `(A a)` | 0.00012206908082568191 | 0.00012206908295719909 | 0.00012206908296708008 |
 | P17 | F5 | `(B a)` | 0.000127438145466785 | 0.00012743817470739494 | 0.00012743817471183583 |
+
+## R2 follow-up: exclude imported population-prior dependencies (2026-10-29)
+
+Implementation commit: **6e682473** (`Reject excluded prior dependencies in
+event graph replacements`), on `e3-dependence`, following reviewed HEAD
+`1f8cab43`. This addendum is committed separately. The worktree remains
+`/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.claude/worktrees/e3-dependence`.
+
+### Diagnosis and fix
+
+The review's new P2 is reproduced. A graph with the configured `(A $x)`
+population prior `(STV 0 1)`, the rule
+`A -> B = CTV((.9,1),(.2,1))`, and a certain observation of `Or(A,B)`
+returns `A=(STV 0 .9999)`. Its dependencies include A's population-fold hash
+F. Excluding F previously still returned that graph value, although the
+ordinary `sk-admits?` rule rejects it. The initial graph exclusion test
+preceded the import of the prior's dependencies.
+
+The graph now uses **`sk-admits?` on its completed value**, after joining
+the source and population-prior dependencies. This replaces the final
+proof/TV-only `sk-fact-matches?` check. A rejected dependency retains the
+caller's existing fallback through the same conditional branch. Proof/TV
+filtering remains part of the admission test. No new production helper,
+compatibility path, public signature change or deleted name is involved.
+
+The new `test_excluded_population_fold_keeps_the_graph_fallback` constructs
+the actual base-rate fold key and its hash F, verifies that the unrestricted
+graph returns zero and depends on F, verifies ordinary admission rejects
+that value with F excluded, and asserts the graph returns the supplied
+fallback. A subsequent unrestricted read still returns the original zero
+answer. This also covers exclusion after a warm graph answer. The regression
+failed against `1f8cab43` with an actual `sk-val` instead of `fallback`,
+then passed with the fix. All **14 event-dependence tests pass**.
+
+### Validation and numerical expectations
+
+`capped --slots 16 env PETTA_JOBS=16 scripts/verify.sh`: **PASS**, all six
+gates, **363 seconds**, recorded key **9db366f864e5**.
+
+- Strict MeTTa: **161 passed, zero failed**.
+- Python: **982 tests**, 60 files / 588 units, sixteen workers;
+  **64 expected failures**, one nightly skip; **4,458 query rows, zero aborts**.
+- Import scaling, judgment scaling (three query rows, zero aborts), lint
+  and ConceptNet passed.
+
+Existing numerical assertions and proof/score expectations are unchanged.
+`EXPECTED_FAILURES` diff against `1f8cab43`: **empty (61 -> 61)**. The only
+changed expectation is the newly tested excluded read: invalid graph value
+`A=0` -> caller's fallback. Unrestricted A remains zero because its prior
+assigns no mass to A=true; `P(B=true | A=false)=.2` leaves positive mass
+consistent with the Or observation. Moment formulas and D0 oracles are unchanged.
+
+Logs: `scratch/e3_r2_red.log`, `scratch/e3_r2_focused.log`,
+`scratch/e3_r2_verify.log`, `scratch/e3_r2_full.log`,
+`scratch/e3_r2_canary.log`.
+
+### Required comparisons
+
+The standard runner froze the final production tree as
+**1f8cab43-dfde66846**, runtime tree **2136b598f089**, before the implementation
+commit. No production change occurred between that snapshot and `6e682473`.
+The comparison uses master **c2f342a7** and anchor **b4065459**.
+
+Master full comparison: **PASS**, accuracy **identical in all 22 compared
+cases** (23 records including the separate CombiNet reference). The runner
+executed **43 runs** and reused **two of 45 results**; all 45 result records
+exit zero. Wall time was **1,794 seconds**, including the shared full-size
+queue behind a landing. Both StationOps replay belief streams are identical.
+The ProbLog fuzzer retains **6 -> 6 flagged KBs**, no newly flagged KB,
+zero unsupported KBs and zero crashes. There are no confirmed timing flags.
+The reused reliable-conflict candidate timing is marked `load differs`, so
+that pair provides no timing-regression conclusion.
+
+Full report:
+`/nexus/Dev/OpenCog/bench/results/compare/c2f342a7_vs_1f8cab43-dfde66846_full/report.md`.
+
+Anchor canary: **PASS**, six cases, **138 seconds** wall, 12 runs executed
+and six stored results reused. Accuracy differs from the anchor in four
+cases (live, stated conflict, reliable conflict and scale), inherited on
+master too; the anchor's master-relative gate reports no new blocking
+regression. Timing-host attempts could not find the worktree interpreter and
+exited 127; the standard runner retried locally and all six candidate cases
+exited zero.
+
+Canary report:
+`/nexus/Dev/OpenCog/bench/results/compare/anchor-b4065459_vs_1f8cab43-dfde66846_canary/report.md`.
+
+### Tokens and scope
+
+The unchanged `scratch/core_count.py` reports **326,324 core** o200k tokens,
+**17,685 third party**, **344,009 total** (`scratch/e3_r2_tokens.txt`). This
+follow-up adds ten core tokens to `1f8cab43`'s 326,314; against the original
+E3 baseline of 326,924 the net remains **-600**, satisfying the <=0 budget.
+No symbol was deleted in this follow-up, so there is no additional deleted-name
+audit to perform.
+
+Every PeTTa, test and benchmark command used `bench/capped`,
+`ulimit -v 16000000`, unset DISPLAY and `/dev/null` stdin. The worktree's
+pinned runtime and standard runners were used. Only this worktree and branch
+were edited; shared benchmark and validation-cache outputs are produced by
+the standard runners. No master, other worktree, push, merge or GitHub write
+was performed. All started jobs completed and were reaped. The bounded
+supported graph and numerical-enclosure limits documented above remain unchanged.
