@@ -179,6 +179,25 @@ class EventNodeTests(unittest.TestCase):
                 m1 = a / (a + b)
                 self.assertAlmostEqual(sum(xi * wi for xi, wi in zip(got['Xs'], got['Ws'])), m1, delta=1e-12)
 
+    def test_eight_concentrated_betas_compare_different_tensor_grids(self):
+        # Review counterexample: all eight axes are exactly Beta(3601,3601).
+        # Record the grids actually integrated during a full moment read.
+        janus.query_once("use_module(library(prolog_wrap)),nb_setval(e3_grids,[]),"
+                         "wrap_predicate(event_node:tensor_moments(_N,_Limit,_F,_T,_G,_M,_Size,_E),e3_grids,_Wrapped,"
+                         " (call(_Wrapped),nb_getval(e3_grids,_Old),nb_setval(e3_grids,[[_N,_Size]|_Old])))")
+        try:
+            variables = [(f'x{i}', 'beta(3601,3601)') for i in range(8)]
+            every = [(f'x{i}', 1) for i in range(8)]
+            (s, v, how), = moments(variables, [(1.0, [], []), (1.0, every, [1])], 1)
+            grids = janus.query_once('nb_getval(e3_grids,G)')['G']
+            # 2^8 and 3^8, rather than two nominal passes both using 2^8.
+            self.assertIn([7, 256], grids)
+            self.assertIn([9, 6561], grids)
+            self.assertEqual(how, 'exact')
+            self.assertAlmostEqual(s, 1 / 257, delta=1e-15)
+        finally:
+            janus.query_once("unwrap_predicate(event_node:tensor_moments(_,_,_,_,_,_,_,_),e3_grids)")
+
     def test_parameter_distributions(self):
         # A view keeps its moments: at c = 0 the variance s(1 - s) is Bernoulli(s)'s, and a
         # strength of 0 or 1 below c = 1 a Beta whose shapes are clipped at 1e-12, so every

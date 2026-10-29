@@ -3120,7 +3120,7 @@
           ($unifiers (sk-unifier-hashes $hash $key))
           ($ignore (hash-union $unifiers $outside))
           (($values $siblings $references) (sk-reference-values $ignore (the (List SkeletonValue) $standing))))
-      (sk-node-apply $key $outside (the (List SkeletonValue) $messages) (the (List SkeletonValue) $updates) (let $state (fold-semidet (sk-pair-merge-step true $ignore) (sk-merging sk-none () 0) (sk-report-values $values))
+      (sk-node-apply $key $filter $outside (ev-set 0) (the (List SkeletonValue) $messages) (the (List SkeletonValue) $updates) (let $state (fold-semidet (sk-pair-merge-step true $ignore) (sk-merging sk-none () 0) (sk-report-values $values))
          (case $state (
             ((sk-merging $merged () $deps)
                (let $_settled
@@ -3162,15 +3162,12 @@
       (if (sk-jeffrey-update? $value) (data $messages (cons $value $updates) $others)
          (data $messages $updates (cons $value $others)))))
 
-;; A key's compound messages and updates act on its merged value, or on its
-;; prior where it has none (event-moment-node.md): the observations first, all
-;; of a key's messages read once on that value, its population prior or the
-;; uniform prior (pearl-moments), then the predictions, each moving the result.
-(: event-network-read (-[semidet]-> SkeletonKey (List Number) SkeletonValue SkeletonValue))
-(: sk-node-apply (-[semidet]-> SkeletonKey (List Number) (List SkeletonValue) (List SkeletonValue) SkeletonValue SkeletonValue))
-(= (sk-node-apply $key $exclude $messages $updates $value)
+;; Observed likelihoods, then Jeffrey updates; graph replacements must be compatible.
+(: event-network-read (-[semidet]-> SkeletonKey SkeletonFilter (List Number) EvidenceSet SkeletonValue SkeletonValue))
+(: sk-node-apply (-[semidet]-> SkeletonKey SkeletonFilter (List Number) EvidenceSet (List SkeletonValue) (List SkeletonValue) SkeletonValue SkeletonValue))
+(= (sk-node-apply $key $filter $exclude $ev $messages $updates $value)
    (let $observed (if (== $messages ()) $value (sk-messages-on $key $exclude $messages $value))
-      (event-network-read $key $exclude (if (== $updates ()) $observed
+      (event-network-read $key $filter $exclude $ev (if (== $updates ()) $observed
          (fold-semidet sk-jeffrey-step
             (if (== $observed sk-none) (sk-part-prior $key (fold-semidet sk-value-ev-step (ev-set 0) $updates) $exclude) $observed)
             (the (List SkeletonValue) (jeffrey-order $updates)))))))
@@ -3746,7 +3743,7 @@
              (sk-reference-values $ignore (sk-certain-or $leaves (the (List SkeletonValue) $compatible)))))
       (let $value (if $siblings (sk-key-fallback $ignore $references $selected)
                      (fold-semidet (sk-merge-step true $ignore) sk-none (sk-report-values $selected)))
-         (sk-calibrated-value $given $key $filter $outside (sk-node-apply $key $outside (the (List SkeletonValue) $messages) (the (List SkeletonValue) $updates) $value)))))
+         (sk-calibrated-value $given $key $filter $outside (sk-node-apply $key $filter $outside $ev (the (List SkeletonValue) $messages) (the (List SkeletonValue) $updates) $value)))))
 
 (: proof-representative? (-[det]-> Proof Bool))
 

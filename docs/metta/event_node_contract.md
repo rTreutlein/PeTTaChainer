@@ -24,23 +24,31 @@ negative uses of the same canonical source are one factor, with polarity
 already represented by its stored strength. Node outputs never become reports.
 
 The E3 graph reader follows admitted skeleton structure to find compound
-observations, then reads fixed conditional templates through the conclusion
-index. It supports an acyclic graph with one explicit, single-parent CTV per
-conclusion, at most twelve atoms and twelve parameters, and at most twenty-four
-visited statements during observation discovery. Other templates retain the
-ordinary evaluator. Shared parents are one event bit in the enumeration; given
-branches are not imported as independent marginal parameters. Empty root counts
-remain uniform, including when a zero-confidence fact was omitted.
+and atomic observations, then reads fixed conditional templates through the
+conclusion index. All visible live producers must match the supported template;
+one unsupported producer rejects the graph. It supports an acyclic graph with
+one explicit, single-parent CTV per conclusion, at most twelve atoms and twelve
+parameters, and at most twenty-four visited statements during observation discovery. Other templates retain the
+ordinary evaluator. Observed children outside a compound enter the same joint
+model. Shared parents are one event bit in the enumeration; given branches are
+not imported as independent marginal parameters. Empty root counts read `sk-part-prior`, including configured rates and cavity population counts.
+Only a root with neither source counts nor a population prior remains uniform.
+Population prior proofs and dependencies accompany the answer without becoming
+observations.
 
 The output subscribes to the model's keys, including children without a report,
 so a late observation can wake its readers. Its dependency set holds raw roots
 and observations; internal inferred marginals do not become primitive inputs.
 Rule-owner references retain withdrawal identity. Structural discovery is cached
 per scope and overlay world; plans, including unsupported results, are also keyed
-by the skeleton row generation. This avoids rediscovering the same graph at every
+by both `sk-input-epoch` and the skeleton row generation, including negative
+availability results. This avoids rediscovering the same graph at every
 read while letting new rows change the plan. Numerical results are keyed by the
 full model and sources. All three caches clear with evaluation forcing state.
-They hold source data rather than output proof DAGs. Compiler forms, including
+They hold source data rather than output proof DAGs. Population priors are read
+after plan lookup. A replacement must satisfy the caller's proof/TV filter and
+have no evidence overlap with its exclusion evidence; otherwise the compatible
+ordinary value survives. Compiler forms, including
 frequency-valued implication conjuncts, retain their existing readers.
 
 ## Compound readers and merging
@@ -89,11 +97,13 @@ are:
 - s = E_prior[N_g]/E_prior[Z], exact by evaluation at the parameter means;
 - V = E_prior[N_g^2/Z]/E_prior[Z] - s^2.
 
-The full tensor rule compares 9 and 17 nodes when its fine grid fits 5,000
-points. With more than three free dimensions, concentrated Betas (both shapes
-above ten and their sum above 1,000) use max(2, floor((N+7)/8)) nodes on an
-N-node pass. If the first grid is too large, 5 and 9 nodes are compared, then
-15 if necessary. Refinement is bounded by 257 nodes per axis and 70,000 points.
+The full tensor rule compares nominal 9- and 17-node passes when the fine grid
+fits 5,000 points, otherwise 7 and 9. With more than three free dimensions,
+concentrated Betas (both shapes above ten and their sum above 1,000) use
+1+floor((N+7)/8) nodes on an N-node pass. Thus passes 7, 9, 17, 33, ... use
+2, 3, 4, 6, ... nodes on these axes: every comparison refines every Beta axis.
+Disagreement refines to `2*N-1`, bounded by 257 nominal nodes and 70,000 points;
+unresolved refinement claims the bound. Bernoulli axes are already exact.
 Agreement is within one percent of the variance contribution, plus 1e-12 of
 the value at the means. A failed or unresolved rule claims the variance bound.
 Bernoulli endpoints with Z=0 contribute zero to N_g^2/Z because N_g <= Z.

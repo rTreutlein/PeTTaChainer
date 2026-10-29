@@ -41,33 +41,31 @@ event_node_moments(Vars, Terms0, Goals, Answers) :-
 exact_answer(Z0, S, E, a(S, V, exact)) :- V is max(0.0, E / Z0 - S * S).
 
 exact_second_moments(Free, Terms, Goals, Mu, H0, Exact) :-
-    tensor_moments(17, Free, Terms, Goals, Mu, Size17, E17),
+    tensor_moments(17, 5000, Free, Terms, Goals, Mu, Size17, E17),
     ( Size17 =< 5000
-    -> tensor_moments(9, Free, Terms, Goals, Mu, _, E9),
+    -> tensor_moments(9, 70000, Free, Terms, Goals, Mu, _, E9),
        refined_moments(17, E9, E17, Free, Terms, Goals, Mu, H0, Exact)
-    ; tensor_moments(9, Free, Terms, Goals, Mu, Size9, E9), Size9 =< 70000,
-      tensor_moments(5, Free, Terms, Goals, Mu, _, E5),
-      ( agree_moments(H0, E5, E9) -> Exact = E9
-      ; tensor_moments(15, Free, Terms, Goals, Mu, Size15, E15), Size15 =< 70000,
-        refined_moments(15, E9, E15, Free, Terms, Goals, Mu, H0, Exact) ) ).
+    ; tensor_moments(9, 70000, Free, Terms, Goals, Mu, Size9, E9), Size9 =< 70000,
+      tensor_moments(7, 70000, Free, Terms, Goals, Mu, _, E7),
+      refined_moments(9, E7, E9, Free, Terms, Goals, Mu, H0, Exact) ).
 
 refined_moments(N, Ecoarse, Efine, Free, Terms, Goals, Mu, H0, Exact) :-
     (   agree_moments(H0, Ecoarse, Efine) -> Exact = Efine
     ;   N1 is 2 * N - 1, N1 =< 257,
-        catch(tensor_moments(N1, Free, Terms, Goals, Mu, Size, E1), error(evaluation_error(_), _), fail),
+        catch(tensor_moments(N1, 70000, Free, Terms, Goals, Mu, Size, E1), error(evaluation_error(_), _), fail),
         Size =< 70000
     ->  refined_moments(N1, Efine, E1, Free, Terms, Goals, Mu, H0, Exact)
     ;   Exact = bound ).
 
-tensor_moments(N, Free, Terms, Goals, Mu, Size, E) :-
+tensor_moments(N, Limit, Free, Terms, Goals, Mu, Size, E) :-
     length(Free, Count), maplist(axis_rule(N, Count), Free, Axes),
     foldl([_-rule(Xs, _), P0, P]>>(length(Xs, L), P is P0 * L), Axes, 1, Size),
-    (   Size =< 70000
+    (   Size =< Limit
     ->  zeros(Goals, Zero), tensor(Axes, Mu, 1.0, Terms, Goals, h, Zero, E)
     ;   E = none ).
 
 axis_rule(N, Count, Id-D, Id-Rule) :-
-    ( Count > 3, D = beta(A, B), min(A, B) > 10, A + B > 1000 -> Nodes is max(2, (N + 7) // 8) ; Nodes = N ),
+    ( Count > 3, D = beta(A, B), min(A, B) > 10, A + B > 1000 -> Nodes is 1 + (N + 7) // 8 ; Nodes = N ),
     dist_rule(D, Nodes, Rule).
 
 agree_moments(H0, Ea, Eb) :-
