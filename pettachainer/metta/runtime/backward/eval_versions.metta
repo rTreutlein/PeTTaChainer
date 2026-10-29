@@ -1117,63 +1117,22 @@
                   $own)))
          ($_fold $own)))))
 
-;; A completion marginalises the parts it does not complete over their values
-;; before its consequence C is observed: the likelihood of C given M is
-;; s_O u + (1 - s_O) v with s_O O's probability apart from C. So the siblings
-;; read no view that depends on C: one derived from C counts C twice, through
-;; s_O and through the likelihood ratio. In a loop through C a sibling's
-;; support through C is circular, as for a closed read: a complete sibling
-;; none of whose views it may read is read closed, with a complete C pinned
-;; unfounded. In B <- (Or A D), D <- B with B observed true, D's value is
-;; B's own; read without it D is false and the completion onto A finds A true,
-;; exact (fuzzer seed 12000268). A consequence stored as known false is
-;; what the pin would make it: the siblings read it as it is, through the rows
-;; it settles (B <- (And A C) with C false is false, which a closed read
-;; cannot settle while A has no value). The consequence is the completion's
-;; last statement premise.
-;;
-;; The likelihood needs the siblings only where the completed part M leaves
-;; the antecedent open: M true for And, M false for Or. A sibling with no
-;; value of its own is read under that condition, M given, the rows it
-;; depends on evaluated again with M known: a loop B <- (Or A D), D <- (Or A
-;; B) over complete B and D, with A an unobserved root and D observed false,
-;; gives B no value, since A has none; given A false the closed read finds B
-;; unfounded, so D false says A false (fuzzer seed 12000044; before, A
-;; answered its population prior). The sibling read under M may depend on
-;; M's hypothesis, which is no support: M's own key is not excluded there.
-;;
-;; The connective's key K can have evidence of its own (a stored compound, a
-;; rule concluding it), which the completion reads (sk-evidence-view) and is
-;; conditioned on (CompletionEvidenceFormula). The siblings read none of K's
-;; views, which carry that evidence: a projection of a stored (And G H) onto
-;; H would count it again. C may read its prediction from K: under M's prior
-;; given K's evidence, that prediction is the prior C has. But not from what
-;; K's inversion rows observe for other rules: K inverted from another rule's
-;; observation reaches M through that rule's own completion, and C's
-;; prediction from it read as an observation shared that evidence with it, a
-;; view the merge then took in place of the informative one (p10_a: A 0.401
-;; where master gives 0.560 and the exact value is 0.567).
-(: sk-compound-evidence-step (-[det]-> Atom SkPattern Atom))
-(= (sk-compound-evidence-step $found $premise)
-   (case $premise (((CPU CompoundEvidence ($_kb $compound $_consequence $kbctx) $_res) (sk-key $compound $kbctx)) ($_other $found))))
-
+;; A completion's recipe fixes its target, compound, observation position and
+;; opening polarity; statement inputs before the observation are siblings.
+;; Siblings exclude the consequence and compound to avoid feedback. A known
+;; false consequence needs no closed pin; otherwise complete siblings may close
+;; with C unfounded. An unanswered sibling may be read with the target given
+;; at its opening value (true for And, false for Or, complemented for Not).
+;; That hypothesis supplies no support and is removed from the exclusions.
+;; The compound's independent evidence conditions the prior and siblings;
+;; the observation excludes other inversions' observations but may read a
+;; prediction through the compound's own evidence. See runtime_design_assumptions
+;; and prior_factored_merge for the policy and its known approximation limits.
 ;; Folded over what the compound's inversion rows read: the hashes of each
 ;; such observation, the completion's own consequence aside.
 (: sk-observed-exclusion-step (-[det]-> SkeletonKey (List Number) SkeletonKey (List Number)))
 (= (sk-observed-exclusion-step $consequence $hashes $input)
    (if (=alpha $input $consequence) $hashes (append-flat (sk-unifier-hashes (index-hash $input) $input) $hashes)))
-
-;; The condition a completion reads an unvalued sibling under: the completed
-;; statement true when its part (negated or not) opens a conjunction, false
-;; when it opens a disjunction.
-(: sk-completed-given-step (-[det]-> Number SkeletonKey (List SkeletonGiven) SkPattern (List SkeletonGiven)))
-(= (sk-completed-given-step $khash $key $found $premise)
-   (case $premise (
-      ((CPU CompletionLikelihoodsFormula (And $negated $_conditioned $_others $_rule) $_likelihood)
-         (cons (sk-given $khash $key (if (== $negated true) false true)) ()))
-      ((CPU CompletionLikelihoodsFormula (Or $negated $_conditioned $_others $_rule) $_likelihood)
-         (cons (sk-given $khash $key (if (== $negated true) true false)) ()))
-      ($_other $found))))
 
 (: sk-without-hash-step (-[det]-> Number (List Number) Number (List Number)))
 (= (sk-without-hash-step $drop $kept $hash) (if (== $hash $drop) $kept (cons $hash $kept)))
@@ -1181,12 +1140,6 @@
 (: sk-known-false-step (-[det]-> Bool SkFact Bool))
 (= (sk-known-false-step $found ($_type $_kbctx $_proof $tv))
    (if $found true (case $tv (((STV $s $c) (if (>= $c 1.0) (<= $s 0.0) false)) ($_other false)))))
-
-(: sk-last-statement-step (-[det]-> Atom SkPattern Atom))
-(= (sk-last-statement-step $last $premise)
-   (case $premise (
-      ((CPU $_fun $_args $_res) $last)
-      (($type $kbctx $_proof $_tv) (sk-key $type $kbctx)))))
 
 ;; An implication instance sample must not restate the implication it
 ;; estimates: its row starts out excluding every rule whose premises and
@@ -1340,7 +1293,7 @@
 ;; or a nested completion's, read (proof-given-evidence).
 (: sk-condition-evidence (-[det]-> Atom Atom (List SkPattern) EvidenceSet EvidenceSet))
 (= (sk-condition-evidence $type $proof $premises $ev)
-   (if (sk-completion-proof? $proof)
+   (if (not (== (completion-recipe-of $premises) no-completion))
       (evidence-subtraction-certain $ev (proof-given-evidence (brand Proof $proof)))
       (if (if (sk-inverted-proof? $proof) true (head-is? $type ImplicationInstanceSample)) $ev
          (evidence-condition $ev (fold-flat sk-leaf-premise-step () $premises)))))

@@ -1,6 +1,33 @@
 ;; Public knowledge-ingestion transaction and its private normalization steps.
 (: add-to-kb (-[nondet]-> RuntimeAddition (| Bool (List $none))))
-(= (add-to-kb $expr) (kb-add-expr live $expr))
+(= (add-to-kb $expr)
+   (case $expr (
+      ((rules ($premises |- ($target $scope $proof $tv)))
+         (if (if (if (is-expr $proof)
+                       (if (== $proof ()) false
+                          (let $operator (car-atom $proof) (head-is? $operator antecedent-completion))) false)
+                 (== (completion-recipe-of $premises) no-completion) false)
+            ;; Raw compiled additions have no source-lowering pass. Prepare
+            ;; their static roles once at this public ingestion boundary.
+            (let* (($inputs (typed-runtime-premises $premises))
+                   ($recipe (fold-semidet raw-completion-step
+                      (completion-recipe (brand Statement $target) $_compound $_context -1 $_opening) $inputs)))
+               (kb-add-expr live (brand RuntimeAddition
+                  (rules ((cons (CPU ReadLikelihoodContext $recipe $_unused) $premises)
+                     |- ($target $scope $proof $tv))))))
+            (kb-add-expr live $expr)))
+      ($_fact (kb-add-expr live $expr)))))
+
+(: raw-completion-step (-[semidet]-> CompletionRecipe SkPattern CompletionRecipe))
+(= (raw-completion-step (completion-recipe $target $compound $scope $index $opening) $premise)
+   (case $premise (
+      ((CPU CompoundEvidence ($_kb $key $_consequence $context) $_result)
+         (completion-recipe $target $key $context $index $opening))
+      ((CPU CompletionLikelihoodsFormula ($connective $negated $_conditioned $_others $_rule) $_likelihood)
+         (completion-recipe $target $compound $scope $index
+            (if (== $connective And) (if (== $negated true) false true) (== $negated true))))
+      ((CPU $_fun $_args $_res) (completion-recipe $target $compound $scope $index $opening))
+      ($_statement (completion-recipe $target $compound $scope (+ $index 1) $opening)))))
 
 ;; A class link (Inheritance A B) is the implication (A $x) -> (B $x), whose
 ;; instances its queries fold. The public registration call remains valid but

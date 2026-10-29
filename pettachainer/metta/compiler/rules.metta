@@ -800,30 +800,14 @@
                ((CPU CTVBayesFormula (quote ($atv $read-likelihoods)) $iitv))))
          $atv $iitv)))
 
-;; For every child M of a pure conjunction or disjunction H, compile the
-;; completion (And O C) -> M, where O is the connective over H's other
-;; children and C is the original consequence. A negated connective H is
-;; completed as its De Morgan dual over the negated children. That is the only
-;; child-recovery operator for a pure And or Or: whole-H inversion still
-;; proves H itself, but does not also project to each child. The completion
-;; inverts the rule onto M over M's base rate, as a plain inversion inverts
-;; onto its antecedent, with C's likelihoods given M and not M at O's value
-;; (ConjunctLikelihoodFormula, DisjunctLikelihoodFormula), so it is the joint
-;; posterior over O and M; C's value enters as its likelihood ratio
-;; (ObservationRatioFormula). Projecting the inverted disjunction instead
-;; read O as known and the disjunction under its unconditioned prior, so a
-;; known disjunct did not condition it. A negated child (Not I) completes I,
-;; the statement its observations and base rate are about. The proof carries
-;; the base rate, so the completion merges with other updates of it by
-;; Bayes' rule (sk-factored-merge). H's key K can have evidence of its own (a
-;; stored compound), which screens C off from M: the completion reads it
-;; apart from K's parts and C (CompoundEvidence, sk-evidence-view) and is
-;; conditioned on it (CompletionEvidenceFormula), its prior then P(M | e_K)
-;; and its proof's base e_K's proof instead of the population's `cpu`: the
-;; first goal read, its proof takes the first `cpu` token (replace-token). So
-;; completions conditioned on one e_K combine over that prior, and the
-;; completion holds e_K's evidence.
-;; A conjunction or disjunction is pure when no child computes (`computing?`).
+;; Complete each child M of a pure And/Or H from its siblings O and original
+;; consequence C; whole-H inversion proves H without projecting its children.
+;; Negated H uses its De Morgan dual, and a negated child completes its key.
+;; The recipe records the opening polarity and statement-input positions.
+;; C updates M's prior through the likelihood marginalised over O. H's own
+;; independent evidence conditions that prior and O (CompoundEvidence), and
+;; supplies the proof's first `cpu` token, so completions combine over the
+;; same prior. Formula details and limitations: prior_factored_merge.md.
 ;; The connective over a compound's children, or its one child.
 (: connective-statement (-[det]-> Atom (List Statement) Statement))
 (= (connective-statement $connective (cons $head $tail))
@@ -853,6 +837,11 @@
                       (complete-lowering $shape-kb (connective-statement $connective $others)))
                    (($consequent-execs $consequent-proofs $consequent-tv)
                       (complete-lowering $shape-kb $consequent))
+                   (($target $negated) (canon $missing))
+                   ($inputs (append-flat $truth-premises (append-flat $others-execs $consequent-execs)))
+                   ($recipe (completion-recipe $target $key $shape-kb
+                      (- (length (fold-flat statement-input-step () $inputs)) 1)
+                      (if (== $connective And) (not $negated) $negated)))
                    ($antecedent-rate-pattern (rule-base-rate-pattern $params $full))
                    ($consequence-rate-pattern (rule-base-rate-pattern $params $consequent))
                    (($rule-execs $rule-ctv $rule-likelihoods)
@@ -863,7 +852,6 @@
                    ($proof-token
                       (implication-proof-token (append $others-proofs $consequent-proofs)))
                    ($consequent-proof (implication-proof-token $consequent-proofs))
-                   (($target $negated) (canon $missing))
                    ($premises
                       (append-flat $truth-premises
                          (append-flat $others-execs
@@ -893,7 +881,7 @@
                                          (quote ($consequent-obs-tv $completion-ctv))
                                          $out-tv))))))))))))
                   (brand CompiledAddition
-                     ($premises |-
+                     ((cons (CPU ReadLikelihoodContext $recipe $_recipe-context) $premises) |-
                         (: $shape-kb
                            ((antecedent-completion $prf $idx with cpu (prior $target-prior))
                             $proof-token)

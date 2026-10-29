@@ -91,7 +91,8 @@ class CertainObservationOverlapTests(unittest.TestCase):
             "'sk-store-proof!'(0,[by,f,[negated,Inner]],['ev-set',0],Root), "
             "'proof-given-evidence'(Root,Given), 'evidence-entries'(Given,Before), "
             "'evidence-union'(EA,EB,AB), 'evidence-union'(AB,ER,All), "
-            "'sk-condition-evidence'(['Report'],Part,[],All,Compared), "
+            "Recipe=['completion-recipe',['Report'],['And',['A'],['B']],Scope,2,true], "
+            "'sk-condition-evidence'(['Report'],Part,[['CPU','ReadLikelihoodContext',Recipe,_]],All,Compared), "
             "'evidence-entries'(Compared,Remaining), "
             # Root the proof, but not its cached context union. The collector
             # must follow the memo for both Root and its child reference.

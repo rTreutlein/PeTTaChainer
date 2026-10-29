@@ -262,9 +262,10 @@
           (kb-add-atom $backend rules
              (brand SpaceAtom (runtime-rule-row $id $typed-ccls $rule-args))))
        ($_expected (store-rule-expected-score! $backend $id $rule-args))
-       ;; A refined rule reads its truth goal first (rule-truth-premises); the
-       ;; rule's search score follows that goal's value.
-       ($_truth (case (copy_term $rule-args) (
+       ;; The recipe precedes executable inputs; a refined rule's first input
+       ;; is still its truth goal, whose value determines the search score.
+       ($_truth (case (copy_term (if (== (completion-recipe-of $rule-args) no-completion)
+                                    $rule-args (cdr-atom $rule-args))) (
           ((cons $truth-first $_truth-rest) (register-truth-premise! $id $truth-first))
           (() ()))))
        ($_name-idx (register-rule-name! $backend $id $typed-ccls))

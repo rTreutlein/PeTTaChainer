@@ -45,6 +45,7 @@
    (sk-entangled (List SkeletonKey) Number SkeletonRowState))
 
 (datatype LikelihoodContext (likelihood-context (List Number) EvidenceSet))
+(datatype CompletionRead (completion-read Number SkeletonRowState))
 
 ;; --- Learned combination modes (docs/metta/combination_modes.md) -------------
 
