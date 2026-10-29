@@ -1,11 +1,11 @@
 ;; Forward schemas: trigger and output keys, aggregate identities and
 ;; observations, and the stored facts of a statement.
 
-(: NoForwardOutputCandidate Type)
-(: no-forward-output-candidate NoForwardOutputCandidate)
+(datatype NoForwardOutputCandidate
+   no-forward-output-candidate)
 
-(: ForwardOutputKey Type)
-(: forward-output-key (-[det]-> KBContext Statement ForwardOutputKey))
+(datatype ForwardOutputKey
+   (forward-output-key KBContext Statement))
 
 (: forward-base-rate-identity
    (-[det]-> KB Statement ForwardAggregateIdentityKey))
@@ -19,13 +19,11 @@
 (: forward-class-link-descriptor
    (-[det]-> KB Term Term SkeletonKey ForwardAggregateDescriptor))
 
-(: ForwardAggregateIdentityRow Type)
-(: forward-aggregate-identity-row
-   (-[det]-> ForwardAggregateIdentityKey Number ForwardAggregateIdentityRow))
+(datatype ForwardAggregateIdentityRow
+   (forward-aggregate-identity-row ForwardAggregateIdentityKey Number))
 
-(: ForwardAggregateInterest Type)
-(: forward-aggregate-interest
-   (-[det]-> ForwardTriggerKey Number ForwardAggregateDescriptor ForwardAggregateInterest))
+(datatype ForwardAggregateInterest
+   (forward-aggregate-interest ForwardTriggerKey Number ForwardAggregateDescriptor))
 
 ;; Both indexes expose the selective numeric hash as their first generated
 ;; Prolog argument.  Complete keys remain in the payload to reject collisions.
@@ -36,24 +34,20 @@
 (: &forward_aggregate_triggers (SpaceOf (Number ForwardTriggerKey)))
 (: &ctx_forward_aggregate_triggers (SpaceOf (Number ForwardTriggerKey)))
 
-(: ForwardAggregateState Type)
-(: forward-aggregate-state (-[det]-> Number Number Number Number ForwardAggregateState))
+(datatype ForwardAggregateState
+   (forward-aggregate-state Number Number Number Number))
 
 ;; Numeric state is keyed by the aggregate id; the external constructor
 ;; also carries the exact number of live contributions for drained reads.
 (: &forward_aggregate_state (SpaceOf (Number Number Number Number)))
 (: &ctx_forward_aggregate_state (SpaceOf (Number Number Number Number)))
 
-(: ForwardAggregateObservationValue Type)
-(: no-forward-aggregate-observation-value ForwardAggregateObservationValue)
-(: forward-base-rate-observation-value
-   (-[det]-> (Statement KBContext Proof TV) ForwardAggregateObservationValue))
+(datatype ForwardAggregateObservationValue
+   no-forward-aggregate-observation-value
+   (forward-base-rate-observation-value (Statement KBContext Proof TV)))
 
-(: ForwardAggregateObservation Type)
-(: forward-aggregate-observation
-   (-[det]-> ForwardAggregateObservationKey
-       ForwardAggregateObservationValue Number Number
-       ForwardAggregateObservation))
+(datatype ForwardAggregateObservation
+   (forward-aggregate-observation ForwardAggregateObservationKey ForwardAggregateObservationValue Number Number))
 
 (: forward-type-trigger-key (-[det]-> KB Statement ForwardTriggerKey))
 (= (forward-type-trigger-key $kbid $type)
@@ -105,9 +99,8 @@
 
 ;; Materialized facts are marked in &materialized_facts. They are never leaves:
 ;; the backward chainer re-derives them.
-(: MaterializedRow Type)
-(: materialized-row
-   (-[det]-> Number Statement KBContext (Statement KBContext Proof TV) EvidenceSet MaterializedRow))
+(datatype MaterializedRow
+   (materialized-row Number Statement KBContext (Statement KBContext Proof TV) EvidenceSet))
 (: materialized-forward-fact? (-[det]-> (Statement KBContext Proof TV) Bool))
 (= (materialized-forward-fact? ($type $kb $proof $tv))
    (let $hash (forward-output-index-hash (forward-output-key $kb $type))

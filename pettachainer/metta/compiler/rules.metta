@@ -46,8 +46,8 @@
 ;; Inverts compute goals from the conclusion backwards: each goal's one
 ;; unknown direct input is computed by the inverse operation, then the
 ;; original goal validates it.
-(: ComputeInversePlan Type)
-(: inverse-compute-plan (-[det]-> (List Goal) (List Variable) ComputeInversePlan))
+(datatype ComputeInversePlan
+   (inverse-compute-plan (List Goal) (List Variable)))
 
 (: inverse-compute-goals (-[semidet]-> (List Goal) (List Variable) ComputeInversePlan))
 (= (inverse-compute-goals () $known) (inverse-compute-plan () $known))
@@ -74,7 +74,7 @@
    (let ($key $_odd) (canon $antecedent)
       (if (head-is-member? $key (Exists ExistentialClaim)) (empty)
          (inverse-compute-goals
-            (prepend-reversed-goals (source-compute-goals (implication-side-conjuncts $antecedent)) ())
+            (reverse-onto (source-compute-goals (implication-side-conjuncts $antecedent)) ())
             (list_to_set (extract-vars $consequent))))))
 
 ;; The pattern a rule's base rate is taken over: a fresh copy of one of its
@@ -85,8 +85,8 @@
    (let ($params $pattern) (copy_term ($params (rule-query-pattern $side)))
       (brand Statement $pattern)))
 
-(: RatePlan Type)
-(: rate-plan (-[det]-> (List Goal) Atom RatePlan))
+(datatype RatePlan
+   (rate-plan (List Goal) Atom))
 (: base-rate-read-plan (-[det]-> KB Statement RatePlan))
 (= (base-rate-read-plan $kb $pattern)
    (let $goals (base-rate-premises $kb $pattern $result) (rate-plan $goals $result)))
@@ -99,10 +99,10 @@
 ;; evidence; reconciling would count them again, so only the negative branch
 ;; is reconciled. `deferred-rates`: the application resolves the likelihoods
 ;; itself (rule-likelihood-read).
-(: RateUse Type)
-(: reconciled-rates RateUse)
-(: learned-rates RateUse)
-(: deferred-rates RateUse)
+(datatype RateUse
+   reconciled-rates
+   learned-rates
+   deferred-rates)
 
 ;; Rules stored with an STV need a CTV derived from antecedent/consequent base
 ;; rates before modus ponens can use them. An explicit CTV already carries both
@@ -126,7 +126,7 @@
 (= (implication-ctv-goals $kb $params $a $b $value $use)
    (let* (($a1 (rule-base-rate-pattern $params $a))
           ($b1 (rule-base-rate-pattern $params $b))
-          ($rates (append-goals (antecedent-rate-premises $kb $a1 $rule-atv) (base-rate-premises $kb $b1 $rule-btv)))
+          ($rates (append-flat (antecedent-rate-premises $kb $a1 $rule-atv) (base-rate-premises $kb $b1 $rule-btv)))
           ($centre (unknown-branch-centre $kb $b))
           ($formula (CPU ImplicationLikelihoodsFormula (quote ($rule-atv $rule-btv $value $centre)) $reconciled)))
       (case $use (
@@ -134,19 +134,19 @@
             (let* (($ctv (CTV (the STVType $value) (STV $centre 0)))
                    ($a-plan (base-rate-read-plan $kb $a1))
                    ($b-plan (base-rate-read-plan $kb $b1)))
-               (data (append-goals $rates
+               (data (append-flat $rates
                         ((CPU ReadRate (quote ($kb $a1 $rule-atv $a-plan false)) (rate-read $admissible-a $_read-a))
                          (CPU ReadRate (quote ($kb $b1 $rule-btv $b-plan false)) (rate-read $admissible-b $_read-b))))
                   $ctv (likelihood-read $ctv $ctv
                      (negative-source (the OptionalSTV $admissible-a) (the OptionalSTV $admissible-b) (the STVType $value))))))
          (reconciled-rates
             (data
-               (append-goals $rates
+               (append-flat $rates
                   (cons $formula ((CPU likelihood-read-tv (quote ($reconciled)) $rule-ctv))))
                (the CTVType $rule-ctv) (the LikelihoodRead $reconciled)))
          (learned-rates
             (data
-               (append-goals $rates
+               (append-flat $rates
                   (cons $formula
                      ((CPU with-positive-branch (quote ($value $reconciled)) $likelihoods)
                       (CPU likelihood-read-tv (quote ($likelihoods)) $rule-ctv))))
@@ -182,7 +182,7 @@
              ($child (superpose $children))
              ($projected-prf (brand Proof (consequent-projection $b $child $prf)))
              ($projected-premises
-                (append-goals $truth-premises
+                (append-flat $truth-premises
                    ((CPU consequent-projection-tv ($value) $projected-tv)))))
          (compile-consequent-implications $kb $shape-kb $projected-prf $tv
             $projected-premises $projected-tv $use $params $a $child))
@@ -233,11 +233,11 @@
               (($ctv-execs $rule-ctv $rule-likelihoods)
                  (compile-implication-ctv-execs $kb $params $rate-a $last $tv $value $use))
               ($allargs
-                 (append-goals
+                 (append-flat
                     $truth-premises
-                    (append-goals
+                    (append-flat
                        $execs
-                       (append-goals $ctv-execs ((CPU $mp ($atv $rule-ctv) $btv)))))))
+                       (append-flat $ctv-execs ((CPU $mp ($atv $rule-ctv) $btv)))))))
             (canonical-addition $shape-kb $allargs
                (brand Proof (quote (by $prf $proof-token))) $out-b $btv))))
       (if (is-var $out-b) (empty) (compile-outputs (: $shape-kb (by $prf $prfb) $out-b $btv2)))))))
@@ -376,8 +376,8 @@
 ;; A conjunction's conjuncts grouped into parts that share no variables;
 ;; ground conjuncts join the first part that has variables, since a single
 ;; instance multiplies nothing.
-(: ConjunctSplit Type)
-(: conjunct-split (-[det]-> (List Atom) (List Atom) ConjunctSplit))
+(datatype ConjunctSplit
+   (conjunct-split (List Atom) (List Atom)))
 (: split-by-variables (-[det]-> (List Variable) (List Atom) ConjunctSplit ConjunctSplit))
 (= (split-by-variables $vars $part (conjunct-split $touching $apart))
    (if (== (/==\ $vars (extract-vars $part)) ())
@@ -408,8 +408,8 @@
 ;; The premises estimating a pattern's base rate as `$brtv`, its prior: a
 ;; compound's is one aggregate key per pattern (CompoundRate, #142), any other
 ;; statement is folded.
-(: BaseRateParts Type)
-(: base-rate-parts (-[det]-> (List Goal) (List Atom) BaseRateParts))
+(datatype BaseRateParts
+   (base-rate-parts (List Goal) (List Atom)))
 (: base-rate-premises (-[det]-> KB Statement $truth-value (List Goal)))
 (= (base-rate-premises $kb $pattern $brtv)
    (if (head-is-member? $pattern (Not And Or))
@@ -431,7 +431,7 @@
 (= (compound-rate-goals ($kbid $pattern) $searched $brtv)
    (let* (($kb (brand KB $kbid)) (($key $odd) (canon (brand Statement $pattern))))
       (if $odd
-         (append-goals (base-rate-premises $kb $key $rate) ((CPU BaseRateNotFormula (quote ($rate)) $brtv)))
+         (append-flat (base-rate-premises $kb $key $rate) ((CPU BaseRateNotFormula (quote ($rate)) $brtv)))
          (let $children (rate-children $key)
             (connective-rate-goals $kb $key $searched $brtv $children (conjunct-parts $children))))))
 ;; The parts arrive as a parameter: the determinism checker proves the fold
@@ -453,14 +453,14 @@
 (: composed-rate-part (-[det]-> KB Statement (List Atom) BaseRateParts BaseRateParts))
 (= (composed-rate-part $kb $key $part (base-rate-parts $goals $tvs))
    (let $statement (brand Statement (if (== (cdr-atom $part) ()) (car-atom $part) (cons (car-atom $key) $part)))
-      (base-rate-parts (append-goals (base-rate-premises $kb $statement $tv) $goals) (cons $tv $tvs))))
+      (base-rate-parts (append-flat (base-rate-premises $kb $statement $tv) $goals) (cons $tv $tvs))))
 (: composed-rate-premises (-[det]-> KB Statement (List Atom) $truth-value (List Goal) (List Goal)))
 (= (composed-rate-premises $kb $key $parts $rate $tail)
    (case (foldr-flat (composed-rate-part $kb $key) (base-rate-parts () ()) $parts) (
       ((base-rate-parts $goals $tvs)
          (case $tvs (((cons $first $more)
             (let $formula (if (head-is? $key And) BaseRateProductFormula BaseRateOrFormula)
-               (append-goals $goals (and-tv-goals $formula $first $more $rate $tail))))))))))
+               (append-flat $goals (and-tv-goals $formula $first $more $rate $tail))))))))))
 
 ;; The conjunction of truth values, multiplied left to right by the binary
 ;; `$formula` (AndFormula, as a lowered antecedent multiplies them, or
@@ -479,7 +479,7 @@
 (: antecedent-rate-premises (-[det]-> KB Statement $truth-value (List Goal)))
 (= (antecedent-rate-premises $kb $pattern $atv)
    (if (positive-only-pattern? $kb $pattern)
-      (append-goals (base-rate-premises $kb $pattern $rate)
+      (append-flat (base-rate-premises $kb $pattern $rate)
          (cons (CPU explicit-antecedent-rate-tv (quote ($kb $pattern $rate)) $atv) ()))
       (base-rate-premises $kb $pattern $atv)))
 
@@ -510,7 +510,7 @@
 (= (prior-base-rate-premises $kb $pattern $raw $brtv)
    (if (functional-pattern? $kb $pattern) (empty)
       (let $plan (base-rate-read-plan $kb $pattern)
-         (append-goals (base-rate-premises $kb $pattern $rate)
+         (append-flat (base-rate-premises $kb $pattern $rate)
             (cons (CPU ReadRate (quote ($kb $pattern $rate $plan true)) (rate-read $raw $brtv)) ())))))
 (: configured-population-prior-tv (-[semidet]-> KB Statement TV TV))
 (= (configured-population-prior-tv $kb $pattern $rate)
@@ -601,8 +601,8 @@
 
 ;; A sample rule's premises and its proof's arguments, built conjunct by
 ;; conjunct, and the antecedent truth values.
-(: InstanceSampleParts Type)
-(: instance-sample-parts (-[det]-> (List Goal) (List Atom) (List Atom) InstanceSampleParts))
+(datatype InstanceSampleParts
+   (instance-sample-parts (List Goal) (List Atom) (List Atom)))
 (: implication-instance-premise (-[det]-> KB Atom InstanceSampleParts InstanceSampleParts))
 (= (implication-instance-premise $kb $conjunct (instance-sample-parts $premises $proofs $tvs))
    (instance-sample-parts
@@ -700,8 +700,8 @@
         ($ctv (CTV (the STVType $itv) (STV (unknown-branch-centre $kb $b) 0)))
         ($rule-likelihoods (likelihood-read $ctv $ctv (negative-source (the OptionalSTV $raw-atv) (the OptionalSTV $btv) (the STVType $itv)))))
       (inversion-addition (make-kb-context $kb $ctx $vars) $prf cpu $truth-premises $a $b $inverse-execs
-         (append-goals (prior-base-rate-premises $kb $a1 $raw-atv $atv)
-            (append-goals (base-rate-premises $kb $b1 $raw-btv)
+         (append-flat (prior-base-rate-premises $kb $a1 $raw-atv $atv)
+            (append-flat (base-rate-premises $kb $b1 $raw-btv)
                (the (List Goal)
                   ((CPU ReadRate (quote ($kb $b1 $raw-btv $b-plan false)) (rate-read $btv $_read-btv))
                    (CPU ReadLikelihoodContext () $read-context)
@@ -733,11 +733,11 @@
           (($kb $_ctx $_vars) $kc)
           (($key $odd) (canon $a))
           ($premises
-             (append-goals $truth-premises
-                (append-goals $b-goals
-                   (append-goals $inverse-execs
-                      (append-goals $estimate
-                         (append-goals (stage-goals $kb $key ($a $b) $stage)
+             (append-flat $truth-premises
+                (append-flat $b-goals
+                   (append-flat $inverse-execs
+                      (append-flat $estimate
+                         (append-flat (stage-goals $kb $key ($a $b) $stage)
                             (the (List Goal)
                                ((CPU sk-observation-prior (quote ($kb $prfb_wit $btv_wit $stage)) $obs-prior)
                                 (CPU ObservationRatioFormula (quote ($btv_wit $obs-prior $atv $iitv)) $obs-tv)
@@ -746,7 +746,7 @@
              (if $odd (data ((CPU NotFormula ($mp-tv) $not-tv) (CPU NotFormula ($atv) $not-prior)) $not-tv $not-prior)
                 (data () $mp-tv $atv))))
       (brand CompiledAddition
-         ((append-goals $premises (the (List Goal) $polarity))
+         ((append-flat $premises (the (List Goal) $polarity))
             |- (: $kc ((inverted $prf with $token (prior $key-prior)) $prfb_wit) $key $key-tv)))))
 
 ;; Resolve a finite likelihood once after reading its observation. Certain
@@ -763,7 +763,7 @@
          ((CTV (STV $_u $cu) (STV $_v $cv))
             (if (if (>= $cu 1.0) (>= $cv 1.0) false)
                (data () $initial)
-               (data (append-goals (base-rate-premises $kb $consequent $_centre) $goals) $read)))
+               (data (append-flat (base-rate-premises $kb $consequent $_centre) $goals) $read)))
          ($_stv (data $goals $read))))))
 
 ;; A rule declared `(WithPrior p (Implication a b))` is inverted per
@@ -795,8 +795,8 @@
           (likelihood-read-premises $kb $prf $a-rate-pattern $b-rate-pattern $tv $rule-likelihoods))
        ($prior-token (if $population cpu $prior-prf)))
       (inversion-addition $kc $prf $prior-token $truth-premises $a $b $inverse-execs
-         (append-goals $prior-goals
-            (append-goals (append-goals $ctv-execs $read-goals)
+         (append-flat $prior-goals
+            (append-flat (append-flat $ctv-execs $read-goals)
                ((CPU CTVBayesFormula (quote ($atv $read-likelihoods)) $iitv))))
          $atv $iitv)))
 
@@ -865,15 +865,15 @@
                    ($consequent-proof (implication-proof-token $consequent-proofs))
                    (($target $negated) (canon $missing))
                    ($premises
-                      (append-goals $truth-premises
-                         (append-goals $others-execs
-                            (append-goals $consequent-execs
+                      (append-flat $truth-premises
+                         (append-flat $others-execs
+                            (append-flat $consequent-execs
                             (cons (CPU CompoundEvidence (quote ($kb $key $consequent $shape-kb)) (key-evidence $key-tv $key-formed $_key-proof))
-                            (append-goals (append-goals $rule-execs $read-goals)
-                               (append-goals
+                            (append-flat (append-flat $rule-execs $read-goals)
+                               (append-flat
                                   (prior-base-rate-premises $kb
                                      (rule-base-rate-pattern $params $target) $_raw-target $target-base-tv)
-                                  (append-goals (stage-goals $kb $target ($full $consequent) $stage)
+                                  (append-flat (stage-goals $kb $target ($full $consequent) $stage)
                                   (the (List Goal)
                                      ((CPU CompletionEvidenceFormula
                                          (quote ($connective $negated $odd $target-base-tv $others-tv $key-tv $key-formed))
@@ -905,18 +905,17 @@
 
 ;; A grounded rule is one specialization job. The specialization engine below
 ;; handles template indexing and late facts.
-(: SpecializationJob Type)
-(: compile-specialization (-[det]-> AnnotatedStatement SpecializationJob))
+(datatype SpecializationJob
+   (compile-specialization AnnotatedStatement))
 
 ;; These rows cross atom-space storage boundaries, so their tags are stable
 ;; schemas rather than local multiple-return wrappers.
 
-(: SpecializationTemplateRow Type)
-(: specialization-template-row
-   (-[det]-> KB Atom (List Atom) SpecializationJob SpecializationTemplateRow))
+(datatype SpecializationTemplateRow
+   (specialization-template-row KB Atom (List Atom) SpecializationJob))
 
-(: SpecializationDoneRow Type)
-(: specialization-done-row (-[det]-> KB AnnotatedStatement SpecializationDoneRow))
+(datatype SpecializationDoneRow
+   (specialization-done-row KB AnnotatedStatement))
 
 (: emit-specialization (-[nondet]-> KB SpecializationJob CompiledAddition))
 ;; --- Rule specialization against structural facts -------------------------

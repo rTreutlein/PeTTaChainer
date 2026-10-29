@@ -125,7 +125,7 @@
           ($result-premises (cons (: $scope $joint-proof $joint $joint-tv)
              ;; The conditional is the quotient P(B and D)/P(D): AndProjection
              ;; divides the joint by the event's rate; it projects no compound.
-             (append-goals $rates ((CPU AndProjection ($joint-tv $rate) $result-tv)))))
+             (append-flat $rates ((CPU AndProjection ($joint-tv $rate) $result-tv)))))
           ($result-add (brand CompiledAddition
              ($result-premises |-
                 (: $scope (conditioned-disjunction $joint-proof) $result $result-tv))))
@@ -134,8 +134,8 @@
           ($direct-add (brand CompiledAddition
              ($direct-goals |- (: $scope (conditioned-disjunction $direct-proof) $result $direct-tv)))))
       (data $scope (premise-bundle ((: $scope $result-proof $result $result-read-tv)) $result-read-tv $result-proof)
-         (cons $direct-add (cons $result-add (append-compiled-additions $direct-adds
-            (append-compiled-additions $adds $priors))))))))
+         (cons $direct-add (cons $result-add (append-flat $direct-adds
+            (append-flat $adds $priors))))))))
 
 ;; A collapse/superpose partition would freshen the hypothetical variables
 ;; away from the consequent. Keep the source sharing through this fold.
@@ -195,9 +195,9 @@
           (judgment-query-side $kb $mvars true $antecedent $consequent)))
       (compilation-plan (: (kbctx $kb) $prf $type (CTV $pos $neg))
          (cons (brand CompiledAddition
-            ((append-goals $pos-goals $neg-goals)
+            ((append-flat $pos-goals $neg-goals)
                |- (: (kbctx $kb) (total-implication-frontier (total-implication $pp $np)) $type (CTV $pos-tv $neg-tv))))
-            (append-compiled-additions
+            (append-flat
                (if (rule-truth-installed? $kb $type)
                   (rule-truth-query-adds $kb $type $antecedent $consequent)
                   (compile-implication-instance-adds true $kb $type $antecedent $consequent))
@@ -262,7 +262,7 @@
          (cons (: (make-kb-context $kb $ctx Nil) $prf $type (if $odd (NotFormula (the STVType $value)) $value)) $reversed))
       (let (premise-bundle $execs $_tv $_proof)
          (lower-query-assumption-premise $kb $ctx Nil (brand Statement $premise))
-         (prepend-reversed-goals $execs $reversed))))
+         (reverse-onto $execs $reversed))))
 
 (: compileQuery (-[nondet]-> KB AnnotatedStatement CompilationPlan))
 (= (compileQuery $kb (: $prf $Type $tv))
@@ -290,7 +290,7 @@
                 ($ctx (nextctx))
                 ($scope (make-kb-context $kb $ctx Nil))
                 ($premises (implication-side-conjuncts $scoped-facts))
-                ($execs (prepend-reversed-goals
+                ($execs (reverse-onto
                    (fold-flat (assuming-premises-step $kb $ctx) () $premises) ()))
                 ($assumed (query-context-premise-adds $kb $ctx Nil $execs))
                 ($_world (context-create! $scope))
@@ -298,7 +298,7 @@
                    (compileQuery $kb (: $inner-proof $scoped-goal $inner-tv))))
             (compilation-plan
                (CPU ContextQuery (quote ($scope $scoped-facts $inner $prf $tv)) $result)
-               (append-compiled-additions $assumed $adapters)))
+               (append-flat $assumed $adapters)))
       (if (source-exists? $Type)
          (compile-existential-query $kb (: $prf $Type $tv))
       (if (if (head-is? $Type Implication) (= $Type (Implication $_antecedent $_consequent)) false)
@@ -314,7 +314,7 @@
                (cons
                   (brand CompiledAddition
                      ($pos-goals |- (: $query-ctx (conditional-implication $pos-prf) $Type $pos-tv)))
-                  (append-compiled-additions
+                  (append-flat
                      (if (rule-truth-installed? $kb $Type)
                         (rule-truth-query-adds $kb $Type $antecedent $consequent)
                         (if (class-link-instance? $antecedent $consequent) (the (List CompiledAddition) ())
@@ -339,8 +339,8 @@
                   $goal
                   (cons
                      (brand CompiledAddition
-                        ((append-goals $left-goals
-                            (append-goals $right-goals ((CPU AndFormula ($left-tv $right-tv) $tv))))
+                        ((append-flat $left-goals
+                            (append-flat $right-goals ((CPU AndFormula ($left-tv $right-tv) $tv))))
                            |- $goal))
                      (union-compiled-additions $left-adds $right-adds))))
             (let $query-tv (if (head-is? $Type And) (statement-query-tv $tv) $tv)
@@ -377,7 +377,7 @@
                    ($_named (register-rule-evidence! $kbid $ctxprf $tv (== (extract-vars $type) ()))))
                ;; The producers of a compound the antecedent reads hold in the
                ;; assumption's own context, which no later query reuses.
-               (append-compiled-additions
+               (append-flat
                   (collapse
                      (compile-implication-forward-rules
                         $kbid $shape-kb
@@ -400,7 +400,7 @@
              ((: $_kb $_prf $type $tv)
                 (let $assumed-tv (default-query-assumption-tv $type $tv)
                    ((+ $idx 1)
-                    (prepend-reversed-compiled-additions
+                    (reverse-onto
                        (cons
                           (brand CompiledAddition
                              (() |- (: (make-kb-context $kbid $ctx $mvars)
@@ -414,4 +414,4 @@
 (= (query-context-premise-adds $kbid $ctx $mvars $premises)
    (let ($_idx $adds)
       (fold-flat (query-context-premise-adds-step $kbid $ctx $mvars) (0 ()) $premises)
-      (list_to_set (prepend-reversed-compiled-additions $adds ()))))
+      (list_to_set (reverse-onto $adds ()))))

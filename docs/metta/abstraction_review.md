@@ -77,7 +77,7 @@ The removed walkers are `prepend-reversed-proofs`, `prepend-reversed-tvs`, `prep
 
 ## Boundaries that should remain
 
-The compiler's typed executable-goal walkers remain because their reserved callers must be migrated together. The low-level `make-space-pair`/`row3`/`row4`, nominal proof conversion and accumulator guards may look like aliases, but they establish a representation or compiler boundary. An Atom parameter can suppress evaluation, a raw tuple can be interpreted as a call, and constructor patterns can accidentally classify an unrelated tuple as a TV. These are not equivalent to ordinary object-language helper calls.
+Compiler collection assembly now uses the shared proper-list operations; source-computation and trigger walks retain their specialized semantics. The low-level `make-space-pair`/`row3`/`row4`, nominal proof conversion and accumulator guards may look like aliases, but they establish a representation or compiler boundary. An Atom parameter can suppress evaluation, a raw tuple can be interpreted as a call, and constructor patterns can accidentally classify an unrelated tuple as a TV. These are not equivalent to ordinary object-language helper calls.
 
 Proof construction retains scoped evidence identities, reference DAG ownership and negation polarity. Population priors, stored reports, conditional branches and partial-fold confidence have different mathematics and cannot share a cosmetic TV mapper. Fold accumulation order also affects floating point results; replacing it with a hash iteration is not a cleanup.
 
@@ -93,8 +93,8 @@ All alpha-wrapper definitions, migrations and their temporary tests were reverte
 
 | Reserved file | Inventory and follow-up |
 | --- | --- |
-| `compiler/rules.metta` | 10 expanded existence probes, 4 alpha alternatives, 6 recursive list walkers. Migrate uses of `append-goals` and `prepend-reversed-goals` together with the remaining definitions; keep source-compute and trigger traversal semantics. |
-| `compiler/query_lowering.metta` | 2 hash constructions and 2 TV-dispatch cases. Migrate `append-goals`, `append-compiled-additions`, `prepend-reversed-goals`, `prepend-reversed-compiled-additions` with their callers; check temporary assumption/rule ownership. |
+| `compiler/rules.metta` | 10 expanded existence probes, 4 alpha alternatives, 6 recursive list walkers. Collection assembly uses `append-flat` and `reverse-onto`; keep source-compute and trigger traversal semantics. |
+| `compiler/query_lowering.metta` | 2 hash constructions and 2 TV-dispatch cases. Collection assembly uses `append-flat` and `reverse-onto`; check temporary assumption/rule ownership. |
 | `runtime/scheduling.metta` | 1 recursive list walker. Review against the short-circuit/fold contract; no scheduler policy or budgets changed in this round. |
 | `runtime/backward/evaluation.metta` | 75 alpha alternatives, 7 expanded existence probes, 17 optional-first cases, 11 TV cases, 4 recursive walkers, 69 hash constructions. Exact-existence probes can be considered individually; leave cache misses lazy, preserve conditioned-read exclusions, and do not reintroduce the rejected alpha wrapper. |
 | `prolog/runtime_helpers.pl` | Largest native concentration of collection, indexed identity and proof/TV plumbing. Any native extraction must preserve ordered evidence, dependency DAGs, exact clause references, cleanup ownership and native hot-path performance. |

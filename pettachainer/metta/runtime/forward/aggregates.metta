@@ -38,10 +38,8 @@
 ;; What a fold premise asks the forward chainer to maintain: its aggregate
 ;; identity and descriptor, and the trigger keys whose facts update it, in
 ;; order (two only for a class link between two distinct classes).
-(: ForwardAggregateSubscription Type)
-(: fa-subscription
-   (-[det]-> ForwardAggregateIdentityKey ForwardAggregateDescriptor (List ForwardTriggerKey)
-       ForwardAggregateSubscription))
+(datatype ForwardAggregateSubscription
+   (fa-subscription ForwardAggregateIdentityKey ForwardAggregateDescriptor (List ForwardTriggerKey)))
 
 ;; The fold premises the forward chainer can maintain: plain base rates, and
 ;; the instance fold of a class link (A $x) -> (B $x) between two classes.

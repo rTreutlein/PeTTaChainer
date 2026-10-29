@@ -15,58 +15,27 @@
    (Alias (Goal TV Proof)))
 (: CompiledPremises
    (Alias ((List Goal) (List Proof) TV)))
-(: CompilationPlan Type)
-(: compilation-plan
-   (-[det]-> Goal (List CompiledAddition) CompilationPlan))
+(datatype CompilationPlan
+   (compilation-plan Goal (List CompiledAddition)))
 
 (: atom_concat (-[det]-> Atom Atom Atom))
 (: term_hash (-[det]-> $expression Number))
-
-;; The runtime `reverse` relation has no strict-det declaration. Keep this
-;; proper-list view at the compiler boundary so callers remain deterministic.
-(: prepend-reversed-goals
-   (-[det]-> (List Goal) (List Goal) (List Goal)))
-(= (prepend-reversed-goals () $acc) $acc)
-(= (prepend-reversed-goals (cons $head $tail) $acc)
-   (prepend-reversed-goals $tail (cons $head $acc)))
-
-(: prepend-reversed-compiled-additions
-   (-[det]-> (List CompiledAddition) (List CompiledAddition)
-       (List CompiledAddition)))
-(= (prepend-reversed-compiled-additions () $acc) $acc)
-(= (prepend-reversed-compiled-additions (cons $head $tail) $acc)
-   (prepend-reversed-compiled-additions
-      $tail (cons $head $acc)))
-
-(: append-goals
-   (-[det]-> (List Goal) (List Goal) (List Goal)))
-(= (append-goals () $right) $right)
-(= (append-goals (cons $head $tail) $right)
-   (cons $head (append-goals $tail $right)))
 
 (: finish-reversed-compiled-premises
    (-[det]-> CompiledPremises CompiledPremises))
 (= (finish-reversed-compiled-premises
       ($reversed-execs $reversed-proofs $tv))
    (data
-      (prepend-reversed-goals $reversed-execs ())
+      (reverse-onto $reversed-execs ())
       (reverse-onto $reversed-proofs ())
       $tv))
 
 (: union-compiled-additions
    (-[det]-> (List CompiledAddition) (List CompiledAddition)
        (List CompiledAddition)))
-(: append-compiled-additions
-   (-[det]-> (List CompiledAddition) (List CompiledAddition)
-       (List CompiledAddition)))
-(= (append-compiled-additions () $right) $right)
-(= (append-compiled-additions (cons $head $tail) $right)
-   (cons $head
-      (append-compiled-additions $tail $right)))
-
 (= (union-compiled-additions $left $right)
    (list_to_set
-      (append-compiled-additions $left $right)))
+      (append-flat $left $right)))
 
 (: query-variables
    (-[det]-> (List Variable) (| NilType (List Variable))))
@@ -368,15 +337,14 @@
    (let ($key $odd) (canon $statement)
       (if $odd
          (brand CompiledAddition
-            ((append-goals $premises ((CPU NotFormula ($tv) $not-tv)))
+            ((append-flat $premises ((CPU NotFormula ($tv) $not-tv)))
                |- (: $kb (brand Proof (negated $proof)) $key $not-tv)))
          (brand CompiledAddition ($premises |- (: $kb $proof $key $tv))))))
 
 ;; One lowered source premise may expand into several executable goals, but it
 ;; still contributes one evidence value and one proof token to its caller.
-(: PremiseBundle Type)
-(: premise-bundle
-   (-[det]-> (List Goal) TV Proof PremiseBundle))
+(datatype PremiseBundle
+   (premise-bundle (List Goal) TV Proof))
 
 (: statement-children
    (-[det]-> Expression (List Statement)))
@@ -416,7 +384,7 @@
       (let ($goals $tvs $proofs $tokens $keys) (lower-node-siblings $kb $type $elem (remove-index $idx $atoms) true)
          (canonical-addition $kb
             (cons (: $kb $prf $type $tvin)
-               (append-goals (the (List Goal) $goals)
+               (append-flat (the (List Goal) $goals)
                   ((CPU EventNodeMessage (quote ($formula $idx $prf $tvin $tvs $proofs $keys))
                       (node-message-result $tvout $likelihood)))))
             (brand Proof (node-message $idx $prf (implication-proof-token (the (List Proof) $tokens)) $likelihood))
@@ -424,7 +392,7 @@
       (let ($goals $tvs $proofs $tokens $keys) (lower-node-siblings $kb $type $elem (remove-index $idx $atoms) false)
          (canonical-addition $kb
             (cons (: $kb $prf $type $tvin)
-               (append-goals (the (List Goal) $goals)
+               (append-flat (the (List Goal) $goals)
                   ((CPU EventNodeJeffrey (quote ($formula $idx $prf $tvin $tvs $proofs $keys))
                       (node-jeffrey-result $tvout $conditionals)))))
             (brand Proof ((node-jeffrey $idx $prf (prediction $tvin) $conditionals)
@@ -449,7 +417,7 @@
           (($target-key $_target-odd) (canon $target))
           (($goals $tvs $proofs $tokens $keys)
              (fold-semidet (lower-node-sibling $kb (cavity $compound-key $target-key) $implications) (data () () () () ()) $siblings))
-          ($ordered-goals (prepend-reversed-goals (the (List Goal) $goals) ()))
+          ($ordered-goals (reverse-onto (the (List Goal) $goals) ()))
           ($ordered-tvs (reverse-onto (the (List TV) $tvs) ()))
           ($ordered-proofs (reverse-onto (the (List Proof) $proofs) ()))
           ($ordered-tokens (reverse-onto (the (List Proof) $tokens) ()))
@@ -465,7 +433,7 @@
                 (let $head (car-atom $key) (if (is-var $head) false (source-computation-head? $head)))
                 false)))
       (let (premise-bundle $part-goals $tv $proof) (lower-part $kb $part)
-         (let $reversed (prepend-reversed-goals $part-goals (the (List Goal) $goals))
+         (let $reversed (reverse-onto $part-goals (the (List Goal) $goals))
             (data $reversed (cons $tv $tvs) (cons $proof $proofs) (cons $proof $tokens) (cons $part $keys))))
    (if (implication-type? $part)
       (data $goals (cons (STV 0.5 0.0) $tvs) (cons (brand Proof unknown-part) $proofs)
@@ -483,7 +451,7 @@
       (let ($goals $tvs $proofs $tokens $keys) (lower-node-siblings $kb $type (node-joint-part) $atoms true)
          (canonical-addition $kb
             (cons (: $kb $prf $type $tvin)
-               (append-goals (the (List Goal) $goals)
+               (append-flat (the (List Goal) $goals)
                   ((CPU EventNodeJoint (quote ($formula $spec $prf $tvin $tvs $proofs $keys)) $tvout))))
             (brand Proof ((node-joint $spec $prf) (implication-proof-token (the (List Proof) $tokens))))
             (brand Statement $goal) $tvout))
@@ -606,7 +574,7 @@
 (= (lower $kc $premise)
    (once (if (head-is? $premise Not)
       (let (premise-bundle $goals $tv $proof) (lower $kc (brand Statement (car-atom (cdr-atom $premise))))
-         (premise-bundle (append-goals $goals ((CPU NotFormula ($tv) $not-tv))) $not-tv (negated $proof)))
+         (premise-bundle (append-flat $goals ((CPU NotFormula ($tv) $not-tv))) $not-tv (negated $proof)))
    (if (explicit-exists-term? $premise)
       (fold-existential-premise-bundle (fold-scope $kc)
          (brand Statement (ExistentialAlternatives (canonical-existential-side $premise) $channel))
@@ -687,26 +655,40 @@
       (premise-bundle ((: $kc $prf $part (STV $s $c))) (STV $s $c) $prf)
       (if (head-is? $part Not)
          (let (premise-bundle $goals $tv $proof) (lower-part $kc (brand Statement (car-atom (cdr-atom $part))))
-            (premise-bundle (append-goals $goals ((CPU NotFormula ($tv) $not-tv))) $not-tv (negated $proof)))
+            (premise-bundle (append-flat $goals ((CPU NotFormula ($tv) $not-tv))) $not-tv (negated $proof)))
          (lower $kc $part))))
 
-;; A connective over parts read by `$read`: their goals in source order, their
-;; values folded by <Head>Formula, the conjunction of their proofs.
-(: lower-all-step
-   (-[semidet]-> (-[semidet]-> KBContext Statement PremiseBundle) KBContext Expression
-       CompiledPremises Statement CompiledPremises))
-(= (lower-all-step $read $kc $formula ($goals $proofs $tv) $part)
-   (let* (((premise-bundle $part-goals $part-tv $part-proof) ($read $kc $part))
-          (($cpu $next-tv) (binary-tv-cpu $formula $tv $part-tv)))
-      (data (cons $cpu (prepend-reversed-goals $part-goals $goals)) (cons $part-proof $proofs) $next-tv)))
+;; Combine premise bundles left-to-right. The formula is inserted only between
+;; non-empty bundles so the first premise supplies the initial TV and no fake
+;; unit-evidence proof is introduced.
+(: append-premise-bundle
+   (-[det]-> Expression CompiledPremises PremiseBundle CompiledPremises))
+(=
+   (append-premise-bundle $formula
+      ($current-execs $current-proofs $current-tv)
+      (premise-bundle $execs $tv $proof))
+   (if (== $current-execs ())
+      (data
+         (reverse-onto $execs ())
+         (cons $proof ()) $tv)
+      (let ($cpu $next-tv)
+         (binary-tv-cpu $formula $current-tv $tv)
+         (data
+            (cons $cpu
+               (reverse-onto $execs $current-execs))
+            (cons $proof $current-proofs)
+            $next-tv))))
 
+
+;; A connective over parts read by `$read`: source order and left association,
+;; with the first premise supplying the initial TV and proof.
 (= (lower-all $read $kc $head (cons $first $rest))
-   (let* (((premise-bundle $goals $tv $proof) ($read $kc $first))
-          (($reversed-goals $reversed-proofs $all-tv)
-             (fold-semidet (lower-all-step $read $kc (atom_concat $head Formula))
-                (data (prepend-reversed-goals $goals ()) ($proof) $tv) $rest)))
-      (premise-bundle (prepend-reversed-goals $reversed-goals ())
-         $all-tv (implication-proof-token (reverse-onto $reversed-proofs ())))))
+   (let ($goals $proofs $tv)
+      (finish-reversed-compiled-premises
+         (fold-flat (append-premise-bundle (atom_concat $head Formula))
+            (data () () (STV 1.0 1.0))
+            (map-semidet ($read $kc) (cons $first $rest))))
+      (premise-bundle $goals $tv (implication-proof-token $proofs))))
 
 ;; Compound settling: a part known with certainty at its connective's settling
 ;; value (`set-compound-settling`) decides the compound without the other
@@ -723,7 +705,7 @@
          (if (vars-covered? $compound (list_to_set (extract-vars $part)))
             (if (is-var $tv)
                (cons (premise-bundle
-                        (append-goals $goals ((CPU SettlesFormula (quote ($tv $value)) $value)))
+                        (append-flat $goals ((CPU SettlesFormula (quote ($tv $value)) $value)))
                         $value (settled $proof))
                   ())
                (if (== $tv $value) (cons (premise-bundle $goals $value (settled $proof)) ()) ()))
@@ -776,7 +758,7 @@
 (: child-producers-step
    (-[semidet]-> KBContext (List CompiledAddition) Statement (List CompiledAddition)))
 (= (child-producers-step $kc $acc $child)
-   (append-compiled-additions $acc (producers $kc $child)))
+   (append-flat $acc (producers $kc $child)))
 (= (producers $kc $statement)
    (let ($key $_odd) (canon $statement)
       (if (compound-source? $key)
@@ -784,27 +766,6 @@
             (map-flat (reading-addition $kc $key) (compound-readings $kc $key))
             (statement-children (cdr-atom $key)))
          ())))
-
-;; Combine premise bundles left-to-right. AndFormula is inserted only between
-;; non-empty bundles so the first premise supplies the initial TV and no fake
-;; unit-evidence proof is introduced.
-(: append-premise-bundle
-   (-[det]-> CompiledPremises PremiseBundle CompiledPremises))
-(=
-   (append-premise-bundle
-      ($current-execs $current-proofs $current-tv)
-      (premise-bundle $execs $tv $proof))
-   (if (== $current-execs ())
-      (data
-         (prepend-reversed-goals $execs ())
-         (cons $proof ()) $tv)
-      (let ($cpu $next-tv)
-         (binary-tv-cpu AndFormula $current-tv $tv)
-         (data
-            (cons $cpu
-               (prepend-reversed-goals $execs $current-execs))
-            (cons $proof $current-proofs)
-            $next-tv))))
 
 ;; Every lowering of a rule's antecedent, the complete one first. Each conjunct
 ;; is a `lower` read, a compound one of its key, so a stored or assumed
@@ -814,7 +775,7 @@
 (: antecedent-lowerings (-[semidet]-> KBContext Statement (List CompiledPremises)))
 (= (antecedent-lowerings $kc $antecedent)
    (let* (($conjuncts (statement-children (implication-side-conjuncts $antecedent)))
-          ($complete (fold-flat append-premise-bundle (data () () (STV 1.0 1.0)) (map-semidet (lower $kc) $conjuncts))))
+          ($complete (fold-flat (append-premise-bundle AndFormula) (data () () (STV 1.0 1.0)) (map-semidet (lower $kc) $conjuncts))))
       (cons (finish-reversed-compiled-premises $complete)
          (map-flat (|-> ((premise-bundle $goals $tv $proof)) (data $goals ($proof) $tv))
             (antecedent-settlings $kc $antecedent $conjuncts)))))
@@ -831,7 +792,7 @@
 (: complete-lowering (-[semidet]-> KBContext Statement CompiledPremises))
 (= (complete-lowering $kc $statement)
    (finish-reversed-compiled-premises
-      (fold-flat append-premise-bundle (data () () (STV 1.0 1.0))
+      (fold-flat (append-premise-bundle AndFormula) (data () () (STV 1.0 1.0))
          (map-semidet (inline-reading $kc) (statement-children (implication-side-conjuncts $statement))))))
 
 ;; The query-local rule a goal reading a statement as a whole needs: a negation
@@ -921,7 +882,7 @@
          (premise-bundle
             (cons
                (: $scope $direct-proof $claim $direct-tv)
-               (append-goals
+               (append-flat
                   $fold-execs
                   ((CPU EventNodeValue (quote ((Or 0 1) 1 $direct-proof $direct-tv ($known-tv) (cpu) (known))) $residual-tv))))
             $residual-tv
@@ -970,7 +931,7 @@
    (-[nondet]-> KB $context $variables CompiledPremises Atom
        CompiledPremises))
 (= (lower-query-assumption-premises-step $kb $ctx $vars $acc $premise)
-   (append-premise-bundle $acc
+   (append-premise-bundle AndFormula $acc
       (lower-query-assumption-premise
          $kb $ctx $vars (brand Statement $premise))))
 
@@ -1011,7 +972,7 @@
    (finish-reversed-compiled-premises
       (fold-flat
          (lower-query-assumption-premises-step $kb $ctx $vars)
-         (append-premise-bundle
+         (append-premise-bundle AndFormula
             (data () () (STV 1.0 1.0))
             (lower-query-assumption-premise-false
                $kb $ctx $vars (brand Statement $premise)))
@@ -1063,10 +1024,10 @@
 ;; suffixes: matching a suffix against an `exists` pattern would unify ordinary
 ;; variable-headed terms into open conses. The walk threads the witnesses seen
 ;; so far, each paired with its query variable.
-(: RuleQueryState Type)
-(: rule-query-state (-[det]-> $term (List WitnessVar) RuleQueryState))
-(: WitnessVar Type)
-(: witness-var (-[det]-> Atom Variable WitnessVar))
+(datatype RuleQueryState
+   (rule-query-state $term (List WitnessVar)))
+(datatype WitnessVar
+   (witness-var Atom Variable))
 
 (: witness-query-var (-[det]-> Atom (List WitnessVar) Atom))
 (= (witness-query-var $_witness ()) ())
