@@ -251,3 +251,179 @@ before hand-back.
 | P4 | F5 | `(C a)` | main | s .6344 c .0254 ; s* .6811 c* .5280 ; z 0.5 var 43.8 |
 | P10 | F5 | `(And (C a) (A a))` | main | s .3125 c .0126 ; s* .5625 c* .5125 ; z 1.8 var 65.6 |
 | P17 | F5 | `(B a)` | main | s .8031 c .0227 ; s* .8124 c* .5990 ; z 0.1 var 63.3 |
+
+## Review fix round (2026-10-29; after c0a1e33b)
+
+This round addresses all six findings in `review-e3-codex.md`. The branch and
+worktree remain `e3-dependence`; there is no rebase, merge, push or GitHub write.
+The implementation commit is **`6a157f7d`**, "Fix event graph completeness, priors and compatible reads". These fixes supersede the earlier
+empty-root and structural-cache descriptions in this report.
+
+### Root fixes and exact regressions
+
+1. Observation discovery now retains every authored observation reached through
+   admitted rows, including atomic children outside the observed compound.
+   All their atoms seed the joint model; an unsupported or over-cap closure
+   rejects the graph. P3/H plus `D|A=(1,0)` and certain D returns **A=1** with
+   zero variance (the existing STV endpoint convention prints c=.9999).
+   The derivation is immediate: D excludes every A=0 world.
+2. A root without authored counts reads `sk-part-prior` after plan lookup.
+   Configured and empirical cavity priors therefore use exactly the ordinary
+   reader, with the graph's evidence and excluded keys; their proofs and fold
+   dependencies accompany the graph answer without becoming observations.
+   Certain `Or(A,B)`, fixed B|A=.9/.2, and configured `(STV 0 1)` for A now
+   returns **A=0**, since its prior gives every A=1 world zero mass.
+   An additional empirical-population test checks the answer against that same
+   cavity reader and `mu/(mu+.2*(1-mu))`.
+3. Both the scope-availability and structural-plan caches include
+   `(sk-input-epoch, sk_row_seq)`, retaining their scope/overlay separation.
+   A P3/H raw B report `(STV .75 .9)` changes the native graph answer without
+   another evaluation or row admission; its mean equals the D0 oracle with
+   that report added. A separate test caches absence before the first compound,
+   adds that compound, then admits real rows without resetting the evaluation;
+   all reads see the changed inputs and row generations.
+4. Template discovery enumerates all live visible authored producers before
+   accepting the single supported CTV producer. P3 plus an observed D and an
+   STV-valued D->B rule returns the ordinary evaluator's value unchanged;
+   the graph cannot hide that producer behind B's supported CTV rule.
+5. `sk-node-apply` passes the proof/TV filter and excluded evidence to the native
+   graph reader. A replacement must have disjoint evidence and match the filter;
+   otherwise its already compatible alternative survives. P3 plus raw B at
+   `(STV .75 .9)`, excluding k0, retains that raw report with no k0 overlap.
+   Separate proof and TV filter checks retain the same report. An additional
+   population test verifies that the cavity prior also excludes the consumer's
+   evidence, not only the graph observations. Failed graph
+   integration also falls back through the same exclusive read.
+6. Concentrated axes now use `1+floor((N+7)/8)` points; the larger-grid
+   comparison uses nominal 7/9 passes, followed by 9->17->33 refinement.
+   Every compared Beta axis therefore strictly refines. For the exact eight
+   `Beta(3601,3601)` parameters, the compared grids are **2^8 and 3^8** rather
+   than identical 2^8 grids. Instrumentation asserts the actual grid sizes
+   and an integrated answer. Initial 17-pass sizing skips integration when
+   it exceeds 5,000 points; refinement retains the 70,000-point cap and the
+   existing unresolved bound. This retains enough resolution for mixed
+   broad/concentrated P17/F0/F5 parameters without weakening calibration.
+
+Ten new tests cover the six findings: nine graph/source/filter/cache tests
+and one quadrature regression. No production helper or public API was removed;
+internal signatures changed together with all callers. There are no obsolete
+arities or compatibility wrappers. No name was deleted in this round. The existing four-tree audit for all
+previously deleted E3 names was rerun and remains empty.
+
+### Calibration, gates and comparisons
+
+`EXPECTED_FAILURES` diff against c0a1e33b: **empty (61 -> 61)**. No existing
+numerical assertion, proof-shape expectation or scheduler-score pin changed.
+P3/P4/P5/P6/P10 retain no expected main failures. The initial uniform-axis
+attempt was rejected when the gate caught P17/F0 bounds. A subsequent low-order mixed-grid attempt was also rejected when it
+made P17/F5 B claim the bound. The final 7/9 mixed-grid comparison passes those
+cases and preserves omission equality. Interrupted diagnostic gates and their
+queued full comparisons are not acceptance evidence; they were stopped and
+reaped. The earlier diagnostic canaries passed but do not validate the final
+source tree.
+
+Focused graph/source/filter/cache validation passed all **13 tests**, including
+the four existing dependence tests. Final numerical regression validation covers
+the eight concentrated Betas plus P17/F0 A/B and P17/F5 B calibration.
+
+Final validation: **PASS**, all six `scripts/verify.sh` gates in **424 s**; recorded key
+`d52c72d1f287`. Strict MeTTa: **161 files, zero failures**. Python: **981
+tests in 60 files / 588 units**, sixteen workers, **64 expected failures**
+(61 D0 plus the three existing repeated-query cases), one nightly skip.
+Python metrics: **4,457 rows, zero aborts**; judgment scaling: three query
+rows, zero aborts. Import scaling and ConceptNet passed.
+Logs: `scratch/e3_fix_verify_complete.log`, `scratch/e3_fix_full_complete.log`,
+`scratch/e3_fix_canary_complete.log`.
+
+Both required comparisons **PASS** on the final runtime tree
+`5f0c99ad4566`, frozen as `c0a1e33b-d40380ac2` before `6a157f7d` was committed.
+There were no source changes between that freeze and the implementation commit.
+
+| Comparison | Verdict | Accuracy | Wall | Present run exits |
+|---|---|---|---:|---|
+| master `9102bd1c` --full | PASS | identical in all 22 compared cases | 962 s | 45/45 zero |
+| anchor `b4065459` --canary | PASS | four inherited differences, also on master | 153 s | 12/12 zero |
+
+The full comparison executed 45 runs and reused two records; the canary
+executed 12 runs and reused six records. No present run is unsupported.
+Both StationOps belief streams are identical to master's. The ProbLog fuzzer
+retains **6 -> 6 flagged KBs**, with no newly flagged KB, unsupported KB or
+crash. One initial conflict timing flag did not repeat in the paired rerun
+(47.31 -> 47.97 seconds), so the standard runner rejected it as a regression.
+The full wall time includes the shared full-run queue and CPU admission waits
+for its two eight-slot fuzzer jobs; no runner or admission policy was bypassed.
+
+Reports:
+
+- `/nexus/Dev/OpenCog/bench/results/compare/9102bd1c_vs_c0a1e33b-d40380ac2_full/report.md`
+- `/nexus/Dev/OpenCog/bench/results/compare/anchor-b4065459_vs_c0a1e33b-d40380ac2_canary/report.md`
+
+### Tokens and limits
+
+`scratch/core_count.py` reports core **326,314**, third party **17,685**, total
+**343,999** (`scratch/e3_fix_tokens.txt`). The original E3 baseline is 326,924:
+**net -610 core o200k tokens**, within the brief's <=0 budget. The fix round
+alone reduces the previous 326,318 by 4 tokens. Repeated reader comments now refer to
+`docs/metta/event_node_contract.md`; the actual source/prior/filter/cache and
+quadrature contracts are documented there.
+
+Every actual PeTTa, test and benchmark command in this round used `bench/capped`,
+`ulimit -v 16000000`, unset DISPLAY and `/dev/null` stdin. The pinned worktree
+runtime and the standard suite/comparison runners were used. No source or Git
+state in master, the main checkout or another worktree was changed. The standard
+runners' shared benchmark/result and validation-cache artifacts are their usual
+outputs. All started jobs are reaped before hand-back.
+
+The supported graph remains the bounded, acyclic, single-parent CTV graph
+described above; unsupported producers retain the ordinary evaluator. This
+round adds no general E5 graph merge or new universal numerical-enclosure claim.
+
+### D0 moment changes against reviewed HEAD
+
+An isolated copy of c0a1e33b's moment module and the fixed module evaluated the
+same D0 terms, using `probe_node` and `event_oracle`. All **48 means are exactly
+unchanged**. The table lists every variance that changed in floating point;
+all differences above 1e-9 relative move closer to the oracle. Other changes
+are below that scale. The largest relative movement is 2.295e-7, for P17/F5 B.
+All values use `V=E[N^2/Z]/E[Z]-s^2`; the STV conversion is unchanged.
+Data: `scratch/e3_fix_moment_diff.jsonl`; the comparison completed without errors.
+
+| Probe | Setting | Goal | Reviewed V | Fixed V | D0 oracle V |
+|---|---|---|---:|---:|---:|
+| P4 | H | `(A a)` | 1.3537501053262346e-05 | 1.353750105681506e-05 | 1.3537501056481993e-05 |
+| P4 | H | `(C a)` | 3.3563516703638552e-05 | 3.3563516758206013e-05 | 3.3563516758872147e-05 |
+| P10 | H | `(C a)` | 3.5646034725389519e-05 | 3.5646034734326815e-05 | 3.5646034734382326e-05 |
+| P10 | H | `(And (C a) (A a))` | 3.5408189998753503e-05 | 3.5408190008301421e-05 | 3.5408190008023865e-05 |
+| P4 | L | `(A a)` | 1.3538812732916128e-05 | 1.353881273591373e-05 | 1.3538812736024752e-05 |
+| P4 | L | `(C a)` | 3.3559462073451396e-05 | 3.3559462128296413e-05 | 3.3559462128740503e-05 |
+| P10 | L | `(C a)` | 3.5641439300126976e-05 | 3.5641439309397338e-05 | 3.5641439309286316e-05 |
+| P10 | L | `(And (C a) (A a))` | 3.5398303808054088e-05 | 3.5398303817435472e-05 | 3.5398303817213428e-05 |
+| P4 | X | `(A a)` | 1.3537357649751058e-05 | 1.3537357652859683e-05 | 1.3537357653414794e-05 |
+| P4 | X | `(C a)` | 3.3563981447937152e-05 | 3.3563981503614837e-05 | 3.3563981503004214e-05 |
+| P10 | X | `(C a)` | 3.5646558721069699e-05 | 3.5646558730229039e-05 | 3.5646558730173528e-05 |
+| P10 | X | `(And (C a) (A a))` | 3.5409316378909317e-05 | 3.5409316388124168e-05 | 3.5409316388179679e-05 |
+| P4 | K0 | `(A a)` | 2.1518281917376481e-05 | 2.1518281917598525e-05 | 2.1518281917654036e-05 |
+| P4 | K0 | `(C a)` | 3.4707760655339204e-05 | 3.4707760655283693e-05 | 3.4707760655450226e-05 |
+| P10 | K0 | `(C a)` | 3.4707760655394715e-05 | 3.4707760655228181e-05 | 3.4707760655339204e-05 |
+| P4 | K1 | `(A a)` | 1.3554459223019677e-05 | 1.3554459226128301e-05 | 1.3554459226683413e-05 |
+| P4 | K1 | `(C a)` | 3.3525701843617473e-05 | 3.3525701896297555e-05 | 3.3525701895908977e-05 |
+| P10 | K1 | `(C a)` | 3.5601320968248196e-05 | 3.5601320976796913e-05 | 3.5601320976796913e-05 |
+| P10 | K1 | `(And (C a) (A a))` | 3.5311379413593968e-05 | 3.5311379422253708e-05 | 3.5311379422253708e-05 |
+| P4 | F0 | `(A a)` | 0.0019782839738808899 | 0.0019782839739949099 | 0.0019782839739900249 |
+| P4 | F0 | `(C a)` | 0.068381283397003112 | 0.068381283397016657 | 0.068381283396826309 |
+| P10 | F0 | `(C a)` | 0.081896986537895733 | 0.081896986537952909 | 0.08189698007902918 |
+| P10 | F0 | `(And (C a) (A a))` | 0.07629206013265194 | 0.076292060132708617 | 0.076292053685851124 |
+| P17 | F0 | `(A a)` | 0.074486964965528091 | 0.074486965046944409 | 0.074486965046968334 |
+| P17 | F0 | `(B a)` | 0.058108457858280005 | 0.058108458243412597 | 0.058108458243508077 |
+| P4 | F1 | `(A a)` | 7.2069865008406175e-05 | 7.2069865009516398e-05 | 7.2069865009627421e-05 |
+| P4 | F1 | `(C a)` | 0.0020698327942136885 | 0.0020698327942182404 | 0.0020698327942173522 |
+| P10 | F1 | `(C a)` | 0.0027616361781814813 | 0.0027616361781813703 | 0.002761636178182203 |
+| P10 | F1 | `(And (C a) (A a))` | 0.0025294138250381848 | 0.0025294138250396281 | 0.002529413825039295 |
+| P17 | F1 | `(A a)` | 0.0010915106213127412 | 0.0010915106238689187 | 0.0010915106238641448 |
+| P17 | F1 | `(B a)` | 0.0010988646229045385 | 0.0010988646568534932 | 0.0010988646568532712 |
+| P4 | F5 | `(A a)` | 1.9543281000844459e-05 | 1.954328100184366e-05 | 1.954328100184366e-05 |
+| P4 | F5 | `(C a)` | 0.00024249771050793845 | 0.00024249771051026991 | 0.00024249771051210178 |
+| P10 | F5 | `(C a)` | 0.0003164973532112092 | 0.00031649735321304107 | 0.00031649735321187533 |
+| P10 | F5 | `(And (C a) (A a))` | 0.00029225544862326869 | 0.00029225544862421238 | 0.00029225544862471198 |
+| P17 | F5 | `(A a)` | 0.00012206908082568191 | 0.00012206908295719909 | 0.00012206908296708008 |
+| P17 | F5 | `(B a)` | 0.000127438145466785 | 0.00012743817470739494 | 0.00012743817471183583 |
