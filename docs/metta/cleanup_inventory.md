@@ -131,9 +131,9 @@ in `CLEANUP_REPORT.md`; “footprint” is the current source to investigate.
 
 | Order | Mechanism / footprint | Evidence and action | Required proof before larger deletion |
 | --- | --- | --- | --- |
-| 1 | Test-only `prefilter-head-concludable?` (~200 tokens) | Production call count zero; only two direct assertions in `test_structural_conclusion_prefilter.metta`; not in API. Delete implementation and obsolete tests, preserve live missing-input pruning tests. | Immediate MeTTa suite, final verify/full/canary |
-| 2 | `existing-kb-context` (one forwarding function) | Its only production call just brands an already shaped context. Inline the identical `brand KBContext` in `kbctx`; remove declaration/definition. No tests directly call it. | Immediate strict MeTTa suite; revert any specialization/answer change |
-| 3 | `externalize-proof-structure-list-core` (two forwarding calls) | Only maps `externalize-proof-structure` over its argument. Inline that same map at its two call sites; no test/API references. | Immediate strict MeTTa suite and bridge/public-result tests; revert any change |
+| 1 | Test-only `prefilter-head-concludable?` (146 tokens) | Production call count zero; only two direct assertions in `test_structural_conclusion_prefilter.metta`; not in API. Deleted implementation and obsolete tests; live checks moved to `test_missing_input_prefilter.metta`. | Immediate MeTTa suite, final verify/full/canary |
+| 2 | `existing-kb-context` (one forwarding function) | Its only production call just brands an already shaped context. Inlined the identical `brand KBContext` in `kbctx`; removed declaration/definition (32 tokens net). No tests directly call it. | Immediate strict MeTTa suite; revert any specialization/answer change |
+| 3 | `externalize-proof-structure-list-core` (two forwarding calls) | Only maps `externalize-proof-structure` over its argument. Inlined that same map at its two call sites (53 tokens net); no test/API references. | Immediate strict MeTTa suite and bridge/public-result tests; revert any change |
 | 4 | Canonical internal And/Or keys replacing permutations | `node-joint-goals` + `connective_combos` emit permutations; `compile-node-joints` emits a row per goal. Footprint small (~650 native + ~220 compiler tokens), generated-row saving potentially large. **Defer**: reversed keys currently differ; removing permutation before canonicalizing every key loses answers. | Canonical identity in ingestion, rules, all queries/folds, proof/output metadata and scoped caches; unchanged cold/warm/batch results and order/budget behavior |
 | 5 | Private implication-query/stated namespaces | Q 7,746 tokens + R stored-source/scaffold adapters + K context routing; whole files are an upper bound, not additive savings. **Defer**: source truth, hypothetical judgment and sample evidence differ. | One implication lowering with producer/lifetime policy; necessary-assumption, world exclusion, ground/non-ground, refinement, Exists and derived-rule tests |
 | 6 | `compile-outputs` and parallel strong-projection path | S event-output/joint block ~1.9K tokens plus R projection block; outputs still carry unique Pearl/Jeffrey/joint semantics. **Defer** until unified construct lowering supplies those rows. | All observed/predicted compound, cavity, completion-screening and source evidence cases; no larger EXPECTED_FAILURES |
@@ -161,7 +161,7 @@ or newly reproduced in this round**:
   overcount, compound implication-part producer overlap, duplicate equivalence
   loss, and connected joint-rate precedence limitations. Preserve values here;
   any correction needs its own oracle-backed change.
-- The calibration suite records 125 expected failures, including MAIN/Assuming
+- The calibration expected-failure set has 122 entries, including MAIN/Assuming
   differences and zero-confidence omission problems. Do not convert these into
   extra expected failures or suppress their probes during regeneration.
 - Source comments place map-semidet/fold-semidet in the old skeleton location;
@@ -189,3 +189,17 @@ or newly reproduced in this round**:
 5. Count each replacement, delete its old path, and run focused tests plus
    capped required gates before advancing. Target measured net savings,
    unchanged benchmark accuracy and equal/better paired timings.
+
+Round-1 measured result: **327,208 core tokens**, **231 saved (0.071%)**;
+third-party stays **17,685**. The three deletions above each have an immediate
+strict MeTTa-suite gate; final gate/benchmark evidence and full before/after
+per-file counts are in the root `CLEANUP_REPORT.md`. This is contract groundwork,
+not attainment of either size milestone.
+
+Final validation: strict MeTTa 161/0 after each deletion; full verify PASS
+(967 Python tests, 125 existing expected failures, one skip); full comparison
+PASS with no accuracy changes; local-timing anchor canary PASS. A focused
+standard paired retime resolved the full report's incomparable conflict
+sample: 45.12 -> 44.93 chainer seconds at equal load, identical accuracy.
+See [CLEANUP_REPORT.md](../../CLEANUP_REPORT.md) for exact commands, reports,
+remote timing failure diagnosis, limitations and every per-file token count.
