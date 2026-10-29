@@ -906,7 +906,7 @@
 ;; A grounded rule is one specialization job. The specialization engine below
 ;; handles template indexing and late facts.
 (datatype SpecializationJob
-   (compile-specialization AnnotatedStatement))
+   (compile-specialization (List Variable) Atom AnnotatedStatement))
 
 ;; These rows cross atom-space storage boundaries, so their tags are stable
 ;; schemas rather than local multiple-return wrappers.
@@ -915,7 +915,7 @@
    (specialization-template-row KB Atom (List Atom) SpecializationJob))
 
 (datatype SpecializationDoneRow
-   (specialization-done-row KB AnnotatedStatement))
+   (specialization-done-row KB SpecializationJob))
 
 (: emit-specialization (-[nondet]-> KB SpecializationJob CompiledAddition))
 ;; --- Rule specialization against structural facts -------------------------
@@ -975,14 +975,12 @@
           ($trigger $candidate))
       (ground-triggers $kb $rest $body)))
 
-;; Idempotency is per grounded statement, not merely per rule type: distinct
-;; proof ids or TVs are independent evidence even when their types coincide.
-;; The rule-add and fact-add paths may discover the same statement, so retain
-;; the full statement as the stable deduplication key.
-(= (emit-specialization $kb (compile-specialization (: $gprf $gtype $gtv)))
+;; Deduplicate complete rule specifications: parameters and prior as well as
+;; source proof, sides and TV. Rule-add and fact-add can discover the same job.
+(= (emit-specialization $kb $job)
    (let*
-      (($gstmt (: $gprf $gtype $gtv))
-       ($copy (copy_term $gstmt))
+      (((compile-specialization $params $prior (: $gprf (Implication $a $b) $gtv)) $job)
+       ($copy (copy_term $job))
        ($hash (term_hash $copy))
        ($done
           (collapse
@@ -993,7 +991,8 @@
       (if (== $done ())
          (let $_
             (once (add-atom &spec_done ($hash (specialization-done-row $kb $copy))))
-            (compile_ $kb $gstmt))
+            (compile-rule $kb $params $prior $gprf
+               (brand Statement $a) (brand Statement $b) $gtv))
          (empty))))
 
 ;; Rule-add: retain the job for later facts and also ground it against facts
@@ -1118,7 +1117,7 @@
                    (implication-side-conjuncts (brand Statement $antecedent))
                    $premise (specialization-trigger? (brand Statement $premise))))))
       (if (not (== $triggers ()))
-         (specialize-rule-add $kb $triggers (compile-specialization (: $prf $Type $tv)))
+         (specialize-rule-add $kb $triggers (compile-specialization $params $prior (: $prf $Type $tv)))
          (let*
             (($_evidence-reg (register-rule-evidence! $kb $prf $tv (== (extract-vars $Type) ())))
              ($shape-kb (make-kb-context $kb $ctx $vars))

@@ -378,6 +378,6 @@
           ($_gated (remove-data-rows! &prior_gated_rules (quote ($_h $_k $_p $name $_b $_a $_c))))
           ($_live (remove-data-rows! &prior_gated_live (quote ($_lh $_lk $_lp $name $_lid))))
           ($_rule-templates (remove-data-rows! &spec_template
-             (quote ($_rh (specialization-template-row $_rk $_rhead $_rtriggers (compile-specialization (: $name $_rtype $_rtv)))))))
-          ($_done (remove-data-rows! &spec_done (quote ($_dh (specialization-done-row $_dk (: $name $_dtype $_dtv)))))))
+             (quote ($_rh (specialization-template-row $_rk $_rhead $_rtriggers (compile-specialization $_rparams $_rprior (: $name $_rtype $_rtv)))))))
+          ($_done (remove-data-rows! &spec_done (quote ($_dh (specialization-done-row $_dk (compile-specialization $_dparams $_dprior (: $name $_dtype $_dtv))))))))
       $kbs))
