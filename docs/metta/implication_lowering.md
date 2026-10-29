@@ -87,8 +87,35 @@ that no future replacement is possible.
 
 ## First deletion
 
-The query-time stored-statement collector was redundant with ingestion's
-stated-positive publication. It now discovers only rule-application producers;
-the stored-fact scan and copy path are deleted. The internal two-sided plan
-calls the same side builder directly, deleting its single-use packaging
-wrapper. Strict MeTTa after this deletion: 161 files passed, zero failed.
+The initial deletion removed the query-time stored-statement collector and
+the single-use two-side packaging wrapper. Strict MeTTa (161/0), full verify
+and quick comparison passed, but a focused public `add-to-kb` probe found that
+the collector serves an independent entry point: already-compiled CTV and
+STV statements bypass ingestion's positive publication. An STV must answer
+at budget zero; a CTV needs one expansion for positive-branch projection
+(the initial zero-budget CTV probe was too strict). The collector was restored
+and regressions added for both direct value representations. Only the two-side wrapper deletion is retained: its
+caller now invokes the shared side builder directly.
+
+## Source storage and stopping point
+
+Raw STV source truth now uses its ordinary statement key. The permanent CTV
+producer uses the immutable source value compiled into its formula, retaining
+its `ForAll` rate parameters, instead of reading a second stored source key.
+Nested-source projections read the ordinary source. Native rule-evidence
+confidence lookup no longer searches a second namespace. Strict MeTTa after
+this deletion: 161 passed, zero failed.
+
+A subsequent ordinary-key positive-judgment candidate failed three files
+(158 passed): `test_forward_start_contextualized` gained a previously absent
+Assuming conjunction at STV (0.01896, 0.42039754412058533);
+`test_member_inheritance_premise` doubled sample confidence from
+0.0012484394506833685 to 0.0024937655860280327; and
+`test_implication_premise` lost the calculated total-implication proof while
+retaining its TV. That candidate was reverted in full, including the internal
+test-key rewrites. No expected value changed. Positive judgments retain their
+existing separate namespace and lifetime machinery. A future shared read must
+separate executable-rule seeds from judgment support, admit each sample fold
+once across value policies, and preserve CTV-premise proof discovery. Adding a
+new private statement tag would not solve those obligations. The complete
+one-lowering goal is therefore not achieved in this round.

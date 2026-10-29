@@ -1152,9 +1152,9 @@
              ($use (if $refine? learned-rates reconciled-rates))
              ($_equivalence (if $refine? () (register-equivalence-rule! $kb $prf $tv $a $b))))
             (superpose (
-               ;; Stated positive judgments stay private. A CTV is already
-               ;; executable rule storage in MAIN; an STV's full CTV reads its
-               ;; source and the ordinary base rates through a permanent row.
+               ;; Source truth lives at its ordinary statement key. The
+               ;; executable CTV uses the immutable stated value directly,
+               ;; with the ordinary base rates supplied by its permanent row.
                (let* ((($inner $last) (nested-implication-parts $b))
                       ($source-b (skolemize-conclusion-vars $prf (append $params $antecedent-vars) $b))
                       ($source-type (brand Statement (Implication $antecedent $source-b)))
@@ -1166,9 +1166,7 @@
                                (brand Statement (QuantifiedRule (index-hash $canonical) $canonical)))
                             $source-type))
                       ($query-kb (make-kb-context (brand KB (implication-query $kb)) MAIN Nil))
-                      ($source-kb
-                         (if $ctv? (kbctx $kb)
-                            (make-kb-context (brand KB (implication-stated $kb)) MAIN $params))))
+                      ($source-kb (kbctx $kb)))
                   (superpose (
                      (case $tv (
                         ((CTV $source-pos $source-neg)
@@ -1192,8 +1190,7 @@
                                     (() |- (: $source-kb $prf $source-type $tv)))
                                  (brand CompiledAddition (() |- (: $query-kb $prf $query-type $tv)))
                                  (brand CompiledAddition
-                                    ((cons (: $source-kb $prf $source-type $tv) $ctv-execs)
-                                       |- (: (kbctx $kb) $prf $source-type $source-ctv)))))))))
+                                    ($ctv-execs |- (: (kbctx $kb) $prf $source-type $source-ctv)))))))))
                      ;; The variables a nested implication of the source binds
                      ;; are its own: a projection reads the source apart from them.
                      (let* (($bound (\== (list_to_set (extract-vars $source-b)) (append $params $antecedent-vars)))

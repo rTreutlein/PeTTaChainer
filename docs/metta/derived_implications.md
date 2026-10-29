@@ -240,10 +240,10 @@ namespace: the negative branch is a stated truth of `(Implication (Not G) Y)`.
 They cannot become new world observations through a query.
 
 A stated CTV also remains a full statement in main rule storage, in both
-antecedent polarities. An STV
-source is retained in `implication-stated`; a permanent producer reads that
-source and converts it to a full CTV with the ordinary base-rate formula,
-retaining the original `ForAll` parameters. Internal implication premises
+antecedent polarities. An STV source is stored at its ordinary statement key.
+A permanent producer uses the immutable stated value directly and converts it
+to a full CTV with the ordinary base-rate formula, retaining the original
+`ForAll` parameters. It does not reread its own statement as a premise. Internal implication premises
 read these stated truths before their calculated scaffolds. Later additions
 reach cached readers through the ordinary fact and rule journals. Source
 statements preserve the compiler's consequent-only witnesses.
@@ -515,11 +515,12 @@ the normal And formula.
   individuals. Fixed premises and open auxiliary variables may read world
   observations; an assumed ground key overrides only that binding.
 
-- Stated positives are published by ingestion. The positive statement-producer
-  collector projects rule applications shaped `(by rule token)`; it does not
-  rescan and copy stored statements at query time. Other clause proof shapes
-  are not collected there; hypothetical and empirical query scaffolds have
-  their own compilation paths.
+- The positive statement-producer collector projects rule applications
+  shaped `(by rule token)` and stored facts. The stored-fact channel is needed
+  for already-compiled statements added through the public `add-to-kb` API,
+  which bypass source compilation. Other clause proof shapes are not collected
+  there; hypothetical and empirical query scaffolds have their own compilation
+  paths.
 - Conditional projection through a consequent conjunction uses the marginal
   `And` projection; it does not infer a stronger conditional by dividing by
   independently known sibling truths. This composition does not project

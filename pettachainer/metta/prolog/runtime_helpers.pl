@@ -3575,7 +3575,7 @@ entry_tv_confidence(['not-fact-ev', Ctx, P, Type], C) :- !, entry_tv_confidence(
 entry_tv_confidence(['fact-ev', Ctx, P, Type], C) :- !,
     once(catch('&kb'(Type, Ctx, P, TV), error(existence_error(procedure, _), _), fail)), tv_confidence(TV, C).
 entry_tv_confidence(['rule-ev', Kb, Name], C) :-
-    once(catch(( '&kb'(_, [['implication-stated', Kb]|_], Name, TV) ; '&kb'(_, [Kb|_], Name, TV) ),
+    once(catch('&kb'(_, [Kb|_], Name, TV),
                error(existence_error(procedure, _), _), fail)),
     tv_confidence(TV, C).
 tv_confidence(['STV', _, C], C).

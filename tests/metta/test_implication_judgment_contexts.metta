@@ -68,3 +68,19 @@
    ((((Implication (G) (Y)) (missingTypedPremKb MAIN Nil) $p (STV $s $c)))
     |- ((Result) (missingTypedPremKb MAIN Nil) (typed-read $p) (STV $s $c)))))
 !(test (collapse (query 300 missingTypedPremKb (: $p (Result) $tv))) ())
+
+;; Already-compiled statements can enter through the public low-level API,
+;; without compileadd's positive publication. Their own positive source is
+;; still available: an STV at budget zero, a CTV after projecting its branch.
+!(add-to-kb (brand RuntimeAddition (quote
+   ((Implication (DirectGate) (DirectResult)) (directCtvJudgmentKb MAIN Nil)
+      direct-ctv (CTV (STV 0.8 0.9) (STV 0.2 0.9))))))
+!(test (collapse (query 1 directCtvJudgmentKb
+   (: $p (Implication (DirectGate) (DirectResult)) $tv)))
+   ((: direct-ctv (Implication (DirectGate) (DirectResult)) (STV 0.8 0.9))))
+!(add-to-kb (brand RuntimeAddition (quote
+   ((Implication (DirectGate) (DirectResult)) (directStvJudgmentKb MAIN Nil)
+      direct-stv (STV 0.6 0.7)))))
+!(test (collapse (query 0 directStvJudgmentKb
+   (: $p (Implication (DirectGate) (DirectResult)) $tv)))
+   ((: direct-stv (Implication (DirectGate) (DirectResult)) (STV 0.6 0.7))))

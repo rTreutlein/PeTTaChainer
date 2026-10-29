@@ -211,7 +211,7 @@
 ;; therefore cannot treat query judgments as new world observations.
 (: statement-query-kb (-[det]-> KB KB))
 (= (statement-query-kb $kb)
-   (if (head-is-member? $kb (implication-query implication-stated))
+   (if (head-is? $kb implication-query)
       (let $source-kb (car-atom (cdr-atom $kb)) (brand KB $source-kb))
       $kb))
 
@@ -242,18 +242,31 @@
 
 (: implication-statement-query-adds (-[det]-> KB KBContext Statement (List CompiledAddition)))
 (= (implication-statement-query-adds $kb $query-ctx $type)
-   (collapse
-      (let $lookup-type (copy_term $type)
-         (match ccls_index
-            (($lookup-type ($kb MAIN Nil) (by $rule $token) $source-tv) $_id $premises)
-            ;; Stated positives are published at ingestion. Only derived
-            ;; statement producers need projection into a positive judgment.
-            (let*
-               (($source-premises (map-flat query-source-premise $premises))
-                ($source-goal (: (kbctx $kb) (by $rule $token)
-                   (brand Statement $lookup-type) (the TV $source-tv)))
-                ($source-add (brand CompiledAddition ($source-premises |- $source-goal))))
-               (positive-implication-producer $query-ctx (brand Statement $lookup-type) $source-add))))))
+   (append-compiled-additions
+      (collapse
+         (let $lookup-type (copy_term $type)
+            (match ccls_index
+               (($lookup-type ($kb MAIN Nil) (by $rule $token) $source-tv) $_id $premises)
+               ;; Only rule-application producers (by rule token) are projected
+               ;; here. Other producer shapes are not collected; stored facts
+               ;; and the dedicated hypothetical/empirical scaffolds below
+               ;; remain separate sources (derived_implications.md, Limits).
+               ;; A general producer may prove a bound instance. Project
+               ;; its instantiated conclusion, retaining the rule's scope.
+               (let*
+                  (($source-premises (map-flat query-source-premise $premises))
+                   ($source-goal (: (kbctx $kb) (by $rule $token)
+                      (brand Statement $lookup-type) (the TV $source-tv)))
+                   ($source-add (brand CompiledAddition ($source-premises |- $source-goal))))
+                  (positive-implication-producer $query-ctx (brand Statement $lookup-type) $source-add)))))
+      (collapse
+         (let $lookup-type (copy_term $type)
+            (match &kb ($lookup-type ($kb MAIN Nil) $proof $source-tv)
+               (let*
+                  (($source-goal (: (kbctx $kb) (brand Proof $proof)
+                      (brand Statement $lookup-type) (the TV $source-tv)))
+                   ($source-add (brand CompiledAddition (() |- $source-goal))))
+                  (positive-implication-producer $query-ctx (brand Statement $lookup-type) $source-add)))))))
 
 ;; Compile a public query into one goal rule plus temporary additions.
 ;; Implication queries return the STV proved in the positive assumption context;
