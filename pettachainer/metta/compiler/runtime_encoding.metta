@@ -53,11 +53,6 @@
 (= (externalize-query-proof-child $child)
    (externalize-query-proof (brand Proof $child)))
 
-(: externalize-proof-structure-list-core
-   (-[nondet]-> (List Atom) (List Atom)))
-(= (externalize-proof-structure-list-core $terms)
-   (map-flat externalize-proof-structure $terms))
-
 ;; Inspect the second field without unifying it with a KB-context pattern.
 ;; A direct `= ($type ($kbid $ctx $vars) ...)` test can otherwise turn an
 ;; unbound domain argument into a three-field KB context while merely trying
@@ -82,13 +77,11 @@
                      $type $tv)
                   (cons
                      (externalize-proof-structure (car-atom $term))
-                     (externalize-proof-structure-list-core
-                        (cdr-atom $term))))
+                     (map-flat externalize-proof-structure (cdr-atom $term))))
                (if (is-expr $term)
                   (cons
                      (externalize-proof-structure (car-atom $term))
-                     (externalize-proof-structure-list-core
-                        (cdr-atom $term)))
+                     (map-flat externalize-proof-structure (cdr-atom $term)))
                   $term))))))
 
 (: pretty (-[semidet]-> Atom AnnotatedStatement))
