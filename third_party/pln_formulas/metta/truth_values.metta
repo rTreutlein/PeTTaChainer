@@ -206,35 +206,6 @@
    (STV $sab
       (count-confidence (* $sab (confidence-to-count $cab)))))
 
-;; Solve E = D or U for the unknown child U. Strength is the exact noisy-OR
-;; inverse. Confidence uses first-order variance propagation through
-;; u = (e-d)/(1-d), so projection cannot inherit the total's confidence while
-;; ignoring uncertainty in the known alternative. D true leaves U
-;; undetermined: no value, as for AndProjection.
-(: OrProjection (-[semidet]-> STVType STVType STVType))
-(= (OrProjection (STV $se $ce) (STV $sd $cd))
-   (if (>= $sd 1.0)
-      (empty)
-      (let*
-         (($den (- 1.0 $sd))
-          ($su (min 1.0 (max 0.0 (/ (- $se $sd) $den))))
-          ($Ve (ideal-var $se $ce))
-          ($Vd (ideal-var $sd $cd))
-          ($den2 (* $den $den))
-          ($slope-d (/ (- 1.0 $se) $den2))
-          ($Vu (+ (/ $Ve $den2) (* (* $slope-d $slope-d) $Vd))))
-         (STV $su
-            (if (or (<= $ce 0.0) (<= $cd 0.0))
-               0.0
-               (ideal-conf-from-var $su $Vu))))))
-
-;; The unknown-witness residual is the same probabilistic projection as an
-;; ordinary OR child: E = D or U. Keep the semantic name at the existential
-;; compiler boundary while sharing the variance-aware implementation.
-(: ExistentialResidualFormula (-[semidet]-> STVType STVType STVType))
-(= (ExistentialResidualFormula $existential-tv $known-tv)
-   (OrProjection $existential-tv $known-tv))
-
 (: NotFormula (-[det]-> STVType STVType))
 (= (NotFormula (STV $s $c)) (STV (- 1 $s) $c))
 
@@ -606,7 +577,11 @@
          (completion Or $negated $others $support))))
 
 ;; A completion of a part M of a connective K = (op M O) conditioned on K's
-;; own evidence e_K (#142): its value (STV s c), read apart from K's parts and
+;; own evidence e_K (#142). It stays beside K's node messages: it gives
+;; P(M | e_K, consequence) jointly over K's worlds, which a node message times
+;; a separate consequence update cannot (each sums over O apart); where a
+;; completion conditions on e_K, K's message to M is dropped
+;; (sk-message-counted?), so e_K reaches M once. Its value (STV s c), read apart from K's parts and its value (STV s c), read apart from K's parts and
 ;; the consequence (`no-evidence` when it has none), formed under the prior p
 ;; it updates, or (`no-evidence`) under the prior K has from its parts, which
 ;; it then sets (Jeffrey). So e_K weighs K by s (1 - p) and not K by (1 - s) p;
