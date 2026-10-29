@@ -1412,18 +1412,6 @@
 (: contextualize-rule-args (-[semidet]-> SkFact (List SkPattern) (List SkPattern)))
 (= (contextualize-rule-args $goal $args) (map-semidet (contextualize-rule-premise $goal) $args))
 
-(: prefilter-head-concludable? (-[det]-> Statement Atom Bool))
-(= (prefilter-head-concludable? $type $kbid)
-   ;; Private implication judgments get their scaffold when expanded. An
-   ;; explicit STV premise may reach one before that scaffold is installed.
-   (if (head-is? $kbid implication-query) (implication-type? $type)
-   (let $lookup-type (copy_term $type)
-      (not (== (collapse (once (match ccls_index
-                  (($lookup-type ($kbid $_stored-ctx $_stored-vars) $_stored-proof $_stored-tv)
-                   $_rule-id $_stored-args)
-                  true)))
-               ())))))
-
 ;; Only reject ground computations that cannot succeed. A missing fact is
 ;; pending input, so its join must wait for later additions.
 (: prefilter-premise-blocks? (-[det]-> SkPattern Bool))
