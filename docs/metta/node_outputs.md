@@ -27,7 +27,7 @@ node compiler generator or the old output dispatcher.
 Runtime consumers are shared: evidence.proof-term-evidence preserves source and
 sibling evidence for node-message/node-jeffrey/node-joint; the evaluator's
 sk-merge-key separates messages and updates, sk-messages-on combines observed
-messages, and sk-jeffrey-updates applies predictions after other views merge.
+messages, and sk-node-apply applies predictions after other views merge.
 sk-message-counted? screens completion evidence. Skeleton CPU handling registers
 optional cavity reads and their need/wakeup edges. The node lowering must retain
 these contracts rather than adding another merge path.
@@ -63,8 +63,21 @@ outside this cleanup.
 | runtime/evidence.metta | 7,074 |
 | prolog/runtime_helpers.pl | 55,976 |
 | prolog/event_node.pl | 6,991 |
-| third_party/pln_formulas/metta/truth_values.metta | Counted separately in the report |
+| third_party/pln_formulas/metta/truth_values.metta | 11,477 |
 
 Per-file baseline counts are captured in scratch/tokens-before.json. The report
 will include final counts, deleted-symbol audits, every moved value, required
 comparison verdicts and uncompleted scope.
+
+## Measured outcome
+
+Both deletion experiments were rejected and restored. Removing the priority
+factor failed the scheduler-score assertion in test_hypothesis_rules, and a
+standard quick comparison changed one timed SupplyNet case's accuracy.
+Removing conditional export failed three MeTTa files; unconstrained cold and
+warm query probes confirmed actual answer loss, rather than a proof-pattern
+mismatch. The retained runtime is byte-identical to the baseline, with zero
+token savings and no accepted answer changes. See
+[the hand-back report](../../MERGE2_REPORT.md) for exact queries, values,
+symbol audit and verification/comparison evidence. The complete mechanism
+deletion remains unimplemented under the brief's stopping rule.
