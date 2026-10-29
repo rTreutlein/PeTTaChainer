@@ -515,9 +515,10 @@ the normal And formula.
   individuals. Fixed premises and open auxiliary variables may read world
   observations; an assumed ground key overrides only that binding.
 
-- The positive statement-producer collector projects rule applications
-  shaped `(by rule token)` and stored facts. Other clause proof shapes are
-  not collected there; hypothetical and empirical query scaffolds have
+- Stated positives are published by ingestion. The positive statement-producer
+  collector projects rule applications shaped `(by rule token)`; it does not
+  rescan and copy stored statements at query time. Other clause proof shapes
+  are not collected there; hypothetical and empirical query scaffolds have
   their own compilation paths.
 - Conditional projection through a consequent conjunction uses the marginal
   `And` projection; it does not infer a stronger conditional by dividing by

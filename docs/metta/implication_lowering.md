@@ -12,7 +12,7 @@ Boolean-event, compound-output or canonical-key changes are included.
 | `compile-implication-subgoal-query` | `inject-special-subgoal-query-adds`; internal CTV reads build positive and refuting judgments |
 | `compile-existential-query` | `compileQuery`; canonical quantified-rule positive judgments and ordinary existential folds |
 | `judgment-query-side`, basic and disjunction variants | Both implication plans, bidirectional queries, quantified queries; private assumptions, necessary-assumption target metadata and consequent reads |
-| `query-pos-neg-scaffold` | Only the internal CTV plan; combines two judgment sides |
+| Former two-side packaging wrapper | Only the internal CTV plan; now directly calls the shared judgment-side builder |
 | `implication-statement-query-adds`, `query-source-premise` | Only the positive public plan; copies indexed rule-application producers and stored statements |
 | `positive-implication-producer`, `query-positive-tv` | Stated/derived copies, empirical and class-link producers; projects CTV conclusions to STV |
 | `rule-truth-query-adds`, `rule-truth-installed?` | Positive/CTV plans and permanent class-link installation; reuse a refined rule's existing parameter |
@@ -84,3 +84,11 @@ If removing a remaining component changes a tested result, restore that
 component, retain the largest validated deletion, and report the exact result
 and the replacement obligation. This is a measured stopping point, not proof
 that no future replacement is possible.
+
+## First deletion
+
+The query-time stored-statement collector was redundant with ingestion's
+stated-positive publication. It now discovers only rule-application producers;
+the stored-fact scan and copy path are deleted. The internal two-sided plan
+calls the same side builder directly, deleting its single-use packaging
+wrapper. Strict MeTTa after this deletion: 161 files passed, zero failed.
