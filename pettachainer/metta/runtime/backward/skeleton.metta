@@ -290,22 +290,55 @@
 (: sk-full-fact (-[det]-> SkFact SkFact))
 (= (sk-full-fact ($type $kbctx $proof $tv)) (data $type $kbctx (sk-full-proof $proof) $tv))
 
+(: sk-read-fact (-[det]-> SkeletonFilter SkFact SkFact))
+(= (sk-read-fact $filter ($type $scope $proof $tv))
+   ;; Storage keeps one source value. A positive read projects its branch
+   ;; without publishing a second value under the source's proof identity.
+   (let $fact (data $type $scope $proof $tv)
+      (case $filter (
+         ((sk-filter $_want-proof $want-tv)
+            (if (if (head-is? $want-tv STV)
+                   (head-is-member? $type (Implication QuantifiedRule)) false)
+               (case $tv (
+                  ((CTV $positive $_negative)
+                     ;; An executable conversion of a stated STV is the same
+                     ;; source, not another positive judgment of it.
+                     (let* (($source-proof (sk-step-proof $proof))
+                            ($sources (kb-facts $type $scope))
+                            ($conversion? (not (== (collapse (once
+                               (let ($stored-type $stored-scope $stored-proof (STV $_s $_c))
+                                  (superpose $sources)
+                                  (if (=alpha (data $type $scope $source-proof)
+                                              (data $stored-type $stored-scope $stored-proof))
+                                     true (empty))))) ()))))
+                        (if $conversion? $fact (data $type $scope $proof $positive))))
+                  ($_other $fact)))
+               $fact))
+         (sk-any-filter $fact)))))
+
 ;; Tries the pattern on fresh copies so neither side gets bound; a proof
 ;; pattern sees the full proof.
 (: sk-fact-matches? (-[det]-> SkeletonFilter SkFact Bool))
 (= (sk-fact-matches? $filter $fact)
    (case (copy_term $filter) (
       (sk-any-filter true)
-      ((sk-filter $want-proof $want-tv) (sk-pattern-matches? $want-proof $want-tv (copy_term $fact))))))
+      ((sk-filter $want-proof $want-tv)
+         (let $read (sk-read-fact $filter $fact)
+            (sk-pattern-matches? $want-proof $want-tv (copy_term $read)))))))
 
 (: sk-pattern-matches? (-[det]-> Proof TV SkFact Bool))
-(= (sk-pattern-matches? $want-proof $want-tv ($_type $_kbctx $got-proof $got-tv))
+(= (sk-pattern-matches? $want-proof $want-tv ($type ($_kb $ctx $_vars) $got-proof $got-tv))
+   ;; Executable Assuming seeds wake their applications, but supply no
+   ;; positive judgment of the assumed implication.
+   (if (if (head-is? $want-tv STV)
+          (if (== $ctx MAIN) (if (implication-type? $type) (assumption-proof? $got-proof) false) false)
+          false) false
    (if (if (is-var $want-proof) true
            (if (head-is? $want-proof derived-implication)
               (let $step (sk-step-proof $got-proof) (head-is? $step by))
               (= (sk-full-proof $got-proof) $want-proof)))
       (if (is-var $want-tv) true (= $got-tv $want-tv))
-      false))
+      false)))
 
 ;; Every fact of a goal's statement and context that passes the filter, read
 ;; through the statement's prefix index (kb-facts); the probe for materialized
@@ -354,6 +387,16 @@
             (let $open-slot (index-hash (data $kbid $open))
                (match &sk_world_open ($open-slot $type $kbid $key) $key)))))))
 
+(: sk-leaf-fact-step (-[det]-> Bool SkeletonFilter SkFact (List SkFact) (List SkFact)))
+(= (sk-leaf-fact-step $plain $filter $fact $facts)
+   (let $read (sk-read-fact $filter $fact)
+      (if (sk-fact-matches? $filter $read)
+         (if (chainer-acyclic-term? $read)
+            (if $plain (cons $read $facts)
+               (if (materialized-forward-fact? $fact) $facts (cons $read $facts)))
+            $facts)
+         $facts)))
+
 ;; Borrow only observations, never MAIN's derived/materialized values. A fixed
 ;; premise may use the world, but an assumed key overrides its world value and
 ;; a hypothetical individual must never be unified with a world individual.
@@ -365,16 +408,7 @@
       (if (== (sk-leaf-fact-step $plain $filter (data $type $main $proof $tv) ()) ()) $facts
          (let $hash (index-hash (sk-key $type $main))
             (if (space-row-present? &sk_forward_stored ($hash $_key ($type $main $proof $tv) $_ev $_deps)) $facts
-               (cons (data $type $kbctx $proof $tv) $facts)))))))
-
-(: sk-leaf-fact-step (-[det]-> Bool SkeletonFilter SkFact (List SkFact) (List SkFact)))
-(= (sk-leaf-fact-step $plain $filter $fact $facts)
-   (if (sk-fact-matches? $filter $fact)
-      (if (chainer-acyclic-term? $fact)
-         (if $plain (cons $fact $facts)
-            (if (materialized-forward-fact? $fact) $facts (cons $fact $facts)))
-         $facts)
-      $facts))
+               (cons (sk-read-fact $filter (data $type $kbctx $proof $tv)) $facts)))))))
 
 (: sk-fact-key (-[det]-> SkFact SkeletonKey))
 (= (sk-fact-key ($type $kbctx $_proof $_tv)) (sk-key $type $kbctx))
@@ -828,11 +862,10 @@
                 (($type $scope $proof $tv)
                    (if (< $rule 1000000000)
                       (inject-special-subgoal-query-adds backward $type $scope $proof $tv)
-                      (let $premise-kbid (car-atom $scope)
-                         (if (head-is? $premise-kbid implication-query)
-                            (let $_installed (inject-special-subgoal-query-adds temp $type $scope $proof $tv)
-                               (sk-activate-pending!))
-                            ())))))))
+                      (if (if (head-is? $tv STV) (implication-type? $type) false)
+                         (let $_installed (inject-special-subgoal-query-adds temp $type $scope $proof $tv)
+                            (sk-activate-pending!))
+                         ()))))))
           ;; A compound premise read in a hypothetical context gets its
           ;; producers with the join's lifetime too. A MAIN compound premise
           ;; gets none here: an open variable-headed node matches each new
@@ -1371,19 +1404,8 @@
                                           (judgment-consequent? false $type $scope)))))
                               false)
                           (make-kb-context (brand KB $kbid) $ctx $vars)
-                          (make-kb-context (brand KB $kbid) $prem-ctx $prem-vars)))
-                   ($read-kb
-                      (if (if (head-is? $tv STV) (implication-type? (brand Statement $type)) false)
-                         (case $fact-kb (
-                            (($source-kb $source-ctx $source-vars)
-                               (if (if (== $source-ctx MAIN) (== $source-vars Nil) false)
-                                  (let* (($source (statement-query-kb (brand KB $source-kb)))
-                                         ($query-kb (brand KB (implication-query $source))))
-                                     (make-kb-context $query-kb MAIN Nil))
-                                  $fact-kb))
-                            ($_other $fact-kb)))
-                         $fact-kb)))
-               (assemble-stored-runtime-fact $type $read-kb $prf $tv)))
+                          (make-kb-context (brand KB $kbid) $prem-ctx $prem-vars))))
+               (assemble-stored-runtime-fact $type $fact-kb $prf $tv)))
          ;; Private implication judgments scope witness folds to their own
          ;; hypothetical individuals. Assuming uses MAIN identities and overlays
          ;; their values, so its folds keep their original MAIN scope.
@@ -1403,8 +1425,7 @@
                    false)
                (CPU $fun (cons-atom (make-kb-context (brand KB $kbid) $ctx $vars) (cdr-atom $args)) $res)
                (CPU $fun $args $res)))
-         ;; A query judgment reads its explicit source context in another KB
-         ;; namespace; that premise keeps its own context.
+         ;; A premise from another KB keeps its explicit context.
          ($_other-kb $premise)))))
 
 (: contextualize-rule-args (-[semidet]-> SkFact (List SkPattern) (List SkPattern)))
@@ -1521,7 +1542,7 @@
                ;; the lookup so checking constraints cannot bind the caller.
                (let ($lookup-type $lookup-ctx $lookup-proof $lookup-tv)
                   (copy_term (data $type $kbctx $prf
-                     (if (head-is? $kbid implication-query)
+                     (if (head-is? $tv STV)
                         (statement-query-tv $tv)
                         (if (is-var $tv) (CTV $positive $negative) $tv))))
                   (if (== (collapse (once (match ccls_index
@@ -1546,16 +1567,13 @@
                            (empty))))) ())
                      (foreach-flat (inject-compiled-query-adds $backend)
                         (collapse
-                           (if (if (head-is? $kbid implication-query) false
-                                   (if (is-var $tv) true (head-is? $tv CTV)))
+                           (if (if (is-var $tv) true (head-is? $tv CTV))
                               (let (compilation-plan $goal $adds)
                                  (compile-implication-subgoal-query (brand KB $kbid)
                                     (: $prf $type (if (is-var $tv) (CTV $positive-tv $negative-tv) $tv)))
                                  (compiled-query (brand CompiledQueryGoal (internalize-proof-structure $goal))
                                     (map-flat mm2stmt $adds)))
-                              (let* (($stored-kbid (brand KB $kbid))
-                                     ($source-kbid (statement-query-kb $stored-kbid)))
-                                 (mm2compileQuery $source-kbid (: $prf $type $tv))))))
+                              (mm2compileQuery (brand KB $kbid) (: $prf $type $tv)))))
                      ())))
             ()))
       ($_other ()))))
@@ -1588,20 +1606,22 @@
                      (map-flat mm2stmt (fold-flat (fresh-producer-step $backend) () $adds))))
          ())))
 
-;; A class link's sample and fold rules (class-link-query-adds) are permanent
+;; A class link's sample and fold rules are permanent
 ;; backward rules, installed once per link up to renaming, when a root or an
 ;; expanded node of the link or of an instance of it needs them, as a
 ;; compound's part does: their rows survive the query, so a later query reads
 ;; the link's tally at the cost of the samples that changed.
 (: install-class-link-rules! (-[semidet]-> Statement KBContext Atom))
 (= (install-class-link-rules! $type ($kbid $ctx $vars))
-   (if (if (head-is? $kbid implication-query) (head-is? $type Implication) false)
+   (if (if (== $ctx MAIN) (if (== $vars Nil) (head-is? $type Implication) false) false)
       (let (Implication $a $b) $type
          (if (class-link-instance? $a $b)
-            (let* (($kb (statement-query-kb (brand KB $kbid)))
+            (let* (($kb (brand KB $kbid))
                    ($link (brand Statement (Implication (cons (car-atom $a) (cons $x ())) (cons (car-atom $b) (cons $x ())))))
                    ($adds (if (rule-truth-installed? $kb $link) (the (List CompiledAddition) ())
-                             (once (class-link-query-adds $kb (make-kb-context (brand KB $kbid) MAIN Nil) $link))))
+                             (let (Implication $antecedent $consequent) $link
+                                (compile-implication-instance-adds false $kb $link
+                                   (brand Statement $antecedent) (brand Statement $consequent)))))
                    ($_rules (once (foreach-flat (kb-add-expr backward)
                                (map-flat mm2stmt (fold-flat (fresh-producer-step backward) () $adds))))))
                ())

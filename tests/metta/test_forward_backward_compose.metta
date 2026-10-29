@@ -95,9 +95,8 @@
    (query 100 openVariableConclusionImplicationKb (: $p (Implication (Tall $x) (Female $x)) $tv))
    (: (merge/revision (conditional-implication (merge/revision (by copyPredicate (conjunction tallAlice femaleAlice (ctx proof 0))) (by copyPredicate (conjunction tallMary femaleMary (ctx proof 0))))) (implication-instance-fold cpu)) (Implication (Tall $_0) (Female $_0)) (STV 0.8100239739628896 0.6786287374397676)))
 
-;; The open identity holds. Its instance fold also samples each stored
-;; statement against its other proofs, the completions copying the other
-;; individual's predicates; the positive judgment remains (STV 1, 1).
+;; The open identity holds at (STV 1, 1). The judgment read selects its STV
+;; producers before merging, so the exact conditional identity stands alone.
 ;; A completion that would read a statement to conclude it again
 ;; (copying Alice's predicates to Alice) builds no row, so no ground instance
 ;; answers apart from the open one. A variable predicate never binds to an
@@ -106,7 +105,7 @@
 !(test
    (collapse
       (query 100 openVariableConclusionImplicationKb (: $proof (Implication ($p $x) ($p $x)) (STV 1.0 1.0))))
-   ((: (merge/revision (conditional-implication (ctx proof 1)) (implication-instance-fold cpu)) (Implication ($_0 $_1) ($_0 $_1)) (STV 1.0 1.0))))
+   ((: (conditional-implication (ctx proof 1)) (Implication ($_0 $_1) ($_0 $_1)) (STV 1.0 1.0))))
 
 !(test
    (query 100 openVariableConclusionImplicationKb

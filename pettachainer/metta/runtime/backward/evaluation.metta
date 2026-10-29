@@ -58,6 +58,12 @@
                (sk-leaf-source $fact))
             (deps-union (deps-key $hash) (deps-key (index-hash (sk-fact-key (the SkFact $source))))))))))
 
+(: sk-read-value (-[det]-> SkeletonFilter SkeletonValue SkeletonValue))
+(= (sk-read-value $filter $value)
+   (case $value (
+      ((sk-val $fact $ev $deps) (sk-val (sk-read-fact $filter $fact) $ev $deps))
+      ($_other $value))))
+
 ;; A stored fact is its own evidence and depends on its own key. The fact a
 ;; forward run stored for a key carries its value's evidence and what that value
 ;; was derived through (see sk-forward-store!), and a frozen key's summary its
@@ -67,9 +73,13 @@
 (: sk-leaf-view (-[det]-> Number SkFact SkeletonValue))
 (= (sk-leaf-view $hash ($type $scope $proof $tv))
    (let $fact (data $type $scope $proof $tv)
-   (case (collapse (once (match &sk_forward_stored ($hash $_key $fact $ev $deps) (sk-val $fact $ev $deps)))) (
+   (case (collapse (once (match &sk_forward_stored ($hash $_key $source $ev $deps)
+      (let $read (sk-read-value (sk-filter $proof $tv) (sk-val $source $ev $deps))
+         (if (== $read (sk-val $fact $ev $deps)) $read (empty)))))) (
       ((cons $stored $_rest) $stored)
-      (() (case (collapse (once (match &sk_summary ($hash $_skey $fact $sev $sdeps) (sk-val $fact $sev $sdeps)))) (
+      (() (case (collapse (once (match &sk_summary ($hash $_skey $summary-source $sev $sdeps)
+         (let $read-summary (sk-read-value (sk-filter $proof $tv) (sk-val $summary-source $sev $sdeps))
+            (if (== $read-summary (sk-val $fact $sev $sdeps)) $read-summary (empty)))))) (
              ((cons $summary $_more) $summary)
              (() (let* (($ev (leaf-evidence-for-result $fact))
                          ($scoped (case (evidence-entries $ev) (
@@ -3101,7 +3111,8 @@
 (= (sk-merge-key $hash $key $filter $exclude $given $views)
    (let* (($outside (hash-union $exclude (hash-set (sk-given-hashes $given))))
           ($leaves (sk-leaf-views $hash $key $filter $outside))
-          ($sources (sk-judgment-values $key (append-flat $leaves $views)))
+          ($sources (sk-judgment-values $key
+             (map-flat (sk-read-value $filter) (append-flat $leaves $views))))
           ($own (sk-own-values (sk-complete-values (sk-certain-or $leaves $sources))))
           ;; The standing views come out of the step reversed; the split restores their order.
           (($messages $updates $standing)
@@ -3458,10 +3469,13 @@
 ;; out of an instance fold reads the views it admits, never the cached value.
 (: sk-value (-[semidet]-> SkeletonKey SkeletonFilter (List Number) SkeletonValue))
 (= (sk-value $key $filter $exclude)
-   (let $derived (case $filter (
-           ((sk-filter $proof $_tv) (head-is? $proof derived-implication))
+   (let $selected (case $filter (
+           ((sk-filter $proof $tv)
+              (if (head-is? $proof derived-implication) true
+                 (if (head-is? $tv STV)
+                    (case $key (((sk-key $type $_scope) (implication-type? $type)) ($_other false))) false)))
            ($_any false)))
-      (if $derived
+      (if $selected
          (let $hash (index-hash $key) (sk-admitted-merge $hash $key $filter $exclude))
          (let* (($hash (index-hash $key))
                 ($merged
@@ -3721,11 +3735,12 @@
                 (fold-semidet (sk-compatible-step $ev) ()
                 (sk-own-values
                    (sk-judgment-values $key
-                      (if $views
-                         (append-flat $leaves
-                            (map-semidet (sk-given-view $given $exclude $hash $key)
-                               (sk-admitted-versions $hash $key $filter (sk-admission-exclusions $given $exclude))))
-                         $leaves))))))
+                      (map-flat (sk-read-value $filter)
+                         (if $views
+                            (append-flat $leaves
+                               (map-semidet (sk-given-view $given $exclude $hash $key)
+                                  (sk-admitted-versions $hash $key $filter (sk-admission-exclusions $given $exclude))))
+                            $leaves)))))))
           (($selected $siblings $references)
              (sk-reference-values $ignore (sk-certain-or $leaves (the (List SkeletonValue) $compatible)))))
       (let $value (if $siblings (sk-key-fallback $ignore $references $selected)
@@ -3824,7 +3839,7 @@
 ;; instances the truth was learned from, which the row does not observe.
 (: sk-use-premise (-[semidet]-> Bool SkeletonRowState SkPattern SkeletonValue SkeletonRowState))
 (= (sk-use-premise $shared (sk-acc $fold-proofs $ev $deps) ($type $kbctx $proof $tv) $value)
-   (case $value (
+   (case (sk-read-value (sk-filter $proof $tv) $value) (
       ((sk-val $fact $premise-ev $premise-deps)
          (let $overlap (if $shared false (premise-evidence-overlap? $ev $premise-ev))
             (if $overlap
@@ -5980,8 +5995,8 @@
 
 (: materializable-result? (-[det]-> SkFact Bool))
 ;; A positive implication judgment is a query result, never a world fact.
-(= (materializable-result? ($type ($kbid $ctx $vars) $_prf $tv))
-   (if (if (head-is? $kbid implication-query) false (== $ctx MAIN))
+(= (materializable-result? ($type ($_kbid $ctx $vars) $_prf $tv))
+   (if (if (head-is-member? $type (Implication QuantifiedRule)) false (== $ctx MAIN))
       (if (if (head-is-member? $type (ExistsJudgment ExistentialAlternatives)) false (== $vars Nil))
          (if (== (extract-vars $type) ())
             (case $tv (((STV $_s $_c) (== (extract-vars $tv) ())) ($_other false)))
@@ -6028,7 +6043,10 @@
    (let $_answer (sk-materialize! $value)
       (case $value (
          ((sk-val ($type $kbctx $proof $tv) $_ev $_deps)
-            (let $_derived (fold-semidet (sk-materialize-ref! $kbctx) () (sk-proof-refs (sk-step-proof $proof))) ()))
+            ;; A judgment's premises belong to its hypothetical world; they
+            ;; are not observations to materialize in the result's MAIN scope.
+            (if (head-is-member? $type (Implication QuantifiedRule)) ()
+               (let $_derived (fold-semidet (sk-materialize-ref! $kbctx) () (sk-proof-refs (sk-step-proof $proof))) ())))
          ($_other ())))))
 
 ;; --- Query metrics ----------------------------------------------------------
@@ -6081,7 +6099,8 @@
           ((sk-val $fact $_ev $_deps) $representative))
       (if (sk-fact-matches? $filter $fact)
          (let $independent (sk-row-result $row (sk-row-state () $exclude $hash sk-independent-read $row))
-            (sk-discounted $representative $independent (term-confidence $fact))) sk-none)))
+            (sk-read-value $filter
+               (sk-discounted $representative $independent (term-confidence $fact)))) sk-none)))
 
 (: sk-waiting-root-value (-[semidet]-> SkeletonFilter SkeletonKey (| SkeletonValue SkeletonWaitingAnswer)))
 (= (sk-waiting-root-value $filter $key)
@@ -6174,7 +6193,7 @@
                (collapse (match &sk_answer ($hash ($node-type $node-kbctx $_n-proof $_n-tv) $answer)
                   (if (=alpha (sk-key $node-type $node-kbctx) $key) $answer (empty))))
                (if (== (extract-vars $type) ()) (cons $key ())
-                  (collapse (match &kb ($type $kbctx $_proof $_tv) (sk-key $type $kbctx)))))))))))
+                  (collapse (match &kb ($type $kbctx $_stored-proof $_stored-tv) (sk-key $type $kbctx)))))))))))
 
 ;; A typed boundary shared by grouped roots and forward evaluation.
 (: sk-key-value (-[semidet]-> SkeletonKey SkeletonValue))

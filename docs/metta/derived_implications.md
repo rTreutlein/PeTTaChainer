@@ -234,10 +234,12 @@ An open or STV-pattern query has this answer shape:
 ```
 
 A stated implication is read before calculating its judgment, even at zero
-budget, with its original proof and positive STV. Stated STVs and the two
-branches of a stated CTV are retained in the private `implication-query`
-namespace: the negative branch is a stated truth of `(Implication (Not G) Y)`.
-They cannot become new world observations through a query.
+budget, with its original proof and positive STV. Sources keep one immutable
+TV at their ordinary implication key; the negative branch is a stated truth
+of `(Implication (Not G) Y)`. Positive reads project CTV leaves and select STVs
+before merging. Executable Assuming seeds supply no judgment support, and a
+query cannot materialize a judgment or its hypothetical premises as world
+observations.
 
 A stated CTV also remains a full statement in main rule storage, in both
 antecedent polarities. An STV source is stored at its ordinary statement key.

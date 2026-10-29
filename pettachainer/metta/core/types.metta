@@ -357,7 +357,6 @@
 (: BaseRateFinish Type)
 (: base-rate BaseRateFinish)
 (: ImplicationInstanceFinish Type)
-(: implication-instance ImplicationInstanceFinish)
 (: implication-instance-ctv ImplicationInstanceFinish)
 (: AggregateFinish
    (Alias

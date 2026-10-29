@@ -16,15 +16,15 @@
 (= (chainer-first-or $_fallback (cons $value $_rest)) $value)
 
 ;; A stated implication carries the same rule evidence as its applications,
-;; including when query lowering reads it in a private namespace. Other stored
+;; including its positive and hypothetical reads. Other stored
 ;; facts retain their own evidence identity.
 (: fact-evidence-entry (-[det]-> KBContext Proof Statement Evidence))
 (= (fact-evidence-entry $kb $prf $type)
    (case $prf (
-      ((rule-axiom $name) (rule-ev (statement-query-kb (brand KB (car-atom $kb))) $name))
+      ((rule-axiom $name) (rule-ev (brand KB (car-atom $kb)) $name))
       ($_other
          (if (if (implication-type? $type) true (head-is? $type QuantifiedRule))
-            (let* (($source-kb (statement-query-kb (brand KB (car-atom $kb))))
+            (let* (($source-kb (brand KB (car-atom $kb)))
                    ($name (rule-evidence-base-name $prf)))
                (if (named-rule? $source-kb $name)
                   (rule-ev $source-kb $name)
@@ -325,8 +325,7 @@
                       (evidence-subtraction $ev (evidence-set (evidence-shared-facts $ev $ev))))
                    $ev))))
        ($name (rule-evidence-base-name (rule-evidence-head $prf)))
-       ($storage-kbid (brand KB $kbid))
-       ($typed-kbid (statement-query-kb $storage-kbid)))
+       ($typed-kbid (brand KB $kbid)))
       ;; An estimated rule and a ground given rule are named, so a view never
       ;; stands for one through such a rule it did not apply. A given rule's
       ;; entry is certain, as a given fact's (runtime_helpers.pl). A completion

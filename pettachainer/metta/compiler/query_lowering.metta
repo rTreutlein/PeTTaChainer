@@ -165,9 +165,6 @@
          ())))
 
 ;; Storage keeps both rule branches; public statement judgments use the positive one.
-(: query-positive-tv (-[semidet]-> TV STVType))
-(= (query-positive-tv $tv) (case $tv (((CTV $pos $_neg) $pos) ((STV $s $c) (STV $s $c)))))
-
 (: statement-query-tv (-[semidet]-> TV STVType))
 (= (statement-query-tv $tv)
    (if (is-var $tv) (STV $strength $confidence)
@@ -206,68 +203,6 @@
                   (compile-implication-instance-adds true $kb $type $antecedent $consequent))
                (union-compiled-additions $pos-adds $neg-adds))))))
 
-;; Positive query values use a private KB namespace, preserving the public
-;; statement shape. Ordinary predicate rules and main-context populations
-;; therefore cannot treat query judgments as new world observations.
-(: statement-query-kb (-[det]-> KB KB))
-(= (statement-query-kb $kb)
-   (if (head-is? $kb implication-query)
-      (let $source-kb (car-atom (cdr-atom $kb)) (brand KB $source-kb))
-      $kb))
-
-;; Runtime clause premises are erased tuples; recover their compiler roles.
-(: query-source-premise (-[semidet]-> Atom Goal))
-(= (query-source-premise $premise)
-   (if (head-is? $premise CPU)
-      (let (CPU $fun $args $res) $premise (CPU $fun $args $res))
-      (let ($type $kb $proof $tv) $premise
-         (: (the KBContext $kb) (brand Proof $proof) (brand Statement $type) (the TV $tv)))))
-
-;; Project only the requested conclusion, preserving every producer's premises
-;; and proof. Sample producers pass through; an STV already is the positive
-;; judgment. Alpha identity does not bind a producer into a different shape.
-(: positive-implication-producer
-   (-[nondet]-> KBContext Statement CompiledAddition CompiledAddition))
-(= (positive-implication-producer $query-ctx $wanted ($premises |- (: $kb $proof $type $tv)))
-   (if (=alpha $type $wanted)
-      (let*
-         (($positive-premises
-             (if (head-is? $tv STV) $premises
-                (append-goals (the (List Goal) $premises)
-                   (cons (CPU query-positive-tv (quote ($tv)) $positive-tv) ()))))
-          ($result-tv (if (head-is? $tv STV) $tv $positive-tv))
-          ($goal (: $query-ctx (brand Proof $proof) (brand Statement $type) (the TV $result-tv))))
-         (brand CompiledAddition ($positive-premises |- $goal)))
-      (brand CompiledAddition ($premises |- (: $kb $proof $type $tv)))))
-
-(: implication-statement-query-adds (-[det]-> KB KBContext Statement (List CompiledAddition)))
-(= (implication-statement-query-adds $kb $query-ctx $type)
-   (append-compiled-additions
-      (collapse
-         (let $lookup-type (copy_term $type)
-            (match ccls_index
-               (($lookup-type ($kb MAIN Nil) (by $rule $token) $source-tv) $_id $premises)
-               ;; Only rule-application producers (by rule token) are projected
-               ;; here. Other producer shapes are not collected; stored facts
-               ;; and the dedicated hypothetical/empirical scaffolds below
-               ;; remain separate sources (derived_implications.md, Limits).
-               ;; A general producer may prove a bound instance. Project
-               ;; its instantiated conclusion, retaining the rule's scope.
-               (let*
-                  (($source-premises (map-flat query-source-premise $premises))
-                   ($source-goal (: (kbctx $kb) (by $rule $token)
-                      (brand Statement $lookup-type) (the TV $source-tv)))
-                   ($source-add (brand CompiledAddition ($source-premises |- $source-goal))))
-                  (positive-implication-producer $query-ctx (brand Statement $lookup-type) $source-add)))))
-      (collapse
-         (let $lookup-type (copy_term $type)
-            (match &kb ($lookup-type ($kb MAIN Nil) $proof $source-tv)
-               (let*
-                  (($source-goal (: (kbctx $kb) (brand Proof $proof)
-                      (brand Statement $lookup-type) (the TV $source-tv)))
-                   ($source-add (brand CompiledAddition (() |- $source-goal))))
-                  (positive-implication-producer $query-ctx (brand Statement $lookup-type) $source-add)))))))
-
 ;; Compile a public query into one goal rule plus temporary additions.
 ;; Implication queries return the STV proved in the positive assumption context;
 ;; bidirectional queries require one context per direction.
@@ -289,7 +224,7 @@
                 (canonical-existential-side (brand Statement $a))
                 (canonical-existential-side (brand Statement $b))))
              ($hash (index-hash $canonical))
-             ($scope (make-kb-context (brand KB (implication-query $kb)) MAIN Nil))
+             ($scope (kbctx $kb))
              ($query-tv (statement-query-tv $tv))
              ($mvars (query-variables (extract-vars $canonical)))
              (($_positive (premise-bundle $positive-goals $positive-tv $positive-proof) $adds)
@@ -328,22 +263,6 @@
       (let (premise-bundle $execs $_tv $_proof)
          (lower-query-assumption-premise $kb $ctx Nil (brand Statement $premise))
          (prepend-reversed-goals $execs $reversed))))
-
-;; A class link's instance estimate depends only on the link, so its sample
-;; and fold rules are permanent backward rules, installed once when a root or
-;; an expanded node of the link or of an instance of it needs them
-;; (install-class-link-rules!):
-;; their rows outlive the query, and a later query reads the tally instead of
-;; sampling the population again. A query of the link, or of the link applied
-;; to one constant, which the link's rules answer for that constant, leaves
-;; them out of its own additions. The fold concludes the samples' frequency as
-;; it is: a query answers the positive branch, which a CTV would make
-;; consistent with base rates that may not count a derived member yet.
-(: class-link-query-adds (-[nondet]-> KB KBContext Statement (List CompiledAddition)))
-(= (class-link-query-adds $kb $query-ctx $type)
-   (let* ((($antecedent $consequent) (implication-query-sides $type))
-          ($adds (compile-implication-instance-adds false $kb $type $antecedent $consequent)))
-      (map-flat (positive-implication-producer $query-ctx $type) $adds)))
 
 (: compileQuery (-[nondet]-> KB AnnotatedStatement CompilationPlan))
 (= (compileQuery $kb (: $prf $Type $tv))
@@ -386,8 +305,7 @@
          (let*
             ((($antecedent $consequent) (implication-query-sides (brand Statement $Type)))
              ($query-tv (statement-query-tv $tv))
-             ($query-kb (brand KB (implication-query $kb)))
-             ($query-ctx (make-kb-context $query-kb MAIN Nil))
+             ($query-ctx (kbctx $kb))
              ($mvars (query-variables (extract-vars $Type)))
              (($_pos-shape-kb (premise-bundle $pos-goals $pos-tv $pos-prf) $pos-adds)
                 (judgment-query-side $kb $mvars false $antecedent $consequent)))
@@ -397,15 +315,12 @@
                   (brand CompiledAddition
                      ($pos-goals |- (: $query-ctx (conditional-implication $pos-prf) $Type $pos-tv)))
                   (append-compiled-additions
-                     (implication-statement-query-adds $kb $query-ctx (brand Statement $Type))
-                     (append-compiled-additions
-                        (map-flat (positive-implication-producer $query-ctx (brand Statement $Type))
-                           (if (rule-truth-installed? $kb $Type)
-                              (rule-truth-query-adds $kb $Type $antecedent $consequent)
-                              (if (class-link-instance? $antecedent $consequent) (the (List CompiledAddition) ())
-                                 (compile-implication-instance-adds true $kb
-                                    (brand Statement $Type) $antecedent $consequent))))
-                        $pos-adds)))))
+                     (if (rule-truth-installed? $kb $Type)
+                        (rule-truth-query-adds $kb $Type $antecedent $consequent)
+                        (if (class-link-instance? $antecedent $consequent) (the (List CompiledAddition) ())
+                           (compile-implication-instance-adds true $kb
+                              (brand Statement $Type) $antecedent $consequent)))
+                     $pos-adds))))
          (if (implication-type? $Type) (empty)
          (if (bidirectional-implication-type? $Type)
             (let*

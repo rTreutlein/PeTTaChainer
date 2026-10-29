@@ -109,8 +109,13 @@
 
 ;; Keep an empty instance fold live so later samples can refine it, but do
 ;; not let its provisional no-evidence value become a public implication proof.
-(: InstanceEvidenceFormula (-[nondet]-> TV  TV))
-(= (InstanceEvidenceFormula $tv) (if (== $tv no-evidence) (empty) $tv))
+(: InstanceEvidenceFormula (-[nondet]-> Bool TV TV))
+(= (InstanceEvidenceFormula $full? $tv)
+   (if (== $tv no-evidence) (empty)
+      (if $full? $tv
+         (let (STV $s $c)
+            (case $tv (((CTV $positive $_negative) $positive) ($_stv $tv)))
+            (if (> $c 0.0) (STV $s $c) (empty))))))
 
 ;; A rule's expected premise confidence is a pure function of its premise
 ;; structure and stored TVs, so it is computed once here instead of on every

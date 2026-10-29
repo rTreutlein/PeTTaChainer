@@ -301,6 +301,13 @@ query: a class link queried again reads its tally at the cost of the samples
 that changed, where per-query rules sampled the whole population each time. Rules imported from a static dump keep
 their ids; a new live rule takes an id past them.
 
+Implication statement reads use the ordinary key. An STV read projects CTV
+facts and computed values while retaining their evidence and dependencies,
+including forward copies and frozen summaries. A stated STV already supplies
+its positive source, so its executable conversion adds no positive judgment.
+The original producers serve both value policies; no positive copies of them
+are needed. Root key discovery precedes proof/TV filtering of stored values.
+
 A connective's producer reads an implication part at its probability, in the
 implication's query scaffold. A rule's own conclusion is never read so: its
 strong projections read an implication sibling as a plain key, because that
@@ -341,6 +348,9 @@ input value; this includes all cache, conditioning and aggregate maintenance
 performed by that read. It is not a possible-reachability test.
 
 C owns only assumption-dependent evaluation entries and its assumed facts.
+An assumed implication is an executable seed, not support for its own
+positive judgment. Open context bookkeeping retains the seed; STV judgment
+reads select admissible values before merging and reject that seed.
 An assumed fact is evidence in C with an identity of its own, as the same fact
 stored in the knowledge base would be, so views reading it are compared by it:
 an instance-prior inversion over an assumed observation contains the population
@@ -1064,8 +1074,10 @@ SupplyNet scale l at 16 steps per query from error 0.0009 to 0.0053 and left
 Members are read without views that depend on the fold itself. Base-rate folds
 estimate a population: they carry neither member evidence nor member
 dependencies, like a prior, and are proved by `cpu`. An implication instance
-fold is a tally of its samples' contributions too, proved by `cpu`. It carries
-no member evidence either, so its estimate revises with a rule's stated truth,
+fold is a tally of its samples' contributions too, proved by `cpu`. STV and
+CTV policies share one two-branch tally; the positive policy projects its
+branch after that read, so the same samples cannot revise themselves. It
+carries no member evidence either, so its estimate revises with a rule's stated truth,
 and no member dependencies. The base rates of the rule's sides count its
 samples too, so a truth learned from them is not reconciled with those rates
 (`learned-rates` in `implication-ctv-goals`): its positive branch applies as
@@ -1709,8 +1721,8 @@ compound's consequence updates each part (`fuzzing.md`).
 A materializing query writes back its first answer and, for every statement
 that answer's proof uses, that statement's current value. Materialized facts are never leaves of later searches: the
 backward chainer re-derives them. An implication judgment is no world fact
-and is not written back; a budget-0 re-query of a class link a search
-expanded reads its instance fold, whose tally outlives the query.
+and neither it nor its hypothetical premises are written back into MAIN; a
+budget-0 re-query of a class link a search expanded reads its instance fold, whose tally outlives the query.
 
 ## Performance goals
 

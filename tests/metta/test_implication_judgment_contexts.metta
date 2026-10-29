@@ -44,7 +44,7 @@
    0.32000000000000006)
 
 ;; An explicitly STV-typed implication premise in an advanced runtime rule
-;; reads the positive judgment in its private context, even before a public
+;; reads the positive judgment at its ordinary key, even before a public
 ;; implication query has installed a scaffold. CTV premises stay full reads.
 !(compileadd typedPremKb (: r (Implication (G) (Y))
    (CTV (STV 0.8 0.9) (STV 0.2 0.9))))
@@ -70,8 +70,8 @@
 !(test (collapse (query 300 missingTypedPremKb (: $p (Result) $tv))) ())
 
 ;; Already-compiled statements can enter through the public low-level API,
-;; without compileadd's positive publication. Their own positive source is
-;; still available: an STV at budget zero, a CTV after projecting its branch.
+;; without source compilation. Their positive source is still available: an
+;; STV directly and a CTV through its positive read policy.
 !(add-to-kb (brand RuntimeAddition (quote
    ((Implication (DirectGate) (DirectResult)) (directCtvJudgmentKb MAIN Nil)
       direct-ctv (CTV (STV 0.8 0.9) (STV 0.2 0.9))))))
@@ -84,3 +84,16 @@
 !(test (collapse (query 0 directStvJudgmentKb
    (: $p (Implication (DirectGate) (DirectResult)) $tv)))
    ((: direct-stv (Implication (DirectGate) (DirectResult)) (STV 0.6 0.7))))
+
+;; Repeating the same CTV source preserves its immutable proof identity. The
+;; positive branch is a read of that source, not a second stored source TV.
+!(compileadd repeatedCtvJudgmentKb (: repeated (Implication (Gate) (Result))
+   (CTV (STV 0.8 0.9) (STV 0.2 0.7))))
+!(compileadd repeatedCtvJudgmentKb (: repeated (Implication (Gate) (Result))
+   (CTV (STV 0.8 0.9) (STV 0.2 0.7))))
+!(test (collapse (query 0 repeatedCtvJudgmentKb
+   (: $p (Implication (Gate) (Result)) $tv)))
+   ((: repeated (Implication (Gate) (Result)) (STV 0.8 0.9))))
+!(test (collapse (query 0 repeatedCtvJudgmentKb
+   (: $p (Implication (Not (Gate)) (Result)) $tv)))
+   ((: repeated (Implication (Not (Gate)) (Result)) (STV 0.2 0.7))))

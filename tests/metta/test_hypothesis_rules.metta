@@ -76,7 +76,7 @@
 ;; Before any review a hypothesis that claims no effect scores at the floor:
 ;; it is reached only with budget to spare. The swapped-branch RuleTruth
 ;; projection is another reader of the same live parameter.
-!(test (hypothesis-scores) ((A 0.0099) (A 0.0099) (A 0.009000000000000001) (C 0.0099) (C 0.0099) (C 0.009000000000000001)))
+!(test (hypothesis-scores) ((A 0.009999000099989962) (A 0.01) (A 0.009000000000000001) (C 0.009999000099989962) (C 0.01) (C 0.009000000000000001)))
 
 ;; Read the full internal CTV after scheduling a public STV query below.
 ;; These pins protect learned negative branches used by modus ponens.
@@ -105,7 +105,7 @@
 
 ;; The confirmed hypothesis is scored by what it adds; the rejected one, whose
 ;; consequent does not move with its antecedent, stays at the floor.
-!(test (hypothesis-scores) ((A 0.3933243243243243) (A 0.3933243243243243) (A 0.3575675675675676) (C 0.0099) (C 0.0099) (C 0.009000000000000001)))
+!(test (hypothesis-scores) ((A 0.3972575715401417) (A 0.3972972972972973) (A 0.3575675675675676) (C 0.009999000099989962) (C 0.01) (C 0.009000000000000001)))
 
 ;; A forward run applies the learned truth, not the prior.
 !(compileadd hypKb (: anew (A new) (STV 1 1)))

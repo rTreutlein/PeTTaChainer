@@ -41,9 +41,8 @@
                             (if (= $source (assemble-stored-runtime-fact $type $kbctx $_proof $_tv))
                                (if (existential-outer-values? $outer-vars) true (empty))
                                (empty))))
-                      ;; Match the premise as its join reads it: an STV read
-                      ;; of an implication is its judgment, never the stored
-                      ;; or assumed rule's own key.
+                      ;; Match the contextualized premise. Its read policy
+                      ;; separates judgment support from executable seeds.
                       ($_fact
                          (if (= (contextualize-rule-premise $ccls $premise)
                                 (assemble-stored-runtime-fact $type $kbctx $_proof $_tv))

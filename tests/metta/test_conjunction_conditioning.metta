@@ -7,10 +7,10 @@
    (collapse (once (inject-compiled-adds $adds))))
 !(inject-special-subgoal-query-adds temp
    (brand Statement (Implication (A a) (B a)))
-   (brand KBContext (quote ((implication-query scaffoldConjKb) MAIN Nil))) (brand Proof $p) (the TV (STV $s $c)))
+   (brand KBContext (quote (scaffoldConjKb MAIN Nil))) (brand Proof $p) (the TV (STV $s $c)))
 !(test (not (== (collapse (once
    (match ccls_index
-      (((Implication $a $b) ((implication-query scaffoldConjKb) MAIN Nil)
+      (((Implication $a $b) (scaffoldConjKb MAIN Nil)
          (conditional-implication $_proof) (STV $_s $_c)) $_id $_args)
       (if (=alpha (Implication $a $b) (Implication (A a) (B a))) true (empty))))) ())) true)
 !(clear-temp-query-adds)
@@ -21,10 +21,10 @@
    (collapse (once (inject-compiled-adds $adds))))
 !(inject-special-subgoal-query-adds temp
    (brand Statement (Implication (A $renamed) (B $renamed)))
-   (brand KBContext (quote ((implication-query stvScaffoldConjKb) MAIN Nil))) (brand Proof $p) (the TV (STV $s $c)))
+   (brand KBContext (quote (stvScaffoldConjKb MAIN Nil))) (brand Proof $p) (the TV (STV $s $c)))
 !(test (list-len (collapse
    (match ccls_index
-      (((Implication $a $b) ((implication-query stvScaffoldConjKb) MAIN Nil)
+      (((Implication $a $b) (stvScaffoldConjKb MAIN Nil)
          (conditional-implication $_proof) (STV $_s $_c)) $id $_args) $id))) 1)
 !(clear-temp-query-adds)
 

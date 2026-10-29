@@ -156,7 +156,7 @@
 ;; A base-rate finish is read as the KB reads base rates (see
 ;; `smoothed-base-rate-tv`).
 (: finish-aggregate (-[semidet]-> KB Expression Expression Atom))
-(= (finish-aggregate $kb $a $b)(let $tv (case $a ( (identity $b)(dist-average (the Distribution (once (reduce (reduce (DistAverageFromSumCount (fa-dist-acc $b)))))))(base-rate (BaseRateTv (fa-ev-acc $b)))(implication-instance (case (fa-instance-acc $b) (((InstanceEvidence $pos $_neg) (WeightedCountBaseRateTv $pos)))))(implication-instance-ctv (ImplicationInstanceTv (fa-instance-acc $b))))) (if (base-rate-finish? $a)(smoothed-base-rate-tv $kb $tv) $tv)))
+(= (finish-aggregate $kb $a $b)(let $tv (case $a ( (identity $b)(dist-average (the Distribution (once (reduce (reduce (DistAverageFromSumCount (fa-dist-acc $b)))))))(base-rate (BaseRateTv (fa-ev-acc $b)))(implication-instance-ctv (ImplicationInstanceTv (fa-instance-acc $b))))) (if (base-rate-finish? $a)(smoothed-base-rate-tv $kb $tv) $tv)))
 (: fa-publish-cache! (-[det]-> KB Statement TV $a (List $b)))
 (= (fa-publish-cache! $a $b $c $d)
    (case (base-rate-cache-entries-for-mode $a $b $d) (
@@ -211,7 +211,7 @@
 ;; incrementally, as a tally of each member's contribution (see sk-fold-view).
 (: sk-instance-fold? (-[det]-> Atom Bool))
 (= (sk-instance-fold? ($_kb $_pattern $_extractor $_init $_function $finish $_mode))
-   (stored-list-member? $finish (implication-instance implication-instance-ctv)))
+   (== $finish implication-instance-ctv))
 
 (: sk-instance-fold-key? (-[det]-> SkeletonKey Bool))
 (= (sk-instance-fold-key? $key)

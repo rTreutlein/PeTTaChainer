@@ -27,6 +27,13 @@
 
 !(test (link-fold-node-count emptyLinkKb EmptyClass MissingClass) 1)
 
+;; A tally with only antecedent-false samples has no positive branch. Sharing
+;; its CTV finish must not invent an STV answer from the unknown placeholder.
+!(compileadd negativeOnlyLinkKb (: absent (Member sample EmptyClass) (STV 0.0 1.0)))
+!(compileadd negativeOnlyLinkKb (: present (Member sample MissingClass) (STV 1.0 1.0)))
+!(test (collapse (query 80 negativeOnlyLinkKb
+   (: $proof (Inheritance EmptyClass MissingClass) $tv))) ())
+
 ;; Unrelated knowledge and warm queries, with any budget, answer nothing.
 !(compileadd emptyLinkKb
    (: unrelatedMember (Member unrelated OtherClass) (STV 1.0 1.0)))

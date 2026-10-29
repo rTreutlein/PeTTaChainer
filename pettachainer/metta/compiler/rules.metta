@@ -642,7 +642,6 @@
                                (if $single (cons (: (kbctx $kb) $bprf $consequent $btv) ())
                                   (and-tv-goals AndFormula $first $more $and-tv (cons (: (kbctx $kb) $bprf $consequent $btv) ())))))))
                       ($atv (if $single (car-atom $tvs) $and-tv))
-                      ($finish (if (if $negated true $ctv?) implication-instance-ctv implication-instance))
                       ($sample-pattern (ImplicationInstanceSample $antecedent $consequent $atv $btv))
                       ($fold
                          (CPU FoldAllCompiled
@@ -650,9 +649,9 @@
                                ($kb $sample-pattern
                                   (extract-value $sample-pattern (WeightedTv $atv $btv))
                                   (InstanceEvidence (BaseRateEvidence 0.0 0.0) (BaseRateEvidence 0.0 0.0))
-                                  ImplicationInstanceAcc $finish result-tv))
+                                  ImplicationInstanceAcc implication-instance-ctv result-tv))
                             $fold-tv))
-                      ($positive (CPU InstanceEvidenceFormula ($fold-tv) $instance-tv))
+                      ($positive (CPU InstanceEvidenceFormula ($ctv? $fold-tv) $instance-tv))
                       (($ctv-goals $instance-ctv $_instance-likelihoods)
                          (implication-ctv-goals $kb () $antecedent $consequent $instance-tv learned-rates))
                       ($fold-premises
@@ -1164,9 +1163,7 @@
                                    (canonical-existential-side (brand Statement $antecedent))
                                    (canonical-existential-side (brand Statement $consequent)))
                                (brand Statement (QuantifiedRule (index-hash $canonical) $canonical)))
-                            $source-type))
-                      ($query-kb (make-kb-context (brand KB (implication-query $kb)) MAIN Nil))
-                      ($source-kb (kbctx $kb)))
+                            $source-type)))
                   (superpose (
                      (case $tv (
                         ((CTV $source-pos $source-neg)
@@ -1176,10 +1173,9 @@
                               (brand CompiledAddition
                                  (() |- (: (kbctx $kb) $prf (Implication $a-opposite $source-b)
                                     (CTV $source-neg $source-pos))))
-                              (brand CompiledAddition
-                                 (() |- (: $query-kb $prf $query-type $source-pos)))
-                              (brand CompiledAddition
-                                 (() |- (: $query-kb $prf (Implication $a-opposite $source-b) $source-neg))))))
+                              (if (=alpha $source-type $query-type) (empty)
+                                 (brand CompiledAddition
+                                    (() |- (: (kbctx $kb) $prf $query-type $tv)))))))
                         ((STV $s $c)
                            (let* (($rate-a (if (== $inner ()) $a
                                      (brand Statement (cons And (append (implication-side-conjuncts $a) $inner)))))
@@ -1187,14 +1183,15 @@
                                      (compile-implication-ctv-execs $kb $params $rate-a $last $tv $tv reconciled-rates)))
                               (superpose (
                                  (brand CompiledAddition
-                                    (() |- (: $source-kb $prf $source-type $tv)))
-                                 (brand CompiledAddition (() |- (: $query-kb $prf $query-type $tv)))
+                                    (() |- (: (kbctx $kb) $prf $source-type $tv)))
+                                 (if (=alpha $source-type $query-type) (empty)
+                                    (brand CompiledAddition (() |- (: (kbctx $kb) $prf $query-type $tv))))
                                  (brand CompiledAddition
                                     ($ctv-execs |- (: (kbctx $kb) $prf $source-type $source-ctv)))))))))
                      ;; The variables a nested implication of the source binds
                      ;; are its own: a projection reads the source apart from them.
                      (let* (($bound (\== (list_to_set (extract-vars $source-b)) (append $params $antecedent-vars)))
-                            ($source (sealed $bound (: $source-kb $prf $source-type $tv))))
+                            ($source (sealed $bound (: (kbctx $kb) $prf $source-type $tv))))
                         (compile-consequent-implications $kb $shape-kb $prf $tv
                            (cons $source $truth-premises) $value $use $params $a $b)))))
                (compile-implication-forward-rules
