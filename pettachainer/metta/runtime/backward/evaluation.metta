@@ -3166,13 +3166,14 @@
 ;; prior where it has none (event-moment-node.md): the observations first, all
 ;; of a key's messages read once on that value, its population prior or the
 ;; uniform prior (pearl-moments), then the predictions, each moving the result.
+(: event-network-read (-[semidet]-> SkeletonKey (List Number) SkeletonValue SkeletonValue))
 (: sk-node-apply (-[semidet]-> SkeletonKey (List Number) (List SkeletonValue) (List SkeletonValue) SkeletonValue SkeletonValue))
 (= (sk-node-apply $key $exclude $messages $updates $value)
    (let $observed (if (== $messages ()) $value (sk-messages-on $key $exclude $messages $value))
-      (if (== $updates ()) $observed
+      (event-network-read $key $exclude (if (== $updates ()) $observed
          (fold-semidet sk-jeffrey-step
             (if (== $observed sk-none) (sk-part-prior $key (fold-semidet sk-value-ev-step (ev-set 0) $updates) $exclude) $observed)
-            (the (List SkeletonValue) (jeffrey-order $updates))))))
+            (the (List SkeletonValue) (jeffrey-order $updates)))))))
 
 ;; A statement key's population prior, its cavity rate: the observed rate of
 ;; its predicate's population, its source facts (sk-leaf-facts, materialized

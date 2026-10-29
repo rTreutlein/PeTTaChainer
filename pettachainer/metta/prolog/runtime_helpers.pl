@@ -1,3 +1,4 @@
+% Event-node semantics and numerical contracts: docs/metta/event_node_contract.md.
 :- use_module(library(heaps)).
 :- use_module(library(assoc)).
 :- use_module(library(nb_set)).
@@ -7,34 +8,8 @@
 :- ensure_loaded(ingestion).
 :- ensure_loaded(sorts).
 :- use_module(event_node).
+:- ensure_loaded(event_graph).
 
-% The event moment node of a compound K over its distinct atoms
-% (bench/results/fresh-design/event-moment-node.md, section 2), each atom an
-% independent parameter at its value read apart from K. K is a formula over
-% the atoms ('node-formula': an atom index, ['Not', F], ['And'|Fs] or
-% ['Or'|Fs]), so a nested compound is one node and an atom it repeats is one
-% parameter. K's value is either an observation (read off stored facts: a fact
-% source, or a revision of them; or certain), which is Pearl evidence on the
-% worlds where K holds at its predictive strength (n s + 1)/(n + 2), or a
-% prediction (anything else derived), which moves K's probability to its
-% strength s by probability kinematics (Jeffrey): P'(G) = s P(G | K) +
-% (1 - s) P(G | not K). An atom read off stored facts is its Laplace Beta, a
-% derived one its moments (event_node_dist). K is [Proof, TV]. The other
-% atoms come as their reads (Siblings, their Proofs) and canonical Keys.
-%
-% 'event-node-message' is an observed K's message to the atom at Index
-% (0-based): its likelihood, and the atom's posterior under the uniform prior
-% with the other atoms at their values. 'event-node-jeffrey' is a predicted
-% K's update of that atom, its conditionals P(K | atom), P(K | not atom), the
-% atom neutral. An atom read as no-evidence (it has no value), or
-% unknown-part (not read), is the uniform prior. Neither gives a value that
-% leaves the atom undetermined: K's evidence neutral, or K settled by the
-% other atoms in every world they can take. 'event-node-joint' is the
-% posterior of the formula Goal over the atoms, every atom at its value,
-% under K's observation or its prediction; no answer where K's evidence is
-% neutral. No answer either where no world is possible. 'event-node-value' is
-% the atom's value from the node alone: an observed K's message or a
-% predicted K's update, either on the uniform prior.
 'event-node-message'(Formula, Index, K, [KProof, KTV], Siblings, Proofs, Keys,
                      ['node-message-result', TV, Likelihood]) :-
     observed(KProof, KTV),
@@ -99,10 +74,6 @@ formula_holds(['Not', F], Bits) :- !, \+ formula_holds(F, Bits).
 formula_holds(['And'|Fs], Bits) :- !, forall(member(F, Fs), formula_holds(F, Bits)).
 formula_holds(['Or'|Fs], Bits) :- member(F, Fs), formula_holds(F, Bits), !.
 
-% A compound's formula over its distinct atoms, in first-occurrence order: an
-% And or Or over its children's formulas, a Not over its child's, and any
-% other statement an atom, one index however often it occurs. A head is a
-% connective by identity: a variable predicate is an atom's, never bound.
 connective_head(Head) :- atom(Head), memberchk(Head, ['And', 'Or']).
 
 'node-formula'(Statement, [Formula, Atoms]) :- node_formula(Statement, Formula, [], Atoms).
@@ -117,9 +88,6 @@ part_dist(K, ['STV', S, C], Proof, Dist) :-
     ( stored_proof(Proof) -> Kind = stored ; Kind = view ),
     event_node_dist(Kind, S, C, K, Dist).
 
-% K's value is evidence to condition on (Pearl) when read off stored facts or
-% certain: a certain value, derived or given under a condition, is the same
-% conditioning either way (Jeffrey at s = 0 or 1).
 observed(KProof, ['STV', _, Ck]) :- ( Ck >= 1.0 -> true ; stored_proof(KProof) ).
 
 stored_proof(Proof) :-
@@ -135,15 +103,6 @@ pearl_factor(K, ['STV', Sk, Ck], M) :-
     Ck > 0.0,
     ( Ck >= 1.0 -> M = Sk ; N is K * Ck / (1 - Ck), M is (N * Sk + 1) / (N + 2) ).
 
-% A prediction s of K at confidence c moves K's probability by probability
-% kinematics (Jeffrey) to its revision with the parts' own estimate, so a weak
-% prediction does not override a strong prior: P*(K) = (n_parts P_parts +
-% n_rule s) / (n_parts + n_rule), P_parts the parts' P(K) with
-% n_parts = P_parts(1 - P_parts) / Var - 1 from its variance and
-% n_rule = k c / (1 - c). G given K and given not K are then mixed at P*. A
-% joint's atoms are all read, so the node gives P_parts, P(G | K) and
-% P(G | not K) directly; its variance is bounded by the two sides' standard
-% deviations added plus P*'s, P*(1 - P*) / (n_parts + n_rule + 1).
 jeffrey_joint(Formula, Dists, K, ['STV', Ps, Pc], Goal, S, V) :-
     node_answer(Formula, Dists, 0.5, [Formula], [a(Pp, Vp, _)]),
     revised_target(K, Pp, Vp, Ps, Pc, Pstar, Nsum),
@@ -174,16 +133,6 @@ node_answer(Formula, Dists, M, Goals, Answers) :-
     event_node_moments(Vars, Terms, GoalIds, Answers),
     Answers \== inconsistent.
 
-% Observed compounds' messages to an atom, read once on the atom's prior (the
-% D3 rule; event-moment-node.md section 2): each message is its compound's
-% Pearl factor m on the worlds where the compound holds. The prior is a
-% stored count (its Laplace Beta: a fact, or a rate set on the population),
-% a propagated value (its ideal variance) or uniform; BaseProof decides which.
-% Messages whose compounds share no atom but the target are independent given
-% it, and each is then a likelihood of the target's two values through one
-% scalar W of its other atoms (literal_factor); messages that share an atom,
-% or a compound that is not a connective over distinct literals, are read in
-% one node over the union of their atoms (union_node).
 'pearl-moments'(K, BaseProof, Prior, Likelihoods0, TV) :-
     msort(Likelihoods0, Likelihoods),
     prior_dist(K, BaseProof, Prior, PDist),
@@ -210,10 +159,6 @@ literal(I, I) :- integer(I).
 literal(['Not', I], I) :- integer(I).
 literal_of(I, L) :- literal(L, I).
 
-% A literal message's factor f(W, Lambda1, Lambda0), each lambda linear in W
-% (l(A, B) is A + B W): an And holds iff the target's literal and W, the
-% product of the other literals; an Or unless both fail, W the product of the
-% other literals' complements; a negated target literal swaps the lambdas.
 literal_factor([likelihood, [C|Ls], I, M, _, Dists], f(W, L1, L0)) :-
     partition(literal_of(I), Ls, [TargetLit], Others),
     maplist(literal_dist(Dists), Others, OtherDists),
@@ -226,18 +171,6 @@ literal_factor([likelihood, [C|Ls], I, M, _, Dists], f(W, L1, L0)) :-
 literal_dist(Dists, I, D) :- integer(I), !, nth0(I, Dists, D).
 literal_dist(Dists, ['Not', I], D) :- nth0(I, Dists, D0), complement_dist(D0, D).
 
-% The posterior of the target p ~ PDist under independent factors, N = p
-% prod lambda1 and Z = N + (1 - p) prod lambda0: s = E[N]/E[Z], exact by
-% plug-in (the factors are independent and linear in their variables); the
-% variance E[N^2/Z]/E[Z] - s^2 by a tensor Gauss-Jacobi rule over p and each
-% uncertain W (two moments of a product, not its distribution), refined
-% (each rule twice as fine, an evidence boundary's layer resolved at about
-% 129 nodes) until two successive rules agree within 1 %; where that takes
-% more than 257 nodes a dimension or 70000 points, or a finer rule cannot be
-% built, and beyond four dimensions, the answer claims the bound. The products run in log space, every term relative to E[Z], so
-% many strong messages neither underflow nor overflow, and Max, s(1 - s), is
-% taken there too: unrounded however close s is to an endpoint, and 0 only
-% where the evidence decides the target (no variance).
 separable_moments(PDist, Factors, S, V, Max) :-
     dist_mean(PDist, Mu),
     maplist([f(W, _, _), Mw]>>moments(W, Mw, _), Factors, Ws),
@@ -275,10 +208,6 @@ lambda_flat(L, Mw) :-
     lambda_at(L, Mw, X), lambda_at(L, 0.0, X0), lambda_at(L, 1.0, X1),
     ( X =:= 0.0 -> X0 =:= 0.0, X1 =:= 0.0 ; abs(X0 - X) =< 1.0e-9 * X, abs(X1 - X) =< 1.0e-9 * X ).
 
-% One broad dimension (a Beta of at most ten counts, both shapes at least 1)
-% is integrated by Gauss-Legendre on intervals graded geometrically to 1e-12
-% of either endpoint, so a boundary layer as thin as the evidence makes it is
-% resolved; narrower or other dimensions take the tensor rule.
 graded_points(beta(A, B), Points) :-
     numlist(1, 12, Ks),
     maplist([K, X]>>(X is 10.0 ** (-K)), Ks, Lows0), reverse(Lows0, Lows),
@@ -356,9 +285,6 @@ product_dist(Ds, beta(A, B)) :-
     Var is max(X2 - M * M, 1.0e-300),
     T is max(0.0, M * (1 - M) / Var - 1), A is max(1.0e-6, M * T), B is max(1.0e-6, (1 - M) * T).
 
-% E[N^2/Z]/E[Z] over the tensor rule of the dimensions (the prior first if it
-% is not a point, then each wide W), the points at their values: each point's
-% term exp(2 log N - log Z - log E[Z]).
 second_tensor(PDist, Factors, Dims, N, LZ, E) :-
     maplist(sized_rule(N), Dims, Rules),
     findall(W-Xs, tensor_point(Rules, 1.0, W, Xs), Points),
@@ -385,13 +311,6 @@ point_ws([], [], []).
 point_ws([f(point(Wv), _, _)|Fs], Wide, [Wv|Ws]) :- !, point_ws(Fs, Wide, Ws).
 point_ws([_|Fs], [Wv|Wide], [Wv|Ws]) :- point_ws(Fs, Wide, Ws).
 
-% Messages read in one node over the union of their atoms, each atom one
-% parameter at the value its first message read (the reads are of the same
-% atom apart from the compounds and the target), the target at its prior:
-% the worlds' weights are the product of every message's factor, in log
-% space relative to the largest. The node's own policies give the variance
-% (event_node_moments: exact where its tensor rule fits, else the bound);
-% beyond twelve atoms there is no enumeration and no answer.
 union_node(PDist, Likelihoods, S, V) :-
     foldl(union_atoms, Likelihoods, [target-PDist], Atoms),
     length(Atoms, Count), Count =< 12,
@@ -426,16 +345,6 @@ world_log_factor(Bits, [likelihood, Formula, _, M, _, _], Map, L0, L) :-
     ( formula_holds(Formula, Local) -> X = M ; X is 1 - M ),
     safe_log(X, G), log_add(L0, G, L).
 
-% A part at P (variance VarP) with K's conditionals F1 = P(K | part),
-% F0 = P(K | not part) (variances V1, V0, from the other parts) under a
-% prediction Ps at confidence Pc: P_parts = P F1 + (1 - P) F0, P* its revision
-% with the prediction, and the part's posterior
-% P* P(part | K) + (1 - P*) P(part | not K), P(part | K) = P F1 / P_parts and
-% P(part | not K) = P (1 - F1) / (1 - P_parts). Its variance is the delta
-% method's over the four independent inputs P, F1, F0 and the prediction's
-% strength (its ideal variance), so a prediction at c -> 0 leaves the part as
-% it was, and one at c -> 1 approaches adopting Ps. A part K's parts already
-% decide (P_parts at 0 or 1) is left as it was.
 
 'jeffrey-posterior'(K, Bs, Bc, ['STV', Ps, Pc], [conditionals, [F1, V1], [F0, V0]], TV) :-
     ideal_variance(K, Bs, Bc, VarP),
@@ -480,10 +389,6 @@ perturbed(2, X, P, Ps, _, F0, P, Ps, X, F0).
 perturbed(3, X, P, Ps, F1, _, P, Ps, F1, X).
 perturbed(4, X, P, _, F1, F0, P, X, F1, F0).
 
-% Predicted compounds' updates of one key in the order of what they carry (the
-% prediction, K's probability given the part, the part's position, then their
-% evidence), whatever order they arrived in: a proof or an evidence id can be a
-% reference numbered by arrival, so the evidence enters as its entries.
 'jeffrey-order'(Values, Ordered) :-
     map_list_to_pairs(jeffrey_order_key, Values, Keyed),
     keysort(Keyed, Sorted),
@@ -494,10 +399,6 @@ jeffrey_order_key(['sk-val', [_, _, Proof, _], Ev|_], Key) :-
     'evidence-entries'(Ev, Entries), msort(Entries, Sources),
     Key = Prediction-Conditionals-Index-Sources.
 
-% A population's observed rate apart from a node: the base-rate evidence
-% (strengths weighted by confidence, as the base-rate fold's extract-tv) of
-% its source facts Facts, without a fact the evidence Ev holds or one at a key
-% the reader excludes.
 'observed-rate-evidence'(Facts, Exclude, Ev, ['BaseRateEvidence', W, M]) :-
     'evidence-entries'(Ev, Entries),
     findall(S-C,
@@ -511,11 +412,6 @@ jeffrey_order_key(['sk-val', [_, _, Proof, _], Ev|_], Key) :-
 positive_tv(['STV', S, C], S, C).
 positive_tv(['CTV', ['STV', S, C], _], S, C).
 
-% A strength and its variance as an STV, by master's ideal-conf-from-var: a
-% claimed bound, or a variance at or above the Bernoulli Max = s(1 - s) of
-% the strength itself (unrounded where its caller has it), claims no
-% confidence (0), so the widening is kept, and none at all (variance 0)
-% .9999.
 node_stv(K, S, V, TV) :- ( V == bound -> Max = 0.0 ; Max is S * (1 - S) ), node_stv(K, S, V, Max, TV).
 node_stv(_, S, bound, _, ['STV', S, 0.0]) :- !.
 node_stv(_, S, V, _, ['STV', S, 0.9999]) :- V =< 0.0, !.
@@ -528,13 +424,6 @@ ideal_variance(_, _, C, V) :- C =< 0.0, !, V is 1.0 / 12.
 ideal_variance(K, S, C, V) :- N is K * C / (1 - C), Sc is min(1 - 1.0e-6, max(1.0e-6, S)), V is Sc * (1 - Sc) / (N + 1).
 
 
-% The joint goals of a compound's node over at most four atoms, each
-% [Formula, Statement]: every compound inside it, and each And and Or over two
-% or more of its children or of its atoms in every order (a connective is
-% commutative, and a statement is read at the order it is named in), other
-% than the compound itself in its own order; the compound in another order is
-% the same statement, whose value is the compound's. The statements are built
-% from the compound's own atoms, so they share its variables.
 'node-joint-goals'([Head|Children], Goals) :-
     node_formula([Head|Children], [Head|Fs], [], Atoms),
     length(Atoms, NA),
@@ -592,6 +481,7 @@ node_subset([_|Xs], Ys) :- node_subset(Xs, Ys).
         ; true )).
 
 'sk-force-reset!'([]) :-
+    retractall(event_graph_memo(_, _, _)),
     ( context_active(C) -> true ; C=main ),
     forall(retract(sk_forced_seen(C,Trie)),trie_destroy(Trie)).
 

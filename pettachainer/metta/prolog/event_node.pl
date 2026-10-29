@@ -1,15 +1,4 @@
-% The event moment node's numerics (bench/results/fresh-design/event-moment-node.md,
-% sections 2 and 2b). A node is a set of independent parameters and the
-% multilinear forms Z(theta) = sum_w P_theta(w) prod lambda(w) and, for each goal,
-% N_g(theta), the same sum over the goal's worlds. The answer is the oracle's
-% posterior over theta (prior x Z): its mean E[N_g]/E[Z] is exact at the
-% parameters' means, its variance E_prior[N_g^2/Z]/E[Z] - s^2 is integrated by
-% quadrature under the conservative policies, and where those cannot vouch
-% for it the answer claims the bound s(1 - s).
-%
-% Lambdas here read only their parameters; a step that needs its clause's
-% variables is a predicate with them as leading arguments (yall's Free/Lambda
-% is rejected when the call is not expanded at compile time).
+% Event-node semantics and numerical contracts: docs/metta/event_node_contract.md.
 :- module(event_node, [event_node_dist/5, event_node_moments/4, event_node_coupling/5, event_node_widen/6, dist_rule/3, dist_mean/2]).
 :- autoload(library(simplex)).
 :- use_module(library(yall)).
@@ -18,13 +7,6 @@
 :- use_module(library(pairs)).
 :- use_module(library(assoc)).
 
-% A parameter's distribution. A stored count (s, c) is its Laplace Beta
-% (c = 0: the uniform prior). A propagated value keeps its moments, s and
-% ideal-var s(1 - s)/(n + 1), the inverse of the answer's
-% ideal-conf-from-var: Beta(n s, n(1 - s)), each shape at least 1e-12 so a
-% strength of 0 or 1 keeps a proper Beta and every other strength its mean;
-% at c = 0 the variance s(1 - s) is Bernoulli(s)'s. Only c = 1 is the point
-% s.
 event_node_dist(_, S, C, _, point(S)) :- C >= 1.0, !.
 event_node_dist(stored, _, C, _, beta(1.0, 1.0)) :- C =< 0.0, !.
 event_node_dist(stored, S, C, K, beta(A, B)) :- N is K * C / (1 - C), A is N * S + 1, B is N * (1 - S) + 1.
@@ -32,13 +14,6 @@ event_node_dist(view, S, C, _, bernoulli(S)) :- C =< 0.0, !.
 event_node_dist(view, S, C, K, beta(A, B)) :-
     N is K * C / (1 - C), A is max(1.0e-12, N * S), B is max(1.0e-12, N * (1 - S)).
 
-% event_node_moments(+Vars, +Terms, +Goals, -Answers): Vars are Id-Dist pairs,
-% Terms the forms' signed monomials t(Coef, Lits, GoalIds) with Lits Id-1
-% (theta) and Id-0 (1 - theta): Z sums every term, N_g the terms that list g.
-% Answers are a(S, V, exact) or a(S, V, bound), one per goal of Goals, or
-% inconsistent when no world is possible (Z = 0 at the means: certain
-% evidence against certain facts). A common factor of the coefficients
-% changes nothing: they are read relative to the largest.
 event_node_moments(Vars, Terms0, Goals, Answers) :-
     foldl([t(C, _, _), M0, M]>>(M is max(M0, abs(C))), Terms0, 0.0, Scale),
     (   Scale =:= 0.0
@@ -65,18 +40,16 @@ event_node_moments(Vars, Terms0, Goals, Answers) :-
 
 exact_answer(Z0, S, E, a(S, V, exact)) :- V is max(0.0, E / Z0 - S * S).
 
-% E_prior[N_g^2/Z] by the full tensor rule wherever it fits 5000 evaluations at
-% 17 nodes per Beta (every node of discrete parameters, and up to 3 Betas):
-% Bernoulli and point parameters exactly, Betas at 9 and 17 nodes, refined
-% (each rule twice as fine) while two successive rules disagree and the finer
-% one has at most 257 nodes, fits 70000 evaluations and can be built (a
-% sharp Beta's fine rule overflows; else bound). Fails where 17 nodes do not
-% fit.
 exact_second_moments(Free, Terms, Goals, Mu, H0, Exact) :-
     tensor_moments(17, Free, Terms, Goals, Mu, Size17, E17),
-    Size17 =< 5000,
-    tensor_moments(9, Free, Terms, Goals, Mu, _, E9),
-    refined_moments(17, E9, E17, Free, Terms, Goals, Mu, H0, Exact).
+    ( Size17 =< 5000
+    -> tensor_moments(9, Free, Terms, Goals, Mu, _, E9),
+       refined_moments(17, E9, E17, Free, Terms, Goals, Mu, H0, Exact)
+    ; tensor_moments(9, Free, Terms, Goals, Mu, Size9, E9), Size9 =< 70000,
+      tensor_moments(5, Free, Terms, Goals, Mu, _, E5),
+      ( agree_moments(H0, E5, E9) -> Exact = E9
+      ; tensor_moments(15, Free, Terms, Goals, Mu, Size15, E15), Size15 =< 70000,
+        refined_moments(15, E9, E15, Free, Terms, Goals, Mu, H0, Exact) ) ).
 
 refined_moments(N, Ecoarse, Efine, Free, Terms, Goals, Mu, H0, Exact) :-
     (   agree_moments(H0, Ecoarse, Efine) -> Exact = Efine
@@ -87,13 +60,15 @@ refined_moments(N, Ecoarse, Efine, Free, Terms, Goals, Mu, H0, Exact) :-
     ;   Exact = bound ).
 
 tensor_moments(N, Free, Terms, Goals, Mu, Size, E) :-
-    maplist(axis_rule(N), Free, Axes),
+    length(Free, Count), maplist(axis_rule(N, Count), Free, Axes),
     foldl([_-rule(Xs, _), P0, P]>>(length(Xs, L), P is P0 * L), Axes, 1, Size),
     (   Size =< 70000
     ->  zeros(Goals, Zero), tensor(Axes, Mu, 1.0, Terms, Goals, h, Zero, E)
     ;   E = none ).
 
-axis_rule(N, Id-D, Id-Rule) :- dist_rule(D, N, Rule).
+axis_rule(N, Count, Id-D, Id-Rule) :-
+    ( Count > 3, D = beta(A, B), min(A, B) > 10, A + B > 1000 -> Nodes is max(2, (N + 7) // 8) ; Nodes = N ),
+    dist_rule(D, Nodes, Rule).
 
 agree_moments(H0, Ea, Eb) :-
     maplist([E, H, C]>>(C is E - H), Ea, H0, Ca),
@@ -130,16 +105,6 @@ lit_value(Theta, Id-Bit, P0, P) :-
     get_assoc(Id, Theta, X),
     ( Bit =:= 1 -> P is P0 * X ; P is P0 * (1 - X) ).
 
-% A goal's answer from two independent estimates of E[N_g^2/Z]. Where Z is
-% constant (its exact variance below 1e-12 of Z^2), N_g^2/Z is a polynomial and
-% its exact moment is the answer. Otherwise the first-order quadrature (Hdmr)
-% and a second-order ratio expansion over the exact moments,
-% E[N^2/Z] = E[N^2]/Z - Cov(N^2, Z)/Z^2 + E[N^2] Var(Z)/Z^3 at Z = E[Z], must
-% agree within a factor of 2, and the larger, which the answer claims, must
-% exceed the expansion's error scale: its second-order terms times Z's
-% coefficient of variation, the size of the next order (so a variance of 0
-% with free parameters is never vouched for). Where either is missing or a
-% condition fails, the answer claims the bound s(1 - s).
 goal_answer(Z0, Ss, Hdmr, Poly, I, Answer) :-
     nth1(I, Ss, S),
     (   Poly = m(EZ2, EN2s, EN2Zs), ZVar is EZ2 - Z0 * Z0, nth1(I, EN2s, EN2), nth1(I, EN2Zs, EN2Z)
@@ -158,11 +123,6 @@ goal_answer(Z0, Ss, Hdmr, Poly, I, Answer) :-
 
 bound_answer(S, a(S, V, bound)) :- V is S * (1 - S).
 
-% One free parameter on its own, the others at their means: its rule (9 nodes,
-% refined to 17 and 33 while two rules disagree on any goal's variance
-% contribution by more than 1 %), the contributions E_i[h_g] - h_g(mu) of
-% h_g = N_g^2/Z, and its relative main-effect variance r_i over N_g and Z.
-% A parameter whose rules never agree is unresolved.
 one_dimension(Terms, Goals, Mu, Z0, N0, H0, Id-Dist, dim(Id, Rule, Contrib, R, Resolved)) :-
     rule_contributions(9, Dist, Id, Terms, Goals, Mu, Z0, N0, H0, d(_, C9, _)),
     rule_contributions(17, Dist, Id, Terms, Goals, Mu, Z0, N0, H0, d(R17, C17, Rel17)),
@@ -170,9 +130,6 @@ one_dimension(Terms, Goals, Mu, Z0, N0, H0, Id-Dist, dim(Id, Rule, Contrib, R, R
     ;   rule_contributions(33, Dist, Id, Terms, Goals, Mu, Z0, N0, H0, d(Rule, Contrib, R)),
         ( agree(H0, C17, Contrib) -> Resolved = true ; Resolved = false ) ).
 
-% A rule's contributions E_i[h_g] - h_g(mu), and r_i = max(Var_i(F)/F(mu)^2)
-% over F = Z and the goals' N_g (each multilinear, so E_i[F] = F(mu) and
-% Var_i(F) = E_i[F^2] - F(mu)^2; a goal with N_g = 0 at the means has none).
 rule_contributions(N, Dist, Id, Terms, Goals, Mu, Z0, N0, H0, d(Rule, Contrib, R)) :-
     dist_rule(Dist, N, Rule), Rule = rule(Xs, Ws),
     zeros(Goals, Zero),
@@ -194,13 +151,6 @@ add_weighted_square_times(W, Z, N, Q0, Q) :- Q is Q0 + W * N * N * Z.
 % (a parameter that barely moves the goal leaves only rounding).
 agree(H0, C1, C2) :- maplist([H, A, B]>>(abs(A - B) =< 0.01 * abs(B) + 1.0e-12 * abs(H)), H0, C1, C2).
 
-% The first-order estimate of E_prior[h_g] for every goal, or bound when the
-% policies cannot vouch for it: the wide parameters (r_i > .05, at most 3, at
-% most 5000 evaluations) are integrated jointly by their tensor rule, the
-% narrow ones add their first-order contributions, and the interaction mass
-% this leaves out, estimated by the product indicator (prod(1 + r_i) - 1) /
-% (sum of the narrow r_i + the wide block's own prod(1 + r_i) - 1), must stay
-% within 10 %.
 first_order(Dims, Terms, Goals, Mu, H0, Hdmr) :-
     partition([dim(_, _, _, R, _)]>>(R > 0.05), Dims, Wide, Narrow),
     foldl([dim(_, rule(Xs, _), _, _, _), P0, P]>>(length(Xs, L), P is P0 * L), Wide, 1, Evaluations),
@@ -217,10 +167,6 @@ first_order(Dims, Terms, Goals, Mu, H0, Hdmr) :-
             zeros(Goals, Zero), tensor(Axes, Mu, 1.0, Terms, Goals, h, Zero, Block) ),
         foldl([dim(_, _, C, _, _), E0, E]>>maplist([Ei0, Ci, Ei]>>(Ei is Ei0 + Ci), E0, C, E), Narrow, Block, Hdmr) ).
 
-% The exact moments E[Z^2], E[N_g^2] and E[N_g^2 Z]: of degree at most 3 in
-% each parameter, so a 2-point rule per parameter (exact to degree 3) over the
-% product of all of them integrates them exactly; beyond 12 free parameters
-% there are none.
 polynomial_moments(Free, Terms, Goals, Mu, Poly) :-
     (   length(Free, K), K > 12
     ->  Poly = none
@@ -246,10 +192,6 @@ accumulate(poly, W, Z, Ns, m(Z2a, N2a, N2Za), m(Z2, N2, N2Z)) :-
     maplist(add_weighted_square(W), Ns, N2a, N2),
     maplist(add_weighted_square_times(W, Z), Ns, N2Za, N2Z).
 
-% The n-point Gauss rule of Beta(a, b) on [0, 1]: the eigenvalues of the Jacobi
-% matrix (Sturm-count bisection, in a and b so that small and large shapes lose
-% nothing) and the Christoffel weights 1 / sum_k q_k(x)^2 of its orthonormal
-% recurrence.
 gauss_jacobi(A, B, N, Xs, Ws) :-
     AB is A + B,
     D0 is (A - B) / AB,
@@ -314,16 +256,6 @@ christoffel_sum([D|Ds], [Eprev, E|Es], X, Qprev, Q, S0, S) :- !,
     christoffel_sum(Ds, [E|Es], X, Q, Qnext, S1, S).
 christoffel_sum([_], _, _, _, Q, S0, S) :- S is S0 + Q * Q.
 
-% event_node_coupling(+Ps, +Pairs, +Lambdas, +Goal, -Result): the interval of
-% P(goal | evidence) over every joint q of j events with the prior marginals Ps
-% and the known pair joints Pairs (pj(I, J, P)), each cell c (bit i - 1 of c is
-% event i) weighted by Lambdas[c] and in the goal when Goal[c] is 1: Result is
-% interval(Lo, Hi), or inconsistent when no such joint exists or the evidence
-% rules every one out (the largest sum lambda q is 0); a caller answers
-% nothing then. The ratio is linear-fractional; its extremes are the
-% Charnes-Cooper LP's: y = t q, sum lambda y = 1, sum y = t, the fixed masses
-% scaled by t. The likelihoods are read relative to the largest. Beyond 4
-% events the interval is [0, 1].
 event_node_coupling(Ps, _, _, _, interval(0.0, 1.0)) :- length(Ps, J), J > 4, !.
 event_node_coupling(Ps, Pairs, Lambdas0, Goal, Result) :-
     max_list(Lambdas0, Scale),
@@ -364,9 +296,6 @@ fixed_mass(Cs, Mass, Events-P, S0, S) :-
 
 holds_all(Events, C) :- forall(member(I, Events), C >> (I - 1) /\ 1 =:= 1).
 
-% An answer whose coupling is unknown within [Lo, Hi]: its strength clipped into
-% the interval, its variance widened so that every value of the interval lies
-% within 2 sd.
 event_node_widen(S, V, Lo, Hi, S1, V1) :-
     S1 is min(Hi, max(Lo, S)),
     D is max(S1 - Lo, Hi - S1),
