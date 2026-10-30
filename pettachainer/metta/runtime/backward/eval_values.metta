@@ -68,7 +68,7 @@
 
 ;; A stored fact is its own evidence and depends on its own key. The fact a
 ;; forward run stored for a key carries its value's evidence and what that value
-;; was derived through (see sk-forward-store!), and a frozen key's summary its
+;; was derived through (see kb-publish-prediction!), and a frozen key's summary its
 ;; value's evidence and the keys near it (forgetting.metta). Ordinary fact
 ;; leaves keep their exact source evidence beside the inline proof: a later
 ;; signed proof walk must never rebuild a scoped fact from its name alone.

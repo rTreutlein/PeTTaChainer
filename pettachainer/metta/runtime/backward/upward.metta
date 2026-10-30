@@ -6,7 +6,7 @@
 ;; already has, never expanding anything. Complete joins are ordinary rows,
 ;; evaluated by the ordinary evaluation, so self-support, reader-specific
 ;; versions, conditioning and base rates behave as they do for queries.
-;; A taken key's value is also stored in &kb (sk-forward-store!).
+;; A taken key's value is also stored in &kb (kb-publish-prediction!).
 
 ;; The least evidence, in observations (n = c k / (1 - c)), a derived key's
 ;; value needs for the run to build on it. Process-wide.
@@ -123,18 +123,6 @@
    (let $_removed
       (collapse (match &sk_forward_taken ($hash $stored $value)
          (if (=alpha $stored $key) (remove-atom &sk_forward_taken ($hash $stored $value)) (empty))))
-      ()))
-
-(: sk-forget-forward-copy! (-[det]-> Number SkeletonKey Atom))
-(= (sk-forget-forward-copy! $hash $key)
-   (let $_removed
-      (collapse (match &sk_forward_stored ($hash $stored $old $old-ev $old-deps)
-         (if (=alpha $stored $key)
-            (let* (($_kb (remove-atom &kb $old))
-                   ($_unindex (kb-unindex-fact! $old))
-                   ($_rules (forget-stored-rules! forward $hash $key)))
-               (remove-atom &sk_forward_stored ($hash $stored $old $old-ev $old-deps)))
-            (empty))))
       ()))
 
 (: sk-record-taken! (-[semidet]-> SkeletonKey Atom))
@@ -313,25 +301,6 @@
                   (let $_kept (add-atom &sk_forward_agenda ($kb $priority $item))
                      (sk-carry! $kb (- $count 1) $rest)))))))))
 
-;; A derived key the run built on has its value stored in &kb, like a fact, so a
-;; later query reads it without searching for it again. It replaces the fact an
-;; earlier run stored for the key and keeps the value's evidence and what it
-;; was derived through, so no reader uses it to support itself. A value that is
-;; one of the key's stored facts needs no copy: removing an identical copy
-;; would remove the fact too.
-(: sk-forward-store! (-[semidet]-> SkeletonKey SkeletonValue Atom))
-(= (sk-forward-store! $key (sk-val ($type $kbctx $proof $tv) $ev $deps))
-   (let* (($hash (index-hash $key))
-          ($fact (assemble-runtime-fact $type $kbctx $proof $tv))
-          ($_old (sk-forget-forward-copy! $hash $key))
-          ($_copy
-             (if (kb-fact-present? $fact) ()
-                (let* (($_rules (record-stored-rules! forward $hash $key $proof))
-                       ($_stored (add-atom &sk_forward_stored ($hash $key $fact $ev $deps)))
-                       ($_kb (add-atom &kb $fact)))
-                   (kb-index-fact! live prediction $fact)))))
-      (sk-note-fact! $type $kbctx)))
-
 (: sk-key-result (-[semidet]-> (List (Statement KBContext Proof TV)) SkeletonKey (List (Statement KBContext Proof TV))))
 (= (sk-key-result $results $key)
    (case (case (event-network-read $key sk-any-filter () (ev-set 0)) (
@@ -344,7 +313,7 @@
                ;; key's value holds for every instance, and an instance query
                ;; would read a stored copy of it as a report of its own
                ;; derivation: only closed keys are stored.
-               (let $_stored (if (== (extract-vars $type) ()) (sk-forward-store! $key (sk-val $fact $ev $deps)) ())
+               (let $_stored (if (== (extract-vars $type) ()) (kb-publish-prediction! $key (sk-val $fact $ev $deps)) ())
                   (cons $fact $results)))))
       ($_none $results))))
 

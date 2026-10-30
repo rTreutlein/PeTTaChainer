@@ -1,50 +1,3 @@
-(datatype KbBackend
-   live
-   temp
-   ;; permanent rules only the backward chainer uses: no forward premise index
-   backward)
-
-;; The raw clause reference crosses the Prolog FFI and has no MeTTa-level
-;; representation.  This is one of the intentionally dynamic boundaries.
-(: ClauseRef (Newtype Atom))
-(datatype TempQueryRef (clause_ref ClauseRef))
-
-(: kb-add-atom (-[det]-> KbBackend $space SpaceAtom Bool))
-(= (kb-add-atom live $space $expr) (add-space-atom! $space $expr))
-(= (kb-add-atom backward $space $expr) (add-space-atom! $space $expr))
-(= (kb-add-atom temp $space $expr)
-   (let*
-      (($term (Predicate (cons $space $expr)))
-       ($_ (callPredicate (Predicate (assertz $term $ref)))))
-      (add-atom &temp_query_ref (clause_ref $ref))))
-
-;; The &kb_prefix and &kb_open rows of a fact (runtime/kb_index.metta).
-(: kb-index-fact! (-[det]-> KbBackend Atom Atom Atom))
-(= (kb-index-fact! $backend $role ($type $kbctx $proof $tv))
-   (let* (($fact (data $type $kbctx $proof $tv))
-          ($_catalog (source-catalog-fact! $backend $role $fact))
-          ($_rows (map-flat (kb-index-row! $backend &kb_prefix $fact) (kb-fact-prefix-hashes $type))))
-      (if (== (extract-vars $type) ()) ()
-         (let $_open (kb-index-row! $backend &kb_open $fact (kb-fact-open-hash $type)) ()))))
-
-(: kb-index-row! (-[det]-> KbBackend $space Atom Number Bool))
-(= (kb-index-row! $backend $space $fact $hash)
-   (kb-add-atom $backend $space (brand SpaceAtom (cons-atom $hash $fact))))
-
-(: kb-unindex-fact! (-[det]-> Atom Atom))
-(= (kb-unindex-fact! ($type $kbctx $proof $tv))
-   (let* (($fact (data $type $kbctx $proof $tv))
-          ($_catalog (source-catalog-unindex! $fact))
-          ($_rows (map-flat (kb-remove-prefix-row! (data $type $kbctx $proof $tv)) (kb-fact-prefix-hashes $type))))
-      (if (== (extract-vars $type) ()) ()
-         (let* (($hash (kb-fact-open-hash $type))
-                ($_open (remove-atom &kb_open ($hash $type $kbctx $proof $tv))))
-            ()))))
-
-(: kb-remove-prefix-row! (-[det]-> Atom Number Bool))
-(= (kb-remove-prefix-row! ($type $kbctx $proof $tv) $hash)
-   (remove-atom &kb_prefix ($hash $type $kbctx $proof $tv)))
-
 ;; The &prem_prefix keys of a statement's prefixes in a KB, its head alone first.
 (: statement-prefix-keys (-[det]-> Atom Statement (List Number)))
 (= (statement-prefix-keys $kbid $type)
@@ -197,8 +150,7 @@
                (let*
                   ((($type $kb $_prf $_tv) $fact)
                    ($_functional (functional-fact! $fact))
-                   ($_add (chainer-add-atom &kb $fact))
-                   ($_index (kb-index-fact! live $role $fact))
+                   ($_published (kb-publish-fact! live $role $fact))
                    ($_journal (sk-note-fact! $type $kb))
                    ($_outcome (note-combination-outcome! $fact)))
                   ;; The aggregates observing the statement count it at once,
@@ -207,8 +159,7 @@
                   (case (stored-statement-candidate $type $kb false) (
                      ((forward-derived $merged $_ev) (forward-maintain-aggregates! aggregate-update $merged))
                      (no-forward-output-candidate ())))))
-            (let $_index (kb-index-fact! $backend $role $fact)
-               (kb-add-atom $backend &kb (brand SpaceAtom $fact))))))))
+            (kb-publish-fact! $backend $role $fact))))))
 
 (: contextual-cpu? (-[det]-> $formula Bool))
 (= (contextual-cpu? $fun)
@@ -290,19 +241,6 @@
                      (let $_row (remove-variant-row! &prior_gated_live (quote ($hash $kb $stored $name $id))) $id)
                      (empty)))))
             ()))))
-
-(: clear-temp-query-adds (-[det]-> (List $none)))
-(= (clear-temp-query-adds)
-   (progn
-      (collapse
-         (match &temp_query_ref (clause_ref $ref)
-            (progn
-               (callPredicate (Predicate (erase $ref)))
-               (remove-atom &temp_query_ref (clause_ref $ref)))))
-      (collapse (match &installed_producers ($hash temp $add) (remove-atom &installed_producers ($hash temp $add))))
-      (source-catalog-clear-temp!)
-      (rule-dormancy-forget-temp!)
-      ()))
 
 (: inject-compiled-adds (-[nondet]-> (List RuntimeAddition) (List $none)))
 (= (inject-compiled-adds $adds) (foreach-flat (kb-add-expr temp) $adds))

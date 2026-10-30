@@ -62,6 +62,7 @@
 !(import! &self runtime/base_rates)
 !(import! &self runtime/forward/schema)
 !(import! &self runtime/forward/aggregates)
+!(import! &self runtime/kb_publication)
 !(import! &self runtime/knowledge_store)
 !(import! &self runtime/hypothesis_mining)
 !(import! &self runtime/observed_predicates)

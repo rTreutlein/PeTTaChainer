@@ -74,35 +74,6 @@
 
 ;; --- Materialization --------------------------------------------------------
 
-(: materialized-rows (-[det]-> ForwardOutputKey (List MaterializedRow)))
-(= (materialized-rows (forward-output-key $kb $type))
-   (let $hash (forward-output-index-hash (forward-output-key $kb $type))
-      (collapse (match &materialized_facts (materialized-row $hash $type $kb $fact $ev)
-         (materialized-row $hash $type $kb $fact $ev)))))
-
-(: remove-materialized! (-[det]-> MaterializedRow Atom))
-(= (remove-materialized! (materialized-row $hash $type $kb ($type $kb $proof $tv) $ev))
-   (let* (($_fact (remove-atom &kb ($type $kb $proof $tv)))
-          ($_unindex (kb-unindex-fact! ($type $kb $proof $tv)))
-          ($_rules (forget-stored-rules! materialized $hash (sk-key $type $kb)))
-          ($_mark (remove-atom &materialized_facts (materialized-row $hash $type $kb ($type $kb $proof $tv) $ev))))
-      ()))
-
-;; A re-materialization of an output key replaces the key's earlier
-;; materialized rows. Marked facts are never leaves of the backward search.
-(: upsert-materialized! (-[semidet]-> SkFact EvidenceSet Proof Atom))
-(= (upsert-materialized! ($type $kb $proof $tv) $ev $source)
-   (let* (($fact (data $type $kb $proof $tv))
-          ($hash (forward-output-index-hash (forward-output-key $kb $type)))
-          ($row (materialized-row $hash $type $kb $fact $ev)))
-      (if (space-row-present? &materialized_facts $row) ()
-         (let* (($_remove (foreach-flat remove-materialized! (materialized-rows (forward-output-key $kb $type))))
-                ($_add (chainer-add-atom &kb $fact))
-                ($_index (kb-index-fact! live materialized $fact))
-                ($_rules (record-stored-rules! materialized $hash (sk-key $type $kb) $source))
-                ($_mark (add-atom &materialized_facts $row)))
-            (sk-note-fact! $type $kb)))))
-
 (: materializable-result? (-[det]-> SkFact Bool))
 ;; A positive implication judgment is a query result, never a world fact.
 (= (materializable-result? ($type ($_kbid $ctx $vars) $_prf $tv))
@@ -119,7 +90,7 @@
    (case $value (
       ((sk-val $fact $ev $_deps)
          (if (materializable-result? $fact)
-            (upsert-materialized! (sk-full-fact $fact) $ev (proof-atom-proof $fact))
+            (kb-publish-materialized! (sk-full-fact $fact) $ev (proof-atom-proof $fact))
             ()))
       ($_other ()))))
 
