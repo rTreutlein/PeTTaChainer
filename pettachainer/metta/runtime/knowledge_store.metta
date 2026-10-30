@@ -117,29 +117,6 @@
             (case $tv (((CTV $positive $_negative) $positive) ($_stv $tv)))
             (if (> $c 0.0) (STV $s $c) (empty))))))
 
-;; A rule's expected premise confidence is a pure function of its premise
-;; structure and stored TVs, so it is computed once here instead of on every
-;; rule-goal expansion. No entry (the computation can fail on exotic premise
-;; shapes) scores the rule 1.0 (sk-rule-score).
-(: store-rule-expected-score!
-   (-[det]-> KbBackend Number (List (| Goal (Statement KBContext Proof TV))) (| Bool (List $none))))
-(= (store-rule-expected-score! $backend $id $args)
-   (let $hits
-      (collapse (premises-expected-confidence (copy_term $args)))
-      (if (== $hits ()) ()
-         (once (kb-add-atom $backend rule_expected (make-space-pair $id (car-atom $hits)))))))
-
-(: register-truth-premise! (-[det]-> Number (| Goal (Statement KBContext Proof TV)) Atom))
-(= (register-truth-premise! $id $premise)
-   (case $premise (
-      ((CPU $_fun $_args $_res) ())
-      (($type $kbctx $_prf $_tv)
-         (if (if (is-expr $type) (== (car-atom $type) RuleTruth) false)
-            (let* (($hash (index-hash (sk-key $type $kbctx)))
-                   ($_row (add-atom &sk_rule_truth ($id $hash $type $kbctx))))
-               ())
-            ())))))
-
 ;; Index rules by the statement name embedded in their conclusion proof, so a
 ;; rule's rows are found by its name without scanning the rules space (rule
 ;; withdrawal, a refined rule's truth, its declaration). An assumed rule is
@@ -240,11 +217,42 @@
             (let $_index (kb-index-fact! $backend $fact)
                (kb-add-atom $backend &kb (brand SpaceAtom $fact)))))))
 
+;; Static completion roles belong to the rule, never its joins or rows.
+(: &completion_recipe (SpaceOf (Number CompletionRecipe)))
+!(bind! &completion_recipe (new-space))
+
+(: contextual-cpu? (-[det]-> $formula Bool))
+(= (contextual-cpu? $fun)
+   (stored-list-member? $fun (ContextRule ReadRate ReadLikelihoodContext CompoundEvidence)))
+
+(datatype RawCompletion (raw-completion Number Number Bool Number))
+(: raw-completion-step (-[semidet]-> RawCompletion SkPattern RawCompletion))
+(= (raw-completion-step (raw-completion $index $compound $opening $contexts) $premise)
+   (case $premise (
+      ((CPU CompoundEvidence $_args $_result)
+         (raw-completion $index $contexts $opening (+ $contexts 1)))
+      ((CPU CompletionLikelihoodsFormula ($connective $negated $_conditioned $_others $_rule) $_likelihood)
+         (raw-completion $index $compound (if (== $connective And) (not (== $negated true)) (== $negated true)) $contexts))
+      ((CPU $fun $_args $_res)
+         (raw-completion $index $compound $opening (if (contextual-cpu? $fun) (+ $contexts 1) $contexts)))
+      ($_statement (raw-completion (+ $index 1) $compound $opening $contexts)))))
+
 (: kb-add-rule! (-[nondet]-> KbBackend Atom Atom Number))
 (= (kb-add-rule! $backend $args $ccls)
    (let*
       (($typed-ccls (typed-runtime-fact $ccls))
-       ($rule-args (context-rule-premises $typed-ccls (typed-runtime-premises $args)))
+       ($inputs (typed-runtime-premises $args))
+       (($recipe $prepared) (case $inputs (
+          ((cons (CPU ReadLikelihoodContext (completion-recipe $index $compound-index $opening) $_unused) $rest)
+             (data (completion-recipe $index $compound-index $opening) $rest))
+          ($_raw
+             (let ($_target $_scope $proof $_tv) $typed-ccls
+                (if (if (is-expr $proof) (if (== $proof ()) false (let $operator (car-atom $proof) (head-is? $operator antecedent-completion))) false)
+                   (let (raw-completion $position $compound-position $polarity $_contexts)
+                         (fold-semidet raw-completion-step (raw-completion -1 0 false 0) $inputs)
+                      (data (completion-recipe $position $compound-position $polarity) $inputs))
+                   (data no-completion $inputs)))))))
+       ($rule-args (context-rule-premises $typed-ccls $prepared))
        ;; Temp (per-query) rule ids are offset so they can never collide
        ;; with live ones: both counters start at 0 and both backends'
        ;; rules/rule_expected/prem_index rows share the same spaces.
@@ -253,6 +261,8 @@
              (+ 1000000000 (next-search-id bwd_tmp_ruleid))
              (let $fresh (fresh-rule-id (search-id-value ruleid))
                 (progn (change-state! ruleid (+ $fresh 1)) $fresh))))
+       ($_recipe (if (== $recipe no-completion) true
+          (kb-add-atom $backend &completion_recipe (brand SpaceAtom (data $id $recipe)))))
        ($_context (context-note-rule! $id $typed-ccls))
        ($_functional (functional-rule! $typed-ccls))
        ($_1 (if (== $backend backward) 0 (fold-flat (kb-add-prem $backend $id) 0 $rule-args)))
@@ -261,13 +271,16 @@
        ($_3
           (kb-add-atom $backend rules
              (brand SpaceAtom (runtime-rule-row $id $typed-ccls $rule-args))))
-       ($_expected (store-rule-expected-score! $backend $id $rule-args))
-       ;; The recipe precedes executable inputs; a refined rule's first input
-       ;; is still its truth goal, whose value determines the search score.
-       ($_truth (case (copy_term (if (== (completion-recipe-of $rule-args) no-completion)
-                                    $rule-args (cdr-atom $rule-args))) (
-          ((cons $truth-first $_truth-rest) (register-truth-premise! $id $truth-first))
-          (() ()))))
+       ;; Expected premise confidence is fixed per compiled rule.
+       ($_expected (let $hits (collapse (premises-expected-confidence (copy_term $rule-args)))
+          (if (== $hits ()) () (once (kb-add-atom $backend rule_expected (make-space-pair $id (car-atom $hits)))))))
+       ($_truth (case (copy_term $rule-args) (
+          ((cons (CPU $_fun $_args $_res) $_cpu-rest) ())
+          ((cons ($truth-type $truth-ctx $_truth-proof $_truth-tv) $_truth-rest)
+             (if (head-is? $truth-type RuleTruth)
+                (let $hash (index-hash (sk-key $truth-type $truth-ctx))
+                   (add-atom &sk_rule_truth ($id $hash $truth-type $truth-ctx))) ()))
+          ($_no-truth ()))))
        ($_name-idx (register-rule-name! $backend $id $typed-ccls))
        ($_journal (sk-note-rule! $id $typed-ccls))
        ($_aggregates (register-forward-aggregate-premises! (== $backend live) $rule-args)))
@@ -354,6 +367,7 @@
              ($_prefixes (remove-atom &prem_prefix ($_prefix $_pprem $id $_ppidx)))
              ($_ccls-idx (remove-atom ccls_index ($ccls $id $_prems2)))
              ($_expected (remove-atom rule_expected ($id $_score)))
+             ($_recipe (remove-atom &completion_recipe ($id $_plan)))
              (($_type ($kbid $_ctx $_vars) $_prf $_tv) $ccls)
              ($_row (remove-atom rules (runtime-rule-row $id $ccls $args))))
             (brand KB $kbid)))))

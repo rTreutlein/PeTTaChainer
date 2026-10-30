@@ -1011,7 +1011,7 @@
 
 ;; What a row's closed reads take as unfounded: a complete statement, the
 ;; row's own conclusion when the row is a rule application of it (or a
-;; completion's consequence, sk-completion-state); nothing otherwise, and the
+;; completion's consequence, sk-read-completion); nothing otherwise, and the
 ;; row reads no premise closed.
 (: sk-closed-pin (-[det]-> Number Atom Atom Bool (List SkeletonGiven)))
 (= (sk-closed-pin $khash $type $kbctx $reads)
@@ -1253,7 +1253,7 @@
          ($_other false)))))
 
 (: sk-row-result (-[semidet]-> SkeletonRow SkeletonRowState SkeletonValue))
-(= (sk-row-result (sk-row $_ident ($type $kbctx $proof $tv) $premises $_seq) $state)
+(= (sk-row-result (sk-row (sk-ident $rule $_keys $_key) ($type $kbctx $proof $tv) $premises $_seq) $state)
    (case $state (
       ((sk-acc $fold-proofs $ev $deps)
          (let* (((token-state $full-proof $_unused)
@@ -1280,27 +1280,14 @@
                     (case $value-tv (((STV $_s $c) (<= $c 0)) ($_other false))) false)
                sk-none
                (sk-val $fact (if $unsupported (ev-set 0)
-                     (sk-condition-evidence $type $proof $premises (rule-result-evidence $fact $ev)))
+                     (let $result-ev (rule-result-evidence $fact $ev)
+                        (if (not (== (rule-completion-inputs $rule $premises) no-completion-inputs))
+                           (evidence-subtraction-certain $result-ev (proof-given-evidence $proof))
+                           (if (if (sk-inverted-proof? $proof) true (head-is? $type ImplicationInstanceSample)) $result-ev
+                              (evidence-condition $result-ev (fold-semidet sk-leaf-premise-step () $premises))))))
                   (deps-join $deps)))))
       ($_failed sk-none))))
 
-;; The role a row reads its stored premises in. An inversion reads its statement
-;; premise as its observation and an implication instance sample observes all
-;; of them; every other statement premise is a condition, and a certain fact
-;; read as a condition is given (given-ev), not an observation. Given its
-;; siblings a completion is the likelihood ratio of its consequence alone: it
-;; holds no evidence of its statement through the certain facts its siblings,
-;; or a nested completion's, read (proof-given-evidence).
-(: sk-condition-evidence (-[det]-> Atom Atom (List SkPattern) EvidenceSet EvidenceSet))
-(= (sk-condition-evidence $type $proof $premises $ev)
-   (if (not (== (completion-recipe-of $premises) no-completion))
-      (evidence-subtraction-certain $ev (proof-given-evidence (brand Proof $proof)))
-      (if (if (sk-inverted-proof? $proof) true (head-is? $type ImplicationInstanceSample)) $ev
-         (evidence-condition $ev (fold-flat sk-leaf-premise-step () $premises)))))
-
-;; The stored leaves a row's statement premises were read as, last first, named
-;; by the hash of their stored proof; a conjunction witness contributes its
-;; parts in order, a derived premise 0.
 (: sk-leaf-premise-step (-[det]-> (List Number) SkPattern (List Number)))
 (= (sk-leaf-premise-step $leaves $premise)
    (case $premise (

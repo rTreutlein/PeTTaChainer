@@ -91,8 +91,15 @@ class CertainObservationOverlapTests(unittest.TestCase):
             "'sk-store-proof!'(0,[by,f,[negated,Inner]],['ev-set',0],Root), "
             "'proof-given-evidence'(Root,Given), 'evidence-entries'(Given,Before), "
             "'evidence-union'(EA,EB,AB), 'evidence-union'(AB,ER,All), "
-            "Recipe=['completion-recipe',['Report'],['And',['A'],['B']],Scope,2,true], "
-            "'sk-condition-evidence'(['Report'],Part,[['CPU','ReadLikelihoodContext',Recipe,_]],All,Compared), "
+            "assertz(user:'&completion_recipe'(-1,['completion-recipe',2,0,true])), "
+            "_Premises=[[['A'],Scope,['fact-source',EA,a],['STV',0,1]], "
+            " [['B'],Scope,['fact-source',EB,b],['STV',1,1]], "
+            " [['Report'],Scope,['fact-source',ER,report],['STV',1,1]], "
+            " ['CPU','CompoundEvidence',[Kb,['And',['A'],['B']],['Report'],Scope],_]], "
+            "'sk-row-result'(['sk-row',['sk-ident',-1,[],['sk-key',['Report'],Scope]], "
+            " [['Report'],Scope,Part,['STV',1,1]],_Premises,0], "
+            " ['sk-acc',[],All,[]],['sk-val',_,Compared,_]), "
+            "retractall(user:'&completion_recipe'(-1,_)), "
             "'evidence-entries'(Compared,Remaining), "
             # Root the proof, but not its cached context union. The collector
             # must follow the memo for both Root and its child reference.

@@ -839,8 +839,8 @@
                       (complete-lowering $shape-kb $consequent))
                    (($target $negated) (canon $missing))
                    ($inputs (append-flat $truth-premises (append-flat $others-execs $consequent-execs)))
-                   ($recipe (completion-recipe $target $key $shape-kb
-                      (- (length (fold-flat statement-input-step () $inputs)) 1)
+                   ($recipe (completion-recipe
+                      (- (length (filter-atom $inputs $input (not (head-is? $input CPU)))) 1) 0
                       (if (== $connective And) (not $negated) $negated)))
                    ($antecedent-rate-pattern (rule-base-rate-pattern $params $full))
                    ($consequence-rate-pattern (rule-base-rate-pattern $params $consequent))

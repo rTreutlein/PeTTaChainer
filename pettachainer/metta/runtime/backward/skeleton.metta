@@ -32,10 +32,6 @@
 (= (aggregate-fold-function? $function)
    (stored-list-member? $function (FoldAllCompiled GroupedFoldAllCompiled CompoundRate)))
 
-(: contextual-cpu? (-[det]-> $formula Bool))
-(= (contextual-cpu? $fun)
-   (stored-list-member? $fun (ContextRule ReadRate ReadLikelihoodContext CompoundEvidence)))
-
 ;; Signatures of the mutually recursive functions below.
 (: sk-drop-branch! (-[det]-> Atom Number Atom))
 (: sk-stale-branch! (-[det]-> Atom Number Atom))
@@ -673,20 +669,11 @@
                     ($_c $_p $unbound-group $_e2 $_i2 $_f2 $_fi2 $_m2) $unbound $key)
    (if (= (sk-key $pattern $kbctx) $key) (if (= $unbound-group $group) (cons $unbound ()) ()) ()))
 
-;; An antecedent completion, `((antecedent-completion rule index with cpu
-;; prior) premises)`.
-(: sk-completion-proof? (-[det]-> Atom Bool))
-(= (sk-completion-proof? $proof)
-   (if (if (is-expr $proof) (not (== $proof ())) false)
-      (let $head (car-atom $proof)
-         (if (is-var $head) false
-            (case (copy_term $head) (((antecedent-completion $_rule $_idx with $_prior $_tv) true) ($_other false)))))
-      false))
-
 (: sk-completion-waiter? (-[det]-> SkeletonWaiter Bool))
 (= (sk-completion-waiter? $waiter)
    (case $waiter (
-      ((sk-partial $_owner $_rule ($_type $_kbctx $proof $_tv) $_done $_remaining $_keys) (sk-completion-proof? $proof))
+      ((sk-partial $_owner $rule $_concl $_done $_remaining $_keys)
+         (not (== (collapse (match &completion_recipe ($rule $_recipe) true)) ())))
       ($_other false))))
 
 ;; --- Partial joins and rows -------------------------------------------------

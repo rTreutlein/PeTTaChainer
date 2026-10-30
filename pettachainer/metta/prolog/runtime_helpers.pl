@@ -664,6 +664,28 @@ statement_index_hashes(PrefixFunction, Statement, Hashes) :-
     copy_term(B, CB), numbervars(CB, 0, _),
     ( CA @< CB -> Before = true ; Before = false ).
 
+% Both projections borrow the existing row terms. A synthetic prior can
+% borrow a rule owner without having that rule's contextual instruction.
+'rule-completion-inputs'(Rule, Premises, Inputs) :-
+    (   once(match('&completion_recipe', [Rule,['completion-recipe',Statement,Contextual,Opening]], true, true)),
+        'rule-contextual-premise'(Contextual, Premises, ['CPU','CompoundEvidence',[_,Compound,_,Scope],_]),
+        'split-statement-premise'(Statement, Premises, [Before,Observation,After])
+    ->  Inputs = ['completion-inputs',['sk-key',Compound,Scope],Before,Observation,After,Opening]
+    ;   Inputs = 'no-completion-inputs' ).
+
+% Contextual instructions survive construction-time CPU evaluation. Their
+% compiled ordinal selects an existing instruction without copying its args.
+'rule-contextual-premise'(Index, Premises, Selected) :-
+    include([Input]>>(Input=[Head,Fun|_], Head=='CPU', 'contextual-cpu?'(Fun,true)), Premises, Contexts),
+    nth0(Index, Contexts, Selected).
+
+% Split at a statement-input position; construction may have erased CPU steps.
+'split-statement-premise'(Index, [Input|Rest], [Before, Observation, After]) :-
+    Input = [Head|_], ( Head == 'CPU' -> Next = Index ; Next is Index - 1 ),
+    ( Next < 0 -> Before = [], Observation = Input, After = Rest
+    ; Before = [Input|Prefix],
+      'split-statement-premise'(Next, Rest, [Prefix, Observation, After]) ).
+
 'rule-premise'(Index, Premises, Premise) :- nth0(Index, Premises, Premise).
 
 % Open only canonical slots, preserving free outer variables and co-reference.

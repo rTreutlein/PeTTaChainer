@@ -18,12 +18,10 @@
 (datatype CompilationPlan
    (compilation-plan Goal (List CompiledAddition)))
 
-;; Completion positions count statement inputs only: ground CPU operations
-;; may disappear when a join becomes a row. Inputs before C are siblings.
-;; Keep this metadata in the contextual read, sharing the executable variables.
-(datatype CompletionRecipe
-   no-completion
-   (completion-recipe Statement Statement KBContext Number Bool))
+;; Completion positions count statement reads and contextual instructions,
+;; which survive construction's ground CPU removal. Rule registration consumes
+;; the compiler marker and retains only its indexed scalars.
+(datatype CompletionRecipe no-completion (completion-recipe Number Number Bool))
 
 (: atom_concat (-[det]-> Atom Atom Atom))
 (: term_hash (-[det]-> $expression Number))
@@ -115,17 +113,6 @@
          (let $head (car-atom $term)
             (if (is-var $head) false (== $head $expected)))
          false)))
-
-(: statement-input-step (-[det]-> (List $input) $input (List $input)))
-(= (statement-input-step $inputs $input)
-   (if (head-is? $input CPU) $inputs (cons $input $inputs)))
-
-(: completion-recipe-of (-[det]-> Atom CompletionRecipe))
-(= (completion-recipe-of $inputs)
-   (case $inputs (
-      ((cons (CPU ReadLikelihoodContext $recipe $_context) $_rest)
-         (if (head-is? $recipe completion-recipe) (the CompletionRecipe $recipe) no-completion))
-      ($_other no-completion))))
 
 (: explicit-exists-term? (-[det]-> Atom Bool))
 (= (explicit-exists-term? $term)

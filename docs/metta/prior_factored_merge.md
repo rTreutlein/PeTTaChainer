@@ -509,7 +509,7 @@ apart from C. So a completion reads no view of a sibling that depends on its
 consequence, which would count C twice, through s_O and through the
 likelihood ratio. In a loop through C a sibling's support through C is
 circular: a complete sibling none of whose views it may read is read closed,
-with a complete C pinned unfounded (`sk-completion-state`,
+with a complete C pinned unfounded (`sk-read-completion`,
 `complete_predicates.md`). A consequence stored as known false is what the pin
 would make it, so the siblings then read it as it is, through the rows it
 settles; a closed read could not settle `D <- (And B C)` with C false while B

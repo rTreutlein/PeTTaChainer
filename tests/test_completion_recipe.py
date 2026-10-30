@@ -1,4 +1,4 @@
-"""Completion roles survive compilation, raw ingestion and row preparation."""
+"""Completion roles are rule metadata; instances reuse their executable inputs."""
 import unittest
 
 import janus_swi as janus
@@ -6,17 +6,18 @@ from pettachainer import PeTTaChainer
 
 
 class CompletionRecipeTests(unittest.TestCase):
-    def test_open_recipe_shares_inputs_and_retains_refined_truth_registration(self):
+    def test_rule_recipe_is_ground_and_inputs_share_refined_truth(self):
         h = PeTTaChainer()
         h._call('set-rule-refinement', [f'{h.kb} true'])
         h.add_atom('(: r (Implication (And (A $x) (B $x)) (C $x)) (STV 0.9 0.8))')
         result = janus.query_once(
             "_Scope=[Kb,'MAIN','Nil'], "
             "rules('runtime-rule-row',_Id,[['B',_X],_Scope,_,_],_Ps), "
-            "_Ps=[['CPU','ReadLikelihoodContext',_Recipe,_]|_], "
+            "'&completion_recipe'(_Id,Recipe), ground(Recipe), "
+            "Recipe=['completion-recipe',Index,0,Opening], "
+            "'rule-contextual-premise'(0,_Ps,['CPU','CompoundEvidence',[_Kb,_Compound,_,_RecipeScope],_]), "
             "exclude([_P]>>(_P=['CPU'|_]),_Ps,[_Truth,_A,_C]), "
-            "_Recipe=['completion-recipe',_Target,_Compound,_RecipeScope,Index,Opening], "
-            "(_Target==['B',_X],_Compound==['And',['A',_X],['B',_X]],_RecipeScope==_Scope, "
+            "(_Compound==['And',['A',_X],['B',_X]],_RecipeScope==_Scope, "
             " _A=[['A',_AX],_,_,_],_C=[['C',_CX],_,_,_],_AX==_X,_CX==_X -> Shared=true;Shared=false), "
             "_Truth=[['RuleTruth',_],_TruthScope,_,_], "
             "('&sk_rule_truth'(_Id,_,_,_RegisteredScope),_RegisteredScope==_TruthScope -> Registered=true;Registered=false)",
@@ -49,26 +50,49 @@ class CompletionRecipeTests(unittest.TestCase):
                         " ['CTV',['STV',0.9,1],['STV',0.1,1]]], "
                         "'mm2compile'(Kb,_Source,['rules',[_Premises,'|-',_Conclusion]]), "
                         "_Conclusion=[['B',_X],_,_,_], "
-                        "_Premises=[['CPU','ReadLikelihoodContext',_Recipe,_]|_Executable], "
+                        "_Premises=[['CPU','ReadLikelihoodContext',Recipe,_]|_Executable], "
                         "'add-to-kb'(['rules',[_Executable,'|-',_Conclusion]],_), "
-                        "rules('runtime-rule-row',_,_Conclusion,[['CPU','ReadLikelihoodContext',_Prepared,_]|_]), "
-                        "(_Recipe =@= _Prepared -> Same=true;Same=false)",
+                        "rules('runtime-rule-row',_Id,_Conclusion,_Stored), "
+                        "'&completion_recipe'(_Id,_Prepared), "
+                        "(Recipe==_Prepared -> Same=true;Same=false)",
                         {'Kb': raw.kb, 'Connective': connective, 'Negated': 'true' if negated else 'false'},
                     )
                     self.assertEqual(result['Same'], 'true')
                     expected = compiled.query('(: $p (B i) $tv)', steps=200, timeout_sec=None)
                     self.assertTrue(expected)
                     self.assertEqual(raw.query('(: $p (B i) $tv)', steps=200, timeout_sec=None), expected)
-                    # Ground CPU operations may be removed from the stored row.
-                    # The positional recipe still names its observation correctly.
+                    # Neither retained rows nor proofs contain a recipe copy.
                     prepared = janus.query_once(
-                        "'&sk_row'(_,_,_,['sk-row',_,[['B',i],_,_,_],_Premises,_]), "
-                        "_Premises=[['CPU','ReadLikelihoodContext',_Recipe,_]|_], "
-                        "_Recipe=['completion-recipe',_,_,_,Index,_], "
-                        "exclude([_P]>>(_P=['CPU'|_]),_Premises,_Inputs), "
-                        "nth0(Index,_Inputs,[['C',i],_,_,_])",
+                        "'&sk_row'(_,_,_,['sk-row',['sk-ident',_Id,_,_],[['B',i],_,_,_RowTV],_Premises,_]), "
+                        "'&completion_recipe'(_Id,['completion-recipe',_Index,_,_]), "
+                        "'rule-completion-inputs'(_Id,_Premises,['completion-inputs',_,_,[['C',i],_,_,_],_After,_]), "
+                        "last(_After,['CPU',_,_,_Output]), _Output==_RowTV, "
+                        "findall(_Recipe,'&completion_recipe'(_Id,_Recipe),[_Only]),ground(_Only), "
+                        "'&sk_row'(_,_,_,['sk-row',['sk-ident',_Id,_,_], "
+                        " [['B',i],_,['population-prior'|_],_],_Prior,_]), "
+                        "'rule-completion-inputs'(_Id,_Prior,'no-completion-inputs'), "
+                        "\\+ (sub_term(_Term,_Premises),nonvar(_Term),_Term=[_Head|_],_Head=='completion-recipe')",
                     )
                     self.assertTrue(prepared['truth'])
+
+    def test_instances_share_one_rule_recipe(self):
+        h = PeTTaChainer()
+        h.add_atoms_no_check([
+            '(: ai (A i) (STV 1 1))', '(: ci (C i) (STV 1 1))',
+            '(: aj (A j) (STV 1 1))', '(: cj (C j) (STV 1 1))',
+            '(: r (Implication (And (A $x) (B $x)) (C $x)) (CTV (STV 0.9 1) (STV 0.1 1)))',
+        ])
+        h._call('set-base-rate', [f'{h.kb} (B $x) (STV 0.3 0.9)'])
+        for member in ('i', 'j'):
+            self.assertTrue(h.query(f'(: $p (B {member}) $tv)', steps=200, timeout_sec=None))
+        result = janus.query_once(
+            "rules('runtime-rule-row',_Id,[['B',_],[Kb,'MAIN','Nil'],_,_],_), "
+            "findall(_Plan,'&completion_recipe'(_Id,_Plan),[_Only]),ground(_Only), "
+            "aggregate_all(count,('&sk_row'(_,_,_,['sk-row',['sk-ident',_Id,_,_],_,_Ps,_]), "
+            " 'rule-completion-inputs'(_Id,_Ps,['completion-inputs'|_])),Rows)",
+            {'Kb': h.kb},
+        )
+        self.assertGreaterEqual(result['Rows'], 2)
 
 
 if __name__ == '__main__':

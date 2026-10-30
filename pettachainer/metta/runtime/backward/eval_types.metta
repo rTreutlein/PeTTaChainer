@@ -44,8 +44,10 @@
    ;; the row read as independent, and its approximate value.
    (sk-entangled (List SkeletonKey) Number SkeletonRowState))
 
+(datatype CompletionInputs no-completion-inputs (completion-inputs SkeletonKey (List SkPattern) SkFact (List SkPattern) Bool))
+(: rule-completion-inputs (-[det]-> Number (List SkPattern) CompletionInputs))
+
 (datatype LikelihoodContext (likelihood-context (List Number) EvidenceSet))
-(datatype CompletionRead (completion-read Number SkeletonRowState))
 
 ;; --- Learned combination modes (docs/metta/combination_modes.md) -------------
 

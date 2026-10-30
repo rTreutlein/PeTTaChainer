@@ -827,7 +827,7 @@
 ;; compound's own message would count the compound twice. So the premises
 ;; after the compound exclude views depending on it.
 (: sk-row-state (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonReadPolicy SkeletonRow SkeletonRowState))
-(= (sk-row-state $given $exclusions $khash $policy (sk-row $_ident ($type $kbctx $proof $_tv) $premises $_seq))
+(= (sk-row-state $given $exclusions $khash $policy (sk-row (sk-ident $rule $_keys $_key) ($type $kbctx $proof $_tv) $premises $_seq))
    (let* (($pin (sk-closed-pin $khash $type $kbctx (derivation-proof? $type $proof)))
           ($shared (shared-evidence-frontier-proof? $proof))
           ($start (sk-acc () (evidence-set (sk-sample-exclusions $type $kbctx)) (cons (deps-key $khash) ()))))
@@ -840,25 +840,20 @@
                   $shared false $policy)
                (sk-premise-step $pin $given $exclusions $shared false $policy $start $premise)
                $parts))
-         (case (completion-recipe-of $premises) (
-            ((completion-recipe $_target $compound $scope $consequence-index $opening)
-               (sk-completion-state $given $exclusions $khash (sk-key $type $kbctx) $shared $policy $start $premises
-                  (sk-key $compound $scope) $consequence-index $opening))
-            (no-completion
+         (case (rule-completion-inputs $rule $premises) (
+            (no-completion-inputs
              (let $state (fold-semidet (sk-premise-step $pin $given $exclusions $shared false $policy) $start $premises)
                (if (if (== $policy sk-independent-read) false
                        (if $shared false (if (rule-application-proof? $proof) true (head-is? $proof conjunction))))
                   (sk-entangle (hash-union $exclusions (hash-set (sk-given-hashes $given))) $state)
-                  $state))))))))
+                  $state)))
+            ($completion (sk-read-completion $given $exclusions $khash (sk-key $type $kbctx) $shared $policy $start $completion)))))))
 
-(: sk-completion-state
-   (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey Bool SkeletonReadPolicy SkeletonRowState (List SkPattern)
-       SkeletonKey Number Bool
-       SkeletonRowState))
-(: rule-premise (-[semidet]-> Number (List SkPattern) SkPattern))
-(= (sk-completion-state $given $exclusions $khash $key $shared $policy $start $premises $compound $consequence-index $opening)
-   (let* ((($ctype $ckbctx $_cproof $_ctv)
-             (rule-premise $consequence-index (reverse-onto (fold-flat statement-input-step () $premises) ())))
+(: sk-read-completion
+   (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey Bool SkeletonReadPolicy SkeletonRowState CompletionInputs SkeletonRowState))
+(= (sk-read-completion $given $exclusions $khash $key $shared $policy $start
+      (completion-inputs $compound $before $observation $after $opening))
+   (let* ((($ctype $ckbctx $_cproof $_ctv) $observation)
           ($consequence (sk-key $ctype $ckbctx))
           ($chash (index-hash $consequence))
           ($completed (cons (sk-given $khash $key $opening) ()))
@@ -866,49 +861,30 @@
           ($compound-hash (index-hash $compound))
           ($inverted-inputs (collapse (match &sk_row ($compound-hash $stored $_irhash (sk-row $_iident ($_itype $_ikbctx $iproof $_itv) $ipremises $_iseq))
              (if (=alpha $stored $compound)
-                (if (sk-inverted-proof? $iproof)
-                   (fold-semidet sk-direct-key-step () $ipremises) (empty))
-                (empty)))))
+                (if (sk-inverted-proof? $iproof) (fold-semidet sk-direct-key-step () $ipremises) (empty)) (empty)))))
           ($observed (hash-set (fold-flat (sk-observed-exclusion-step $consequence) $exclusions (fold-flat append-flat () $inverted-inputs))))
-          ($siblings (hash-union (sk-unifier-hashes $chash $consequence) $apart)))
-      (let (completion-read $_remaining $result)
-         (if (fold-semidet sk-known-false-step false (sk-key-leaves $consequence sk-any-filter))
-            (fold-semidet
-               (sk-completion-position-step () $given $exclusions $observed $apart
-                  $khash $completed $shared $policy)
-               (completion-read $consequence-index $start) $premises)
-            (fold-semidet
-               (sk-completion-position-step (sk-closed-pin $chash $ctype $ckbctx true) $given $exclusions $observed $siblings
-                  $khash $completed $shared $policy)
-               (completion-read $consequence-index $start) $premises))
-         $result)))
+          ($false (fold-semidet sk-known-false-step false (sk-key-leaves $consequence sk-any-filter)))
+          ($siblings (if $false $apart (hash-union (sk-unifier-hashes $chash $consequence) $apart)))
+          ($state (if $false
+             (fold-semidet (sk-completion-sibling-step () $given $exclusions $siblings $khash $completed $shared $policy) $start $before)
+             (fold-semidet (sk-completion-sibling-step (sk-closed-pin $chash $ctype $ckbctx true) $given $exclusions $siblings $khash $completed $shared $policy) $start $before)))
+          ($read (sk-premise-step () $given $observed $shared true $policy $state $observation)))
+      (fold-semidet (sk-premise-step () $given $exclusions $shared true $policy) $read $after)))
 
-;; Keep positional bookkeeping outside the premise kernel: combining them
-;; leaves residual list type checks under strict specialization.
-(: sk-completion-position-step
-   (-[semidet]-> (List SkeletonGiven) (List SkeletonGiven) (List Number) (List Number) (List Number) Number (List SkeletonGiven)
-       Bool SkeletonReadPolicy CompletionRead SkPattern CompletionRead))
-(= (sk-completion-position-step $pin $given $exclusions $observed $siblings $khash $completed $shared $policy (completion-read $index $state) $premise)
-   (completion-read (if (head-is? $premise CPU) $index (- $index 1))
-      (sk-completion-premise-step $pin $given $exclusions $observed $siblings $khash $completed $shared $policy
-         (== $index 0) $state $premise)))
-
-(: sk-completion-premise-step
-   (-[semidet]-> (List SkeletonGiven) (List SkeletonGiven) (List Number) (List Number) (List Number) Number (List SkeletonGiven)
-       Bool SkeletonReadPolicy Bool SkeletonRowState SkPattern SkeletonRowState))
-(= (sk-completion-premise-step $pin $given $exclusions $observed $siblings $khash $completed $shared $policy $observation $state $premise)
+(: sk-completion-sibling-step
+   (-[semidet]-> (List SkeletonGiven) (List SkeletonGiven) (List Number) (List Number) Number (List SkeletonGiven)
+       Bool SkeletonReadPolicy SkeletonRowState SkPattern SkeletonRowState))
+(= (sk-completion-sibling-step $pin $given $exclusions $siblings $khash $completed $shared $policy $state $premise)
    (case $premise (
       ((CPU $_fun $_args $_res) (sk-premise-step () $given $exclusions $shared true $policy $state $premise))
       (($_type $_kbctx $_proof $_tv)
-         (if $observation
-            (sk-premise-step () $given $observed $shared true $policy $state $premise)
-            (case (sk-premise-step $pin $given $siblings $shared true $policy $state $premise) (
-               (sk-fail
-                  (if (== $state sk-fail) sk-fail
-                     (sk-premise-step $pin (append-flat $completed $given)
-                        (hash-set (fold-flat (sk-without-hash-step $khash) () $siblings))
-                        $shared true $policy $state $premise)))
-               ($read $read))))))))
+         (case (sk-premise-step $pin $given $siblings $shared true $policy $state $premise) (
+            (sk-fail
+               (if (== $state sk-fail) sk-fail
+                  (sk-premise-step $pin (append-flat $completed $given)
+                     (hash-set (fold-flat (sk-without-hash-step $khash) () $siblings))
+                     $shared true $policy $state $premise)))
+            ($read $read)))))))
 
 (= (sk-merge-facts $combine $ignore $a $ev-a $deps-a $b $ev-b $deps-b)
    (sk-pair-facts (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) $combine $ignore $a $ev-a $deps-a $b $ev-b $deps-b))
