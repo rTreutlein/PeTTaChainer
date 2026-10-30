@@ -89,3 +89,24 @@
 !(set-compound-settling Or (STV 1.0 1.0))
 !(set-compound-connective LikelierThan All NoProjection)
 !(set-bidirectional-implication-form BiImplication)
+
+(: bidirectional-implication-type? (-[det]-> Statement Bool))
+(= (bidirectional-implication-type? $Type)
+   (if (is-expr $Type)
+      (let $head (car-atom $Type)
+         (if (is-var $head)
+            false
+            (bidirectional-implication-form? $head)))
+      false))
+
+;; Compound lowering is deliberately configuration-driven. Merely being an
+;; expression is insufficient: ordinary predicates such as (Friend a b) must
+;; remain fact lookups and must not be interpreted as logical connectives.
+(: compound-source? (-[det]-> Statement Bool))
+(= (compound-source? $type)
+   (if (is-expr $type)
+      (let $head (car-atom $type)
+         (if (is-var $head)
+            false
+            (compound-connective? $head)))
+      false))

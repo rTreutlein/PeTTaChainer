@@ -7,6 +7,7 @@
 
 !(import! &self core/types)
 !(import! &self lib/collections)
+!(import! &self core/vocabulary)
 !(import! &self core/logic_config)
 
 !(use-module! heaps)
@@ -49,6 +50,8 @@
 !(import! &self ../../third_party/pln_formulas/metta/distributions)
 !(import! &self ../../third_party/pln_formulas/metta/compute_inverse)
 !(import! &self ../../third_party/pln_formulas/metta/truth_values)
+!(import! &self runtime/rule_policy)
+!(import! &self runtime/rate_plans)
 !(import! &self compiler/compiler)
 
 !(import! &self runtime/values)
