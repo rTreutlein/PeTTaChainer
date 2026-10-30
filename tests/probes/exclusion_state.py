@@ -294,6 +294,41 @@ class ExclusionStateTests(unittest.TestCase):
             " 'sk-drop-row!'(_H,_Key,_R,_Row,_))", {'Kb': self.h.kb}
         )
 
+    def test_result_commit_keeps_provenance_refresh_separate_from_value_change(self):
+        result = janus.query_once(
+            "_Key=['sk-key',['CommitInput'],[Kb,'MAIN','Nil']], 'index-hash'(_Key,_H), "
+            "'deps-key'(_H,_D), "
+            "_Old=['sk-val',[['CommitInput'],[Kb,'MAIN','Nil'],cpu,['STV',0.5,0.8]],['ev-set',0],_D], "
+            "'sk-reference-view'(-1,_Old,_First), "
+            "'sk-commit-result!'(_H,_Key,987621,987621,[],_First,First), "
+            "_Owner=['sk-key',['CommitOwner'],[Kb,'MAIN','Nil']], 'index-hash'(_Owner,_OH), "
+            "'index-hash'([_OH,987622],_Slot), "
+            "'sk-cache-branch!'(_Slot,_OH,_Owner,987622,[_Key],[],true,'sk-none',_), "
+            "_Refresh=['sk-val',[['CommitInput'],[Kb,'MAIN','Nil'],refreshed,['STV',0.5,0.8]],['ev-set',0],_D], "
+            "'sk-reference-view'(-1,_Refresh,_Next), "
+            "'sk-commit-result!'(_H,_Key,987621,987621,[-987621],_Next,Refresh), "
+            "findall(true,'&sk_branch_dirty'(_Slot),AfterRefresh), "
+            "'sk-commit-result!'(_H,_Key,987621,987621,[],_Next,Unchanged), "
+            "_Changed=['sk-val',[['CommitInput'],[Kb,'MAIN','Nil'],refreshed,['STV',0.6,0.8]],['ev-set',0],_D], "
+            "'sk-reference-view'(-1,_Changed,_Last), "
+            "'sk-commit-result!'(_H,_Key,987621,987621,[-987621],_Last,Changed), "
+            "findall(true,'&sk_branch_dirty'(_Slot),AfterChange), "
+            "'sk-row-support'(_H,987621,Support), ExpectedSupport=_D, "
+            "'sk-drop-row-views!'(_H,_Key,987621,_), 'sk-drop-branch!'([],_Slot,_)",
+            {'Kb': self.h.kb},
+        )
+        self.assertTrue(result['truth'])
+        self.assertEqual(result['First'][0], 'sk-merge-refresh')
+        self.assertEqual(result['Refresh'][0], 'sk-merge-refresh')
+        self.assertEqual(result['Refresh'][2], [-987621])
+        self.assertEqual(result['AfterRefresh'], [])
+        self.assertEqual(result['Unchanged'], 'sk-uncommitted')
+        self.assertEqual(result['Changed'][0], 'sk-committed')
+        self.assertEqual(result['Changed'][1][0], 'sk-outside-change')
+        self.assertEqual(result['Changed'][1][1], [-987621])
+        self.assertEqual(result['AfterChange'], ['true'])
+        self.assertEqual(result['Support'], result['ExpectedSupport'])
+
     def test_branch_invalidation_requires_an_input_value_change(self):
         # Row evaluation captures proof identity before view publication.
         # Publish distinct references to the same value to test that boundary.

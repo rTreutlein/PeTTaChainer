@@ -14,16 +14,11 @@
    (sk-match Number (List SkPattern) SkFact))
 (datatype SkeletonRuleDef (sk-rule-def SkFact (List SkPattern)))
 
-(: sk-cons-step (-[semidet]-> (List $item) $item (List $item)))
-(= (sk-cons-step $items $item) (cons $item $items))
-
 (: aggregate-fold-function? (-[det]-> $function Bool))
 (= (aggregate-fold-function? $function)
    (stored-list-member? $function (FoldAllCompiled GroupedFoldAllCompiled CompoundRate)))
 
 ;; Signatures of the mutually recursive functions below.
-(: sk-drop-branch! (-[det]-> Atom Number Atom))
-(: sk-stale-branch! (-[det]-> Atom Number Atom))
 (: sk-add-answer! (-[semidet]-> SkPattern SkeletonKey Atom))
 (: sk-drain! (-[semidet]-> Atom))
 (: sk-extend-step (-[semidet]-> SkeletonKey Atom SkeletonWaiter Atom))
@@ -1390,29 +1385,6 @@
          ;; their ordinary join subscriptions instead of caching an empty search.
          ($_fact false)))))
 
-;; --- Complete predicates (docs/metta/complete_predicates.md) ----------------
-
-;; Whether a statement, or a part of a compound one, has a complete predicate.
-(: complete-part? (-[det]-> KB Bool Atom Bool))
-(= (complete-part? $kb $found $part)
-   (if $found true
-      (let ($key $_odd) (canon (brand Statement $part))
-         (if (compound-source? $key)
-            (let $parts (the (List Atom) (cdr-atom $key)) (fold-flat (complete-part? $kb) false $parts))
-            (let $head (if (is-expr $key) (car-atom $key) $key) (complete-predicate? $kb $head))))))
-
-;; A ground statement of a complete predicate in the main context or in an
-;; Assuming query's context, which holds the world's facts and rules with its
-;; assumptions; an implication query's hypothetical contexts are not complete.
-;; A connective with a complete part is complete too: its producers derive it
-;; from its parts, so a closed read of it reads them as a rule reading the
-;; parts would (#142).
-(: complete-statement? (-[det]-> Atom Atom Bool))
-(= (complete-statement? $type ($kbid $ctx $_vars))
-   (if (== $ctx MAIN)
-      (if (== (extract-vars $type) ()) (complete-part? (brand KB $kbid) false $type) false)
-      false))
-
 ;; A rule applied forward, `(by rule premises)`, negated or not: one of the
 ;; ways its conclusion becomes true, unlike inversions, completions and
 ;; projections, which are evidence.
@@ -2079,79 +2051,6 @@
 
 (: sk-push-root (-[det]-> (Heap SkeletonFrontier) SkPattern (Heap SkeletonFrontier)))
 (= (sk-push-root $heap $root) (sk-push 0 $heap (sk-node-at (sk-node-hash $root) $root)))
-
-(: sk-branch-link! (-[det]-> Number Atom SkeletonKey Atom))
-(: sk-branch-unlink! (-[det]-> Number Atom SkeletonKey Atom))
-(: sk-invalidate-branches! (-[det]-> SkeletonKey Atom))
-(= (sk-branch-link! $slot $_acc $input)
-   (let $ihash (index-hash $input) (context-add! &sk_branch_reader ($ihash $input $slot))))
-
-(= (sk-branch-unlink! $slot $_acc $input)
-   (let $ihash (index-hash $input)
-      (remove-variant-row! &sk_branch_reader (quote ($ihash $input $slot)))))
-
-;; Erase before cascading, so cycles stop at the first already erased owner.
-;; The ordinary views remain valid. Only their cached exclusion reads change.
-(= (sk-drop-branch! $_acc $slot)
-   (let* (($_wanted (remove-data-rows! &sk_branch_wanted (quote ($slot $_hash $_key $_rhash $_exclude))))
-          ($_dropped
-             (collapse (match &ctx_sk_branch_owner ($slot $hash $key $rhash $inputs)
-                (let* (($_owner (remove-variant-row! &sk_branch_owner (quote ($slot $hash $key $rhash $inputs))))
-                       ($_views (remove-data-rows! &sk_branch (quote ($slot $_key $_rhash $_cuts $_fresh $_view))))
-                       ($_dirty (context-remove! &sk_branch_dirty ($slot)))
-                       ($_inputs (fold-semidet (sk-branch-unlink! $slot) () $inputs)))
-                   (sk-invalidate-branches! $key))))))
-      ()))
-
-(= (sk-stale-branch! $_acc $slot)
-   (if (space-row-present? &ctx_sk_branch_dirty ($slot)) ()
-      (let $_staled
-         (collapse (match &ctx_sk_branch_owner ($slot $_hash $key $_rhash $inputs)
-            (let* (($_dirty (context-add! &sk_branch_dirty ($slot)))
-                   ($_unlinked (fold-semidet (sk-branch-unlink! $slot) () $inputs))
-                   ($_wanted
-                      (if (== (search-id-value sk_holding) 1)
-                         (collapse (match &ctx_sk_branch_hold ($slot $hash $held $row $exclude)
-                            (if (space-row-present? &ctx_sk_branch_wanted ($slot $hash $held $row $exclude)) ()
-                               (context-add! &sk_branch_wanted ($slot $hash $held $row $exclude))))) ()))
-                   ($_views
-                      (collapse (match &ctx_sk_branch ($slot $stored $rhash $cuts true $view)
-                         (let $_old (remove-variant-row! &sk_branch (quote ($slot $stored $rhash $cuts true $view)))
-                            (context-add! &sk_branch ($slot $stored $rhash $cuts false $view)))))))
-               (sk-invalidate-branches! $key))))
-         ())))
-
-(= (sk-invalidate-branches! $key)
-   (let* (($hash (index-hash $key))
-          ($_dropped (collapse (fold-semidet sk-stale-branch! ()
-             (collapse (match &ctx_sk_branch_reader ($hash $stored $slot)
-                (if (=alpha $stored $key) $slot (empty))))))))
-      ()))
-
-;; A row's latest view and the views it replaced.
-(: sk-drop-row-views! (-[det]-> Number SkeletonKey Number Atom))
-(= (sk-drop-row-views! $hash $key $rhash)
-   (let* (($_root (sk-clear-root-cap! $hash $key))
-          ($_branches (sk-drop-branch! () (index-hash ($hash $rhash))))
-          ($_latest
-             (collapse (match &ctx_sk_latest ($hash $stored (sk-version $seq $rhash $view))
-                (if (=alpha $stored $key)
-                   (let $_changed (if (== $view sk-none) () (sk-invalidate-branches! $key))
-                      (context-remove! &sk_latest ($hash $stored (sk-version $seq $rhash $view))))
-                   (empty)))))
-          ($_older
-             (collapse (match &ctx_sk_view ($hash $stored $rhash $view)
-                (if (=alpha $stored $key) (context-remove! &sk_view ($hash $stored $rhash $view)) (empty)))))
-          ($_representatives
-             (collapse (match &ctx_sk_representative ($hash $rep-key $rhash $rep-given $rep-exclude $rep-value)
-                (if (=alpha $rep-key $key)
-                   (context-remove! &sk_representative ($hash $rep-key $rhash $rep-given $rep-exclude $rep-value)) (empty)))))
-          ($_references
-             (collapse (match &ctx_sk_summary_reference ($hash $rep-key $rhash $rep-given $rep-exclude $rep-filter $rep-value)
-                (if (=alpha $rep-key $key)
-                   (context-remove! &sk_summary_reference ($hash $rep-key $rhash $rep-given $rep-exclude $rep-filter $rep-value)) (empty)))))
-          ($_support (remove-data-rows! &sk_support (quote ($hash $rhash $_deps)))))
-      ()))
 
 (: sk-drop-row! (-[semidet]-> Number SkeletonKey Number SkeletonRow Atom))
 (= (sk-drop-row! $hash $key $rhash (sk-row $ident $concl $premises $seq))

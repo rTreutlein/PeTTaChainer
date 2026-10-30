@@ -162,9 +162,7 @@
                                      ($_unpaid
                                         (if $build
                                            (let $_counted (query_metric_increment rows-unpaid) (next-search-id sk_branch_unpaid))
-                                           (if (== (collapse (once (match &ctx_sk_branch_wanted ($slot $hash $wanted $rhash $exclude)
-                                                     (if (=alpha $wanted $key) true (empty))))) ())
-                                              (context-add! &sk_branch_wanted ($slot $hash $key $rhash $exclude)) ())))
+                                           (sk-request-branch! $slot $hash $key $rhash $exclude)))
                                      ($_reader (sk-hold-branch-reader! $slot $key $rhash $exclude)))
                                  (chainer-first-or sk-none $incumbents)))))))))))))))
 
@@ -270,21 +268,7 @@
                (let* (($references (fold-semidet (sk-summary-version $given $hash $key $filter $exclude) ()
                                     (cons (sk-version $seq $rhash $latest) ())))
                       ($value (chainer-first-or sk-none (map-semidet sk-version-view $references)))
-                      ($_memo (collapse (once (match &sk_row
-                         ($hash $stored $rhash (sk-row $_id $_concl $premises $_seq))
-                         (if (=alpha $stored $key)
-                            (let $volatile (fold-flat
-                               (|-> ($seen $premise)
-                                  (if $seen true
-                                     (case $premise (
-                                        ((CPU rule-likelihood-read $_likelihood-args $_likelihood-res) true)
-                                        ((CPU $_cpu-fun $_cpu-args $_cpu-res) false)
-                                        (($premise-type $_premise-scope $_premise-proof $_premise-tv)
-                                           (head-is? $premise-type RuleTruth))))))
-                               false $premises)
-                               (if $volatile ()
-                                  (context-add! &sk_summary_reference ($hash $key $rhash $given $exclude $filter $value))))
-                            (empty)))))))
+                      ($_memo (sk-cache-summary-reference! $hash $key $rhash $given $exclude $filter $value)))
                   (append-flat $references $kept)))))
          $kept)
       $kept))
@@ -461,7 +445,7 @@
             ((cons $cached $_rest) $cached)
             (()
                (if (sk-take! sk_representative_budget 1)
-                  (let* (($_entered (context-add! &sk_representative ($hash $key $rhash $given $exclude sk-none)))
+                  (let* (($_entered (sk-update-representative! $hash $key $rhash $given $exclude sk-representative-enter))
                          ($_counted (query_metric_increment representative-reads))
                          ($copy (copy_term $row))
                          ((sk-row (sk-ident $owner $_keys $_key) ($_type $_scope $proof $_tv) $_premises $_seq) $copy)
@@ -471,9 +455,7 @@
                             ((sk-entangled $_shared $_base $independent) $independent)
                             ($_other $state))))
                          ($value (sk-reference-view $owner (sk-row-result $copy $read)))
-                         ($_left (context-remove! &sk_representative ($hash $key $rhash $given $exclude sk-none)))
-                         ($_memo (if (if (== $value sk-none) (== (search-id-value sk_representative_budget) 0) false) ()
-                            (context-add! &sk_representative ($hash $key $rhash $given $exclude $value)))))
+                         ($_memo (sk-update-representative! $hash $key $rhash $given $exclude (sk-representative-result $value))))
                      $value)
             sk-none))))
          sk-none))))

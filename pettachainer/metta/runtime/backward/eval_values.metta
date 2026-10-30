@@ -1181,41 +1181,6 @@
 ;; usable when a newer one came to depend on one of them. An older view whose
 ;; dependencies include all of a newer one's is admitted only where the newer
 ;; one is, so storing a view drops those.
-(: sk-live-view? (-[det]-> SkeletonValue Bool))
-(= (sk-live-view? $view)
-   (case $view (
-      ((sk-val ($_type $_kbctx $proof $_tv) $_ev $_deps) (proof-live? $proof))
-      ((sk-goal-val $_goal $proof $_ev $_deps) (proof-live? $proof))
-      (sk-none true))))
-
-(: sk-excludes? (-[det]-> (List Number) Number Bool))
-(= (sk-excludes? $exclude $deps)
-   (if (deps-meet? $exclude $deps)
-      (let $_cut (if (== (search-id-value sk_branch_at) 0) ()
-                    (sk-note-cuts! (deps-excluded $exclude $deps)))
-         true)
-      false))
-
-;; Closed reads may use their own pins and direct observations, but cannot
-;; cross the exclusions of the branch being rebuilt around them.
-(: sk-branch-excludes? (-[semidet]-> Number Bool))
-(= (sk-branch-excludes? $deps)
-   (let $frame (search-id-value sk_branch_at)
-      (if (== $frame 0) false
-         (let (cons $exclude $_rest) (collapse (once
-                 (match &sk_branch_cuts ($frame $exclude $_cuts) $exclude)))
-            (sk-excludes? (the (List Number) $exclude) $deps)))))
-
-(: sk-note-cuts! (-[det]-> (List Number) Atom))
-(= (sk-note-cuts! $cuts)
-   (let $frame (search-id-value sk_branch_at)
-      (if (if (== $frame 0) true (== $cuts ())) ()
-         (let $_noted (collapse (match &sk_branch_cuts ($frame $exclude $old)
-                (let* (($both (hash-union $old $cuts))
-                       ($_old (remove-variant-row! &sk_branch_cuts (quote ($frame $exclude $old)))))
-                   (add-atom &sk_branch_cuts ($frame $exclude $both)))))
-            ()))))
-
 ;; The latest versions of a key's rows, in row creation order.
 (: sk-latest-versions (-[det]-> Number SkeletonKey (List SkeletonVersion)))
 (= (sk-latest-versions $hash $key)
@@ -1225,13 +1190,6 @@
 
 (: sk-version-view (-[det]-> SkeletonVersion SkeletonValue))
 (= (sk-version-view (sk-version $_seq $_rhash $view)) $view)
-
-(: sk-view-deps-step (-[semidet]-> Number SkeletonValue Number))
-(= (sk-view-deps-step $deps $view)
-   (case $view (
-      ((sk-val $_fact $_ev $view-deps) (deps-union $deps $view-deps))
-      ((sk-goal-val $_goal $_proof $_ev $view-deps) (deps-union $deps $view-deps))
-      (sk-none $deps))))
 
 (: sk-pinned-step (-[semidet]-> SkeletonKey (List SkeletonValue) SkeletonGiven (List SkeletonValue)))
 (= (sk-pinned-step $key $found $pin)

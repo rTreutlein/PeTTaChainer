@@ -146,6 +146,14 @@
    (sk-value-same Number Number (List Number))
    (sk-outside-change (List Number) Number))
 
+;; Publication owns row admission. A refresh carries the previous merge for
+;; the scheduler's recursive post-publication comparison; direct changes are
+;; ready to deliver. Neither case schedules readers inside the store.
+(datatype SkeletonCommit
+   sk-uncommitted
+   (sk-committed SkeletonChange)
+   (sk-merge-refresh Number (List Number) (List SkeletonMerged)))
+
 ;; A key is needed at the fewest steps from a root it is reached by. The keys
 ;; are visited breadth first, a level of keys one step further than the last
 ;; at a time, so each is reached first at that depth and visited once: a

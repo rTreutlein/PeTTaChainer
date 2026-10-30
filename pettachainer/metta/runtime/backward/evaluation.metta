@@ -317,8 +317,7 @@
 (: execute-backward
    (-[nondet]-> Number (List (| Goal (Statement KBContext Proof TV))) Bool (List (List RuntimeResult))))
 (= (execute-backward $steps $requested $materialize?)
-   (let* (($_references (context-remove! &sk_summary_reference ($_hash $_key $_row $_given $_exclude $_filter $_value)))
-          ($_representatives (context-remove! &sk_representative ($_hash $_key $_row $_given $_exclude $_value)))
+   (let* (($_value-caches (sk-clear-query-values!))
           ($_representative-budget (change-state! sk_representative_budget 256))
           ;; a claim or branch frame an exception left open is closed
           ($_claim (sk-close-claim!))

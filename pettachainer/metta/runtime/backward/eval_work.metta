@@ -188,35 +188,6 @@
       ()))
 (= (sk-force! $_causes (sk-fold-check $_hash $_fold)) ())
 
-;; Whether a view brings a dependency none of the row's views had.
-(: sk-new-support? (-[semidet]-> Number Number SkeletonValue Bool))
-(= (sk-new-support? $hash $rhash $new)
-   (if (deps-within? (sk-view-deps-step 0 $new) (sk-row-support $hash $rhash)) false true))
-
-;; Confidence can weaken when a filtered premise loses a view even though
-;; it adds no logical dependency. Retain that correction just as new support;
-;; its strength, evidence and dependency support must be identical.
-(: sk-weaker-view? (-[det]-> SkeletonValue SkeletonValue Bool))
-(= (sk-weaker-view? $new $old)
-   (case (data $new $old) (
-      (((sk-val ($type $scope $proof (STV $s $c)) $ev $deps)
-        (sk-val ($old-type $old-scope $old-proof (STV $old-s $old-c)) $old-ev $old-deps))
-         (if (< $c $old-c)
-            (let* (($sources (proof-unsettled-sources $proof))
-                   ($old-sources (proof-unsettled-sources $old-proof)))
-               (if (hash-subset? $sources $old-sources) false
-                  (=alpha (data $type $scope $s $ev $deps) (data $old-type $old-scope $old-s $old-ev $old-deps)))) false))
-      ($_other false))))
-
-;; A fold's provenance counts as a change: a complete fold may replace a cached
-;; estimate of the same truth value.
-(: sk-view-step-proof (-[det]-> SkeletonValue Proof))
-(= (sk-view-step-proof $view)
-   (case $view (
-      ((sk-goal-val $_goal $proof $_ev $_deps) (sk-step-proof $proof))
-      ((sk-val $fact $_ev $_deps) (sk-fact-step-proof $fact))
-      (sk-none (brand Proof none)))))
-
 ;; A fold check recomputes the fold once for the members that changed since
 ;; the last one; when its value changed, every reader is forced by those
 ;; members, in the next pass. A row whose view differs from its latest version stores a new version and
@@ -242,55 +213,13 @@
    (let* (($_computed (query_metric_increment row-computes))
           ($causes (collapse (match &ctx_sk_forced ($hash $rhash $cause) $cause)))
           ($_taken (remove-data-rows! &sk_forced (quote ($hash $rhash $cause))))
-          ($forced (not (== $causes ())))
           ($_unpaid (remove-data-rows! &sk_given_pending (quote ($hash $rhash $_cost))))
           ($new (sk-row-view () () $hash $key $rhash $row)))
-      (case $new (
-         ;; A row forced by an outside change that no longer derives anything
-         ;; (a premise fact was removed) drops its views, and its key changed;
-         ;; one waiting for conditioning keeps them.
-         ;; A row that derived nothing records empty support: it was computed,
-         ;; so a fold over its key does not wait for it (sk-member-pending?).
-         (sk-none
-            (if (if $forced
-                   (if (== (sk-latest-view $hash $key $rhash) sk-none) false
-                      (not (space-row-present? &ctx_sk_given_pending ($hash $rhash $_waits))))
-                   false)
-               (let* (($_views (sk-drop-row-views! $hash $key $rhash))
-                      ($_merged (sk-drop-merged! $key))
-                      ($_derived-nothing (context-add! &sk_support ($hash $rhash 0))))
-                  (sk-key-changed $pass $order (sk-outside-change $causes 0) $work $key))
-               ;; A closed reader of a complete key evaluates its rows again,
-               ;; so a new row that derives nothing, or a forced one, still
-               ;; changes the key for it.
-               (let* (($first (not (space-row-present? &ctx_sk_support ($hash $rhash $_had))))
-                      ($_nothing (if $first (context-add! &sk_support ($hash $rhash 0)) true)))
-                  (if (if (if $first true $forced)
-                         (case $key (((sk-key $type $kbctx) (complete-statement? $type $kbctx)) ($_fold false)))
-                         false)
-                     (sk-key-changed $pass $order (if $forced (sk-outside-change $causes 0) (sk-view-change 0 ())) $work $key)
-                     $work))))
-         ($_view
-            (let $latest (sk-latest-view $hash $key $rhash)
-            (if (if (sk-same-view? $new $latest)
-                   (if $forced (== (sk-view-step-proof $new) (sk-view-step-proof $latest)) true)
-                   (if $forced false
-                      (if (== $latest sk-none) false
-                         (if (if (sk-new-support? $hash $rhash $new) true (sk-weaker-view? $new $latest)) false
-                            (let $_unsupported (query_metric_increment views-without-support) true)))))
-               $work
-               (let* (($before
-                         (collapse (once (match &ctx_sk_merged ($hash $stored $deps $value $cached-root)
-                            (if (=alpha $stored $key) (if (sk-live-view? $value) (sk-merged $hash $stored $deps $value) (empty)) (empty))))))
-                      ($_stored (sk-store-view! $hash $key $seq $rhash $new))
-                      ($_stored-count (query_metric_increment views-stored))
-                      ($_merged (sk-drop-merged! $key))
-                      ($deps (sk-view-deps-step 0 $new)))
-                  (sk-key-changed $pass $order
-                     (if (if $forced (not (sk-same-view? $new $latest)) false)
-                        (sk-outside-change $causes $deps)
-                        (sk-value-change $hash $key $deps $causes $before))
-                     $work $key)))))))))
+      (case (sk-commit-result! $hash $key $seq $rhash $causes $new) (
+         (sk-uncommitted $work)
+         ((sk-committed $change) (sk-key-changed $pass $order $change $work $key))
+         ((sk-merge-refresh $deps $incoming $before)
+            (sk-key-changed $pass $order (sk-value-change $hash $key $deps $incoming $before) $work $key))))))
 
 ;; An unchanged open merged value is known only when it was cached before.
 ;; Keep a provenance-only refresh's causes without forcing its row readers.
@@ -344,8 +273,7 @@
                   (sk-wanted $slot $hash $key $rhash $exclude)))) (
             (() false)
             ((cons (sk-wanted $slot $hash $key $rhash $exclude) $_rest)
-               (let* (($request (data $slot $hash $key $rhash $exclude))
-                      ($before (search-id-value sk_eval_budget))
+               (let* (($before (search-id-value sk_eval_budget))
                       ($incumbent (chainer-first-or
                                     (chainer-first-or sk-none (sk-branch-values $slot $key $rhash $exclude false))
                                     (sk-branch-values $slot $key $rhash $exclude true)))
@@ -356,9 +284,7 @@
                       ;; Even a cache hit or a structurally impossible read
                       ;; consumes one tier unit, bounding queue bookkeeping.
                       ($_share (change-state! sk_branch_budget (- (search-id-value sk_branch_budget) (max 1 $spent))))
-                      ($_taken (remove-variant-row! &sk_branch_wanted (quote ($slot $hash $key $rhash $exclude))))
-                      ($settled (not (== (sk-branch-values $slot $key $rhash $exclude true) ())))
-                      ($_retry (if $settled true (context-add! &sk_branch_wanted $request)))
+                      ($_request (sk-finish-branch-request! $slot $hash $key $rhash $exclude))
                       ($_ready
                          (if (not (sk-same-view? $built $incumbent))
                             (let* (($cause (- 0 (+ 2 (next-search-id sk_change_cause))))

@@ -1,4 +1,4 @@
-;; Version selection, branch storage, fold tallies and row input support.
+;; Version selection, fold tallies and recursive merged-value reads.
 ;; Depends on eval_values; recursive reads live in eval_core.
 
 
@@ -34,20 +34,6 @@
                       (empty)))))))
       ()))
 
-(: sk-branch-values (-[semidet]-> Number SkeletonKey Number (List Number) Bool (List SkeletonValue)))
-(= (sk-branch-values $slot $key $rhash $exclude $fresh)
-   (case (fold-semidet sk-cons-step ()
-      (collapse (match &ctx_sk_branch ($slot $stored $rhash $cuts $fresh $view)
-         (if (=alpha $stored $key)
-            (if (hash-subset? $cuts $exclude)
-               (if (sk-excludes? $exclude (sk-view-deps-step 0 $view)) (empty)
-                  (if (sk-live-view? $view)
-                     (if (if $fresh true (not (== $view sk-none))) (sk-cut-view $cuts $view) (empty)) (empty)))
-               (empty)) (empty))))) (
-      (() ())
-      ((cons (sk-cut-view $used $value) $_rest)
-         (let $_cuts (sk-note-cuts! (the (List Number) $used)) (cons $value ()))))))
-
 (: sk-reference-view (-[semidet]-> Number SkeletonValue SkeletonValue))
 (= (sk-reference-view $rule $computed)
    (case $computed (
@@ -58,33 +44,6 @@
       ((sk-goal-val $goal $goal-proof $gev $gdeps)
          (sk-goal-val $goal (record-proof! (next-search-id proof_id) $rule $goal-proof $gev $gdeps ()) $gev $gdeps))
       (sk-none sk-none))))
-
-(: sk-cache-branch!
-   (-[semidet]-> Number Number SkeletonKey Number (List SkeletonKey) (List Number) Bool SkeletonValue SkeletonValue))
-(= (sk-cache-branch! $slot $hash $key $rhash $inputs $cuts $fresh $view)
-   (let* (($deps (sk-view-deps-step 0 $view))
-          ($_dominated (if $fresh
-             (collapse (match &ctx_sk_branch ($slot $stored $rhash $old-cuts $old-fresh $old)
-                (if (=alpha $stored $key)
-                   (if (if (hash-subset? $cuts $old-cuts) (deps-within? $deps (sk-view-deps-step 0 $old)) false)
-                      (remove-variant-row! &sk_branch (quote ($slot $stored $rhash $old-cuts $old-fresh $old))) (empty))
-                   (empty)))) ()))
-          ($_owner
-             (if (not (== (collapse (once (match &ctx_sk_branch_owner ($slot $hash $stored-owner $rhash $_inputs)
-                              (if (=alpha $stored-owner $key) true (empty))))) ()))
-                (if (space-row-present? &ctx_sk_branch_dirty ($slot))
-                   (fold-semidet (sk-branch-link! $slot) () $inputs) ())
-                (let* (($_registered (context-add! &sk_branch_owner ($slot $hash $key $rhash $inputs)))
-                       ($_readers (fold-semidet (sk-branch-link! $slot) () $inputs))) ())))
-          ($_clean (context-remove! &sk_branch_dirty ($slot)))
-          ($_stored (context-add! &sk_branch ($slot $key $rhash $cuts $fresh $view)))
-          ($kept (collapse (match &ctx_sk_branch ($slot $kept-key $rhash $kept-cuts $kept-fresh $kept-view)
-                    (if (=alpha $kept-key $key) ($kept-key $kept-cuts $kept-fresh $kept-view) (empty)))))
-          ($_bounded
-             (collapse (let (cons ($oldest-key $oldest-cuts $oldest-fresh $oldest-view) $_rest)
-                              (if (> (length $kept) 8) $kept (empty))
-                (remove-variant-row! &sk_branch (quote ($slot $oldest-key $rhash $oldest-cuts $oldest-fresh $oldest-view)))))))
-      $view))
 
 ;; The members of an implication instance fold that read one of the excluded
 ;; keys directly, each once.
@@ -182,48 +141,6 @@
 ;; The determinism checker proves a fold over a parameter list.
 (: sk-tally-without (-[det]-> Number InstanceRegimeState (List InstanceSample) InstanceRegimeState))
 (= (sk-tally-without $hash $tally $left) (fold-flat (sk-leave-out-step $hash) $tally $left))
-
-(: sk-older-views (-[det]-> Number SkeletonKey Number (List SkeletonValue)))
-(= (sk-older-views $hash $key $rhash)
-   (collapse (match &ctx_sk_view ($hash $stored $rhash $view)
-      (if (=alpha $stored $key) (if (sk-live-view? $view) $view (empty)) (empty)))))
-
-(: sk-latest-view (-[det]-> Number SkeletonKey Number SkeletonValue))
-(= (sk-latest-view $hash $key $rhash)
-   (chainer-first-or sk-none
-      (collapse (once (match &ctx_sk_latest ($hash $stored (sk-version $seq $rhash $view))
-         (if (=alpha $stored $key) (if (sk-live-view? $view) $view (empty)) (empty)))))))
-
-;; A new view becomes the row's latest; the one it replaces is kept.
-(: sk-store-view! (-[semidet]-> Number SkeletonKey Number Number SkeletonValue SkeletonValue))
-(= (sk-store-view! $hash $key $seq $rhash $view)
-   (let* (($deps (sk-view-deps-step 0 $view))
-          ($previous
-             (collapse (match &ctx_sk_latest ($hash $stored (sk-version $old-seq $rhash $old))
-                (if (=alpha $stored $key)
-                   (let* (($_invalidated (if (sk-same-view? $view (if (sk-live-view? $old) $old sk-none)) ()
-                                            (sk-invalidate-branches! $key)))
-                          ($_removed (context-remove! &sk_latest ($hash $stored (sk-version $old-seq $rhash $old)))))
-                      (if (sk-dominated? $deps $old) () (context-add! &sk_view ($hash $stored $rhash $old))))
-                   (empty)))))
-          ($_first (if (== $previous ()) (sk-invalidate-branches! $key) ()))
-          ($_pruned
-             (collapse (match &ctx_sk_view ($hash $stored $rhash $older)
-                (if (=alpha $stored $key)
-                   (if (sk-dominated? $deps $older) (remove-variant-row! &sk_view (quote ($hash $stored $rhash $older))) (empty))
-                   (empty)))))
-          ($support (deps-union (sk-row-support $hash $rhash) $deps))
-          ($_old-support (remove-data-rows! &sk_support (quote ($hash $rhash $_had))))
-          ($_support (context-add! &sk_support ($hash $rhash $support)))
-          ($_added (context-add! &sk_latest ($hash $key (sk-version $seq $rhash $view)))))
-      $view))
-
-(: sk-dominated? (-[semidet]-> Number SkeletonValue Bool))
-(= (sk-dominated? $deps $older) (deps-mask-within? $deps (sk-view-deps-step 0 $older)))
-
-(: sk-row-support (-[det]-> Number Number Number))
-(= (sk-row-support $hash $rhash)
-   (chainer-first-or 0 (collapse (once (match &ctx_sk_support ($hash $rhash $deps) $deps)))))
 
 ;; A population prior, `(population-prior pattern)` (sk-start-prior!), is the
 ;; population's value, not the statement's: a key reads it only while nothing
@@ -744,24 +661,6 @@
                         (STV $s (/ $c (+ 1.0 (* $range $range))))) $ev $deps))))
             ($_other-full $value))))
       ($_other-value $value))))
-
-(: sk-drop-merged! (-[det]-> SkeletonKey Atom))
-(= (sk-drop-merged! $key)
-   (let* (($hash (index-hash $key))
-          ($_unpaid (remove-data-rows! &sk_given_pending (quote ($hash -1 $_cost)))))
-      (sk-uncache! $hash $key)))
-
-;; A merge conditioning a key may read the key again through a shared
-;; statement's value, which caches the key's fallback first; the conditioned
-;; value replaces it.
-(: sk-uncache! (-[det]-> Number SkeletonKey Atom))
-(= (sk-uncache! $hash $key)
-   (let $_dropped
-         (collapse (match &ctx_sk_merged ($hash $stored $deps $value $cached-root)
-            (if (=alpha $stored $key)
-               (context-remove! &sk_merged ($hash $stored $deps $value $cached-root))
-               (empty))))
-      ()))
 
 ;; --- Row views --------------------------------------------------------------
 
@@ -1345,22 +1244,6 @@
 
 ;; Two views of a row are the same when they agree on all but the proof: the
 ;; stored proof stays a valid derivation of the same value.
-(: sk-same-view? (-[det]-> SkeletonValue SkeletonValue Bool))
-(= (sk-same-view? $new $old)
-   (case $new (
-      ((sk-val ($type $kbctx $_proof $tv) $ev $deps)
-         (case $old (
-            ((sk-val ($old-type $old-kbctx $_old-proof $old-tv) $old-ev $old-deps)
-               (if (=alpha (data $type $kbctx $tv) (data $old-type $old-kbctx $old-tv))
-                  (if (=alpha $ev $old-ev) (=alpha $deps $old-deps) false) false))
-            ($_other false))))
-      ((sk-goal-val $goal $_proof $ev $deps)
-         (case $old (
-            ((sk-goal-val $old-goal $_old-proof $old-ev $old-deps)
-               (if (=alpha $goal $old-goal) (if (=alpha $ev $old-ev) (=alpha $deps $old-deps) false) false))
-            ($_other false))))
-      (sk-none (== $old sk-none)))))
-
 (: sk-needed? (-[det]-> Number SkeletonKey Bool))
 (= (sk-needed? $hash $key)
    (not (== (collapse (once (match &sk_needed ($hash $stored $_depth) (if (=alpha $stored $key) true (empty))))) ())))
