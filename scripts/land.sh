@@ -355,6 +355,11 @@ act git -C "$main" merge --ff-only "$rebased"
 act git -C "$main" push origin master
 [[ -z $cg_branch ]] || act git -C "$cg_main" push origin supply-network
 
+if (( push )); then
+  python3 "$script_dir/round_metrics.py" "$main" "$branch" "$master_sha" "$rebased" ||
+    printf 'round metrics: warning: logger failed\n' >&2
+fi
+
 step "Retire landed worktrees and branches"
 if (( push )); then
   retire "$main" "$branch" master

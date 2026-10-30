@@ -63,6 +63,17 @@ fixture() {
   mkdir -p "$pc/scripts"
   cp "$land" "$pc/scripts/land.sh"
   cp "${land%/*}/list_waiters.py" "${land%/*}/verify_cache.py" "$pc/scripts/"
+  cat >"$pc/scripts/round_metrics.py" <<'EOF'
+import os
+from pathlib import Path
+import subprocess
+import sys
+repo, branch, base, landed = sys.argv[1:]
+assert subprocess.check_output(["git", "-C", repo, "rev-parse", "origin/master"], text=True).strip() == landed
+assert subprocess.check_output(["git", "-C", repo, "rev-parse", branch], text=True).strip() == landed
+Path(repo, "metrics-call").write_text("\n".join(sys.argv[1:]))
+sys.exit(int(os.environ.get("LAND_TEST_METRICS_STATUS", "0")))
+EOF
   # Records its result like verify.sh, and the checkout it ran in.
   cat >"$pc/scripts/verify.sh" <<'EOF'
 #!/usr/bin/env bash
@@ -165,11 +176,20 @@ for kind in ignored untracked modified; do
 done
 
 fixture retire-clean
+base=$(git -C "$pc" rev-parse master)
+landed=$(git -C "$pc" rev-parse feat)
 run_land feat --push
 expect_status 0
 expect_retired "$wt" "$pc" feat
 expect_landing_gone 1
 [[ $(git -C "$pc" show master:y) == feat ]] || fail "master does not hold the branch"
+[[ $(cat "$pc/metrics-call") == "$(printf '%s\n' "$pc" feat "$base" "$landed")" ]] || fail "wrong metrics arguments"
+
+fixture metrics-failure
+LAND_TEST_METRICS_STATUS=1 run_land feat --push
+expect_status 0
+expect_retired "$wt" "$pc" feat
+[[ $out == *'round metrics: warning: logger failed'* ]] || fail "no metrics warning"
 
 # A clean PeTTaChainer worktree goes; a ChainerGame worktree with an ignored
 # scratch file stays.
@@ -210,6 +230,7 @@ for failure in verify benchmark conflict dry-run; do
   expect_untouched "$wt" "$before" "$pc" feat
   expect_master "$master"
   expect_landing_gone 2
+  [[ ! -e $pc/metrics-call ]] || fail "metrics logged before successful push"
 done
 
 # A directory at the landing worktree's path is not the script's own.
