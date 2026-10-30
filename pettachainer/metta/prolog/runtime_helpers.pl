@@ -72,6 +72,7 @@ atom_dists(K, Formula, Index, Siblings, Proofs, Dists) :-
     \+ settled_by_siblings(Formula, Index, Dists).
 
 settled_by_siblings(Formula, Index, Dists) :-
+    length(Dists, Count), Count =< 12,
     \+ ( maplist(possible_bit, Dists, Bits0),
          nth0(Index, Bits0, _, Rest),
          nth0(Index, B1, 1, Rest), nth0(Index, B0, 0, Rest),
@@ -131,7 +132,7 @@ revised_target(K, Pp, Vp, Ps, Pc, Pstar, Nsum) :-
 % The node over atoms: K holds in the worlds where Formula does, weighted M,
 % the others 1 - M; the goals are formulas over the same atoms.
 node_answer(Formula, Dists, M, Goals, Answers) :-
-    length(Dists, Count), Last is Count - 1, numlist(0, Last, Is),
+    length(Dists, Count), Count =< 12, Last is Count - 1, numlist(0, Last, Is),
     maplist([I, Id-D, D]>>atom_concat(c, I, Id), Is, Vars, Dists),
     findall(t(Coef, Lits, Hits),
             ( length(Bits, Count), maplist([B]>>member(B, [0, 1]), Bits),
@@ -147,9 +148,9 @@ node_answer(Formula, Dists, M, Goals, Answers) :-
 'pearl-moments'(K, BaseProof, Prior, Likelihoods0, TV) :-
     msort(Likelihoods0, Likelihoods),
     prior_dist(K, BaseProof, Prior, PDist),
-    (   separable(Likelihoods)
+    (   separable(Likelihoods, Count)
     ->  maplist(literal_factor, Likelihoods, Factors),
-        separable_moments(PDist, Factors, S, V, Max)
+        separable_moments(PDist, Factors, Count, S, V, Max)
     ;   union_node(PDist, Likelihoods, S, V), Max is S * (1 - S) ),
     node_stv(K, S, V, Max, TV).
 
@@ -160,10 +161,10 @@ prior_dist(K, BaseProof, ['STV', S, C], Dist) :-
     event_node_dist(Kind, S, C, K, Dist).
 
 % Every compound a connective over distinct literals, no other atom shared.
-separable(Likelihoods) :-
+separable(Likelihoods, Count) :-
     maplist([[likelihood, F|_]]>>literal_formula(F), Likelihoods),
     foldl(sibling_keys, Likelihoods, [], All),
-    sort(All, Distinct), same_length(All, Distinct).
+    sort(All, Distinct), same_length(All, Distinct), length(All, N), Count is N + 1.
 sibling_keys([likelihood, _, I, _, Keys, _], S0, S) :- nth0(I, Keys, _, Others), append(Others, S0, S).
 literal_formula([C|Ls]) :- memberchk(C, ['And', 'Or']), maplist(literal, Ls, Is), sort(Is, Distinct), same_length(Is, Distinct).
 literal(I, I) :- integer(I).
@@ -182,7 +183,7 @@ literal_factor([likelihood, [C|Ls], I, M, _, Dists], f(W, L1, L0)) :-
 literal_dist(Dists, I, D) :- integer(I), !, nth0(I, Dists, D).
 literal_dist(Dists, ['Not', I], D) :- nth0(I, Dists, D0), complement_dist(D0, D).
 
-separable_moments(PDist, Factors, S, V, Max) :-
+separable_moments(PDist, Factors, Count, S, V, Max) :-
     dist_mean(PDist, Mu),
     maplist([f(W, _, _), Mw]>>moments(W, Mw, _), Factors, Ws),
     log_lambdas(Factors, Ws, LL1, LL0),
@@ -200,7 +201,7 @@ separable_moments(PDist, Factors, S, V, Max) :-
     length(Dims, D),
     (   ( D =:= 0 ; Max =:= 0.0 )
     ->  V = 0.0
-    ;   D > 4
+    ;   ( D > 4 ; Count > 12 )
     ->  V = bound
     ;   Dims = [broad(Dist)]
     ->  graded_points(Dist, Points), second_moment(PDist, Narrowed, LZ, Points, E), V is max(0.0, E - S * S)
@@ -492,7 +493,9 @@ node_subset([_|Xs], Ys) :- node_subset(Xs, Ys).
         ; true )).
 
 'sk-force-reset!'([]) :-
+    retractall(event_node:jacobi_rule(_, _, _, _, _)),
     retractall(event_graph_memo(_, _, _)),
+    retractall(event_graph_input(_, _, _, _)),
     retractall(event_graph_plan(_, _, _, _, _)),
     ( context_active(C) -> true ; C=main ),
     forall(retract(sk_forced_seen(C,Trie)),trie_destroy(Trie)).

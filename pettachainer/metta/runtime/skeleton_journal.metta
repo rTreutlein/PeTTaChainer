@@ -62,6 +62,10 @@
    (sk-goal-val Goal Proof EvidenceSet Number)
    sk-none)
 
+;; Admission failure permits the ordinary reader; an admitted empty posterior
+;; does not. Keep that distinction outside the durable value representation.
+(datatype EventNetworkRead no-event-model (event-posterior SkeletonValue))
+
 ;; The merge of two views, or, for views that share an uncertain statement
 ;; and neither of which contains the other's evidence, the statements to
 ;; condition on, the union of their dependencies, and the more confident

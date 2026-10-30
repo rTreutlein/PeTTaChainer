@@ -281,7 +281,7 @@ def enumerate_stats(m, th, event):
         for r in m['roots']:
             lw = lw + np.log(th['f_' + r] if w[r] else 1.0 - th['f_' + r])
         for ch, (par, _b1, _b0) in m['rules'].items():
-            t = th[ch + ('|1' if w[par] else '|0')]
+            t = th[ch + ('|1' if (par(w) if callable(par) else w[par]) else '|0')]
             lw = lw + np.log(t if w[ch] else 1.0 - t)
         if event:
             for i, (_n, f, _s, _c) in enumerate(m['comps']):

@@ -274,7 +274,7 @@
 !(declare-natives! -[semidet]-> (
    (member-shape Atom Atom Atom)
    ;; Observed likelihoods, then Jeffrey updates; graph replacements must be compatible.
-   (event-network-read SkeletonKey SkeletonFilter (List Number) EvidenceSet SkeletonValue SkeletonValue)
+   (event-network-read SkeletonKey SkeletonFilter (List Number) EvidenceSet EventNetworkRead)
    (event-node-message Atom Number Number Expression Expression Expression Expression Expression)
    (event-node-value Atom Number Number Expression Expression Expression Expression Expression)
    (event-node-jeffrey Atom Number Number Expression Expression Expression Expression Expression)

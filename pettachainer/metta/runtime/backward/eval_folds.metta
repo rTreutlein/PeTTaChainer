@@ -294,8 +294,8 @@
                $init $finish $members (sk-member-filter $member)))
          (sk-group-missing sk-none)))))
 
-(: sk-node-apply (-[semidet]-> SkeletonValueReader SkeletonKey SkeletonFilter (List Number) EvidenceSet (List SkeletonValue) (List SkeletonValue) SkeletonValue SkeletonValue))
-(= (sk-node-apply $reader $key $filter $exclude $ev $messages $updates $value)
+(: sk-node-apply (-[semidet]-> SkeletonValueReader SkeletonKey (List Number) (List SkeletonValue) (List SkeletonValue) SkeletonValue SkeletonValue))
+(= (sk-node-apply $reader $key $exclude $messages $updates $value)
    (let $observed (if (== $messages ()) $value (sk-messages-on $reader $key $exclude $messages $value))
       (if (== $updates ()) $observed
          (fold-semidet sk-jeffrey-step

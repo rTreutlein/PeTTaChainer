@@ -973,7 +973,15 @@
       (superpose (
          (brand CompiledAddition (() |- (: $fact-kb $prf $Type $tv)))
          (compile-specialization-fact-triggers $kb $Type)
-         (compile-outputs (: $fact-kb $prf $Type $tv))))))
+         (if (if (head-is? $Type And)
+                (case $tv (((STV $s $c) (if (>= $s 1.0) (>= $c 1.0) false)) ($_other false)))
+                false)
+            ;; One hard observation entails every conjunct with its original
+            ;; identity. Materialize these views without constructing a node.
+            (let* (($children (conjunct-leaves (the (List Atom) (cdr-atom $Type)) ()))
+                   ($child (superpose $children)))
+               (compile_ $kb (: (joint-source $prf $Type) (brand Statement $child) $tv)))
+            (compile-outputs (: $fact-kb $prf $Type $tv)))))))
 
 ;; Rule refinement is opt-in per KB and set before its rules are added. A
 ;; refined rule's truth is the goal (RuleTruth (Implication a b)): the stored

@@ -243,17 +243,20 @@
          (let $ground (== (extract-vars $type) ())
             (if (= (sk-key $type $kbctx) (copy_term $key))
                (let $filter (sk-filter $proof $tv)
-                  (case (sk-waiting-root-value $filter $key) (
-                     (sk-none
-                        (case (sk-closed-read sk-greedy-read () () () $key $filter) (
+                  (case (event-network-read $key $filter () (ev-set 0)) (
+                     ((event-posterior $posterior) $posterior)
+                     (no-event-model
+                        (case (sk-waiting-root-value $filter $key) (
                            (sk-none
-                              (if $ground
-                                 (case (sk-materialized-views $type $kbctx $filter) (
-                                    ((cons $incumbent $_rest) $incumbent)
-                                    (() (sk-population-prior $type $kbctx $filter))))
-                                 sk-none))
-                           ($unfounded $unfounded))))
-                     ($current $current))))
+                              (case (sk-closed-read sk-greedy-read () () () $key $filter) (
+                                 (sk-none
+                                    (if $ground
+                                       (case (sk-materialized-views $type $kbctx $filter) (
+                                          ((cons $incumbent $_rest) $incumbent)
+                                          (() (sk-population-prior $type $kbctx $filter))))
+                                       sk-none))
+                                 ($unfounded $unfounded))))
+                           ($current $current)))))))
                sk-none))))))
 
 (: sk-materialized-views (-[det]-> Statement KBContext SkeletonFilter (List SkeletonValue)))

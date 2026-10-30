@@ -1,0 +1,130 @@
+{
+  "action": "query",
+  "entries": [
+    {
+      "name": "IR__fdc0668d19e2907c11e9f2253bbd69f062eae2bdc1c904ec71a9aa54c3cab904",
+      "atom": "(: IR__fdc0668d19e2907c11e9f2253bbd69f062eae2bdc1c904ec71a9aa54c3cab904 (And (Event Event_95fb56869e14af48_21278351) (Helping Event_95fb56869e14af48_21278351) (Actor Event_95fb56869e14af48_21278351 Mark) (Recipient Event_95fb56869e14af48_21278351 Bob) (Task Event_95fb56869e14af48_21278351 Homework) (Event Event_95fb56869e14af48_75423f0c) (Helping Event_95fb56869e14af48_75423f0c) (Actor Event_95fb56869e14af48_75423f0c Mark) (Recipient Event_95fb56869e14af48_75423f0c Anna) (Task Event_95fb56869e14af48_75423f0c Homework) (Event Event_95fb56869e14af48_72bde879) (Helping Event_95fb56869e14af48_72bde879) (Actor Event_95fb56869e14af48_72bde879 Bob) (Recipient Event_95fb56869e14af48_72bde879 Mark) (Task Event_95fb56869e14af48_72bde879 Homework) (Event Event_95fb56869e14af48_28137127) (Helping Event_95fb56869e14af48_28137127) (Actor Event_95fb56869e14af48_28137127 Bob) (Recipient Event_95fb56869e14af48_28137127 Anna) (Task Event_95fb56869e14af48_28137127 Homework) (Event Event_95fb56869e14af48_a9f298f9) (Helping Event_95fb56869e14af48_a9f298f9) (Actor Event_95fb56869e14af48_a9f298f9 Anna) (Recipient Event_95fb56869e14af48_a9f298f9 Mark) (Task Event_95fb56869e14af48_a9f298f9 Homework) (Event Event_95fb56869e14af48_9f5ae5f9) (Helping Event_95fb56869e14af48_9f5ae5f9) (Actor Event_95fb56869e14af48_9f5ae5f9 Anna) (Recipient Event_95fb56869e14af48_9f5ae5f9 Bob) (Task Event_95fb56869e14af48_9f5ae5f9 Homework)) (STV 1 1))",
+      "candidate_source_ids": [
+        "General23_source"
+      ]
+    }
+  ],
+  "queries": [
+    "(: $proof (Exists ($event) (And (Event $event) (Helping $event) (Actor $event Mark) (Recipient $event Anna) (Task $event Homework))) $tv)"
+  ],
+  "ir_declarations": [
+    {
+      "function": "set-evidence-confidence-k",
+      "args": [
+        "800"
+      ]
+    },
+    {
+      "function": "set-argument-sorts",
+      "args": [
+        "Actor",
+        "(Stage Object)"
+      ]
+    },
+    {
+      "function": "set-argument-sorts",
+      "args": [
+        "Event",
+        "(Stage)"
+      ]
+    },
+    {
+      "function": "set-argument-sorts",
+      "args": [
+        "Helping",
+        "(Stage)"
+      ]
+    },
+    {
+      "function": "set-argument-sorts",
+      "args": [
+        "Recipient",
+        "(Stage Object)"
+      ]
+    },
+    {
+      "function": "set-argument-sorts",
+      "args": [
+        "Task",
+        "(Stage Object)"
+      ]
+    },
+    {
+      "function": "set-constant-sort",
+      "args": [
+        "Anna",
+        "Object"
+      ]
+    },
+    {
+      "function": "set-constant-sort",
+      "args": [
+        "Bob",
+        "Object"
+      ]
+    },
+    {
+      "function": "set-constant-sort",
+      "args": [
+        "Event_95fb56869e14af48_21278351",
+        "Stage"
+      ]
+    },
+    {
+      "function": "set-constant-sort",
+      "args": [
+        "Event_95fb56869e14af48_28137127",
+        "Stage"
+      ]
+    },
+    {
+      "function": "set-constant-sort",
+      "args": [
+        "Event_95fb56869e14af48_72bde879",
+        "Stage"
+      ]
+    },
+    {
+      "function": "set-constant-sort",
+      "args": [
+        "Event_95fb56869e14af48_75423f0c",
+        "Stage"
+      ]
+    },
+    {
+      "function": "set-constant-sort",
+      "args": [
+        "Event_95fb56869e14af48_9f5ae5f9",
+        "Stage"
+      ]
+    },
+    {
+      "function": "set-constant-sort",
+      "args": [
+        "Event_95fb56869e14af48_a9f298f9",
+        "Stage"
+      ]
+    },
+    {
+      "function": "set-constant-sort",
+      "args": [
+        "Homework",
+        "Object"
+      ]
+    },
+    {
+      "function": "set-constant-sort",
+      "args": [
+        "Mark",
+        "Object"
+      ]
+    }
+  ],
+  "steps": 500,
+  "timeout": 90
+}

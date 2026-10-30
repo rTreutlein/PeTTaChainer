@@ -190,7 +190,12 @@ accumulate(poly, W, Z, Ns, m(Z2a, N2a, N2Za), m(Z2, N2, N2Z)) :-
     maplist(add_weighted_square(W), Ns, N2a, N2),
     maplist(add_weighted_square_times(W, Z), Ns, N2Za, N2Z).
 
+% A rule is pure numeric data. The evaluator owns this cache and clears it
+% with its other numerical workspace at the next evaluation.
+:- dynamic jacobi_rule/5.
 gauss_jacobi(A, B, N, Xs, Ws) :-
+    ( jacobi_rule(A, B, N, Xs, Ws) -> true
+    ;
     AB is A + B,
     D0 is (A - B) / AB,
     Last is N - 1,
@@ -207,7 +212,8 @@ gauss_jacobi(A, B, N, Xs, Ws) :-
     maplist(christoffel(Diag, Off), Ys, Ws0),
     sum_list(Ws0, WSum),
     maplist(ratio(WSum), Ws0, Ws),
-    maplist([Y, X]>>(X is (1 + Y) / 2), Ys, Xs).
+    maplist([Y, X]>>(X is (1 + Y) / 2), Ys, Xs),
+      assertz(jacobi_rule(A, B, N, Xs, Ws)) ).
 
 % The recurrence coefficients of Beta(a, b) in a and b (alpha = b - 1, beta = a - 1).
 jacobi_diagonal(A, B, K, D) :- AB is A + B, S2 is 2 * K - 2 + AB, D is (A - B) * (AB - 2) / (S2 * (S2 + 2)).

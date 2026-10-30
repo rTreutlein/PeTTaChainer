@@ -67,10 +67,10 @@ class EventReviewRegressionTests(unittest.TestCase):
     def graph_read(self, h, goal='A'):
         result = janus.query_once(
             "'event-network-read'(['sk-key',[Goal,a],[Kb,'MAIN','Nil']],"
-            " 'sk-any-filter',[],['ev-set',0],fallback,_Out),copy_term(_Out,Out),"
+            " 'sk-any-filter',[],['ev-set',0],_Out),copy_term(_Out,Out),"
             "term_variables(Out,_Vars),maplist(=(test_variable),_Vars)", {'Kb': h.kb, 'Goal': goal})
         self.assertTrue(result['truth'])
-        return result['Out']
+        return 'fallback' if result['Out'] == 'no-event-model' else result['Out'][1]
 
     def test_observed_external_child_is_in_the_joint_model(self):
         h = self.load(probes(*SETTINGS['H'])['P3'])
@@ -127,16 +127,16 @@ class EventReviewRegressionTests(unittest.TestCase):
             "_Key=['sk-key',['A',a],[Kb,'MAIN','Nil']],"
             " 'base-rate-fold'(Kb,['A',_],_,_Fold),"
             " 'sk-direct-key-step'([],_Fold,[_FoldKey]),'index-hash'(_FoldKey,F),"
-            " 'event-network-read'(_Key,'sk-any-filter',[],['ev-set',0],fallback,"
-            " _Value),_Value=['sk-val',[_,_,_,TV],_,_Deps],"
+            " 'event-network-read'(_Key,'sk-any-filter',[],['ev-set',0],"
+            " ['event-posterior',_Value]),_Value=['sk-val',[_,_,_,TV],_,_Deps],"
             " 'deps-has?'(_Deps,F,true),"
             " 'sk-admits?'('sk-any-filter',[F],_Value,false),"
-            " 'event-network-read'(_Key,'sk-any-filter',[F],['ev-set',0],fallback,_Out),"
+            " 'event-network-read'(_Key,'sk-any-filter',[F],['ev-set',0],_Out),"
             " copy_term(_Out,Out),term_variables(Out,_Vars),maplist(=(test_variable),_Vars)",
             {'Kb': h.kb})
         self.assertTrue(result['truth'])
         self.assertEqual(result['TV'], ['STV', 0.0, .9999])
-        self.assertEqual(result['Out'], 'fallback')
+        self.assertEqual(result['Out'], 'no-event-model')
         self.assertEqual(self.graph_read(h)[1][3], result['TV'])
 
     def test_population_prior_excludes_the_consumers_evidence(self):
@@ -151,8 +151,8 @@ class EventReviewRegressionTests(unittest.TestCase):
         result = janus.query_once(
             "_Scope=[Kb,'MAIN','Nil'],_Key=['sk-key',['A',a],_Scope],"
             " 'leaf-evidence-for-result'([['A',b],_Scope,f1,['STV',0.2,0.9]],_Ev),"
-            " 'event-network-read'(_Key,'sk-any-filter',[],_Ev,fallback,"
-            " ['sk-val',[_,_,_,['STV',S,_]],_,_]),"
+            " 'event-network-read'(_Key,'sk-any-filter',[],_Ev,"
+            " ['event-posterior',['sk-val',[_,_,_,['STV',S,_]],_,_]]),"
             " 'sk-part-prior'(_Key,_Ev,[],['sk-val',[_,_,_,['STV',_PS,_PC]],_,_]),"
             " event_node:event_node_dist(stored,_PS,_PC,800,_D),event_node:dist_mean(_D,M)",
             {'Kb': h.kb})
@@ -173,29 +173,30 @@ class EventReviewRegressionTests(unittest.TestCase):
         m['comps'] += [('(B a)', lambda w: w['B'], .75, .9)]
         self.assertAlmostEqual(after[1][3][1], event_oracle(m)['(A a)']['s'], delta=1e-12)
 
-    def test_first_compound_invalidates_unavailable_scope_within_evaluation(self):
+    def test_first_compound_invalidates_unavailable_plan_within_evaluation(self):
         h = PeTTaChainer()
         facts, compounds = kb_atoms(probes(*SETTINGS['H'])['P3'])
         h.add_atoms_no_check(facts)
         # The compound key itself needs no rows for template discovery.
         read = ("Key=['sk-key',['Or',['A',a],['B',a]],[Kb,'MAIN','Nil']],"
-                " 'event-network-read'(Key,'sk-any-filter',[],['ev-set',0],fallback,Out)")
+                " 'event-network-read'(Key,'sk-any-filter',[],['ev-set',0],Out)")
         before = janus.query_once(read, {'Kb': h.kb})
-        self.assertEqual(before['Out'], 'fallback')
+        self.assertEqual(before['Out'], 'no-event-model')
         h.add_atoms_no_check(compounds)
         after = janus.query_once(read, {'Kb': h.kb})
-        self.assertNotEqual(after['Out'], 'fallback')
-        # Adding actual admitted rows must also invalidate a cached plan.
+        self.assertNotEqual(after['Out'], before['Out'])
+        # Adding skeleton rows preserves the input snapshot.
         old = janus.query_once("'search-id-value'(sk_row_seq,N)")['N']
         h._call('change-state!', ['sk_budget 1000', 'sk_row_budget 1000', 'sk_walk_budget 1000'])
         h._call('sk-walk!', [f'(((A a) ({h.kb} MAIN Nil) $p $tv))'])
         new = janus.query_once("'search-id-value'(sk_row_seq,N)")['N']
         self.assertGreater(new, old)
-        self.assertNotEqual(janus.query_once(read, {'Kb': h.kb})['Out'], 'fallback')
+        self.assertNotEqual(janus.query_once(read, {'Kb': h.kb})['Out'], 'no-event-model')
         generations = janus.query_once(
-            "findall([_E,_R],event_graph_plan(_,main,_E-_R,['sk-key',['Or',['A',a],['B',a]],[Kb,'MAIN','Nil']],_),Gs)",
+            "findall(_E,event_graph_plan(_,main,_E,['sk-key',['Or',['A',a],['B',a]],[Kb,'MAIN','Nil']],_),Gs)",
             {'Kb': h.kb})['Gs']
-        self.assertGreaterEqual(len(generations), 2)
+        # Compiler indexes, not skeleton rows, now define the plan.
+        self.assertEqual(len(set(generations)), 2)
 
     def test_an_stv_producer_forces_the_whole_graph_to_fall_back(self):
         h = self.load(probes(*SETTINGS['H'])['P3'])

@@ -319,33 +319,32 @@
 ;; was derived through, so no reader uses it to support itself. A value that is
 ;; one of the key's stored facts needs no copy: removing an identical copy
 ;; would remove the fact too.
-(: sk-forward-store! (-[semidet]-> SkeletonKey Atom))
-(= (sk-forward-store! $key)
-   (case (sk-key-value $key) (
-      ((sk-val ($type $kbctx $proof $tv) $ev $deps)
-         (let* (($hash (index-hash $key))
-                ($fact (assemble-runtime-fact $type $kbctx $proof $tv))
-                ($_old (sk-forget-forward-copy! $hash $key))
-                ($_copy
-                   (if (kb-fact-present? $fact) ()
-                      (let* (($_rules (record-stored-rules! forward $hash $key $proof))
-                             ($_stored (add-atom &sk_forward_stored ($hash $key $fact $ev $deps)))
-                             ($_kb (add-atom &kb $fact)))
-                         (kb-index-fact! live $fact)))))
-            (sk-note-fact! $type $kbctx)))
-      ($_none ()))))
+(: sk-forward-store! (-[semidet]-> SkeletonKey SkeletonValue Atom))
+(= (sk-forward-store! $key (sk-val ($type $kbctx $proof $tv) $ev $deps))
+   (let* (($hash (index-hash $key))
+          ($fact (assemble-runtime-fact $type $kbctx $proof $tv))
+          ($_old (sk-forget-forward-copy! $hash $key))
+          ($_copy
+             (if (kb-fact-present? $fact) ()
+                (let* (($_rules (record-stored-rules! forward $hash $key $proof))
+                       ($_stored (add-atom &sk_forward_stored ($hash $key $fact $ev $deps)))
+                       ($_kb (add-atom &kb $fact)))
+                   (kb-index-fact! live $fact)))))
+      (sk-note-fact! $type $kbctx)))
 
 (: sk-key-result (-[semidet]-> (List (Statement KBContext Proof TV)) SkeletonKey (List (Statement KBContext Proof TV))))
 (= (sk-key-result $results $key)
-   (case (sk-key-value $key) (
-      ((sk-val $fact $_ev $_deps)
+   (case (case (event-network-read $key sk-any-filter () (ev-set 0)) (
+            ((event-posterior $posterior) $posterior)
+            (no-event-model (sk-key-value $key)))) (
+      ((sk-val $fact $ev $deps)
          (let $type (car-atom $fact)
             (if (head-is-member? $type (ExistsJudgment ExistentialAlternatives Not)) $results
                ;; A negation is a view of its statement, never stored. An open
                ;; key's value holds for every instance, and an instance query
                ;; would read a stored copy of it as a report of its own
                ;; derivation: only closed keys are stored.
-               (let $_stored (if (== (extract-vars $type) ()) (sk-forward-store! $key) ())
+               (let $_stored (if (== (extract-vars $type) ()) (sk-forward-store! $key (sk-val $fact $ev $deps)) ())
                   (cons $fact $results)))))
       ($_none $results))))
 

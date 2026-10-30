@@ -22,6 +22,7 @@
 (= (fact-evidence-entry $kb $prf $type)
    (case $prf (
       ((rule-axiom $name) (rule-ev (brand KB (car-atom $kb)) $name))
+      ((joint-source $name $statement) (fact-ev $kb $name (brand Statement $statement)))
       ($_other
          (if (if (implication-type? $type) true (head-is? $type QuantifiedRule))
             (let* (($source-kb (brand KB (car-atom $kb)))
@@ -105,7 +106,7 @@
 
 ;; A det boundary: the strict checker rejects is-member inline below.
 (: proof-term-leaf-head? (-[det]-> $head Bool))
-(= (proof-term-leaf-head? $head) (is-member $head (() fact-ev fact-source CPU STV CTV)))
+(= (proof-term-leaf-head? $head) (is-member $head (() fact-ev fact-source joint-source CPU STV CTV)))
 
 (: proof-term-children-mode (-[det]-> $mode Proof (List Proof)))
 (= (proof-term-children-mode $mode $prf)
