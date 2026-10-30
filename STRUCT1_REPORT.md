@@ -2,7 +2,7 @@
 
 Worktree: `.claude/worktrees/struct1`, branch `struct1`, base `575420f4cae42b83d892f4ecc803a58ab669023e`.
 Implementation commit: `c3198082` (Move shared syntax and rule policy out of the compiler).
-This report and the graph-script revision are committed before final verification.
+Report checkpoint and reproducible graph-script revision: `48ba8ff4`, committed before final verification. Final gate results are added in a report-only follow-up.
 
 ## Design as built
 
@@ -69,8 +69,22 @@ The small increase is module-interface/load-order documentation and three import
 All project execution uses `/nexus/Dev/OpenCog/bench/capped`, `ulimit -v 16000000`, `DISPLAY` unset, stdin from `/dev/null`, and this worktree's runtime. Comparisons use the prescribed `compare.sh`, with `PETTACHAINER_REPO` set to this worktree. No custom seeds, frozen builds or runners are substituted.
 
 - Quick comparison: **PASS, accuracy changed in 0 cases**. Report: `/nexus/Dev/OpenCog/bench/results/compare/575420f4_vs_575420f4-dd1164693_quick/report.md`; 69 seconds wall. Log: `scratch/compare-quick.log`.
-- `compare.sh master <worktree> --full`: running; final result will be recorded after completion.
-- `compare.sh anchor <worktree> --canary`: running; final result will be recorded after completion. Any flagged case requires the brief's paired dev-server retime.
-- Final `capped --slots 16 env PETTA_JOBS=16 scripts/verify.sh`: to run after committing this report. It includes the complete Python and MeTTa suites, lint, scaling and ConceptNet gates.
+- `compare.sh master <worktree> --full`: **PASS**, 23 cases (22 accuracy comparisons plus the fuzzer gate), accuracy identical in all compared cases; 36 runs executed, 9 reused, 167 seconds wall. Report: `/nexus/Dev/OpenCog/bench/results/compare/575420f4_vs_c3198082-d193b26ad_full/report.md`. Log: `scratch/compare-full.log`. Candidate runtime tree `877b027ee6a8`; base `88d183f491a6`; PeTTa runtime `eec735bf4d1d3e31`. The candidate reuses the quick comparison build because its executable tree is identical.
+- Initial `compare.sh anchor <worktree> --canary`: harness verdict **PASS**, six cases, accuracy differs from the historical anchor in four cases. Its embedded comparison against `575420f4` has no answer movement. Historical anchor deficits are also present on master. This first run is **not used as clean timing evidence**: two dev-server jobs returned exit 127 because the remote struct1 interpreter path did not exist. The harness had already verified that the host's installed PeTTa runtime matched the local one. Copied that host environment into the remote **struct1** worktree only, leaving the shared environment untouched. The fresh paired retime below supersedes these failed timing attempts. Initial report: `/nexus/Dev/OpenCog/bench/results/compare/anchor-b4065459_vs_c3198082-d193b26ad_canary/report.md`; log `scratch/compare-canary.log`.
+- Fresh `compare.sh anchor <worktree> --canary --retime`: **PASS**, six cases, all **12 fresh paired dev-server jobs exit 0**, no blocking regressions; 283 seconds wall. Report: `/nexus/Dev/OpenCog/bench/results/compare/anchor-b4065459_vs_48ba8ff4_canary-retime-20261030T175620/report.md`; data: adjacent `compare.json`; log `scratch/compare-canary-retime.log`. The embedded master comparison reuses all 12 accuracy records, with no answer movement. Historical anchor accuracy differs in four cases; nine anchor deficits are also present on master and are classified as nonblocking by the prescribed runner. All base/candidate accuracy records have exit 0 and no unsupported marker. Every fresh timing job held the dev-server slot alone (load 1).
+- Final `capped --slots 16 env PETTA_JOBS=16 scripts/verify.sh`: **PASS**, all six gates, 260 seconds wall; reusable verify key `6da5c806aad7`. MeTTa: 162 files passed. Python: 1,015 tests / 67 files, 24 existing expected failures, one skip; 4,527 query metric rows and zero aborts. Import scaling, judgment scaling and ConceptNet (exactly two results) passed. Log: `scratch/verify-final.log`.
 
 No scheduling/budget/anytime behavior changed, so curves are outside this brief. The old anchor can differ numerically from the task's master; the no-answer-movement requirement is judged against this task's base. No master/main-checkout/other-worktree code changes, pushes, merges or GitHub writes were made.
+
+Fresh paired **process wall seconds** against the historical anchor (not the same-semantics base; do not interpret these gaps as the extraction's cost):
+
+| Case | Anchor | struct1 |
+|---|---:|---:|
+| live b50, five shifts, seed 1 | 6.96 | 10.16 |
+| conflict pln-reliable l spq4 s1 | 9.85 | 62.47 |
+| scale m spq4 r10 s1 | 22.72 | 35.21 |
+| conflict pln-stated l spq4 s1 | 10.14 | 25.82 |
+| ONA conditioning s1 | 5.62 | 10.52 |
+| ONA identitymatching s8 | 6.79 | 14.36 |
+
+The extraction is ready for coordinator review. All required processes have completed. The largest SCC and total file-edge count did not improve; the completed result is the removal of compiler ownership of shared vocabulary/policy, with unchanged answers against the actual base. No outstanding acceptance gate or known extraction-specific regression remains.
