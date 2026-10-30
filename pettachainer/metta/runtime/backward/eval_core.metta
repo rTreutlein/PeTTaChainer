@@ -866,25 +866,27 @@
           ($false (fold-semidet sk-known-false-step false (sk-key-leaves $consequence sk-any-filter)))
           ($siblings (if $false $apart (hash-union (sk-unifier-hashes $chash $consequence) $apart)))
           ($state (if $false
-             (fold-semidet (sk-completion-sibling-step () $given $exclusions $siblings $khash $completed $shared $policy) $start $before)
-             (fold-semidet (sk-completion-sibling-step (sk-closed-pin $chash $ctype $ckbctx true) $given $exclusions $siblings $khash $completed $shared $policy) $start $before)))
+             (fold-semidet (sk-completion-sibling-step () $given $exclusions $observed $siblings $consequence $khash $completed $shared $policy) $start $before)
+             (fold-semidet (sk-completion-sibling-step (sk-closed-pin $chash $ctype $ckbctx true) $given $exclusions $observed $siblings $consequence $khash $completed $shared $policy) $start $before)))
           ($read (sk-premise-step () $given $observed $shared true $policy $state $observation)))
       (fold-semidet (sk-premise-step () $given $exclusions $shared true $policy) $read $after)))
 
 (: sk-completion-sibling-step
-   (-[semidet]-> (List SkeletonGiven) (List SkeletonGiven) (List Number) (List Number) Number (List SkeletonGiven)
+   (-[semidet]-> (List SkeletonGiven) (List SkeletonGiven) (List Number) (List Number) (List Number) SkeletonKey Number (List SkeletonGiven)
        Bool SkeletonReadPolicy SkeletonRowState SkPattern SkeletonRowState))
-(= (sk-completion-sibling-step $pin $given $exclusions $siblings $khash $completed $shared $policy $state $premise)
+(= (sk-completion-sibling-step $pin $given $exclusions $observed $siblings $consequence $khash $completed $shared $policy $state $premise)
    (case $premise (
       ((CPU $_fun $_args $_res) (sk-premise-step () $given $exclusions $shared true $policy $state $premise))
-      (($_type $_kbctx $_proof $_tv)
-         (case (sk-premise-step $pin $given $siblings $shared true $policy $state $premise) (
-            (sk-fail
-               (if (== $state sk-fail) sk-fail
-                  (sk-premise-step $pin (append-flat $completed $given)
-                     (hash-set (fold-flat (sk-without-hash-step $khash) () $siblings))
-                     $shared true $policy $state $premise)))
-            ($read $read)))))))
+      (($type $kbctx $_proof $_tv)
+         (if (=alpha (sk-key $type $kbctx) $consequence)
+            (sk-premise-step () $given $observed $shared true $policy $state $premise)
+            (case (sk-premise-step $pin $given $siblings $shared true $policy $state $premise) (
+               (sk-fail
+                  (if (== $state sk-fail) sk-fail
+                     (sk-premise-step $pin (append-flat $completed $given)
+                        (hash-set (fold-flat (sk-without-hash-step $khash) () $siblings))
+                        $shared true $policy $state $premise)))
+               ($read $read))))))))
 
 (= (sk-merge-facts $combine $ignore $a $ev-a $deps-a $b $ev-b $deps-b)
    (sk-pair-facts (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) $combine $ignore $a $ev-a $deps-a $b $ev-b $deps-b))

@@ -6,6 +6,21 @@ from pettachainer import PeTTaChainer
 
 
 class CompletionRecipeTests(unittest.TestCase):
+    def test_coincident_sibling_and_consequence_use_observation_policy(self):
+        h = PeTTaChainer()
+        h.add_atoms_no_check([
+            '(: r (Implication (And (A $x) (C $x)) (C $x)) (CTV (STV 0.9 1) (STV 0.1 1)))',
+            '(: cd (Implication (C $x) (D $x)) (CTV (STV 0.8 1) (STV 0.2 1)))',
+            '(: d (D i) (STV 1 1))',
+        ])
+        for statement, rate in (('(A $x)', 0.3), ('(C $x)', 0.4)):
+            h._call('set-base-rate', [f'{h.kb} {statement} (STV {rate} 0.9)'])
+        answers = h.query_many_refs(['(: $p (A i) $tv)'], steps=2000)[0]
+        self.assertEqual(len(answers), 1)
+        # Master 80ea5628: both C reads admit the inversion of cd from d.
+        # Sibling exclusions instead suppress the completion, returning A's prior.
+        self.assertEqual(answers[0].tv, ['STV', 0.5010040747520484, 0.9667304990543287])
+
     def test_rule_recipe_is_ground_and_inputs_share_refined_truth(self):
         h = PeTTaChainer()
         h._call('set-rule-refinement', [f'{h.kb} true'])
