@@ -1,4 +1,5 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
+!(import! &self ./posterior_assertions)
 
 ;; Issue #43: project a consequent conjunct before exporting its nested
 ;; implication. The first query is cold; repeat it at the same 300-step budget.
@@ -15,25 +16,16 @@
    (Implication (AcceptSource S)
       (And (Metadata S) (Implication (A $x) (And (B $x) (C $x)))))
    (STV 1 1)))
-!(test (let (: (conditional-implication
-      ((node-jeffrey 1 (by
-         (consequent-projection $source $child rule) (conjunction $gate $a)) $prediction $conditionals) cpu)) $type $tv)
-   (query 300 projectedKb (: $p
-      (Implication (AcceptSource S) (Implication (A $x) (C $x))) $value))
-   $tv)
-   (STV 0.9999997023811048 0.999686126673656))
-!(test (let (: (conditional-implication
-      ((node-jeffrey 1 (by
-         (consequent-projection $source $child rule) (conjunction $gate $a)) $prediction $conditionals) cpu)) $type $tv)
-   (query 300 projectedKb (: $p
-      (Implication (AcceptSource S) (Implication (A $x) (C $x))) $value))
-   $tv)
-   (STV 0.9999997023811048 0.999686126673656))
+!(test
+   (posterior-tv-near? 0.9999997023811048 0.9999065647289087 (let (: (conditional-implication ((node-jeffrey 1 (by (consequent-projection $source $child rule) (conjunction $gate $a)) $prediction $conditionals) cpu)) $type $tv) (query 300 projectedKb (: $p (Implication (AcceptSource S) (Implication (A $x) (C $x))) $value)) $tv))
+   true)
+!(test
+   (posterior-tv-near? 0.9999997023811048 0.9999065647289087 (let (: (conditional-implication ((node-jeffrey 1 (by (consequent-projection $source $child rule) (conjunction $gate $a)) $prediction $conditionals) cpu)) $type $tv) (query 300 projectedKb (: $p (Implication (AcceptSource S) (Implication (A $x) (C $x))) $value)) $tv))
+   true)
 ;; A bound instance also works; $x remains the inner rule's variable.
-!(test (let (: (conditional-implication $proof) $type $tv)
-   (query 300 projectedKb (: $p
-      (Implication (AcceptSource S) (Implication (A a) (C a))) $value)) $tv)
-   (STV 0.9999997023811048 0.999686126673656))
+!(test
+   (posterior-tv-near? 0.9999997023811048 0.9999065647289087 (let (: (conditional-implication $proof) $type $tv) (query 300 projectedKb (: $p (Implication (AcceptSource S) (Implication (A a) (C a))) $value)) $tv))
+   true)
 
 ;; Both controls from the report still compose with ordinary And elimination,
 ;; each a little short of 1 as above.

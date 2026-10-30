@@ -6,7 +6,7 @@
 !(compileadd explicitPriorKb (: r (Implication (A $x) (B $x))
    (CTV (STV 0.9 1) (STV 0.1 1))))
 !(test (collapse (let (: $p $type (STV $s $_c))
-   (query 1000 explicitPriorKb (: $q (A q) $tv)) $s)) (0.9))
+   (query 1000 explicitPriorKb (: $q (A q) $tv)) (< (abs-math (- $s 0.9)) 1e-12))) (true))
 ;; The STV's inferred complement must use the supplied antecedent rate too.
 !(set-positive-only-predicate explicitComplementKb A)
 !(set-base-rate explicitComplementKb (A $x) (STV 0.5 1))
@@ -25,7 +25,7 @@
 ;; A rate supplied after compilation and an unsuccessful query also wins.
 !(set-base-rate noPriorKb (A $x) (STV 0.5 1))
 !(test (collapse (let (: $p $type (STV $s $_c))
-   (query 1000 noPriorKb (: $q (A q) $tv)) $s)) (0.9))
+   (query 1000 noPriorKb (: $q (A q) $tv)) (< (abs-math (- $s 0.9)) 1e-12))) (true))
 !(clear-base-rate noPriorKb (A $x))
 !(test (collapse (query 1000 noPriorKb (: $p (A q) $tv))) ())
 ;; A row that could read A's population prior is a rule only while a user

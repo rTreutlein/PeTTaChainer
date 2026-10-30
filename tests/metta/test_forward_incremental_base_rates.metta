@@ -1,4 +1,5 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
+!(import! &self ./posterior_assertions)
 
 ;; These tests intentionally request the full-KB special case by selecting all
 ;; current canonical facts. The forward chainer itself has no global-KB mode.
@@ -50,8 +51,8 @@
 !(clear-base-rate forwardBackwardDedupKb (Q $x))
 
 !(test
-   (query 200 forwardBackwardDedupKb (: $proof (P alice) $tv))
-   (: ((inverted pToQ with cpu (prior (STV 0.6599999999999998 0.0009990009990009992))) qa) (P alice) (STV 0.8756835083745458 0.016391821881426412)))
+   (let (: (node (conjunction qa (by pToQ cpu) (population-prior (P $_0)))) (P alice) (STV $posterior-s $posterior-c)) (query 200 forwardBackwardDedupKb (: $proof (P alice) $tv)) (posterior-tv-near? 0.8377216255922403 0.005314296401577442 (STV $posterior-s $posterior-c)))
+   true)
 
 ;; Revising an input changes its key's value, so a later run that takes it
 ;; carries the change to the rules downstream.
@@ -176,8 +177,8 @@
 ;; A query's fold updates the same estimate. The forward run's inverted
 ;; P(alice) was derived through the P base rate, which does not count it.
 !(test
-   (query 200 forwardBaseRateKb (: $proof (P alice) $tv))
-   (: ((inverted pToQ with cpu (prior (STV 0.6599999999999998 0.0009990009990009992))) qa) (P alice) (STV 0.8756835083745458 0.016391821881426412)))
+   (let (: (node (conjunction qa (by pToQ cpu) (population-prior (P $_0)))) (P alice) (STV $posterior-s $posterior-c)) (query 200 forwardBaseRateKb (: $proof (P alice) $tv)) (posterior-tv-near? 0.8377216255922403 0.005314296401577442 (STV $posterior-s $posterior-c)))
+   true)
 
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)
@@ -266,8 +267,8 @@
 !(compileadd computedForwardBaseRateKb (: pb (P bob) (STV 0.7 0.8)))
 
 !(test
-   (query 200 computedForwardBaseRateKb (: $proof (P alice) $tv))
-   (: ((inverted pToQ with cpu (prior (STV 0.6599999999999998 0.0009990009990009992))) qa) (P alice) (STV 0.8756835083745458 0.016391821881426412)))
+   (let (: (node (conjunction qa (by pToQ cpu) (population-prior (P $_0)))) (P alice) (STV $posterior-s $posterior-c)) (query 200 computedForwardBaseRateKb (: $proof (P alice) $tv)) (posterior-tv-near? 0.8377216255922403 0.005314296401577442 (STV $posterior-s $posterior-c)))
+   true)
 
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)

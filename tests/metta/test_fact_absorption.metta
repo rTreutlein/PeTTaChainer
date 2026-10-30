@@ -1,4 +1,5 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
+!(import! &self ./posterior_assertions)
 
 ;; Facts stored after a search are read by the nodes it built, at no step
 ;; (docs/metta/fact_absorption.md).
@@ -29,18 +30,14 @@
 ;; rule it is a premise of, so a query without steps takes it in.
 !(compileadd absorbKb (: s1-t1 (Late s1 t1) (STV 1 1)))
 !(test
-   (collapse (query 0 absorbKb (: $proof (Blocked k1 t1) $tv)))
-   ((: ((inverted delayed-d1 with cpu (prior (STV 0.5 0.2857142857142857))) ((inverted late-s1 with cpu (prior (STV 0.5 0.2857142857142857))) s1-t1)) (Blocked k1 t1) (STV 0.8930635838150288 0.8483958636340054))))
+   (let ((: (node (conjunction s1-t1 (by blocked-k1 cpu) (by delayed-d1 cpu) (by late-s1 cpu) (population-prior (Storm g1 $_0)))) (Blocked k1 t1) (STV $posterior-s $posterior-c))) (collapse (query 0 absorbKb (: $proof (Blocked k1 t1) $tv))) (posterior-tv-near? 0.8555844675740594 0.695952316239105 (STV $posterior-s $posterior-c)))
+   true)
 
 ;; So is the second, through its own rule.
 !(compileadd absorbKb (: s2-t1 (Late s2 t1) (STV 1 1)))
 !(test
-   (collapse (query 0 absorbKb (: $proof (Blocked k1 t1) $tv)))
-   ((: ((inverted delayed-d1 with cpu (prior (STV 0.5 0.2857142857142857)))
-         (factored-revision cpu (prior (STV 0.5 0.2857142857142857))
-            (((inverted late-s1 with cpu (prior (STV 0.5 0.2857142857142857))) s1-t1)
-             ((inverted late-s2 with cpu (prior (STV 0.5 0.2857142857142857))) s2-t1))))
-       (Blocked k1 t1) (STV 0.9414075845575675 0.7387004440842221))))
+   (let ((: (node (conjunction s1-t1 s2-t1 (by blocked-k1 cpu) (by delayed-d1 cpu) (by late-s1 cpu) (by late-s2 cpu) (population-prior (Storm g1 $_0)))) (Blocked k1 t1) (STV $posterior-s $posterior-c))) (collapse (query 0 absorbKb (: $proof (Blocked k1 t1) $tv))) (posterior-tv-near? 0.9193418069557667 0.7782723605026735 (STV $posterior-s $posterior-c)))
+   true)
 
 ;; An expanded node's join waiting on a ground premise reads the premise's
 ;; facts whenever they are stored, though the premise itself was never
@@ -50,6 +47,5 @@
    ((: (population-prior (Delayed d1 $_t)) (Delayed d1 t2) (STV 0.5 0.2857142857142857))))
 !(compileadd absorbKb (: s1-t2 (Late s1 t2) (STV 0 1)))
 !(test
-   (collapse (query 0 absorbKb (: $proof (Delayed d1 t2) $tv)))
-   ((: ((inverted late-s1 with cpu (prior (STV 0.5 0.2857142857142857))) s1-t2)
-       (Delayed d1 t2) (STV 0.09523809523809523 0.6063849287916186))))
+   (let ((: (node (conjunction s1-t2 (by blocked-k1 cpu) (by delayed-d1 cpu) (by late-s1 cpu) (population-prior (Storm g1 $_0)))) (Delayed d1 t2) (STV $posterior-s $posterior-c))) (collapse (query 0 absorbKb (: $proof (Delayed d1 t2) $tv))) (posterior-tv-near? 0.06109067647529186 0.9024793221355061 (STV $posterior-s $posterior-c)))
+   true)

@@ -1,4 +1,5 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
+!(import! &self ./posterior_assertions)
 
 (: CustomLogic LogicName)
 (: NoOrLogic LogicName)
@@ -27,25 +28,23 @@
 !(compileadd plnProjectionNeedsEvidenceKb (: ab (And (A) (B)) (STV 1.0 0.9)))
 
 !(test
-   (let (: (node-message 1 ab cpu $_likelihood) (B) $tv) (query 20 plnProjectionNeedsEvidenceKb (: $prf (B) $tv)) $tv)
-   (STV 0.9997223764575236 0.13535810664952025))
+   (posterior-tv-near? 0.9997223764575236 0.13535810664666598 (let (: $_proof (B) $tv) (query 20 plnProjectionNeedsEvidenceKb (: $prf (B) $tv)) $tv))
+   true)
 
 ;; With A certain too, the message is lambda1 = m, lambda0 = 1 - m: B = m.
 !(compileadd plnProjectionKb (: ab (And (A) (B)) (STV 1.0 0.9)))
 !(compileadd plnProjectionKb (: a (A) (STV 1.0 1.0)))
 
 !(test
-   (let (: (node-message 1 ab a $_likelihood) (B) $tv) (query 20 plnProjectionKb (: $prf (B) $tv)) $tv)
-   (STV 0.9998611496806441 0.3947855702686907))
+   (posterior-tv-near? 0.9998611496806441 0.3947855706242057 (let (: $_proof (B) $tv) (query 20 plnProjectionKb (: $prf (B) $tv)) $tv))
+   true)
 
 !(compileadd plnOrProjectionKb (: ab (Or (A) (B)) (STV 1.0 0.9)))
 !(compileadd plnOrProjectionKb (: a (A) (STV 1.0 1.0)))
 
 ;; A true disjunct leaves the other undetermined: the message gives no value
 ;; rather than one of confidence 0.
-!(test
-   (query 20 plnOrProjectionKb (: $prf (B) $tv))
-   ())
+!(test (query 20 plnOrProjectionKb (: $prf (B) $tv)) ())
 
 !(import! &self ../../pettachainer/metta/core/logic_configs/predicate_logic)
 

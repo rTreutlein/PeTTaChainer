@@ -1,4 +1,5 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
+!(import! &self ./posterior_assertions)
 
 !(compileadd foldMergedKb (: directScore (Score a 1) (STV 0.8 0.5)))
 
@@ -12,8 +13,8 @@
       (CTV (STV 0.4 0.9) (STV 0.0 1.0))))
 
 !(test
-   (query 100 foldMergedKb (: $prf (Score a 1) $tv))
-   (: (factored-revision (by qToScore qFact) (prior (STV 0.4 0.8999999399792307)) (((reported with cpu (prior (STV 0.5 0.0))) directScore))) (Score a 1) (STV 0.7272727272727273 0.42880333122931913)))
+   (let (: (node (conjunction qFact directScore (by qToScore cpu))) (Score a 1) (STV $posterior-s $posterior-c)) (query 100 foldMergedKb (: $prf (Score a 1) $tv)) (posterior-tv-near? 0.7263226058748102 0.9157521344935795 (STV $posterior-s $posterior-c)))
+   true)
 
 !(test
    (let (: $proof (FoldAll $pattern $extractor $init $_fold-function -> $total) $tv)

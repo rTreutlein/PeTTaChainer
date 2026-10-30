@@ -1,4 +1,5 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
+!(import! &self ./posterior_assertions)
 
 ;; The review counterexamples of the event-moment node (event-moment-node.md),
 ;; each at the value its formula gives.
@@ -10,8 +11,9 @@
 ;; exact variance 1.4659e-5 (c .094975).
 !(compileadd endpointKb (: k (And (A) (B)) (STV 1 0.5)))
 !(compileadd endpointKb (: b (B) (STV 1 1)))
-!(test (let (: $_p (A) $tv) (query 300 endpointKb (: $p (A) $tv)) $tv)
-   (STV 0.9987531172069826 0.09497509862361538))
+!(test
+   (posterior-tv-near? 0.9987531172069826 0.09497509861321828 (let (: $_p (A) $tv) (query 300 endpointKb (: $p (A) $tv)) $tv))
+   true)
 
 ;; Two observed compounds' messages act on A once, as one node: their
 ;; likelihoods multiply and the posterior is read once on the prior.
@@ -23,14 +25,16 @@
 !(compileadd twoMessagesKb (: kac (Or (A) (C)) (STV 0.9 0.9)))
 !(compileadd twoMessagesKb (: b (B) (STV 0 1)))
 !(compileadd twoMessagesKb (: c (C) (STV 0 1)))
-!(test (let (: $_p (A) $tv) (query 300 twoMessagesKb (: $p (A) $tv)) $tv)
-   (STV 0.9877751209798359 0.01810323339112292))
+!(test
+   (posterior-tv-near? 0.9877751209798359 0.018103233391136595 (let (: $_p (A) $tv) (query 300 twoMessagesKb (: $p (A) $tv)) $tv))
+   true)
 !(compileadd twoMessagesReorderedKb (: kac (Or (C) (A)) (STV 0.9 0.9)))
 !(compileadd twoMessagesReorderedKb (: kab (Or (B) (A)) (STV 0.9 0.9)))
 !(compileadd twoMessagesReorderedKb (: b (B) (STV 0 1)))
 !(compileadd twoMessagesReorderedKb (: c (C) (STV 0 1)))
-!(test (let (: $_p (A) $tv) (query 300 twoMessagesReorderedKb (: $p (A) $tv)) $tv)
-   (STV 0.9877751209798359 0.01810323339112292))
+!(test
+   (posterior-tv-near? 0.9877751209798359 0.018103233391136595 (let (: $_p (A) $tv) (query 300 twoMessagesReorderedKb (: $p (A) $tv)) $tv))
+   true)
 
 ;; A part reads its messages on its population rate, here the rate set on it:
 ;; .01 at c .9, a stored count read once as its Laplace Beta (n = 7200, mean
@@ -39,8 +43,9 @@
 !(set-base-rate ownRateKb (A $x) (STV 0.01 0.9))
 !(compileadd ownRateKb (: k (Or (A a) (B a)) (STV 0.9 0.9)))
 !(compileadd ownRateKb (: b (B a) (STV 0 1)))
-!(test (let (: $_p (A a) $tv) (query 300 ownRateKb (: $p (A a) $tv)) $tv)
-   (STV 0.08428696187255508 0.5394407432441032))
+!(test
+   (posterior-tv-near? 0.08428696187255508 0.5394407432441399 (let (: $_p (A a) $tv) (query 300 ownRateKb (: $p (A a) $tv)) $tv))
+   true)
 
 ;; Predictions sharing part of their evidence each move T by the share of
 ;; their uncertain evidence that is new: {rab, a, b}, {rbc, b, c} and
@@ -73,12 +78,13 @@
    true)
 
 ;; Inside a conditioning branch a compound's parts are read jointly from its
-;; node: given Not(R) and And(P, Q) at .9 (c .8), And(P, Q, Not(R)) is
-;; .9 x .7 = .63, not a product of the parts' marginals.
+;; node: And(P, Q) at .9 (c .8) is one Pearl likelihood on the joint,
+;; combined with the independent complement of R's stored Beta parameter.
 !(compileadd poolKb (: bundle (And (P x) (Q x)) (STV 0.9 0.8)))
 !(compileadd poolKb (: r (R x) (STV 0.3 0.9)))
-!(test (let (: $_p $_t (STV $s $_c)) (query 300 poolKb (: $p (And (P x) (Q x) (Not (R x))) $tv)) $s)
-   0.63)
+!(test
+   (let $posterior-s (let (: $_p $_t (STV $s $_c)) (query 300 poolKb (: $p (And (P x) (Q x) (Not (R x))) $tv)) $s) (< (abs-math (- $posterior-s 0.5245941698470277)) 1e-12))
+   true)
 
 ;; A joint of a predicted compound's parts is the same in either order: K =
 ;; And(A, B, C) at .9 moves the uniform worlds to P* = .89956 (the prediction
@@ -86,17 +92,19 @@
 ;; (1 - P*)/7 = .91391 named either way.
 !(compileadd jointOrderKb (: s S (STV 1.0 1.0)))
 !(compileadd jointOrderKb (: r (Implication S (And A B C)) (CTV (STV 0.9 0.9) (STV 0.2 0.9))))
-!(test (let (: $_p (And A B) $tv) (query 100 jointOrderKb (: $p (And A B) $tv)) $tv)
-   (STV 0.9139069085402459 0.23668185541661188))
-!(test (let (: $_p (And B A) $tv) (query 100 jointOrderKb (: $p (And B A) $tv)) $tv)
-   (STV 0.9139069085402459 0.23668185541661188))
+!(test
+   (posterior-tv-near? 0.9139069085402459 0.2366826641505106 (let (: $_p (And A B) $tv) (query 100 jointOrderKb (: $p (And A B) $tv)) $tv))
+   true)
+!(test
+   (posterior-tv-near? 0.9139069085402459 0.2366826641505106 (let (: $_p (And B A) $tv) (query 100 jointOrderKb (: $p (And B A) $tv)) $tv))
+   true)
 
 ;; A prediction at .5 is not neutral for a joint reader: K = And(A, B, C) at .5
 ;; gives And(A, B) = P* + (1 - P*)/7 = .57125 (P* = .49971).
 !(compileadd halfKb (: s S (STV 1.0 1.0)))
 !(compileadd halfKb (: r (Implication S (And A B C)) (STV 0.5 0.9)))
 !(test (let (: $_p (And A B) $tv) (query 100 halfKb (: $p (And A B) $tv)) $tv)
-   (STV 0.5712452783267684 0.03740952260211322))
+   (STV 0.5712452783267684 0.03740954158120962))
 
 ;; At the variance bound s(1 - s) the confidence is 0: four observed
 ;; compounds' messages on A with uncertain siblings are five dimensions, past
@@ -109,8 +117,7 @@
 !(compileadd boundKb (: b2 (B2) (STV 0.7 0.5)))
 !(compileadd boundKb (: b3 (B3) (STV 0.7 0.5)))
 !(compileadd boundKb (: b4 (B4) (STV 0.7 0.5)))
-!(test (let (: $_p (A) $tv) (query 300 boundKb (: $p (A) $tv)) $tv)
-   (STV 0.9994694947927322 0.0))
+!(test (posterior-tv-near? 0.9994694947927322 0.0 (let (: $_p (A) $tv) (query 300 boundKb (: $p (A) $tv)) $tv)) true)
 
 ;; A nested compound is one node over its atoms: And(A, Not(And(B, C))) at
 ;; (1, .9) is Pearl evidence m = 7201/7202 on the worlds A and not (B and C).
@@ -120,10 +127,12 @@
 ;; evidence boundary (129 nodes).
 !(compileadd nestedKb (: k (And (A) (Not (And (B) (C)))) (STV 1 0.9)))
 !(compileadd nestedKb (: b (B) (STV 1 1)))
-!(test (let (: $_p (And (B) (C)) $tv) (query 300 nestedKb (: $p (And (B) (C)) $tv)) $tv)
-   (STV 0.00027762354247650833 0.1353581066467112))
-!(test (let (: $_p (C) $tv) (query 300 nestedKb (: $p (C) $tv)) $tv)
-   (STV 0.0002776235424765082 0.1353581066467119))
+!(test
+   (posterior-tv-near? 0.0002776235424765082 0.13535810664671122 (let (: $_p (And (B) (C)) $tv) (query 300 nestedKb (: $p (And (B) (C)) $tv)) $tv))
+   true)
+!(test
+   (posterior-tv-near? 0.0002776235424765082 0.13535810664671122 (let (: $_p (C) $tv) (query 300 nestedKb (: $p (C) $tv)) $tv))
+   true)
 
 ;; A stored part is an input with its own Beta: A at (0, 1/801) is n = 1,
 ;; Beta(1, 2) with mean 1/3, not the point 0. With B false and Or(A, B) at
@@ -131,8 +140,9 @@
 !(compileadd storedPartKb (: a (A) (STV 0 0.0012484394506866417)))
 !(compileadd storedPartKb (: b (B) (STV 0 1)))
 !(compileadd storedPartKb (: k (Or (A) (B)) (STV 0.9 0.9)))
-!(test (let (: $_p (A) $tv) (query 300 storedPartKb (: $p (A) $tv)) $tv)
-   (STV 0.8179982329925534 0.004384966431093302))
+!(test
+   (posterior-tv-near? 0.8179982329925534 0.0043849664310933005 (let (: $_p (A) $tv) (query 300 storedPartKb (: $p (A) $tv)) $tv))
+   true)
 
 ;; Messages sharing an atom are one node over the union of their atoms:
 ;; Or(A, B) and Or(A, Not B) at (.9, .9) with A and B at (.5, .99). Where A
@@ -142,8 +152,9 @@
 !(compileadd sharedAtomKb (: b (B) (STV 0.5 0.99)))
 !(compileadd sharedAtomKb (: k1 (Or (A) (B)) (STV 0.9 0.9)))
 !(compileadd sharedAtomKb (: k2 (Or (A) (Not (B))) (STV 0.9 0.9)))
-!(test (let (: $_p (A) $tv) (query 300 sharedAtomKb (: $p (A) $tv)) $tv)
-   (STV 0.8998889197445153 0.9963732804828317))
+!(test
+   (posterior-tv-near? 0.8998889197445155 0.9963732804835199 (let (: $_p (A) $tv) (query 300 sharedAtomKb (: $p (A) $tv)) $tv))
+   true)
 
 ;; A product of independent parts is a point only when every part is: And(A,
 ;; B, C) at (.9, .9), A at (.5, .99), B uniform, C at (1e-8, 1). B C keeps B's
@@ -151,8 +162,9 @@
 !(compileadd pointKb (: a (A) (STV 0.5 0.99)))
 !(compileadd pointKb (: c (C) (STV 0.00000001 1)))
 !(compileadd pointKb (: k (And (A) (B) (C)) (STV 0.9 0.9)))
-!(test (let (: $_p (A) $tv) (query 300 pointKb (: $p (A) $tv)) $tv)
-   (STV 0.5000000099861303 0.9900002499940743))
+!(test
+   (posterior-tv-near? 0.5000000099861301 0.9900002499933779 (let (: $_p (A) $tv) (query 300 pointKb (: $p (A) $tv)) $tv))
+   true)
 
 ;; At the bound the confidence is 0 against the strength itself: sixteen
 ;; observed And(A, B_i) at (.9, 1) with B_i at (.5, .5) put A at
@@ -283,8 +295,7 @@
 !(compileadd opposedKb (: b21 (B21) (STV 0 1)))
 !(compileadd opposedKb (: j21 (Or (Not (A)) (C21)) (STV 0.9999999999999998 1)))
 !(compileadd opposedKb (: c21 (C21) (STV 0 1)))
-!(test (let (: $_p (A) $tv) (query 900 opposedKb (: $p (A) $tv)) $tv)
-   (STV 0.5000000000000275 0.002493765586036671))
+!(test (posterior-tv-near? 0.5000000000000275 0.002493765586036671 (let (: $_p (A) $tv) (query 900 opposedKb (: $p (A) $tv)) $tv)) true)
 
 ;; A compound that repeats an atom is one node over its distinct atoms:
 ;; (A or B) and (A or C) at (1, .99) with A, B, C at (.7, .9), (.6, .9), (.5,
@@ -294,12 +305,15 @@
 !(compileadd sharedLeafKb (: fB (B a) (STV 0.6 0.9)))
 !(compileadd sharedLeafKb (: fC (C a) (STV 0.5 0.9)))
 !(compileadd sharedLeafKb (: k0 (And (Or (A a) (B a)) (Or (A a) (C a))) (STV 1.0 0.99)))
-!(test (let (: $_p (A a) $tv) (query 1000 sharedLeafKb (: $p (A a) $tv)) $tv)
-   (STV 0.8860509487947943 0.9327469935156483))
-!(test (let (: $_p (B a) $tv) (query 1000 sharedLeafKb (: $p (B a) $tv)) $tv)
-   (STV 0.6455530963152154 0.9005244247017175))
-!(test (let (: $_p (C a) $tv) (query 1000 sharedLeafKb (: $p (C a) $tv)) $tv)
-   (STV 0.5569721276747972 0.896165241233661))
+!(test
+   (posterior-tv-near? 0.8860509487947943 0.9327469934863087 (let (: $_p (A a) $tv) (query 1000 sharedLeafKb (: $p (A a) $tv)) $tv))
+   true)
+!(test
+   (posterior-tv-near? 0.6455530963152154 0.9005244246969157 (let (: $_p (B a) $tv) (query 1000 sharedLeafKb (: $p (B a) $tv)) $tv))
+   true)
+!(test
+   (posterior-tv-near? 0.5569721276747972 0.8961652412342394 (let (: $_p (C a) $tv) (query 1000 sharedLeafKb (: $p (C a) $tv)) $tv))
+   true)
 
 ;; A part's population rate is read apart from the node: ninety-nine members
 ;; of A false and one true at c .9 give a rate of .01 at c .101 (n = 90),
@@ -407,8 +421,9 @@
 !(compileadd rareKb (: f100 (A x100) (STV 1 0.9)))
 !(compileadd rareKb (: k (Or (A a) (B a)) (STV 0.9 0.9)))
 !(compileadd rareKb (: b (B a) (STV 0 1)))
-!(test (let (: $_p (A a) $tv) (query 300 rareKb (: $p (A a) $tv)) $tv)
-   (STV 0.15934960401677092 0.017835791050803396))
+!(test
+   (posterior-tv-near? 0.15934960401677098 0.01783579105080321 (let (: $_p (A a) $tv) (query 300 rareKb (: $p (A a) $tv)) $tv))
+   true)
 
 ;; Every moment path checks that its quadrature converged. A at a set rate
 ;; 1e-6, a hard Or(A, B) with B uniform and three near-neutral And(A, C_i) at
@@ -421,8 +436,13 @@
 !(compileadd tinyRateKb (: k1 (And (A a) (C1 a)) (STV 0.5000000001 1)))
 !(compileadd tinyRateKb (: k2 (And (A a) (C2 a)) (STV 0.5000000001 1)))
 !(compileadd tinyRateKb (: k3 (And (A a) (C3 a)) (STV 0.5000000001 1)))
-!(test (let (: $_p (A a) $tv) (query 300 tinyRateKb (: $p (A a) $tv)) $tv)
-   (STV 1.9999980012019964e-06 0.9906359623604194))
+;; The shared node adds the certified error of integrating out the three
+;; weak nuisance axes. The independent thin-boundary regression derives the
+;; remaining variance in closed form (test_event_node.py).
+!(test
+   (posterior-tv-near? 1.9999980012019964e-06 0.990635962167288
+      (let (: $_p (A a) $tv) (query 300 tinyRateKb (: $p (A a) $tv)) $tv))
+   true)
 
 ;; The bound is tested before any rounding: twenty-four observed And(A, B_i)
 ;; at (.9, 1) with B_i at (.5, .5) put A's odds at 5^24, so A rounds to 1, and
@@ -484,8 +504,9 @@
 !(compileadd materializedKb (: kx (And (A x) (B x)) (STV 0.95 0.9)))
 !(compileadd materializedKb (: bx (B x) (STV 1 1)))
 !(test (let (: $_p (A x) $_tv) (query-materialize 300 materializedKb (: $p (A x) $tv)) true) true)
-!(test (let (: $_p (A a) $tv) (query 300 materializedKb (: $p (A a) $tv)) $tv)
-   (STV 0.5113908867909669 0.0024841258018012836))
+!(test
+   (posterior-tv-near? 0.5113908867909669 0.002482796838492276 (let (: $_p (A a) $tv) (query 300 materializedKb (: $p (A a) $tv)) $tv))
+   true)
 
 ;; An update's new raw sources: one newly certain source makes it unbounded
 ;; (-1) even beside a source the value holds; a disjoint source whose truth

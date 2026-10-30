@@ -5,7 +5,7 @@
 % the propagated-moment boundary; unsupported reads retain the ordinary value.
 'event-network-read'(Key, Filter, Exclude, Ev, Out) :-
     ( graph_plan(Key, graph(Models, Factors, Watched)), Key = ['sk-key', Goal, Scope],
-      ( Factors == [], Models = [model(Goal, root, [Source])]
+      ( Factors == [], memberchk(model(Goal, root, [Source]), Models)
       ->
          'index-hash'(Key, H), 'sk-leaf-view'(H, Source, Candidate),
          Candidate = ['sk-val', _, Evidence, _],
@@ -23,6 +23,11 @@
         graph_answer(Models, Factors, Goal, Vars, TV),
         ( TV == inconsistent
         -> 'sk-open-filter?'(Filter, true), Candidate = 'sk-none'
+        ; TV = ['STV', S, _], (S =:= 0 ; S =:= 1),
+          member(model(Goal, _, Fs), Models), member(Source, Fs), Source = [_, _, _, ['STV', S0, C]],
+          C >= 1, S =:= S0
+        -> 'index-hash'(Key, H), 'sk-leaf-view'(H, Source, Candidate),
+           'sk-admits?'(Filter, Exclude, Candidate, true)
         ; Fact = [Goal, Scope, [node, [conjunction|All]], TV],
           Candidate = ['sk-val', Fact, Evidence, Deps],
           'sk-admits?'(Filter, Exclude, Candidate, true) ) ),
@@ -57,8 +62,27 @@ graph_model(['sk-key', Goal, Scope], Observed, Watched, Stamp, graph(Models, Fac
         vertices_edges_to_ugraph([], Edges, Graph), top_sort(Graph, _),
         findall(Fact, ( member(Type, Compounds), graph_sources(Type, Scope, Fs), member(Fact, Fs) ), CompoundFacts),
         findall(Fact, ( member(model(_, conditional(_, _, _, _), Fs), Models), member(Fact, Fs) ), Reports),
-        append(CompoundFacts, Reports, Factors0), sort(Factors0, Factors),
+        append(CompoundFacts, Reports, Factors0), sort(Factors0, Unique),
+        exclude(graph_settled_factor(Models), Unique, Factors),
         ( Factors \== [] ; memberchk(model(Goal, root, [_]), Models) ).
+
+% A compound already settled by its root inputs carries no information about
+% its remaining parts. Keep a zero-weight factor so contradictions still fail.
+graph_settled_factor(Models, [Type, _, _, TV]) :-
+    Type = [Head|_], connective_head(Head), graph_fixed(Type, Models, Bit),
+    'evidence-confidence-k'(K), pearl_factor(K, TV, M),
+    ( Bit =:= 1 -> M > 0 ; M < 1 ).
+
+graph_fixed(['Not', T], Models, B) :- !, graph_fixed(T, Models, A), B is 1-A.
+graph_fixed(['And'|Ts], Models, B) :- !,
+    ( member(T, Ts), graph_fixed(T, Models, 0) -> B = 0
+    ; maplist({Models}/[T]>>graph_fixed(T, Models, 1), Ts), B = 1 ).
+graph_fixed(['Or'|Ts], Models, B) :- !,
+    ( member(T, Ts), graph_fixed(T, Models, 1) -> B = 1
+    ; maplist({Models}/[T]>>graph_fixed(T, Models, 0), Ts), B = 0 ).
+graph_fixed(T, Models, B) :-
+    memberchk(model(T, root, Fs), Models), member([_, _, _, ['STV', S, C]], Fs), C >= 1,
+    ( S =:= 0 -> B = 0 ; S =:= 1, B = 1 ).
 
 % Input snapshots are shared across goals, but never across an input epoch
 % or overlay. They contain raw sources and templates, not derived summaries.
@@ -154,6 +178,7 @@ graph_sources(Type, Scope, Facts) :-
 
 graph_parameter(Scope, Ev, Exclude, model(Type, root, Facts), [Type-Dist], Prior) :-
     ( Facts == [] -> 'sk-part-prior'(['sk-key', Type, Scope], Ev, Exclude, Prior) ; Prior = 'sk-none' ),
+    ( Facts == [], Prior == 'sk-none', Scope = [KB|_], 'positive-only-pattern?'(KB, Type, true) -> fail ; true ),
     ( Prior = ['sk-val', [_, _, _, TV], _, _] -> TV = ['STV', S, C]
     ; foldl([[_T, _C, _P, T], T0, T1]>>'revision-merge-tv'(T0, T, T1), Facts,
             ['STV', 0.5, 0.0], ['STV', S, C]) ),

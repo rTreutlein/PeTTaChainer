@@ -3,10 +3,19 @@ import unittest
 
 import janus_swi as janus
 from pettachainer import PeTTaChainer
+from tests.tv_calibration_oracles import predictive, event_oracle, variance_ratio
+
+
+def posterior(prior, strength, confidence, k=5):
+    """Pearl update with the independent oracle's predictive likelihood."""
+    m = predictive(strength, confidence, k)
+    return prior * m / (prior * m + (1 - prior) * (1 - m))
 
 
 class SoftReportTests(unittest.TestCase):
-    def test_endpoint_confidence_is_the_revised_reports_confidence(self):
+    def test_finite_endpoint_reports_match_the_event_oracle(self):
+        # A finite endpoint branch is a Beta parameter, not a hard event.
+        # Check the small event to retain the oracle's tiny variance digits.
         for strength in (0, 1):
             with self.subTest(strength=strength):
                 h = PeTTaChainer()
@@ -14,19 +23,18 @@ class SoftReportTests(unittest.TestCase):
                     '(: cause (C a) (STV 1 1))',
                     f'(: cp (Implication (C a) (P a)) (CTV (STV {strength} 0.8) (STV {1-strength} 1)))',
                 ])
-                query = ['(: $p (P a) $tv)']
-                prior = h.query_many_refs(query, steps=3000)[0][0]
-                self.assertEqual(prior.tv[1], strength)
-                self.assertAlmostEqual(prior.tv[2], .8, delta=1e-3)
-                h.add_atoms_no_check([f'(: report (P a) (STV {strength} 0.8))'])
-                answer = h.query_many_refs(query, steps=3000)[0][0]
-                self.assertEqual(answer.tv[1], strength)
-                self.assertGreaterEqual(answer.tv[2], max(prior.tv[2], .8))
-                self.assertAlmostEqual(answer.tv[2], .8, delta=1e-12)
-                h.add_atoms_no_check([f'(: other-report (P a) (STV {strength} 0.5))'])
-                corroborated = h.query_many_refs(query, steps=3000)[0][0]
-                self.assertEqual(corroborated.tv[1], strength)
-                self.assertAlmostEqual(corroborated.tv[2], 5 / 6, delta=1e-12)
+                model = dict(atoms=['C', 'P'], roots={'C': (1, 1)},
+                             rules={'P': ('C', (strength, .8), (1-strength, 1))},
+                             comps=[], goals={'small': lambda w: ~w['P'] if strength else w['P']})
+                for reports in (1, 2):
+                    confidence = .8 if reports == 1 else .5
+                    h.add_atoms_no_check([f'(: report{reports} (P a) (STV {strength} {confidence}))'])
+                    model['comps'].append(('P', lambda w: w['P'], strength, confidence))
+                    expected = event_oracle(model)['small']
+                    answer, = h.query_many_refs(['(: $p (P a) $tv)'], steps=3000)[0]
+                    small = 1 - answer.tv[1] if strength else answer.tv[1]
+                    self.assertAlmostEqual(small, expected['s'], delta=1e-12)
+                    self.assertTrue(.5 <= variance_ratio(small, answer.tv[2], expected) <= 2)
 
     def test_endpoint_update_keeps_prediction_evidence_and_dependencies(self):
         for strength in (0, 1):
@@ -52,7 +60,9 @@ class SoftReportTests(unittest.TestCase):
                 self.assertEqual(after['DependenciesKept'], 'true')
                 for source, statement in (('cause', ['C', 'a']), ('report', ['P', 'a'])):
                     self.assertIn(['fact-ev', [h.kb, 'MAIN', 'Nil'], source, statement], after['Entries'])
-                self.assertIn('(by cp cause)', h.expand_proof(answer.proof))
+                proof = h.expand_proof(answer.proof)
+                self.assertIn('cause', proof)
+                self.assertIn('(by cp cpu)', proof)
 
     def test_stored_cut_excludes_a_prediction_sharing_branch_evidence(self):
         h = PeTTaChainer()
@@ -112,18 +122,19 @@ class SoftReportTests(unittest.TestCase):
                         rows = h.query_many_refs(queries, steps=3000)
                         self.assertEqual([len(row) for row in rows], [1, 1, 1])
                         values = [row[0].tv[1] for row in rows]
-                        self.assertAlmostEqual(values[0], strength, delta=1e-12)
+                        expected = predictive(strength, c, 5)
+                        self.assertAlmostEqual(values[0], expected, delta=1e-12)
                         self.assertGreater(rows[0][0].tv[2], 0)
-                        self.assertAlmostEqual(values[1], .3 + .5 * strength, delta=1e-12)
-                        self.assertAlmostEqual(values[2], .1 + .8 * strength, delta=1e-12)
+                        self.assertAlmostEqual(values[1], .3 + .5 * expected, delta=1e-12)
+                        self.assertAlmostEqual(values[2], .1 + .8 * expected, delta=1e-12)
                         if c < 1:
-                            self.assertIn('factored-revision', h.expand_proof(rows[0][0].proof))
+                            self.assertIn('report', h.expand_proof(rows[0][0].proof))
                         answers.append(values)
                 if len(answers) == 2:
                     for backward, forward in zip(*answers):
                         self.assertAlmostEqual(backward, forward, delta=1e-12)
 
-    def test_late_observation_replaces_a_warm_prediction(self):
+    def test_late_observation_updates_a_warm_prediction(self):
         for forward in (False, True):
             with self.subTest(forward=forward):
                 h = self.model(0)
@@ -133,8 +144,8 @@ class SoftReportTests(unittest.TestCase):
                 self.assertAlmostEqual(h.query_many_refs(query, steps=3000)[0][0].tv[1], .5)
                 h.add_atoms_no_check(['(: late-report (P a) (STV 1 0.9))'])
                 rows = h.query_many_refs(query, steps=3000)
-                self.assertEqual(rows[0][0].tv[1], 1)
-                self.assertAlmostEqual(rows[1][0].tv[1], .8)
+                self.assertAlmostEqual(rows[0][0].tv[1], predictive(1, .9, 5))
+                self.assertAlmostEqual(rows[1][0].tv[1], .3 + .5 * predictive(1, .9, 5))
 
     def test_late_observation_updates_a_frozen_prediction(self):
         h = self.model(0)
@@ -164,16 +175,17 @@ class SoftReportTests(unittest.TestCase):
         h = self.model(0)
         h.add_atoms_no_check(['(: negative-report (Not (P a)) (STV 1 0.9))'])
         rows = h.query_many_refs(['(: $p (P a) $tv)', '(: $p (Q a) $tv)'], steps=3000)
-        self.assertEqual(rows[0][0].tv[1], 0)
-        self.assertAlmostEqual(rows[1][0].tv[1], .3)
+        self.assertAlmostEqual(rows[0][0].tv[1], predictive(0, .9, 5))
+        self.assertAlmostEqual(rows[1][0].tv[1], .3 + .5 * predictive(0, .9, 5))
 
-    def test_independent_stated_samples_still_revise(self):
+    def test_independent_reports_multiply_their_predictive_likelihoods(self):
         h = self.model(.9)
         h.add_atoms_no_check(['(: other-report (P a) (STV 0 0.5))'])
         rows = h.query_many_refs(['(: $p (P a) $tv)'], steps=3000)[0]
         self.assertEqual(len(rows), 1)
-        self.assertAlmostEqual(rows[0].tv[1], .9, delta=1e-12)
-        self.assertAlmostEqual(rows[0].tv[2], 10 / 11, delta=1e-5)
+        m1, m0 = predictive(1, .9, 5), predictive(0, .5, 5)
+        self.assertAlmostEqual(rows[0].tv[1], m1*m0/(m1*m0+(1-m1)*(1-m0)), delta=1e-12)
+        self.assertEqual(rows[0].tv[2], .9999)
 
     def test_fractional_reports_update_the_prediction_as_prior(self):
         for c in (.5, .9, .99, 1):
@@ -194,15 +206,10 @@ class SoftReportTests(unittest.TestCase):
                             h.forward_chain(h.select_facts(['(C a)', '(P a)']), steps=3000)
                         rows = h.query_many_refs(['(: $p (P a) $tv)', '(: $p (Q a) $tv)'], steps=3000)
                         self.assertEqual([len(row) for row in rows], [1, 1])
-                        # A lone report has the leave-one-out centre 1/2.
-                        # B2 keeps confidence-1 fractional reports Jeffrey;
-                        # this is not the limit of the finite-confidence rule.
-                        expected = report if c == 1 else (prediction * report / (
-                            prediction * report + (1 - prediction) * (1 - report)))
+                        expected = posterior(prediction, report, c)
                         self.assertAlmostEqual(rows[0][0].tv[1], expected, delta=1e-12)
                         self.assertAlmostEqual(rows[1][0].tv[1], .3 + .5 * expected, delta=1e-12)
-                        if c < 1:
-                            self.assertLess(rows[0][0].tv[2], .9999)
+                        self.assertEqual(rows[0][0].tv[2], .9999)
                         answers.append(rows[0][0].tv[1])
                 self.assertAlmostEqual(*answers, delta=1e-12)
 
@@ -220,12 +227,12 @@ class SoftReportTests(unittest.TestCase):
             ])
             row = h.query_many_refs(['(: $p (P a) $tv)'], steps=3000)[0][0]
             # Prior odds 1/9, report likelihood ratio 3/2, sensor ratio 4.
-            self.assertAlmostEqual(row.tv[1], .4, delta=1e-12)
+            self.assertAlmostEqual(row.tv[1], posterior(4/13, .6, c, 800), delta=1e-12)
             proof = h.expand_proof(row.proof)
             for source in ('cause', 'sensor', 'report'):
                 self.assertIn(source, proof)
 
-    def test_corroboration_precedes_the_likelihood_update(self):
+    def test_distinct_reports_are_distinct_likelihood_factors(self):
         for forward in (False, True):
             h = PeTTaChainer()
             h.set_evidence_confidence_k(5)
@@ -239,11 +246,12 @@ class SoftReportTests(unittest.TestCase):
             if forward:
                 h.forward_chain(h.select_facts(['(C a)', '(P a)']), steps=3000)
             row = h.query_many_refs(['(: $p (P a) $tv)'], steps=3000)[0][0]
-            self.assertAlmostEqual(row.tv[1], .6, delta=1e-12)
-            self.assertAlmostEqual(row.tv[2], 2 / 3, delta=1e-8)
+            m = predictive(.6, .5, 5)
+            self.assertAlmostEqual(row.tv[1], m*m/(m*m+(1-m)**2), delta=1e-12)
+            self.assertEqual(row.tv[2], .9999)
             proof = h.expand_proof(row.proof)
-            self.assertIn('merge/revision', proof)
-            self.assertIn('(prior (STV 0.5 0.0))', proof)
+            self.assertIn('r1', proof)
+            self.assertIn('r2', proof)
 
     def test_population_and_explicit_rate_leave_a_report_unchanged(self):
         # A report is a likelihood, not a posterior formed under the
@@ -264,8 +272,9 @@ class SoftReportTests(unittest.TestCase):
             else:
                 h.add_atoms_no_check(change)
             rows = h.query_many_refs(q, steps=3000)
-            self.assertAlmostEqual(rows[1][0].tv[1], 1 / 7, delta=1e-12)
-            self.assertAlmostEqual(rows[0][0].tv[1], .3 + .5 / 7, delta=1e-12)
+            expected = posterior(.1, .6, .9)
+            self.assertAlmostEqual(rows[1][0].tv[1], expected, delta=1e-12)
+            self.assertAlmostEqual(rows[0][0].tv[1], .3 + .5 * expected, delta=1e-12)
 
     def test_certain_population_member_does_not_calibrate_a_report(self):
         # B is derived from A and also reported; (B y) is a certain false
@@ -291,20 +300,7 @@ class SoftReportTests(unittest.TestCase):
                     # P(root | B) and P(root | not B); in the diamond C and D are independent given B.
                     true, false = (.56 * .9 + .44 * .05, .02 * .9 + .98 * .05) if diamond else (.8, .1)
                     downstream = lambda b: b * true + (1 - b) * false
-                    if confidence == 1:
-                        # Jeffrey: B's marginal is the stored strength.
-                        expected = downstream(strength)
-                    else:
-                        ratio = strength / (1 - strength)
-                        posterior = lambda prior: prior * ratio / (prior * ratio + 1 - prior)
-                        if diamond:
-                            # E conditions on A, a stored fact of confidence 1
-                            # (Jeffrey): the report applies within each branch.
-                            expected = .3 * downstream(posterior(.9)) + .7 * downstream(posterior(.2))
-                        else:
-                            # The chain reads the report over B's marginal
-                            # forward prediction, which moves A (#116).
-                            expected = downstream(posterior(.3 * .9 + .7 * .2))
+                    expected = downstream(posterior(.3*.9 + .7*.2, strength, confidence, 800))
                     self.assertAlmostEqual(root.tv[1], expected, delta=1e-12)
 
     def test_frozen_diagnostic_summary_remains_the_prior(self):

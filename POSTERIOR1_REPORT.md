@@ -5,6 +5,70 @@ Worktree `posterior1`, branch `posterior1`, base `2b6c42a8`. Earlier checkpoints
 criteria are **not yet met**: numerical fixture audits, final gates, and the required
 net deletion remain outstanding. Do not merge this checkpoint as completed step 1.
 
+
+## Finishing round: correctness checkpoint
+
+The requested simplification and RSS work have not started yet. This checkpoint
+finishes the prerequisite fixture/oracle audit and fixes concrete prior and
+variance regressions before deleting routes.
+
+* MeTTa: **162/162 pass**, `scratch/posterior1-finish-metta-12.log`.
+* The preceding slots-16 verify has Python **1003/1003 passing** (24 expected
+  failures, one skip), 4527 query rows and no aborts; lint, both scaling gates
+  and ConceptNet pass. Its remaining two MeTTa failures have subsequently been
+  fixed. Log: `scratch/posterior1-finish-verify-3.log`, 239 seconds.
+* The 47 focused numerical/atomic/soft-report/fixture-audit checks pass
+  (`scratch/posterior1-finish-reduction-focused.log`). An additional closed-form
+  thin-boundary regression passes (`scratch/posterior1-finish-weak-boundary.log`).
+* A fresh full verify follows this committed report. It is an intermediate
+  correctness gate; final verification and comparisons still follow deletion.
+
+Graph cavity priors now retain the compiler's population pattern, including
+ForAll cohort parameters and scalar atoms. Positive-only roots without a user
+prior decline admission. Uninformative compounds already settled by root facts
+do not invent sibling answers; zero-weight contradictory factors remain.
+Consistent hard source facts retain their original proof and exact confidence.
+Roots without likelihoods retain their stored counts even when unrelated root
+sources occur in the discovered component.
+
+The variance encoder now inverts the public clipped-mean decoder. For example,
+the source-gate fixture keeps mean .9999997023811048 and variance approximately
+1.17e-13; encoding that variance changes confidence .999686126673656 to
+.9999065647289087. Deterministic fallback siblings are integrated exactly before
+the atom cap, restoring the opposed-likelihood fixture's original uniform
+variance. Tensor exhaustion can integrate out weak nuisance axes with a certified
+conditional-variance remainder, accepted only below 1e-6 of the retained variance.
+The thin-boundary test derives the remaining integral as
+`-log(p)/(1-p)` and checks its variance independently. Its MeTTa confidence moves
+.9906359623604194 to .990635962167288 after adding that certified remainder.
+
+Every moved ground-event MeTTa reference, including its old/new term, complete
+authored sources, rates, K and independent oracle answer, is recorded in
+`tests/fixtures/posterior1_oracle_audit.json`. `test_posterior_fixture_audit.py`
+rechecks those records without consulting the runtime graph. Python soft-report,
+completion, prior and Assuming tests calculate their references directly from
+`tv_calibration_oracles.py` or its independent source adapter. Finite reports use
+`m=(n*s+1)/(n+2)` and Pearl odds; distinct reports remain distinct factors.
+No expected failure was added or removed in this finishing checkpoint.
+
+Two predicted-joint references also improve against independent 33/65-node
+quadrature of the decided Jeffrey model. The .9 prediction's confidence moves
+.23668185541661188 to .2366826641505106 (converged oracle .23668266307594024);
+the .5 prediction moves .03740952260211322 to .03740954158120962 (oracle
+.037409541348889054). Sources and integral are in
+`scratch/posterior1_jeffrey_oracle.py` and
+`scratch/posterior1_jeffrey_half_oracle.py`. Exact proof/statement patterns remain;
+last-bit numerical comparisons use 1e-12. No substantive tolerance was widened.
+The raw-ingestion recipe test now publishes the complete compiled source,
+so its graph and directly compiled control represent the same model.
+
+Pre-deletion count: **321460 core + 17685 formulas = 339145 tokens**, versus
+336604 at 2b6c42a8; **16731 executable-count lines**, versus 16635. Net **+2541
+tokens, +96 lines**, still failing the simplification gate. Counter output:
+`scratch/posterior1-finish-predelete-counts.log`. No performance result below is
+claimed current for this checkpoint. Route removal, negative footprint, paired
+RSS retimes and final comparisons remain required.
+
 ## Design as built
 
 Atomic reports now enter the source-owned event graph without a compound seed.

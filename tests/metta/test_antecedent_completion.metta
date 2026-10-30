@@ -1,4 +1,5 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
+!(import! &self ./posterior_assertions)
 
 ;; A completion inverts the rule onto one conjunct M given the others O and
 ;; the consequent C, by Bayes' rule over M's base rate and the joint of O and
@@ -96,8 +97,8 @@
 !(set-base-rate ctvCompletionKb B (STV 0.3 0.9))
 
 !(test
-   (query 2000 ctvCompletionKb (: $proof B $tv))
-   (: ((antecedent-completion ab_c 1 with cpu (prior (STV 0.30000555540123885 0.9))) (conjunction a c)) B (STV 0.5625065101906185 0.8847444033358305)))
+   (let (: (node (conjunction a c (by ab_c cpu) (population-prior B))) B (STV $posterior-s $posterior-c)) (query 2000 ctvCompletionKb (: $proof B $tv)) (posterior-tv-near? 0.5624663732621054 0.8848264468765935 (STV $posterior-s $posterior-c)))
+   true)
 
 ;; A base rate of 1 stated with confidence 0.9 is read as the prior of one
 ;; more instance under the Bayes prior, (7200 + 0.1) / (7200 + 0.2) at k =
@@ -112,8 +113,8 @@
 !(set-base-rate saturatedKb B (STV 1.0 0.9))
 
 !(test
-   (query 2000 saturatedKb (: $proof B $tv))
-   (: ((antecedent-completion ab_c 1 with cpu (prior (STV 0.999986111496903 0.9))) (conjunction a c)) B (STV 0.9999953704561027 0.9642882616995045)))
+   (let (: (node (conjunction a c (by ab_c cpu) (population-prior B))) B (STV $posterior-s $posterior-c)) (query 2000 saturatedKb (: $proof B $tv)) (posterior-tv-near? 0.9999536937064663 0.9642719007058969 (STV $posterior-s $posterior-c)))
+   true)
 
 !(set-positive-only-predicate positiveKb B)
 !(compileadd positiveKb (: a A (STV 1.0 0.9)))
@@ -124,8 +125,9 @@
       (CTV (STV 0.9 1) (STV 0.3 1))))
 !(set-base-rate positiveKb B (STV 1.0 0.9))
 
-!(test (query 2000 positiveKb (: $proof B $tv))
-   (: ((antecedent-completion ab_c 1 with cpu (prior (STV 0.999986111496903 0.9))) (conjunction a c)) B (STV 0.9999953704561027 0.9642882616995045)))
+!(test
+   (let (: (node (conjunction a c (by ab_c cpu) (population-prior B))) B (STV $posterior-s $posterior-c)) (query 2000 positiveKb (: $proof B $tv)) (posterior-tv-near? 0.9999536937064663 0.9642719007058969 (STV $posterior-s $posterior-c)))
+   true)
 
 ;; An uncertain other conjunct enters C's likelihood given B: P(C|B) =
 ;; 0.5 * 0.9 + 0.5 * 0.3 = 0.6 and P(C|not B) = 0.3, so C doubles B's odds:
@@ -141,8 +143,8 @@
 !(set-base-rate uncertainOtherKb B (STV 0.3 0.9))
 
 !(test
-   (query 2000 uncertainOtherKb (: $proof B $tv))
-   (: ((antecedent-completion ab_c 1 with cpu (prior (STV 0.30000555540123885 0.9))) (conjunction a c)) B (STV 0.4615450359497025 0.8783775421697927)))
+   (let (: (node (conjunction a c (by ab_c cpu) (population-prior B))) B (STV $posterior-s $posterior-c)) (query 2000 uncertainOtherKb (: $proof B $tv)) (posterior-tv-near? 0.4615466780602436 0.8784730745954683 (STV $posterior-s $posterior-c)))
+   true)
 
 ;; A three-child conjunction completes the middle child from the other
 ;; children plus the original consequence: (And A D C) -> Mid.
@@ -157,8 +159,8 @@
 !(set-base-rate ternaryCompletionKb Mid (STV 0.3 0.9))
 
 !(test
-   (query 2000 ternaryCompletionKb (: $proof Mid $tv))
-   (: ((antecedent-completion abd_c 1 with cpu (prior (STV 0.30000555540123885 0.9))) (conjunction a d c)) Mid (STV 0.4615450359497024 0.8837527260587049)))
+   (let (: (node (conjunction a c d (by abd_c cpu) (population-prior Mid))) Mid (STV $posterior-s $posterior-c)) (query 2000 ternaryCompletionKb (: $proof Mid $tv)) (posterior-tv-near? 0.46152655013275323 0.8838276042026711 (STV $posterior-s $posterior-c)))
+   true)
 
 ;; Source computations in the antecedent block every child completion.
 !(compileadd computeSkipKb
@@ -217,7 +219,9 @@
 !(compileadd rainKb (: outdoor-d (Outdoor d) (STV 1 1)))
 !(compileadd rainKb (: wet-d (Wet d) (STV 1 1)))
 !(compileadd rainKb (: clouds-d (Clouds d) (STV 1 1)))
-!(test (query 2000 rainKb (: $proof (Rain d) $tv)) (: (factored-revision cpu (prior (STV 0.30000555540123885 0.9)) (((antecedent-completion wet 1 with cpu (prior (STV 0.30000555540123885 0.9))) (conjunction outdoor-d wet-d)) ((inverted clouds with cpu (prior (STV 0.30000555540123885 0.9))) clouds-d))) (Rain d) (STV 0.8605609433418342 0.9402262995901559)))
+!(test
+   (let (: (node (conjunction clouds-d outdoor-d wet-d (by clouds cpu) (by wet cpu) (population-prior (Rain $_0)))) (Rain d) (STV $posterior-s $posterior-c)) (query 2000 rainKb (: $proof (Rain d) $tv)) (posterior-tv-near? 0.8605895009319845 0.9403166306602331 (STV $posterior-s $posterior-c)))
+   true)
 
 ;; A rule reading rain off the wet ground directly inverts the same
 ;; observation the completion reads: the two share wet-d and are not
@@ -246,7 +250,9 @@
 !(set-base-rate siblingKb (A $x) (STV 0.3 1.0))
 !(compileadd siblingKb (: b-b (B b) (STV 1 1)))
 !(compileadd siblingKb (: c-b (C b) (STV 1 1)))
-!(test (query 2000 siblingKb (: $proof (A b) $tv)) (: (factored-revision cpu (prior (STV 0.3 1.0)) (((inverted rB with cpu (prior (STV 0.3 1.0))) b-b) ((antecedent-completion rC 0 with cpu (prior (STV 0.3 1.0))) (conjunction b-b c-b)))) (A b) (STV 0.9391304347826086 0.9998964113373382)))
+!(test
+   (let (: (node (conjunction b-b c-b (by rB cpu) (by rC cpu) (population-prior (A $_0)))) (A b) (STV $posterior-s $posterior-c)) (query 2000 siblingKb (: $proof (A b) $tv)) (posterior-tv-near? 0.9391304347826086 0.9999 (STV $posterior-s $posterior-c)))
+   true)
 
 ;; A forward consequence from another source supports PLN induction. Servicing
 ;; predicts Pred2 b at 0.2; inverting persist gives
@@ -268,18 +274,21 @@
 !(set-base-rate degradedKb (Degraded mine $t) (STV 0.25 0.9))
 !(compileadd degradedKb (: plant-on (Producing plant t5) (STV 1 1)))
 !(compileadd degradedKb (: mine-off (Producing mine t5) (STV 0 1)))
-!(test (query 2000 degradedKb (: $prf (Degraded mine t5) $tv))
-   (: ((antecedent-completion runs-mine 1 with cpu (prior (STV 0.25000694425154857 0.9))) (conjunction plant-on mine-off)) (Degraded mine t5) (STV 1.0 0.9990010644070145)))
-!(test (query 2000 degradedKb (: $prf (Not (Degraded mine t5)) $tv))
-   (: (negated ((antecedent-completion runs-mine 1 with cpu (prior (STV 0.25000694425154857 0.9))) (conjunction plant-on mine-off))) (Not (Degraded mine t5)) (STV 0.0 0.9990010644070145)))
+!(test
+   (let (: (node (conjunction mine-off plant-on (by runs-mine cpu) (population-prior (Degraded mine $_0)))) (Degraded mine t5) (STV $posterior-s $posterior-c)) (query 2000 degradedKb (: $prf (Degraded mine t5) $tv)) (posterior-tv-near? 1.0 0.9999 (STV $posterior-s $posterior-c)))
+   true)
+!(test
+   (let (: (negated (node (conjunction mine-off plant-on (by runs-mine cpu) (population-prior (Degraded mine $_0))))) (Not (Degraded mine t5)) (STV $posterior-s $posterior-c)) (query 2000 degradedKb (: $prf (Not (Degraded mine t5)) $tv)) (posterior-tv-near? 0.0 0.9999 (STV $posterior-s $posterior-c)))
+   true)
 
 ;; The same with a positive conjunct: the mine is not healthy.
 !(compileadd healthyKb (: runs-mine (Implication (And (Producing plant $t) (Healthy mine $t)) (Producing mine $t)) (CTV (STV 1 1) (STV 0 1))))
 !(set-base-rate healthyKb (Healthy mine $t) (STV 0.75 0.9))
 !(compileadd healthyKb (: plant-on (Producing plant t5) (STV 1 1)))
 !(compileadd healthyKb (: mine-off (Producing mine t5) (STV 0 1)))
-!(test (query 2000 healthyKb (: $prf (Healthy mine t5) $tv))
-   (: ((antecedent-completion runs-mine 1 with cpu (prior (STV 0.7499930557484515 0.9))) (conjunction plant-on mine-off)) (Healthy mine t5) (STV 0.0 0.9990010644069859)))
+!(test
+   (let (: (node (conjunction mine-off plant-on (by runs-mine cpu) (population-prior (Healthy mine $_0)))) (Healthy mine t5) (STV $posterior-s $posterior-c)) (query 2000 healthyKb (: $prf (Healthy mine t5) $tv)) (posterior-tv-near? 0.0 0.9999 (STV $posterior-s $posterior-c)))
+   true)
 
 ;; Both soft: the plant runs with 0.8, and a report that the mine runs
 ;; (P(report | runs) = 0.9, P(report | not) = 0.2) is a likelihood ratio of
@@ -293,8 +302,9 @@
 !(set-base-rate softKb (Producing mine $t) (STV 0.5 0.9))
 !(compileadd softKb (: plant-maybe (Producing plant t5) (STV 0.8 1)))
 !(compileadd softKb (: reported (Reported mine t5) (STV 1 1)))
-!(test (query 2000 softKb (: $prf (Degraded mine t5) $tv))
-   (: ((antecedent-completion runs-mine 1 with cpu (prior (STV 0.25000694425154857 0.9))) (conjunction plant-maybe ((inverted report with cpu (prior (STV 0.5 0.9))) reported))) (Degraded mine t5) (STV 0.08064790721346496 0.9927124134707642)))
+!(test
+   (let (: (node (conjunction plant-maybe reported (by runs-mine cpu) (by report cpu) (population-prior (Degraded mine $_0)))) (Degraded mine t5) (STV $posterior-s $posterior-c)) (query 2000 softKb (: $prf (Degraded mine t5) $tv)) (posterior-tv-near? 0.08067261520819895 0.957915290831156 (STV $posterior-s $posterior-c)))
+   true)
 
 ;; The degradation persists with 0.75 and starts with 0.1. Inspected sound in
 ;; t4, the mine is degraded in t5 with 0.1 by persistence alone; the plant

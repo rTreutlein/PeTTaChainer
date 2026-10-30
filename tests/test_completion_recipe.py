@@ -66,7 +66,7 @@ class CompletionRecipeTests(unittest.TestCase):
                         "'mm2compile'(Kb,_Source,['rules',[_Premises,'|-',_Conclusion]]), "
                         "_Conclusion=[['B',_X],_,_,_], "
                         "_Premises=[['CPU','ReadLikelihoodContext',Recipe,_]|_Executable], "
-                        "'add-to-kb'(['rules',[_Executable,'|-',_Conclusion]],_), "
+                        "forall('mm2compile'(Kb,_Source,_Addition),'add-to-kb'(_Addition,_)), "
                         "rules('runtime-rule-row',_Id,_Conclusion,_Stored), "
                         "'&completion_recipe'(_Id,_Prepared), "
                         "(Recipe==_Prepared -> Same=true;Same=false)",

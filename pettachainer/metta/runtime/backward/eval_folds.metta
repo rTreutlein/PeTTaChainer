@@ -310,16 +310,19 @@
           ($read (the (-[semidet]-> SkeletonKey SkeletonFilter (List Number) SkeletonValue) $read-fn)))
       (case $key (
          ((sk-key $type $kbctx)
-            (if (if (is-expr $type) (if (head-is-member? $type (And Or Not)) false true) false)
-               (let* (($pattern (cons-atom (car-atom $type) (map-flat sk-fresh-variable (cdr-atom $type))))
+            (if (head-is-member? $type (And Or Not)) sk-none
+               (let* (($pattern
+                         (case (sk-prior-folds $type (collapse (sk-rule-match (assemble-stored-runtime-fact $type $kbctx $_proof $_tv)))) (
+                            ((cons (sk-prior-fold $_rule $args) $_more) (car-atom (cdr-atom $args)))
+                            (() (if (is-expr $type) (cons-atom (car-atom $type) (map-flat sk-fresh-variable (cdr-atom $type))) $type)))))
                       ($kbid (car-atom $kbctx))
                       ($kb (brand KB $kbid)))
-                  (if (if (positive-only-pattern? $kb (brand Statement $pattern)) (user-base-rate? $kb (brand Statement $pattern)) true)
-                     (case ($read (car-atom (sk-direct-key-step () (base-rate-fold $kb (brand Statement $pattern) $_rate))) sk-any-filter ()) (
+                  (if (if (positive-only-pattern? $kb (the Statement $pattern)) (user-base-rate? $kb (the Statement $pattern)) true)
+                     (case ($read (car-atom (sk-direct-key-step () (base-rate-fold $kb (the Statement $pattern) $_rate))) sk-any-filter ()) (
                         ((sk-goal-val (CPU $_fun $_args $fold-tv) $_proof $_ev $deps)
-                           (case (if (user-base-rate? $kb (brand Statement $pattern)) $fold-tv
+                           (case (if (user-base-rate? $kb (the Statement $pattern)) $fold-tv
                                     (let* (($facts (fold-semidet sk-source-fact-step ()
-                                                      (sk-leaf-facts (brand Statement $pattern) (kbctx $kb) sk-any-filter)))
+                                                      (sk-leaf-facts (the Statement $pattern) (kbctx $kb) sk-any-filter)))
                                            ($observed (BaseRateTv (observed-rate-evidence $facts $exclude $ev))))
                                        (smoothed-base-rate-tv $kb $observed))) (
                               ((STV $s $c)
@@ -329,8 +332,7 @@
                                     sk-none))
                               ($_unknown sk-none))))
                         ($_none sk-none)))
-                     sk-none))
-               sk-none))
+                     sk-none))))
          ($_fold sk-none)))))
 
 (: sk-messages-on (-[semidet]-> SkeletonValueReader SkeletonKey (List Number) (List SkeletonValue) SkeletonValue SkeletonValue))

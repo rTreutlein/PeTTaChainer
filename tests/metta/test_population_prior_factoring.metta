@@ -1,4 +1,5 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
+!(import! &self ./posterior_assertions)
 
 ;; Plain implications are inverted with the antecedent's base rate as the
 ;; prior, so inversions of several observations of one hidden cause combine by
@@ -10,7 +11,9 @@
 !(compileadd oneKb (: block1 (Implication (Storm $reg) (Blocked r1 $reg)) (CTV (STV 0.8 0.99) (STV 0.03 0.99))))
 !(set-base-rate oneKb (Storm $reg) (STV 0.3 0.9))
 !(compileadd oneKb (: o1 (Blocked r1 north) (STV 1.0 1.0)))
-!(test (case (query 100 oneKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.9195391900632319 0.9402956587726978))
+!(test
+   (posterior-tv-near? 0.9195298311793262 0.9402892159691107 (case (query 100 oneKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))))
+   true)
 
 ;; One route blocked and the other open: Bayes' rule gives 0.702, where
 ;; revising the two inversions gave 0.085, dominated by the open route's more
@@ -20,7 +23,9 @@
 !(set-base-rate mixedKb (Storm $reg) (STV 0.3 0.9))
 !(compileadd mixedKb (: o1 (Blocked r1 north) (STV 1.0 1.0)))
 !(compileadd mixedKb (: o2 (Blocked r2 north) (STV 0.0 1.0)))
-!(test (query 100 mixedKb (: $p (Storm north) $tv)) (: (factored-revision cpu (prior (STV 0.30000555540123885 0.9)) (((inverted block1 with cpu (prior (STV 0.30000555540123885 0.9))) o1) ((inverted block2 with cpu (prior (STV 0.30000555540123885 0.9))) o2))) (Storm north) (STV 0.7020604165390665 0.8417105305268205)))
+!(test
+   (let (: (node (conjunction o1 o2 (by block1 cpu) (by block2 cpu) (population-prior (Storm $_0)))) (Storm north) (STV $posterior-s $posterior-c)) (query 100 mixedKb (: $p (Storm north) $tv)) (posterior-tv-near? 0.7020433926337697 0.8417622371195731 (STV $posterior-s $posterior-c)))
+   true)
 
 ;; Both routes blocked: Bayes' rule gives 0.9967.
 !(compileadd bothKb (: block1 (Implication (Storm $reg) (Blocked r1 $reg)) (CTV (STV 0.8 0.99) (STV 0.03 0.99))))
@@ -28,7 +33,9 @@
 !(set-base-rate bothKb (Storm $reg) (STV 0.3 0.9))
 !(compileadd bothKb (: o1 (Blocked r1 north) (STV 1.0 1.0)))
 !(compileadd bothKb (: o2 (Blocked r2 north) (STV 1.0 1.0)))
-!(test (case (query 100 bothKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.9967293035199962 0.9961445162987431))
+!(test
+   (posterior-tv-near? 0.9967277025256688 0.9961412800750794 (case (query 100 bothKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))))
+   true)
 
 ;; Gusts are as likely with a storm as without: observing one leaves the
 ;; blocked route's posterior as it is.
@@ -37,7 +44,9 @@
 !(set-base-rate gustKb (Storm $reg) (STV 0.3 0.9))
 !(compileadd gustKb (: o1 (Blocked r1 north) (STV 1.0 1.0)))
 !(compileadd gustKb (: g1 (Gust north) (STV 1.0 1.0)))
-!(test (case (query 100 gustKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.9195391900632319 0.938317236276462))
+!(test
+   (posterior-tv-near? 0.9195298311793263 0.9383094569023933 (case (query 100 gustKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))))
+   true)
 
 ;; Two levels: a blocked route delays its shipment with 0.9, an open one with
 ;; 0.05. Route r1 is
@@ -55,8 +64,12 @@
 !(set-base-rate routeKb (Blocked r2 $reg) (STV 0.261 0.9))
 !(compileadd routeKb (: o1 (Blocked r1 north) (STV 1.0 1.0)))
 !(compileadd routeKb (: l2 (Late s2 north) (STV 1.0 1.0)))
-!(test (query 100 routeKb (: $p (Blocked r2 north) $tv)) (: (factored-revision (by block2 ((inverted block1 with cpu (prior (STV 0.30000555540123885 0.9))) o1)) (prior (STV 0.7380438977920759 0.9789674868287385)) (((inverted late2 with cpu (prior (STV 0.26100663870448043 0.9))) l2))) (Blocked r2 north) (STV 0.9806623506588911 0.9942651005541906)))
-!(test (case (query 100 routeKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.9910311737109543 0.9924302864284203))
+!(test
+   (let (: (node (conjunction o1 l2 (by block1 cpu) (by block2 cpu) (by late2 cpu) (population-prior (Storm $_0)))) (Blocked r2 north) (STV $posterior-s $posterior-c)) (query 100 routeKb (: $p (Blocked r2 north) $tv)) (posterior-tv-near? 0.9806571090511099 0.9942636244655746 (STV $posterior-s $posterior-c)))
+   true)
+!(test
+   (posterior-tv-near? 0.9910276560550808 0.9914124106210676 (case (query 100 routeKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))))
+   true)
 
 ;; When the storm is also read off the late shipment, the forward view of r2
 ;; already holds that observation: it is not an independent prior for the

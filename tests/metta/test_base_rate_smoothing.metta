@@ -1,4 +1,5 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
+!(import! &self ./posterior_assertions)
 
 ;; With base-rate smoothing a KB reads each computed base rate as its n
 ;; observations plus k pseudo-observations at 0.5; the confidence n/(n+k) is
@@ -38,8 +39,8 @@
 !(compileadd plainKb (: aq (Alarm q) (STV 1 1)))
 
 !(test
-   (query 400 smoothKb (: $p (Leak q) $tv))
-   (: ((inverted sensor with cpu (prior (STV 0.11904761904761901 0.8))) aq) (Leak q) (STV 0.37815126050420156 0.5514604290276861)))
+   (let (: (node (conjunction aq (by sensor cpu) (population-prior (Leak $_0)))) (Leak q) (STV $posterior-s $posterior-c)) (query 400 smoothKb (: $p (Leak q) $tv)) (posterior-tv-near? 0.5779816513761467 0.8127525165795743 (STV $posterior-s $posterior-c)))
+   true)
 !(test
-   (query 400 plainKb (: $p (Leak q) $tv))
-   (: ((inverted sensor with cpu (prior (STV 0.023809523809523805 0.8))) aq) (Leak q) (STV 0.09890109890109888 0.23309946016373)))
+   (let (: (node (conjunction aq (by sensor cpu) (population-prior (Leak $_0)))) (Leak q) (STV $posterior-s $posterior-c)) (query 400 plainKb (: $p (Leak q) $tv)) (posterior-tv-near? 0.47368421052631565 0.7757318147185712 (STV $posterior-s $posterior-c)))
+   true)

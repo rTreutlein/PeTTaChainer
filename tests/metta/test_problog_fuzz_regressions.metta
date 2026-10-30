@@ -1,4 +1,5 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
+!(import! &self ./posterior_assertions)
 
 ;; Minimal repros of three failure families the ProbLog differential fuzzer
 ;; found (docs/metta/fuzzing.md, scripts/fuzz_vs_problog.py), each with
@@ -129,8 +130,9 @@
 !(compileadd f2known (: hist-C-h10 (C h10) (STV 1 1)))
 !(compileadd f2known (: obs-A-b (A b) (STV 0 1)))
 !(compileadd f2known (: obs-C-b (C b) (STV 1 1)))
-!(test (query 2000 f2known (: $prf (B b) $tv))
-   (: ((antecedent-completion rC 0 with cpu (prior (STV 0.18750000000000003 0.6875))) (conjunction obs-A-b obs-C-b)) (B b) (STV 0.017826825127334467 0.9538571899944228)))
+!(test
+   (let (: (node (conjunction obs-A-b obs-C-b (by rC cpu) (population-prior (B $_0)))) (B b) (STV $posterior-s $posterior-c)) (query 2000 f2known (: $prf (B b) $tv)) (posterior-tv-near? 0.023051591657519223 0.949452306332817 (STV $posterior-s $posterior-c)))
+   true)
 
 ;; F3. An observation of C informs the conjuncts of (And A B) -> C; the
 ;; completion onto A reads the unobserved B at its population prior, and E
@@ -140,8 +142,9 @@
 !(compileadd f3and (: obs-C-a (C a) (STV 0 1)))
 !(set-base-rate f3and (A $x) (STV 0.44 1.0))
 !(set-base-rate f3and (B $x) (STV 0.2 1.0))
-!(test (query 2000 f3and (: $prf (E a) $tv))
-   (: (by rE ((antecedent-completion rC 0 with cpu (prior (STV 0.44 1.0))) (conjunction (population-prior (B $_0)) obs-C-a))) (E a) (STV 0.5592468619246861 0.999883110124726)))
+!(test
+   (let (: (node (conjunction obs-C-a (by rC cpu) (by rE cpu) (population-prior (A $_0)) (population-prior (B $_1)))) (E a) (STV $posterior-s $posterior-c)) (query 2000 f3and (: $prf (E a) $tv)) (posterior-tv-near? 0.5592468619246862 0.9999 (STV $posterior-s $posterior-c)))
+   true)
 
 ;; The same for an Or: (Or A B) -> D, deterministic, D = 0, so A is certainly
 ;; false, exact 0 (before: no answer).
@@ -151,8 +154,9 @@
 !(set-base-rate f3or (A $x) (STV 0.18 1.0))
 !(set-base-rate f3or (B $x) (STV 0.0846 1.0))
 !(set-base-rate f3or (D $x) (STV 0.249372 1.0))
-!(test (query 2000 f3or (: $prf (A a) $tv))
-   (: ((antecedent-completion rD 0 with cpu (prior (STV 0.18 1.0))) (conjunction (population-prior (B $_0)) obs-D-a)) (A a) (STV 0.0 0.9999421506206913)))
+!(test
+   (let (: (node (conjunction obs-D-a (by rD cpu) (population-prior (A $_0)) (population-prior (B $_1)))) (A a) (STV $posterior-s $posterior-c)) (query 2000 f3or (: $prf (A a) $tv)) (posterior-tv-near? 0.0 0.9999 (STV $posterior-s $posterior-c)))
+   true)
 
 ;; F5. In a loop of complete predicates, C <- (Or B D) and D <- C, the rule
 ;; application of C reads the observed D = 0 as a cause and the inversion of
@@ -275,8 +279,9 @@
 !(compileadd f8sibling (: obs-C-a (C a) (STV 0 1)))
 !(set-base-rate f8sibling (A $x) (STV 0.25 1.0))
 !(set-base-rate f8sibling (B $x) (STV 0.8 1.0))
-!(test (query 2000 f8sibling (: $prf (A a) $tv))
-   (: (factored-revision cpu (prior (STV 0.25 1.0)) (((antecedent-completion rC 0 with cpu (prior (STV 0.25 1.0))) (conjunction (population-prior (B $_0)) obs-C-a)) ((antecedent-completion rD 1 with cpu (prior (STV 0.25 1.0))) (conjunction (conjunction (population-prior (B $_1)) obs-C-a) obs-D-a)))) (A a) (STV 0.2745643461671426 0.9998773921292862)))
+!(test
+   (let (: (node (conjunction obs-C-a obs-D-a (by rC cpu) (by rD cpu) (population-prior (A $_0)) (population-prior (B $_1)))) (A a) (STV $posterior-s $posterior-c)) (query 2000 f8sibling (: $prf (A a) $tv)) (posterior-tv-near? 0.2713282510359662 0.9999 (STV $posterior-s $posterior-c)))
+   true)
 
 ;; A settled step gives way to the complete step whatever order the views
 ;; merge in. C <- (Or B F) with B true, D <- C certain, D observed false: C

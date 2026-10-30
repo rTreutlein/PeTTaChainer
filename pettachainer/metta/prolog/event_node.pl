@@ -42,7 +42,8 @@ event_node_moments(Vars, Terms0, Goals, Answers) :-
             ->  maplist([S, a(S, 0.0, exact)]>>true, Ss, StableAnswers)
             ;   exact_second_moments(Free, StableTerms, Goals, Mu, H0, Exact)
             ->  (   Exact == bound
-                ->  maplist(bound_answer, Ss, StableAnswers)
+                ->  ( reduced_moments(Vars, StableTerms, Goals, StableAnswers) -> true
+                    ; maplist(bound_answer, Ss, StableAnswers) )
                 ;   maplist(exact_answer(Z0), Ss, Exact, StableAnswers) )
             ;   maplist(one_dimension(StableTerms, Goals, Mu, Z0, N0, H0), Free, Dims),
                 first_order(Dims, StableTerms, Goals, Mu, H0, Hdmr),
@@ -50,6 +51,35 @@ event_node_moments(Vars, Terms0, Goals, Answers) :-
                 length(Goals, G), numlist(1, G, Is),
                 maplist(goal_answer(Z0, Ss, Hdmr, Poly), Is, StableAnswers) ),
             maplist([S, a(_, V, Kind), a(S, V, Kind)]>>true, OriginalMeans, StableAnswers, Answers) ) ).
+
+% Integrating an axis out of N and Z preserves the exact mean. For positive
+% terms, endpoint coefficient ratios bound its effect on every remaining
+% assignment. Total variance splits into the reduced variance and a conditional
+% variance no greater than Delta^2. Use this only after tensor exhaustion and
+% only when the added error is negligible against every resolved goal variance.
+reduced_moments(Vars, Terms, Goals, Answers) :-
+    foldl(reduce_axis, Vars, Terms-[]-0.0, Reduced-Reversed-Error),
+    reverse(Reversed, Kept), \+ same_length(Vars, Kept),
+    event_node_moments(Kept, Reduced, Goals, Values), Values \== inconsistent,
+    maplist({Error}/[a(S, V, exact), a(S, Bound, exact)]>>
+            ( Error =< 1.0e-6 * V, Bound is V + Error ), Values, Answers).
+
+reduce_axis(Id-Dist, Terms0-K0-E0, Terms-K-E) :-
+    ( Dist \= point(_), dist_mean(Dist, Mean),
+      findall((Rest-Hits)-(Bit-C),
+              ( member(t(C, Lits, Hits), Terms0), C >= 0,
+                ( selectchk(Id-B, Lits, Rest) -> Bit = B ; Rest = Lits, Bit = both ) ), Pairs),
+      same_length(Pairs, Terms0), keysort(Pairs, Sorted), group_pairs_by_key(Sorted, Groups),
+      maplist(reduced_term(Mean), Groups, Candidate, Ratios), max_list(Ratios, R), R < 1.0e-9
+    -> Terms = Candidate, K = K0, Delta is 2 * R / (1 - R), E is E0 + Delta * Delta
+    ; Terms = Terms0, K = [Id-Dist|K0], E = E0 ).
+
+reduced_term(Mean, (Lits-Hits)-Coefficients, t(C, Lits, Hits), R) :-
+    foldl([Bit-W, A0-B0, A-B]>>
+          ( ( Bit == 1 -> A = A0 ; A is A0 + W ),
+            ( Bit == 0 -> B = B0 ; B is B0 + W ) ), Coefficients, 0.0-0.0, C0-C1),
+    C is (1 - Mean) * C0 + Mean * C1,
+    ( C =:= 0 -> R = 0.0 ; R is max(abs(C0 / C - 1), abs(C1 / C - 1)) ).
 
 % A goal forced by every surviving term is independent of all parameters.
 constant_goal(Terms, Goal, a(S, 0.0, exact)) :-

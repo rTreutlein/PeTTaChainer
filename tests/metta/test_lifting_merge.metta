@@ -1,4 +1,5 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
+!(import! &self ./posterior_assertions)
 
 ;; Several proofs of one grounded conclusion that share a premise but are
 ;; otherwise independent revise, recovering the confidence that dominance would
@@ -54,8 +55,8 @@
 ;; the two (B m) proofs merge at the subgoal, so bImpliesD is applied once to the
 ;; revised premise -- not pooled across two conclusions sharing bImpliesD.
 !(test
-   (query 60 sharedRuleKb (: $prf (D m) $tv))
-   (: (by bImpliesD (factored-revision (by cImpliesB cm) (prior (STV 0.8 0.8999996399380039)) (((reported with cpu (prior (STV 0.5 0.0))) bm)))) (D m) (STV 0.5 0.899999909975099)))
+   (let (: (node (conjunction bm cm (by cImpliesB cpu) (by bImpliesD cpu))) (D m) (STV $posterior-s $posterior-c)) (query 60 sharedRuleKb (: $prf (D m) $tv)) (posterior-tv-near? 0.49998262081025846 0.9000312488859047 (STV $posterior-s $posterior-c)))
+   true)
 
 ;; --- Multi-leaf: two rules A,B->C share BOTH a and b. Their conjunction is
 ;; factored out as a unit and the residual implications pooled. ---

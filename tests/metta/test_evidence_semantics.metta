@@ -1,4 +1,5 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
+!(import! &self ./posterior_assertions)
 
 ; Hypothetical context premises carry no evidence, and unmarked implication
 ; facts do. Together: branches of a conditional that share only the hypothesis
@@ -67,5 +68,5 @@
 ; uncertain bImpliesD is applied exactly once to the revised premise instead
 ; of double-counting its uncertainty across two conclusions.
 !(test
-   (query 60 sharedKb (: $prf (D m) $tv))
-   (: (by bImpliesD (factored-revision (by cImpliesB cm) (prior (STV 0.8 0.8999996399380039)) (((reported with cpu (prior (STV 0.5 0.0))) bm)))) (D m) (STV 0.5 0.899999909975099)))
+   (let (: (node (conjunction bm cm (by cImpliesB cpu) (by bImpliesD cpu))) (D m) (STV $posterior-s $posterior-c)) (query 60 sharedKb (: $prf (D m) $tv)) (posterior-tv-near? 0.49998262081025846 0.9000312488859047 (STV $posterior-s $posterior-c)))
+   true)

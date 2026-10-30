@@ -39,7 +39,6 @@
 !(compileadd orderTwoKb (: b B (STV 0.9 0.9)))
 !(compileadd orderTwoKb (: s S (STV 1 1)))
 
-(= (jeffrey-tv (: $_proof $_type $tv)) $tv)
 (= (jeffrey-at? $es $ec (: $_proof $_type (STV $s $c)))
    (if (< (abs-math (- $s $es)) 1e-9) (< (abs-math (- $c $ec)) 1e-9) false))
 !(test (map-flat (jeffrey-at? 0.8124288815302391 0.41655546676650934) (collapse (query 300 orderOneKb (: $p C $tv))))
@@ -62,8 +61,8 @@
 !(compileadd observedKb (: b B (STV 0.9 0.9)))
 !(compileadd observedKb (: c C (STV 0.6 0.9)))
 !(compileadd observedKb (: r1 (Implication S (And B C)) (STV 0.8 0.6)))
-!(test (map-flat jeffrey-tv (collapse (query 300 observedKb (: $p C $tv))))
-   ((STV 0.6298604820109766 0.9122139583637969)))
+!(test (map-flat (jeffrey-at? 0.6298604820109766 0.9122139583637969) (collapse (query 300 observedKb (: $p C $tv))))
+   (true))
 !(test (let (STV $s $c) (jeffrey-posterior 800.0 0.6 0.9 (STV 0.7999999862197208 0.5999999834245703)
                            (conditionals (0.8998889197445155 1.2507129232952607e-05) (0.0 0.0)))
           (and (< (abs-math (- $s 0.6298604820109766)) 1e-9) (< (abs-math (- $c 0.9122139583637969)) 1e-9)))

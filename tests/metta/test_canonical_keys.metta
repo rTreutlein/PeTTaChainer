@@ -1,4 +1,5 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
+!(import! &self ./posterior_assertions)
 
 ;; A statement is stored, assumed and concluded at its canonical key: under its
 ;; negations, the statement they negate (complemented for an odd count), and
@@ -43,8 +44,9 @@
 ;; leaves nearly the prior's variance (n = 2, c = 2/802). The compound's atoms
 ;; are A and B, so the message reaches B's statement directly.
 !(compileadd projKb (: both (And (A a) (Not (B a))) (STV 0.6 1)))
-!(test (let (: (node-message 1 both cpu $_likelihood) (B a) $tv) (query 100 projKb (: $p (B a) $tv)) $tv)
-   (STV 0.4444444444444444 0.002492276053497211))
+!(test
+   (posterior-tv-near? 0.4444444444444445 0.0024922760534972026 (let (: $_proof (B a) $tv) (query 100 projKb (: $p (B a) $tv)) $tv))
+   true)
 
 ;; A negated root reads its statement's stored value at budget zero, and its
 ;; written truth-value pattern constrains the complemented answer.

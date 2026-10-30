@@ -1,4 +1,5 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
+!(import! &self ./posterior_assertions)
 
 ;; A rule inside (ForAll (vars) ...) holds for each value of those variables
 ;; with the same truth; its other variables are the individuals its
@@ -29,11 +30,11 @@
 
 ;; Bayes: 0.9 * 0.5 / (0.9 * 0.5 + 0.2 * 0.5) and 0.9 * 0.25 / (0.9 * 0.25 + 0.2 * 0.75).
 !(test
-   (query 400 forallKb (: $p (Leak old q) $tv))
-   (: ((inverted sensor with cpu (prior (STV 0.5 0.004975124378109453))) alarm-q) (Leak old q) (STV 0.8181737834903159 0.00916092310721283)))
+   (let (: (node (conjunction alarm-q (by sensor cpu) (population-prior (Leak old $_0)))) (Leak old q) (STV $posterior-s $posterior-c)) (query 400 forallKb (: $p (Leak old q) $tv)) (posterior-tv-near? 0.8181014895228477 0.01120920246771997 (STV $posterior-s $posterior-c)))
+   true)
 !(test
-   (query 400 forallKb (: $p (Leak new r) $tv))
-   (: ((inverted sensor with cpu (prior (STV 0.2619047619047619 0.004975124378109453))) alarm-r) (Leak new r) (STV 0.6148940428314364 0.0038345998086441587)))
+   (let (: (node (conjunction alarm-r (by sensor cpu) (population-prior (Leak new $_0)))) (Leak new r) (STV $posterior-s $posterior-c)) (query 400 forallKb (: $p (Leak new r) $tv)) (posterior-tv-near? 0.6921926732884759 0.007292928897821183 (STV $posterior-s $posterior-c)))
+   true)
 
 !(compileadd plainKb (: sensor (Implication (Leak $c $u) (Alarm $c $u)) (CTV (STV 0.9 0.9) (STV 0.2 0.9))))
 !(compileadd plainKb (: leak-o1 (Leak old o1) (STV 1 1)))
@@ -57,11 +58,11 @@
 
 ;; Pooled: 0.9 * 3/8 / (0.9 * 3/8 + 0.2 * 5/8) for both cohorts.
 !(test
-   (query 400 plainKb (: $p (Leak old q) $tv))
-   (: ((inverted sensor with cpu (prior (STV 0.37804878048780494 0.009900990099009901))) alarm-q) (Leak old q) (STV 0.7322728760659678 0.012078512734847913)))
+   (let (: (node (conjunction alarm-q (by sensor cpu) (population-prior (Leak $_0 $_1)))) (Leak old q) (STV $posterior-s $posterior-c)) (query 400 plainKb (: $p (Leak old q) $tv)) (posterior-tv-near? 0.7498987561469482 0.014852330918539098 (STV $posterior-s $posterior-c)))
+   true)
 !(test
-   (query 400 plainKb (: $p (Leak new r) $tv))
-   (: ((inverted sensor with cpu (prior (STV 0.37804878048780494 0.009900990099009901))) alarm-r) (Leak new r) (STV 0.7322728760659678 0.012078512734847913)))
+   (let (: (node (conjunction alarm-r (by sensor cpu) (population-prior (Leak $_0 $_1)))) (Leak new r) (STV $posterior-s $posterior-c)) (query 400 plainKb (: $p (Leak new r) $tv)) (posterior-tv-near? 0.7498987561469482 0.014852330918539098 (STV $posterior-s $posterior-c)))
+   true)
 
 ;; Refined, the ForAll rule's instances pool across cohorts: every
 ;; (cohort, unit) with a leak is a sample of the one shared truth.

@@ -202,7 +202,7 @@ separable_moments(PDist, Factors, Count, S, V, Max) :-
     findall(I-W, ( nth1(I, Narrowed, f(W, _, _)), W \= point(_) ), Nuisance),
     Vars = [0-PDist|Nuisance], exclude([_-D]>>(D = point(_)), Vars, Free), length(Free, D),
     ( ( D =:= 0 ; Max =:= 0 ) -> V = 0.0
-    ; ( D > 4 ; Count > 12 ) -> V = bound
+    ; ( D > 4 ; Count > 12, Nuisance \== [] ) -> V = bound
     ; findall(LW-Lits-Hits,
               ( maplist([I-_, I-Bit]>>member(Bit, [0, 1]), Nuisance, Bits), member(P, [0, 1]),
                 findall(Wv, ( nth1(I, Narrowed, f(W, _, _)),
@@ -372,7 +372,9 @@ node_stv(K, S, V, TV) :- ( V == bound -> Max = 0.0 ; Max is S * (1 - S) ), node_
 node_stv(_, S, bound, _, ['STV', S, 0.0]) :- !.
 node_stv(_, S, V, _, ['STV', S, 0.9999]) :- V =< 0.0, !.
 node_stv(K, S, V, Max, ['STV', S, C]) :-
-    ( V >= Max -> C = 0.0 ; N is Max / V - 1, C is N / (N + K) ).
+    ( V >= Max -> C = 0.0
+    ; Sc is min(1 - 1.0e-6, max(1.0e-6, S)),
+      N is Sc * (1 - Sc) / V - 1, C is N / (N + K) ).
 
 % master's ideal-var: s(1 - s)/(n + 1), n = k c/(1 - c); 1/12 at c = 0.
 ideal_variance(_, _, C, 0.0) :- C >= 1.0, !.

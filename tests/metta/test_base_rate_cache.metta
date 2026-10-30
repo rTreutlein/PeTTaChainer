@@ -1,4 +1,5 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
+!(import! &self ./posterior_assertions)
 
 ;; One full-weight observation carries one unit
 ;; of evidence: confidence is 1 / (1 + 800), never min(1, 1).
@@ -15,8 +16,8 @@
 ; First query computes the base rates by folding over all instances and
 ; harvests them into the cache afterwards.
 !(test
-   (query 200 brKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu (prior (STV 0.6599999999999998 0.0009990009990009992))) qa) (P alice) (STV 0.8756835083745458 0.016391821881426412)))
+   (let (: (node (conjunction qa (by r cpu) (population-prior (P $_0)))) (P alice) (STV $posterior-s $posterior-c)) (query 200 brKb (: $prf (P alice) $tv)) (posterior-tv-near? 0.8377216255922403 0.005314296401577442 (STV $posterior-s $posterior-c)))
+   true)
 
 !(test
    (let $cached (cached-base-rate brKb (P $x))
@@ -27,8 +28,8 @@
 ; STVs are also in the cache): the inverted proof keeps its modus ponens TV
 ; and reads the same base rates, with no fold expansion.
 !(test
-   (query 200 brKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu (prior (STV 0.6599999999999998 0.0009990009990009992))) qa) (P alice) (STV 0.8756835083745458 0.016391821881426412)))
+   (let (: (node (conjunction qa (by r cpu) (population-prior (P $_0)))) (P alice) (STV $posterior-s $posterior-c)) (query 200 brKb (: $prf (P alice) $tv)) (posterior-tv-near? 0.8377216255922403 0.005314296401577442 (STV $posterior-s $posterior-c)))
+   true)
 
 ; A stored fact counts in the base rates observing it when it is added.
 !(compileadd brKb (: pc (P carol) (STV 0.3 0.8)))
@@ -39,8 +40,8 @@
    (STV 0.49999999999999994 0.0019960079840319364))
 
 !(test
-   (query 200 brKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu (prior (STV 0.49999999999999994 0.0019960079840319364))) qa) (P alice) (STV 0.8181718195152319 0.013415460128344154)))
+   (let (: (node (conjunction qa (by r cpu) (population-prior (P $_0)))) (P alice) (STV $posterior-s $posterior-c)) (query 200 brKb (: $prf (P alice) $tv)) (posterior-tv-near? 0.8040494110456581 0.006210815399461902 (STV $posterior-s $posterior-c)))
+   true)
 
 !(test
    (cached-base-rate brKb (P $x))
@@ -52,8 +53,8 @@
 !(set-base-rate brKb (Q $x) (STV 0.9 0.5))
 
 !(test
-   (query 200 brKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu (prior (STV 0.5 0.5))) qa) (P alice) (STV 0.8181627085731042 0.7411734984025043)))
+   (let (: (node (conjunction qa (by r cpu) (population-prior (P $_0)))) (P alice) (STV $posterior-s $posterior-c)) (query 200 brKb (: $prf (P alice) $tv)) (posterior-tv-near? 0.8040494110456582 0.601122168834573 (STV $posterior-s $posterior-c)))
+   true)
 
 ; Monotonic additions also leave explicit user estimates unchanged.
 !(compileadd brKb (: pd (P dave) (STV 0.6 0.8)))
@@ -117,8 +118,8 @@
 !(store-produced-base-rate! brKb2 (P $x) (STV 0.5 0.9) base-rate)
 
 !(test
-   (query 200 brKb2 (: $prf (P alice) $tv))
-   (: ((inverted r with cpu (prior (STV 0.6599999999999998 0.0009990009990009992))) qa) (P alice) (STV 0.8756835083745458 0.016391821881426412)))
+   (let (: (node (conjunction qa (by r cpu) (population-prior (P $_0)))) (P alice) (STV $posterior-s $posterior-c)) (query 200 brKb2 (: $prf (P alice) $tv)) (posterior-tv-near? 0.8377216255922403 0.005314296401577442 (STV $posterior-s $posterior-c)))
+   true)
 
 !(test
    (let $cached (cached-base-rate brKb2 (P $x))

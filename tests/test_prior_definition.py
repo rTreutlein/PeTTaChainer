@@ -5,6 +5,7 @@ import janus_swi as janus
 
 from pettachainer import PeTTaChainer
 from pettachainer.metta_syntax import parse_term
+from tests.posterior_fixture_oracle import source_oracle
 
 
 class PriorDefinitionTests(unittest.TestCase):
@@ -27,31 +28,25 @@ class PriorDefinitionTests(unittest.TestCase):
 
     def diagnostic(self, strength=None):
         self.h = PeTTaChainer()
-        self.h.add_atoms_no_check([
+        self.sources = [
             '(: diagnostic (Implication (Cause $t) (Effect $t)) (CTV (STV 0.9 0.9) (STV 0.2 0.9)))',
             '(: effect (Effect now) (STV 1 1))',
             '(: c1 (Cause d1) (STV 1 1))', '(: c2 (Cause d2) (STV 0 1))',
             '(: c3 (Cause d3) (STV 0 1))', '(: c4 (Cause d4) (STV 1 1))',
-        ])
+        ]
         if strength is not None:
-            self.h.add_atom(f'(: prior (Cause now) (STV {strength} 0.5))')
+            self.sources.append(f'(: prior (Cause now) (STV {strength} 0.5))')
+        self.h.add_atoms_no_check(self.sources)
 
     def test_uncertain_endpoints_and_nearby_values_are_continuous(self):
-        expected = {
-            0: (0.000562083205, 0.181296872224),
-            0.000001: (0.000566577889, 0.181297848079),
-            0.001: (0.005041118277, 0.182273009733),
-            0.5: (0.818173783490, 0.601391801423),
-            0.999999: (0.999972002743, 0.818280589557),
-            1: (0.999972224965, 0.818280888867),
-        }
-        for strength, (mean, confidence) in expected.items():
+        for strength in (0, .000001, .001, .5, .999999, 1):
             with self.subTest(strength=strength):
                 self.diagnostic(strength)
+                expected = source_oracle(self.sources, '(Cause now)')
                 for _ in range(2):
                     a = self.answer('(Cause now)')
-                    self.assertAlmostEqual(float(a.tv[1]), mean, places=8)
-                    self.assertAlmostEqual(float(a.tv[2]), confidence, places=7)
+                    self.assertAlmostEqual(float(a.tv[1]), expected['s'], places=8)
+                    self.assertAlmostEqual(float(a.tv[2]), expected['c'], places=7)
 
     def test_certain_endpoint_facts_remain_exact_under_likelihoods(self):
         for strength in (0, 1):
@@ -141,22 +136,20 @@ class PriorDefinitionTests(unittest.TestCase):
         self.assertAlmostEqual(float(result.tv[1]), .99)
         self.assertIn('class-mixture', self.h.expand_proof(result.proof))
 
-    def test_independent_marginal_centre_refreshes_after_set_and_clear(self):
+    def test_population_marginal_does_not_reinterpret_explicit_ctv(self):
         self.h.set_evidence_confidence_k(1)
-        self.h.add_atoms_no_check([
+        sources = [
             '(: diagnostic (Implication (A $x) (B $x)) (CTV (STV 0.9 0.9) (STV 0.2 0.9)))',
             '(: observation (B now) (STV 1 1))',
-        ])
+        ]
+        self.h.add_atoms_no_check(sources)
+        rate = ('(A $x)', ['STV', .5, .5])
         self.h._call('set-base-rate', [f'{self.h.kb} (A $x) (STV 0.5 0.5)'])
+        expected = source_oracle(sources, '(A now)', rates=[rate], k=1)
         neutral = self.answer('(A now)').tv
+        self.assertAlmostEqual(neutral[1], expected['s'], delta=1e-12)
         self.h._call('set-base-rate', [f'{self.h.kb} (B $x) (STV 0.1 0.9)'])
-        weight = 1 / (1/10 + 1/1.2) - 1
-        u = (9*.9 + weight*.1) / (9 + weight)
-        v = (9*.2 + weight*.1) / (9 + weight)
-        centred = self.answer('(A now)')
-        self.assertAlmostEqual(float(centred.tv[1]), u/(u+v))
-        self.assertNotEqual(centred.tv, neutral)
-        self.assertEqual(self.answer('(A now)').tv, centred.tv)
+        self.assertEqual(self.answer('(A now)').tv, neutral)
         self.h._call('clear-base-rate', [f'{self.h.kb} (B $x)'])
         self.assertEqual(self.answer('(A now)').tv, neutral)
 
@@ -260,10 +253,10 @@ class PriorDefinitionTests(unittest.TestCase):
             '(: first (Effect1 now) (STV 1 1))',
         ])
         self.h._call('set-base-rate', [f'{self.h.kb} (Cause $x) (STV 0.5 0.9)'])
-        self.assertAlmostEqual(float(self.answer('(Cause now)').tv[1]), 9/31)
+        self.assertAlmostEqual(float(self.answer('(Cause now)').tv[1]), 9/13)
         self.h.add_atom('(: second (Effect2 now) (STV 1 1))')
-        self.assertAlmostEqual(float(self.answer('(Cause now)').tv[1]), .648)
-        self.assertAlmostEqual(float(self.answer('(Cause now)').tv[1]), .648)
+        self.assertAlmostEqual(float(self.answer('(Cause now)').tv[1]), 81/89)
+        self.assertAlmostEqual(float(self.answer('(Cause now)').tv[1]), 81/89)
 
     def test_instance_prior_updates_when_its_excluded_population_is_empty(self):
         self.h.set_evidence_confidence_k(1)
@@ -273,12 +266,17 @@ class PriorDefinitionTests(unittest.TestCase):
             '(: observation (B now) (STV 1 1))',
         ])
         for _ in range(2):
-            self.assertAlmostEqual(float(self.answer('(A now)').tv[1]), 9/31)
+            self.assertAlmostEqual(float(self.answer('(A now)').tv[1]), 9/13)
 
     def test_population_prior_leaves_the_target_out(self):
         self.diagnostic(0)
         a = self.answer('(Cause now)')
-        self.assertIn('(prior (STV 0.5 0.004975124378109453))', self.h.expand_proof(a.proof))
+        expected = source_oracle(self.sources, '(Cause now)')
+        self.assertAlmostEqual(a.tv[1], expected['s'], delta=1e-12)
+        proof = self.h.expand_proof(a.proof)
+        self.assertIn('prior', proof)
+        for history in ('c1', 'c2', 'c3', 'c4'):
+            self.assertNotIn(history, proof)
 
     def test_stv_withprior_excludes_the_observation_from_its_negative_branch(self):
         self.h.add_atoms_no_check([

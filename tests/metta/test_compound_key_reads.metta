@@ -1,4 +1,5 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
+!(import! &self ./posterior_assertions)
 
 ;; A rule reads a compound antecedent through its key, whose producer rows
 ;; read the parts (#142). These are the reader's reading of the parts, so a
@@ -103,7 +104,9 @@
 !(compileadd orderKb (: a2 (A j) (STV 0.6 0.9)))
 !(compileadd orderKb (: b2 (B j) (STV 0.2 0.9)))
 !(test (let (: $_p $_t $tv) (query 2000 orderKb (: $p (V k) $tv)) $tv) (STV 0.5668085137843598 0.8877359359573489))
-!(test (let (: $_p $_t $tv) (query 2000 orderKb (: $p (Or (A k) (B k)) $tv)) $tv) (STV 0.7336170275687196 0.6113550151124288))
+!(test
+   (posterior-tv-near? 0.7823994912896864 0.6441674789749815 (let (: $_p $_t $tv) (query 2000 orderKb (: $p (Or (A k) (B k)) $tv)) $tv))
+   true)
 !(compileadd order2Kb (: rx (Implication (Or (A $t) (B $t)) (X $t)) (CTV (STV 0.9 1) (STV 0.1 1))))
 !(compileadd order2Kb (: rw (Implication (X $t) (W $t)) (CTV (STV 0.8 1) (STV 0.3 1))))
 !(compileadd order2Kb (: rv (Implication (Or (A $t) (B $t)) (V $t)) (CTV (STV 0.7 1) (STV 0.2 1))))
@@ -113,8 +116,12 @@
 !(compileadd order2Kb (: x2 (X j) (STV 0.3 0.9)))
 !(compileadd order2Kb (: a2 (A j) (STV 0.6 0.9)))
 !(compileadd order2Kb (: b2 (B j) (STV 0.2 0.9)))
-!(test (let (: $_p $_t $tv) (query 2000 order2Kb (: $p (W k) $tv)) $tv) (STV 0.7406412478336222 0.9551320158018678))
-!(test (let (: $_p $_t $tv) (query 2000 order2Kb (: $p (Or (A k) (B k)) $tv)) $tv) (STV 0.7336170275687196 0.6113550151124288))
+!(test
+   (posterior-tv-near? 0.7407897728058923 0.9716743561550458 (let (: $_p $_t $tv) (query 2000 order2Kb (: $p (W k) $tv)) $tv))
+   true)
+!(test
+   (posterior-tv-near? 0.7823994912896864 0.6441674789749815 (let (: $_p $_t $tv) (query 2000 order2Kb (: $p (Or (A k) (B k)) $tv)) $tv))
+   true)
 !(test (let (: $_p $_t $tv) (query 2000 order2Kb (: $p (V k) $tv)) $tv) (STV 0.5668085137843598 0.8877359359573489))
 
 ;; A completion's consequence is no view derived from the compound it

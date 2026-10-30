@@ -1,4 +1,5 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
+!(import! &self ./posterior_assertions)
 
 ;; PLN induction (book section 5.4): A predicts B at 0.8; C explains B
 ;; with likelihoods (0.9, 0.1) and prior 0.5. Both reverse branches are
@@ -179,8 +180,9 @@
 !(compileadd reportKb (: o (O q) (STV 1 1)))
 !(compileadd reportKb (: b-report (B q) (STV 0.8 0.9)))
 !(compileadd reportKb (: cb (Implication (And (O $x) (C $x)) (B $x)) (CTV (STV 0.9 1) (STV 0.1 1))))
-!(test (query 2000 reportKb (: $p (C q) $tv))
-   (: ((antecedent-completion cb 1 with cpu (prior (STV 0.5 1))) (conjunction o b-report)) (C q) (STV 0.7400000000000001 0.9441357165388421)))
+!(test
+   (let (: (node (conjunction b-report o (by cb cpu) (population-prior (C $_0)))) (C q) (STV $posterior-s $posterior-c)) (query 2000 reportKb (: $p (C q) $tv)) (posterior-tv-near? 0.7399333518467092 0.9999 (STV $posterior-s $posterior-c)))
+   true)
 !(set-predicate-time conjKb C 1 0)
 !(set-base-rate conjKb (C $x) (STV 0.5 1))
 !(compileadd conjKb (: b (B q) (STV 1 1)))

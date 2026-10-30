@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from pettachainer import PeTTaChainer
 from pettachainer.metta_syntax import parse_term
+from tests.posterior_fixture_oracle import source_oracle
 
 
 class TestPeTTaChainer(unittest.TestCase):
@@ -16,22 +17,25 @@ class TestPeTTaChainer(unittest.TestCase):
         handler.set_evidence_confidence_k(1)
         self.addCleanup(handler.set_evidence_confidence_k, 800)
         handler.set_base_rate_smoothing(True)
-        handler.add_atoms_no_check(
+        sources = (
             ["(: sensor (Implication (Leak $u) (Alarm $u)) (CTV (STV 0.9 1.0) (STV 0.2 1.0)))"]
             + [f"(: l{i} (Leak u{i}) (STV 0 1))" for i in range(1, 5)]
             + [f"(: a{i} (Alarm u{i}) (STV {1 if i == 3 else 0} 1))" for i in range(1, 5)]
             + ["(: aq (Alarm q) (STV 1 1))"]
         )
-        # No leak among four units: the smoothed leak rate keeps a leak on
-        # the alarmed unit q possible, live and in a timed query.
+        handler.add_atoms_no_check(sources)
+        expected = source_oracle(sources, '(Leak q)', k=1, smoothing=True)
+        live = None
         for timeout_sec in (0, 30):
             with self.subTest(timeout_sec=timeout_sec):
-                self.assertEqual(
-                    [parse_term(row) for row in handler.query(
-                        "(: $prf (Leak q) $tv)", steps=400, timeout_sec=timeout_sec)],
-                    [parse_term("(: ((inverted sensor with cpu (prior (STV 0.11904761904761901 0.8))) aq) "
-                            "(Leak q) (STV 0.37815126050420156 0.5514604290276861))")],
-                )
+                result = handler.query("(: $prf (Leak q) $tv)", steps=400, timeout_sec=timeout_sec)
+                self.assertEqual(len(result), 1)
+                tv = parse_term(result[0])[3]
+                self.assertAlmostEqual(float(tv[1]), expected['s'], delta=1e-12)
+                self.assertAlmostEqual(float(tv[2]), expected['c'], delta=1e-7)
+                if live is None:
+                    live = result
+                self.assertEqual(result, live)
 
     def test_rule_refinement_applies_in_process_and_to_timed_queries(self):
         handler = PeTTaChainer()
@@ -281,22 +285,17 @@ class TestPeTTaChainer(unittest.TestCase):
         self.assertIn("population-prior", live[0])
         self.assertEqual(handler.query("(: $prf (Producing t1) $tv)", steps=2000, timeout_sec=30), live)
 
-    def test_bayes_prior_count_applies_in_process_and_to_timed_queries(self):
+    def test_explicit_ctv_parameters_ignore_kappa_in_live_and_timed_queries(self):
         handler = PeTTaChainer()
         handler.set_bayes_prior_count(1e6)
         self.addCleanup(handler.set_bayes_prior_count, 0.2)
-        handler.add_atoms_no_check(
+        sources = (
             ["(: sensor (Implication (Leak $u) (Alarm $u)) (CTV (STV 0.9 0.01) (STV 0.2 1.0)))"]
             + [f"(: l{i} (Leak u{i}) (STV {1 if i == 1 else 0} 1))" for i in range(1, 5)]
             + ["(: aq (Alarm q) (STV 1 1))"]
         )
-        # Unknown branch provenance selects neutral .5 for the finite .9
-        # likelihood. The certain .2 branch stays exact, so the alarm remains
-        # informative. Population and likelihood reads replay in the worker.
-        count = 800 * .01 / .99
-        likelihood = (.9 * count + .5 * 1e6) / (count + 1e6)
-        prior = (1 + .5 * 1e6) / (4 + 1e6)
-        expected = likelihood * prior / (likelihood * prior + .2 * (1 - prior))
+        handler.add_atoms_no_check(sources)
+        expected = source_oracle(sources, '(Leak q)')['s']
         for timeout_sec in (0, 30):
             with self.subTest(timeout_sec=timeout_sec):
                 result = handler.query("(: $prf (Leak q) $tv)", steps=400, timeout_sec=timeout_sec)
@@ -948,9 +947,8 @@ class TestPeTTaChainer(unittest.TestCase):
         )
 
         self.assertEqual(len(present), 1)
-        self.assertIn("merge/revision", present[0])
-        self.assertIn("e_denial", present[0])
-        self.assertIn("conjunction e_paint e_agent", present[0])
+        for source in ("e_denial", "e_paint", "e_agent"):
+            self.assertIn(source, present[0])
         self.assertTrue(past)
 
     def test_map_dist_lambda_survives_python_validation_and_compilation(self):

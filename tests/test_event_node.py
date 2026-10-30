@@ -270,6 +270,27 @@ class EventNodeTests(unittest.TestCase):
                 self.assertGreaterEqual(v, 0.5 * var, how)
         self.assertAlmostEqual(moments(*or_node(0.5)[:2], 1)[0][0], 2 / 3, delta=1e-12)
 
+    def test_weak_nuisances_do_not_hide_a_thin_boundary(self):
+        p, m = 1e-6, .5000000001
+        terms = []
+        for a, b, *cs in itertools.product((0, 1), repeat=5):
+            if not (a or b):
+                continue
+            coefficient = p if a else 1-p
+            for c in cs:
+                coefficient *= m if a and c else 1-m
+            terms.append((coefficient, list(zip(('b', 'c1', 'c2', 'c3'), (b, *cs))), [1] if a else []))
+        variables = [(name, 'beta(1.0, 1.0)') for name in ('b', 'c1', 'c2', 'c3')]
+        # Integrating each c exactly gives a likelihood .5 on A and 1-m
+        # otherwise. Only b's thin boundary remains numerically difficult.
+        prior = p * .5**3 / (p * .5**3 + (1-p) * (1-m)**3)
+        mean = 2*prior/(1+prior)
+        variance = prior**2 * (-math.log(prior)/(1-prior))/((1+prior)/2) - mean**2
+        (s, v, kind), = moments(variables, terms, 1)
+        self.assertEqual(kind, 'exact')
+        self.assertAlmostEqual(s, mean, delta=1e-15)
+        self.assertAlmostEqual(v/variance, 1, delta=1e-5)
+
     def test_tiny_complement_keeps_its_positive_variance(self):
         epsilon = 1e-9
         b = 1 - epsilon

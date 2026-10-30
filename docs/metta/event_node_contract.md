@@ -121,15 +121,24 @@ one quadrature implementation. A single broad Beta (shapes at least one, sum at
 most ten) uses endpoint panels graded to 1e-12, starting with sixteen Gauss-Legendre
 points per panel and comparing independently refined passes. Forced goals have
 exact zero variance. Other goals integrate their smaller event or complement,
-avoiding cancellation between near-one second moments. The original atom cap
+avoiding cancellation between near-one second moments. If a positive-coefficient tensor exhausts its
+refinement, weak nuisance axes can be integrated out algebraically. Endpoint
+coefficient ratios bound the omitted conditional variance on every assignment;
+total variance adds these bounds. The reduced result is accepted only when
+that addition is at most 1e-6 of every resolved goal variance. Means remain
+exact. Signed terms and unresolved reduced integrals retain the bound. The original atom cap
 also applies to separable fallback messages; over-cap messages retain their
-analytic mean and claim the variance bound.
+analytic mean and claim the variance bound. Deterministic siblings are folded
+exactly before the cap: a single remaining target parameter can still be
+integrated, including when opposing likelihoods cancel.
 
 ## Output and unknown dependence
 
 An exact zero variance is reported at confidence .9999. A claimed bound, or
 variance at least s(1-s), is reported at confidence zero. Otherwise
-n = s(1-s)/V - 1 and c = n/(n+800). The separable path calculates s(1-s) before
+n = clip(s, 1e-6, 1-1e-6)(1-clip(s, 1e-6, 1-1e-6))/V - 1 and c = n/(n+800),
+the inverse of the public ideal-var decoder. The bound test still uses the
+unclipped Bernoulli variance. The separable path calculates s(1-s) before
 rounding at endpoints, so numerical saturation cannot invent certainty.
 
 For unknown coupling, the existing Charnes-Cooper LP ranges over same-evidence

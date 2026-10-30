@@ -2,10 +2,11 @@
 evidence e_K (#142): K = (op G H) screens the consequence off from its parts,
 so the completion gives the part's posterior given e_K and the consequence.
 G and H have pinned rates 0.6 unless a case says otherwise; the exact values
-are enumerations over G and H, with e_K read as K's belief (Jeffrey)."""
+are enumerations over G and H, with e_K read as a Pearl likelihood."""
 import unittest
 
 from pettachainer import PeTTaChainer
+from tests.posterior_fixture_oracle import source_oracle
 
 RULE_TV = '(CTV (STV 0.9 0.9) (STV 0.2 0.9))'
 RULE = '(CTV (STV 0.9 1) (STV 0.2 1))'
@@ -56,32 +57,32 @@ class TestCompoundCompletion(unittest.TestCase):
                 self.assertGreater(tvs[0][2], 0.999)
 
     def test_soft_compound(self):
-        """A stored (STV s 1) compound is K's belief, set over the prior its
-        parts give it. C2, C2n, C2b, C3, C3n, C3b, C4: both routes, negated
+        """A stored (STV s 1) compound is Pearl evidence on K. C2, C2n, C2b, C3, C3n, C3b, C4: both routes, negated
         (De Morgan) ones included, and SIB with a sibling of its own."""
-        for k, consequent, antecedent, exact in (
-                ('(: k (And (G) (H)) (STV 0.7 1))', '(STV 1 1)', AND, 0.945652),
-                ('(: k (And (G) (H)) (STV 0.7 1))', '(STV 1 1)', f'(Not {AND})', 0.588415),
-                ('(: k (And (G) (H)) (STV 0.7 1))', '(STV 0 1)', AND, 0.516129),
-                ('(: k (Or (G) (H)) (STV 0.7 1))', '(STV 1 1)', OR, 0.652174),
-                ('(: k (Or (G) (H)) (STV 0.7 1))', '(STV 1 1)', f'(Not {OR})', 0.243902),
-                ('(: k (Or (G) (H)) (STV 0.3 1))', '(STV 0 1)', OR, 0.036320),
-                ('(: k (And (G) (H)) (STV 0.3 1))', '(STV 1 1)', f'(Not {AND})', 0.429348)):
+        for k, consequent, antecedent in (
+                ('(: k (And (G) (H)) (STV 0.7 1))', '(STV 1 1)', AND),
+                ('(: k (And (G) (H)) (STV 0.7 1))', '(STV 1 1)', f'(Not {AND})'),
+                ('(: k (And (G) (H)) (STV 0.7 1))', '(STV 0 1)', AND),
+                ('(: k (Or (G) (H)) (STV 0.7 1))', '(STV 1 1)', OR),
+                ('(: k (Or (G) (H)) (STV 0.7 1))', '(STV 1 1)', f'(Not {OR})'),
+                ('(: k (Or (G) (H)) (STV 0.3 1))', '(STV 0 1)', OR),
+                ('(: k (And (G) (H)) (STV 0.3 1))', '(STV 1 1)', f'(Not {AND})')):
             with self.subTest(k=k, consequent=consequent, antecedent=antecedent):
-                self.assertStrength(answers([k, f'(: y (Y) {consequent})', rule(antecedent)]), exact)
-        self.assertStrength(answers(['(: hh (H) (STV 0.8 1))', '(: k (And (G) (H)) (STV 0.7 1))',
-                                     '(: y (Y) (STV 1 1))', rule(AND)]), 0.933110)
+                facts = [k, f'(: y (Y) {consequent})', rule(antecedent)]
+                exact = source_oracle(facts, '(G)', rates=[('(G)', ['STV', .6, 1]), ('(H)', ['STV', .6, 1])])
+                self.assertStrength(answers(facts), exact['s'], delta=1e-12)
+        facts = ['(: hh (H) (STV 0.8 1))', '(: k (And (G) (H)) (STV 0.7 1))',
+                 '(: y (Y) (STV 1 1))', rule(AND)]
+        exact = source_oracle(facts, '(G)', rates=[('(G)', ['STV', .6, 1]), ('(H)', ['STV', .6, 1])])
+        self.assertStrength(answers(facts), exact['s'], delta=1e-12)
 
     def test_completions_sharing_compound_evidence(self):
-        """C6: two consequences of a certain K. C6S: of an uncertain K, the
-        two completions combine over the one prior P(G | e_K). Each reads H
-        at its prior as if the other consequence did not move it, the
-        approximation master makes without e_K (0.9029 against an exact
-        0.9194), so C6S gives 0.97695 against an exact 0.97845."""
         two = [rule(AND), rule(AND, '(Z)', '(CTV (STV 0.8 1) (STV 0.3 1))', 'r2'),
                '(: y (Y) (STV 1 1))', '(: z (Z) (STV 1 1))']
-        self.assertStrength(answers(['(: k (And (G) (H)) (STV 0 1))'] + two), 0.375)
-        self.assertStrength(answers(['(: k (And (G) (H)) (STV 0.7 1))'] + two), 0.978448, delta=0.002)
+        for strength in (0, .7):
+            facts = [f'(: k (And (G) (H)) (STV {strength} 1))'] + two
+            exact = source_oracle(facts, '(G)', rates=[('(G)', ['STV', .6, 1]), ('(H)', ['STV', .6, 1])])
+            self.assertStrength(answers(facts), exact['s'], delta=1e-12)
 
     def test_derived_compound_evidence_reads_the_same_in_any_order(self):
         """C5Y, W6A, hist: K's evidence from a rule over a derived premise

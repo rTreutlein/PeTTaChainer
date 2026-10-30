@@ -50,9 +50,12 @@ def count(c):
     return math.inf if c >= 1 else K * c / (1.0 - c)
 
 
-def predictive(s, c):
+def predictive(s, c, k=None):
     """A compound's virtual-evidence strength m = (n s + 1) / (n + 2)."""
-    return s if c >= 1 else (count(c) * s + 1) / (count(c) + 2)
+    if k is None:
+        k = K
+    n = math.inf if c >= 1 else k * c / (1 - c)
+    return s if c >= 1 else (n * s + 1) / (n + 2)
 
 
 def beta_ab(s, c):

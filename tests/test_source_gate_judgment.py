@@ -39,14 +39,14 @@ class TestSourceGateJudgment(unittest.TestCase):
     # (n = 20/7 from their exact variance 7/144, P(K) = .25), C = P* + (1 - P*)(1/3).
     # A certain rule's prediction (n = 800 c/(1 - c) for its c .99983) leaves
     # 1 - 3e-7 (variance 1.17e-13 against s(1 - s) = 2.98e-7: n = 2.55e6,
-    # c .99969); at .8 (c .6, or .5455 wrapped in the Metadata conjunction)
+    # c .99991 under the public clipped-mean variance decoder); at .8 (c .6, or .5455 wrapped in the Metadata conjunction)
     # P* = .7987, C = .8658 (.8656).
     GATED = {False: (0.8657957244652751, 0.04001674008863015), True: (0.8655786350145539, 0.03980772466060817)}
 
     def test_observed_gate_fresh_and_warm(self):
         for wrapped in (False, True):
             for tv, strength, confidence in (
-                ('(STV 1 1)', 0.9999997023811048, 0.999686126673656),
+                ('(STV 1 1)', 0.9999997023811048, 0.9999065647289087),
                 ('(STV 0.8 0.6)', *self.GATED[wrapped]),
             ):
                 for individual in ('$x', 'a'):

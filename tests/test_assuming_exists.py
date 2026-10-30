@@ -5,6 +5,8 @@ import unittest
 
 import janus_swi as janus
 from pettachainer import PeTTaChainer
+from tests.posterior_fixture_oracle import source_oracle
+from tests.tv_calibration_oracles import variance_ratio
 
 
 SOURCES = [
@@ -100,10 +102,13 @@ class TestAssumingExists(unittest.TestCase):
                 with self.subTest(terms=terms, repeat=repeat):
                     rows = h.query_many_refs([f'(: $p {expression} $tv)'], steps=300)[0]
                     self.assertEqual(len(rows), 1, rows)
-                    # P and Q are the bundle's parts, conditioned on it and read jointly
-                    # from its node: given it true both are 1, given it false they are
-                    # never both true, so .9; with the complemented R, times .7.
-                    self.assertAlmostEqual(rows[0].tv[1], 0.9 * 0.7)
+                    # The bundle is one Pearl factor on the joint P/Q event;
+                    # the independent R parameter is complemented once.
+                    expected = source_oracle([
+                        '(: bundle (And (P x) (Q x)) (STV 0.9 0.8))',
+                        '(: r (R x) (STV 0.3 0.9))'], expression)
+                    self.assertAlmostEqual(rows[0].tv[1], expected['s'], delta=1e-12)
+                    self.assertTrue(.5 <= variance_ratio(*rows[0].tv[1:], expected) <= 2)
 
     def test_pooling_source_names_are_scoped_to_their_kb(self):
         other = PeTTaChainer()
@@ -114,7 +119,9 @@ class TestAssumingExists(unittest.TestCase):
             with self.subTest(repeat=repeat):
                 rows = h.query_many_refs(['(: $p (And (Q x) (P x)) $tv)'], steps=300)[0]
                 self.assertEqual(len(rows), 1, rows)
-                self.assertEqual(rows[0].tv, ['STV', 0.9, 0.8])
+                expected = source_oracle(['(: reused (And (P x) (Q x)) (STV 0.9 0.8))'], '(And (Q x) (P x))')
+                self.assertAlmostEqual(rows[0].tv[1], expected['s'], delta=1e-12)
+                self.assertTrue(.5 <= variance_ratio(*rows[0].tv[1:], expected) <= 2)
 
     def test_unrelated_world_support_answers_assuming(self):
         h = PeTTaChainer()
