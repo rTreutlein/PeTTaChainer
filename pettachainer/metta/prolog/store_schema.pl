@@ -285,7 +285,7 @@ store_schema('&completion_recipe', plain, '(Number CompletionRecipe)').
 % clear-base-rate withdraws it (prior-gated-rate-changed!), at a cost of the
 % rows reading that rate. A temporary query row is compiled again by the next
 % query, so it is only dropped.
-store_schema('&prior_gated_rules', plain, '(Number KB Statement Proof KbBackend Atom Atom)').
+store_schema('&prior_gated_rules', plain, '(Number KB Statement Proof KbBackend Atom Atom Atom)').
 store_schema('&prior_gated_live', plain, '(Number KB Statement Proof Number)').
 % The producers installed with each lifetime (install-producers!); the
 % temporary ones leave with the query's temporary rules.

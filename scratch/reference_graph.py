@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 import re
 import subprocess
+import tempfile
 
 
 def forms(source):
@@ -57,14 +58,19 @@ def measure(root, revision=None):
         for form in forms(source):
             if len(form) == 3 and form[0] == '=' and isinstance(form[1], list) and form[1] and isinstance(form[1][0], str):
                 rows.append(dict(file=file, name=form[1][0], refs=list(references(form[2]))))
-    # Prolog is unchanged by this extraction; reject use against another native revision.
+    # Parse historical native files from a scratch snapshot, without consulting
+    # project code or changing another checkout. The graph algorithm is unchanged.
     native = [f for f in files if f.endswith('.pl')]
-    if revision:
-        for f in native:
-            assert subprocess.check_output(['git', '-C', str(root), 'show', f'{revision}:{f}']) == (root / f).read_bytes(), f
-    native_rows = json.loads(subprocess.check_output(['swipl', '-q', '-f', str(Path(__file__).with_name('reference_terms.pl')), '--', *[str(root / f) for f in native]], text=True))
-    for row in native_rows:
-        row['file'] = str(Path(row['file']).relative_to(root))
+    with tempfile.TemporaryDirectory(prefix='reference-native-', dir=root / 'scratch') as tmp:
+        parse_root = Path(tmp) if revision else root
+        if revision:
+            for f in native:
+                target = parse_root / f
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(subprocess.check_output(['git', '-C', str(root), 'show', f'{revision}:{f}']))
+        native_rows = json.loads(subprocess.check_output(['swipl', '-q', '-f', str(Path(__file__).with_name('reference_terms.pl')), '--', *[str(parse_root / f) for f in native]], text=True))
+        for row in native_rows:
+            row['file'] = str(Path(row['file']).relative_to(parse_root))
     rows += native_rows
     owners = collections.defaultdict(set)
     for row in rows:

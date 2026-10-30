@@ -98,7 +98,7 @@
       (if (space-row-present? &materialized_facts $row) ()
          (let* (($_remove (foreach-flat remove-materialized! (materialized-rows (forward-output-key $kb $type))))
                 ($_add (chainer-add-atom &kb $fact))
-                ($_index (kb-index-fact! live $fact))
+                ($_index (kb-index-fact! live materialized $fact))
                 ($_rules (record-stored-rules! materialized $hash (sk-key $type $kb) $source))
                 ($_mark (add-atom &materialized_facts $row)))
             (sk-note-fact! $type $kb)))))

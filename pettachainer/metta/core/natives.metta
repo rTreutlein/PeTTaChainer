@@ -58,6 +58,17 @@
    (observed-rate-evidence (List SkFact) (List Number) EvidenceSet BaseRateEvidenceState)
    ;; MAIN identity and mutable evaluation scope are separate. These native
    ;; operations own Assuming's read-through value overlay.
+   (source-plan-addition RuntimeAddition RuntimeAddition)
+   (source-plan-parts CompiledAddition (Atom Atom Atom Atom Atom))
+   (compile-source-plan Atom Atom Atom Atom RuntimeAddition)
+   (prepare-source-addition RuntimeAddition (Atom RuntimeAddition))
+   (source-catalog-rule! Atom Number Atom Atom Bool)
+   (source-catalog-fact! Atom Atom Atom Bool)
+   (source-catalog-unindex! Atom Bool)
+   (source-catalog-remove! Number Bool)
+   (source-catalog-clear-temp! Bool)
+   (source-catalog-changed! KB Bool)
+   (source-catalog-priors Statement KBContext Atom)
    (context-add! Atom $row Bool)
    (context-remove! Atom $row Bool)
    (set-context-reuse-threshold Number Bool)

@@ -203,7 +203,7 @@
                    ($_registered (record-stored-rules! summary $hash $key (brand Proof (forgotten $hash $epoch))))
                    ($_stored (add-atom &sk_summary ($hash $key $summary $ev $deps)))
                    ($_kb (add-atom &kb $summary)))
-               (kb-index-fact! live $summary)))
+               (kb-index-fact! live summary $summary)))
          ($_none ()))))))
 
 ;; Retirement visits only physical copies registered for a withdrawn identity.

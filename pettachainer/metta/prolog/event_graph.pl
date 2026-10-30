@@ -1,6 +1,6 @@
 % Admitted conditional graphs: docs/metta/event_node_contract.md.
 :- use_module(library(ugraphs)).
-:- dynamic event_graph_plan/5, event_graph_input/4, event_graph_epoch/3, '&prem_prefix'/4, rule_name_index/2.
+:- dynamic event_graph_plan/5, event_graph_input/4, event_graph_epoch/3.
 % A source with no likelihoods remains a count. Only posterior answers cross
 % the propagated-moment boundary; unsupported reads retain the ordinary value.
 'event-network-read'(Key, Filter, Exclude, Ev, Out) :-
@@ -38,7 +38,7 @@
 graph_plan(Key, Plan) :-
     Key = ['sk-key', _, Scope], ground(Key), Scope = [_, _, _],
     ( context_active(Frame) -> true ; Frame = main ),
-    Scope = [KB|_], ( '&ctx_sk_input_epoch'(KB, Generation) -> true ; Generation = 0 ),
+    Scope = [KB|_], source_catalog_stamp(KB, Generation),
     ( event_graph_epoch(KB, Frame, Generation) -> true
     ; retractall(event_graph_epoch(KB, Frame, _)), assertz(event_graph_epoch(KB, Frame, Generation)),
       retractall(event_graph_plan(_, Frame, _, ['sk-key', _, [KB|_]], _)),
@@ -60,7 +60,7 @@ graph_model(['sk-key', Goal, Scope], Observed, Watched, Stamp, graph(Models, Fac
         findall(T-P, (member(model(T, conditional(Parent, _, _, _), _), Models),
                         node_formula(Parent, _, [], Ps), member(P, Ps)), Edges),
         vertices_edges_to_ugraph([], Edges, Graph), top_sort(Graph, _),
-        findall(Fact, ( member(Type, Compounds), graph_sources(Type, Scope, Fs), member(Fact, Fs) ), CompoundFacts),
+        findall(Fact, ( member(Type, Compounds), source_catalog_sources(Type, Scope, Fs), member(Fact, Fs) ), CompoundFacts),
         findall(Fact, ( member(model(_, conditional(_, _, _, _), Fs), Models), member(Fact, Fs) ), Reports),
         append(CompoundFacts, Reports, Factors0), sort(Factors0, Unique),
         exclude(graph_settled_factor(Models), Unique, Factors),
@@ -89,19 +89,10 @@ graph_fixed(T, Models, B) :-
 graph_input(Type, Scope, Stamp, Input) :-
     Key = ['sk-key', Type, Scope], term_hash(Key, H),
     ( event_graph_input(H, Stamp, Key, Cached) -> Input = Cached
-    ; ( graph_template(Type, Scope, Model),
+    ; ( source_catalog_template(Type, Scope, Model),
         \+ ( Type = [Head|_], connective_head(Head), Model \== root ),
-        graph_sources(Type, Scope, Facts)
-      -> findall(P, ( ccls_index([Type, Scope, _, _], Id, Ps),
-                      'rule-live?'(Id, true), 'context-rule-visible?'(Id, true),
-                      member([P, Scope, _, _], Ps), ground(P) ), Parents),
-         Scope = [KB|_], 'statement-prefix-keys'(KB, Type, Hashes),
-         findall(Child,
-                 ( member(PH, Hashes), '&prem_prefix'(PH, [Type, Scope, _, _], Id, Index),
-                   'rule-live?'(Id, true), 'context-rule-visible?'(Id, true),
-                   rules('runtime-rule-row', Id, [Child, Scope, [by, _, _], _], Ps),
-                   nth0(Index, Ps, [Type, Scope, _, _]), ground(Child) ), Children),
-         append(Parents, Children, Neighbours), Cached = input(Model, Facts, Neighbours)
+        source_catalog_sources(Type, Scope, Facts)
+      -> source_catalog_neighbours(Type, Scope, Neighbours), Cached = input(Model, Facts, Neighbours)
       ; Cached = unsupported ),
       assertz(event_graph_input(H, Stamp, Key, Cached)), Input = Cached ).
 
@@ -127,54 +118,6 @@ graph_atoms([Type|Rest], Scope, Stamp, M0, Models) :-
         ( Model = conditional(Parent, _, _, _)
         -> node_formula(Parent, _, Rest, Next) ; Next = Rest ),
         graph_atoms(Next, Scope, Stamp, [model(Type, Model, Facts)|M0], Models) ).
-
-% All forward producers in a discovered component must have one explicit
-% CTV template. Inverse and compound-reader rows are views of these sources.
-graph_template(Type, Scope, Model) :-
-    findall(producer(Id, Name, Head),
-            ( ccls_index([Type, Scope, Proof, _], Id, _), nonvar(Proof),
-              ( Proof = [Head, Name, _], Head == by
-              ; Proof = [Head, [by, Name, _]], Head == negated ),
-              'rule-live?'(Id, true), 'context-rule-visible?'(Id, true) ), Producers),
-    ( Producers == [] -> Model = root
-    ; Producers = [producer(_, Name, _)|_], ground(Name), Name \= [no_inverse|_],
-      forall(member(producer(_, N, H), Producers), (N == Name, H == by)),
-      \+ ( rule_name_index(Name, Rid),
-           rules('runtime-rule-row', Rid, [_, Scope, [[inverted, Name, with, PriorToken, _], _], _], _),
-           PriorToken \== cpu ),
-      member(producer(Id, _, _), Producers),
-      rules('runtime-rule-row', Id, [Type, Scope, _, _], Ps),
-      foldl(graph_premise(Scope), Ps, []-none, _-conditional(Parent, Pos, Neg)),
-      ground([Parent, Pos, Neg]), !,
-      Model = conditional(Parent, Id-Name, Pos, Neg) ).
-
-% Follow the compiler's TV dataflow without binding its variables. Settling
-% rows have constrained TVs and cannot masquerade as a complete antecedent.
-graph_premise(_, ['CPU', 'ContextRule'|_], State, State) :- !.
-graph_premise(Scope, [Type, Scope, _, TV], Env-none, [TV-Type|Env]-none) :-
-    ground(Type), var(TV).
-graph_premise(_, ['CPU', 'AndFormula', [A, B], TV], Env-none, [TV-F|Env]-none) :-
-    graph_boolean(A, Env, FA), graph_boolean(B, Env, FB),
-    ( FA == constant(true) -> F = FB ; FB == constant(true) -> F = FA ; F = ['And', FA, FB] ).
-graph_premise(_, ['CPU', 'NotFormula', [A], TV], Env-none, [TV-['Not', F]|Env]-none) :-
-    graph_boolean(A, Env, F).
-graph_premise(_, ['CPU', 'CTVModusPonensFormula', [A, ['CTV', Pos, Neg]], _],
-              Env-none, Env-conditional(Parent, Pos, Neg)) :-
-    graph_boolean(A, Env, Parent), Parent \== constant(true).
-
-graph_boolean(TV, Env, F) :-
-    ( member(Token-F0, Env), Token == TV -> F = F0
-    ; nonvar(TV), TV = ['STV', S, C], S =:= 1, C =:= 1, F = constant(true) ).
-
-% Authored leaves only; derived copies are not observations.
-graph_sources(Type, Scope, Facts) :-
-    Key = ['sk-key', Type, Scope], 'index-hash'(Key, H),
-    'sk-key-leaves'(Key, 'sk-any-filter', Leaves),
-    \+ ( member(Summary, Leaves), 'sk-summary-fact?'(Summary, true) ),
-    findall(Fact, ( member(Fact, Leaves), Fact = [_, _, _, ['STV', _, C]], C > 0,
-                    \+ '&sk_forward_stored'(H, _, Fact, _, _),
-                    'sk-summary-fact?'(Fact, false),
-                    \+ '&materialized_facts'('materialized-row', _, _, _, Fact, _) ), Facts).
 
 graph_parameter(Scope, Ev, Exclude, model(Type, root, Facts), [Type-Dist], Prior) :-
     ( Facts == [] -> 'sk-part-prior'(['sk-key', Type, Scope], Ev, Exclude, Prior) ; Prior = 'sk-none' ),
@@ -243,3 +186,8 @@ graph_proof(Models, Factors, Scope, [node, [conjunction|Proofs]], Evidence, Deps
     findall(D, ( ( member(model(Type, root, _), Models) ; member([Type|_], Factors) ),
                  'index-hash'(['sk-key', Type, Scope], H), 'deps-key'(H, D) ), Ds),
     'deps-join'(Ds, Deps).
+
+% Cache lifecycle belongs to the graph; force-reset requests this operation.
+event_graph_reset :-
+    retractall(event_graph_memo(_,_,_)), retractall(event_graph_input(_,_,_,_)),
+    retractall(event_graph_epoch(_,_,_)), retractall(event_graph_plan(_,_,_,_,_)).

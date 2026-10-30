@@ -312,7 +312,7 @@
          ((sk-key $type $kbctx)
             (if (head-is-member? $type (And Or Not)) sk-none
                (let* (($pattern
-                         (case (sk-prior-folds $type (collapse (sk-rule-match (assemble-stored-runtime-fact $type $kbctx $_proof $_tv)))) (
+                         (case (source-catalog-priors $type $kbctx) (
                             ((cons (sk-prior-fold $_rule $args) $_more) (car-atom (cdr-atom $args)))
                             (() (if (is-expr $type) (cons-atom (car-atom $type) (map-flat sk-fresh-variable (cdr-atom $type))) $type)))))
                       ($kbid (car-atom $kbctx))

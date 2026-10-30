@@ -23,13 +23,12 @@
 ;; Every compiler addition has one premise list and one conclusion. Encode
 ;; that product directly; no external RuntimeAddition is exposed to consumers.
 (: mm2stmt (-[det]-> CompiledAddition RuntimeAddition))
-(= (mm2stmt ($premises |- $conclusion))
-   (brand RuntimeAddition
-      (the Expression
-         (internalize-proof-structure-any
-            (if (== $premises ())
-               $conclusion
-               (rules (quote ($premises |- $conclusion))))))))
+(= (mm2stmt $addition)
+   (let* ((($source $role $priors $premises $conclusion)
+              (source-plan-parts $addition))
+          ($runtime (internalize-proof-structure-any
+             (if (== $premises ()) $conclusion (rules (quote ($premises |- $conclusion)))))))
+      (compile-source-plan $source $role $priors $runtime)))
 
 ;; Reverse the runtime tuple layout for diagnostics and public results. Only a
 ;; shaped KB can be recognized safely; arbitrary four-element expressions must
@@ -68,7 +67,9 @@
 (: externalize-proof-structure (-[nondet]-> Expression Atom))
 (= (externalize-proof-structure $term)
    (once
-      (if (is-var $term) $term
+      (if (head-is? $term source-plan)
+         (let (source-plan $_source $_role $_priors $_parents $addition) $term (externalize-proof-structure $addition))
+         (if (is-var $term) $term
          (if (== $term ()) ()
             (if (runtime-fact-kb-shaped? $term)
                (if (= $term ($type ($kbid $ctx $vars) $prf $tv))
@@ -82,7 +83,7 @@
                   (cons
                      (externalize-proof-structure (car-atom $term))
                      (map-flat externalize-proof-structure (cdr-atom $term)))
-                  $term))))))
+                  $term)))))))
 
 (: pretty (-[semidet]-> Atom AnnotatedStatement))
 (= (pretty (: $prf $type $tv)) (: $prf $type $tv))

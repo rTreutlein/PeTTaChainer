@@ -8,6 +8,8 @@
 :- ensure_loaded(ingestion).
 :- ensure_loaded(sorts).
 :- use_module(event_node).
+:- ensure_loaded('../compiler/source_ingress').
+:- ensure_loaded(source_catalog).
 :- ensure_loaded(event_graph).
 
 % Register the table's direct native calls and feed its signatures through the
@@ -440,10 +442,7 @@ node_subset([_|Xs], Ys) :- node_subset(Xs, Ys).
 
 'sk-force-reset!'([]) :-
     retractall(event_node:jacobi_rule(_, _, _, _, _)),
-    retractall(event_graph_memo(_, _, _)),
-    retractall(event_graph_input(_, _, _, _)),
-    retractall(event_graph_epoch(_, _, _)),
-    retractall(event_graph_plan(_, _, _, _, _)),
+    event_graph_reset,
     ( context_active(C) -> true ; C=main ),
     forall(retract(sk_forced_seen(C,Trie)),trie_destroy(Trie)).
 

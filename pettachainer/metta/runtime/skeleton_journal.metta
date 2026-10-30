@@ -148,7 +148,8 @@
 
 (: sk-input-changed! (-[det]-> KB Atom))
 (= (sk-input-changed! $kb)
-   (let* (($epoch (next-search-id sk_input_id))
+   (let* (($_catalog (source-catalog-changed! $kb))
+          ($epoch (next-search-id sk_input_id))
           ($_old (context-remove! &sk_input_epoch ($kb $_epoch)))
           ($_new (context-add! &sk_input_epoch ($kb $epoch)))) ()))
 

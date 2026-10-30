@@ -19,9 +19,10 @@
       (add-atom &temp_query_ref (clause_ref $ref))))
 
 ;; The &kb_prefix and &kb_open rows of a fact (runtime/kb_index.metta).
-(: kb-index-fact! (-[det]-> KbBackend Atom Atom))
-(= (kb-index-fact! $backend ($type $kbctx $proof $tv))
+(: kb-index-fact! (-[det]-> KbBackend Atom Atom Atom))
+(= (kb-index-fact! $backend $role ($type $kbctx $proof $tv))
    (let* (($fact (data $type $kbctx $proof $tv))
+          ($_catalog (source-catalog-fact! $backend $role $fact))
           ($_rows (map-flat (kb-index-row! $backend &kb_prefix $fact) (kb-fact-prefix-hashes $type))))
       (if (== (extract-vars $type) ()) ()
          (let $_open (kb-index-row! $backend &kb_open $fact (kb-fact-open-hash $type)) ()))))
@@ -32,7 +33,9 @@
 
 (: kb-unindex-fact! (-[det]-> Atom Atom))
 (= (kb-unindex-fact! ($type $kbctx $proof $tv))
-   (let $_rows (map-flat (kb-remove-prefix-row! (data $type $kbctx $proof $tv)) (kb-fact-prefix-hashes $type))
+   (let* (($fact (data $type $kbctx $proof $tv))
+          ($_catalog (source-catalog-unindex! $fact))
+          ($_rows (map-flat (kb-remove-prefix-row! (data $type $kbctx $proof $tv)) (kb-fact-prefix-hashes $type))))
       (if (== (extract-vars $type) ()) ()
          (let* (($hash (kb-fact-open-hash $type))
                 ($_open (remove-atom &kb_open ($hash $type $kbctx $proof $tv))))
@@ -176,12 +179,14 @@
       ($_other $reads))))
 
 (: kb-add-expr (-[nondet]-> KbBackend RuntimeAddition (| Bool (List $none))))
-(= (kb-add-expr $backend $expr)
+(= (kb-add-expr $backend $addition)
+   (let* ((($info $expr) (prepare-source-addition $addition))
+          ((source-info $_source $role $_priors $_parents $_recipe) $info))
    (if (= $expr (rules ($args |- $ccls)))
       (case (fold-flat positive-only-prior-read () (the (List Atom) $args)) (
-         (() (let $_id (once (kb-add-rule! $backend $args $ccls)) ()))
+         (() (let $_id (once (kb-add-rule! $backend $info $args $ccls)) ()))
          ((cons ($gated-kb $gated-pattern) $_more)
-            (kb-add-gated-rule! $backend (brand KB $gated-kb) (brand Statement $gated-pattern) $args $ccls))))
+            (kb-add-gated-rule! $backend $info (brand KB $gated-kb) (brand Statement $gated-pattern) $args $ccls))))
       (let $fact
          (typed-runtime-fact $expr)
          (if (== $backend live)
@@ -190,7 +195,7 @@
                   ((($type $kb $_prf $_tv) $fact)
                    ($_functional (functional-fact! $fact))
                    ($_add (chainer-add-atom &kb $fact))
-                   ($_index (kb-index-fact! live $fact))
+                   ($_index (kb-index-fact! live $role $fact))
                    ($_journal (sk-note-fact! $type $kb))
                    ($_outcome (note-combination-outcome! $fact)))
                   ;; The aggregates observing the statement count it at once,
@@ -199,41 +204,20 @@
                   (case (stored-statement-candidate $type $kb false) (
                      ((forward-derived $merged $_ev) (forward-maintain-aggregates! aggregate-update $merged))
                      (no-forward-output-candidate ())))))
-            (let $_index (kb-index-fact! $backend $fact)
-               (kb-add-atom $backend &kb (brand SpaceAtom $fact)))))))
+            (let $_index (kb-index-fact! $backend $role $fact)
+               (kb-add-atom $backend &kb (brand SpaceAtom $fact))))))))
 
 (: contextual-cpu? (-[det]-> $formula Bool))
 (= (contextual-cpu? $fun)
    (stored-list-member? $fun (ContextRule ReadRate ReadLikelihoodContext CompoundEvidence)))
 
-(datatype RawCompletion (raw-completion Number Number Bool Number))
-(: raw-completion-step (-[semidet]-> RawCompletion SkPattern RawCompletion))
-(= (raw-completion-step (raw-completion $index $compound $opening $contexts) $premise)
-   (case $premise (
-      ((CPU CompoundEvidence $_args $_result)
-         (raw-completion $index $contexts $opening (+ $contexts 1)))
-      ((CPU CompletionLikelihoodsFormula ($connective $negated $_conditioned $_others $_rule) $_likelihood)
-         (raw-completion $index $compound (if (== $connective And) (not (== $negated true)) (== $negated true)) $contexts))
-      ((CPU $fun $_args $_res)
-         (raw-completion $index $compound $opening (if (contextual-cpu? $fun) (+ $contexts 1) $contexts)))
-      ($_statement (raw-completion (+ $index 1) $compound $opening $contexts)))))
-
-(: kb-add-rule! (-[nondet]-> KbBackend Atom Atom Number))
-(= (kb-add-rule! $backend $args $ccls)
+(: kb-add-rule! (-[nondet]-> KbBackend Atom Atom Atom Number))
+(= (kb-add-rule! $backend $info $args $ccls)
    (let*
       (($typed-ccls (typed-runtime-fact $ccls))
        ($inputs (typed-runtime-premises $args))
-       (($recipe $prepared) (case $inputs (
-          ((cons (CPU ReadLikelihoodContext (completion-recipe $index $compound-index $opening) $_unused) $rest)
-             (data (completion-recipe $index $compound-index $opening) $rest))
-          ($_raw
-             (let ($_target $_scope $proof $_tv) $typed-ccls
-                (if (if (is-expr $proof) (if (== $proof ()) false (let $operator (car-atom $proof) (head-is? $operator antecedent-completion))) false)
-                   (let (raw-completion $position $compound-position $polarity $_contexts)
-                         (fold-semidet raw-completion-step (raw-completion -1 0 false 0) $inputs)
-                      (data (completion-recipe $position $compound-position $polarity) $inputs))
-                   (data no-completion $inputs)))))))
-       ($rule-args (context-rule-premises $typed-ccls $prepared))
+       ((source-info $_source $_role $_priors $_parents $recipe) $info)
+       ($rule-args (context-rule-premises $typed-ccls $inputs))
        ;; Temp (per-query) rule ids are offset so they can never collide
        ;; with live ones: both counters start at 0 and both backends'
        ;; rules/rule_expected/prem_index rows share the same spaces.
@@ -242,6 +226,7 @@
              (+ 1000000000 (next-search-id bwd_tmp_ruleid))
              (let $fresh (fresh-rule-id (search-id-value ruleid))
                 (progn (change-state! ruleid (+ $fresh 1)) $fresh))))
+       ($_catalog (source-catalog-rule! $backend $id $info $typed-ccls))
        ($_recipe (if (== $recipe no-completion) true
           (kb-add-atom $backend &completion_recipe (brand SpaceAtom (data $id $recipe)))))
        ($_context (context-note-rule! $id $typed-ccls))
@@ -267,20 +252,20 @@
        ($_aggregates (register-forward-aggregate-premises! (== $backend live) $rule-args)))
       $id))
 
-(: kb-add-gated-rule! (-[semidet]-> KbBackend KB Statement Atom Atom (List $none)))
-(= (kb-add-gated-rule! $backend $kb $pattern $args $ccls)
+(: kb-add-gated-rule! (-[semidet]-> KbBackend Atom KB Statement Atom Atom (List $none)))
+(= (kb-add-gated-rule! $backend $info $kb $pattern $args $ccls)
    (let $user (user-base-rate? $kb $pattern)
       (if (== $backend temp)
-         (if $user (let $_id (once (kb-add-rule! temp $args $ccls)) ()) ())
+         (if $user (let $_id (once (kb-add-rule! temp $info $args $ccls)) ()) ())
          (let* ((($_type $_kbctx $prf $_tv) (typed-runtime-fact $ccls))
                 ($hash (base-rate-cache-hash $kb $pattern))
                 ($name (rule-evidence-head $prf))
-                ($_row (add-atom &prior_gated_rules ($hash $kb $pattern $name $backend $args $ccls))))
-            (if $user (prior-gated-add! $hash $kb $pattern $name $backend $args $ccls) ())))))
+                ($_row (add-atom &prior_gated_rules ($hash $kb $pattern $name $backend $info $args $ccls))))
+            (if $user (prior-gated-add! $hash $kb $pattern $name $backend $info $args $ccls) ())))))
 
-(: prior-gated-add! (-[semidet]-> Number KB Statement Proof KbBackend Atom Atom (List $none)))
-(= (prior-gated-add! $hash $kb $pattern $name $backend $args $ccls)
-   (let* (($id (once (kb-add-rule! $backend $args $ccls)))
+(: prior-gated-add! (-[semidet]-> Number KB Statement Proof KbBackend Atom Atom Atom (List $none)))
+(= (prior-gated-add! $hash $kb $pattern $name $backend $info $args $ccls)
+   (let* (($id (once (kb-add-rule! $backend $info $args $ccls)))
           ($_live (add-atom &prior_gated_live ($hash $kb $pattern $name $id))))
       ()))
 
@@ -291,8 +276,8 @@
       (if (user-base-rate? $kb $pattern)
          (if (== (collapse (once (match &prior_gated_live ($hash $kb $stored $name $id)
                    (if (=alpha $stored $pattern) true (empty))))) ())
-            (let $_added (collapse (match &prior_gated_rules ($hash $kb $stored $name $backend $args $ccls)
-                  (if (=alpha $stored $pattern) (prior-gated-add! $hash $kb $stored $name $backend $args $ccls) (empty))))
+            (let $_added (collapse (match &prior_gated_rules ($hash $kb $stored $name $backend $info $args $ccls)
+                  (if (=alpha $stored $pattern) (prior-gated-add! $hash $kb $stored $name $backend $info $args $ccls) (empty))))
                ())
             ())
          (let $_withdrawn
@@ -311,6 +296,7 @@
                (callPredicate (Predicate (erase $ref)))
                (remove-atom &temp_query_ref (clause_ref $ref)))))
       (collapse (match &installed_producers ($hash temp $add) (remove-atom &installed_producers ($hash temp $add))))
+      (source-catalog-clear-temp!)
       (rule-dormancy-forget-temp!)
       ()))
 
@@ -325,7 +311,8 @@
       (match rules
          (runtime-rule-row $id $ccls $args)
          (let*
-            (($_retired (withdraw-rule! $id))
+            (($_catalog (source-catalog-remove! $id))
+             ($_retired (withdraw-rule! $id))
              ($_prems (remove-atom prem_index ($_pkey $_prem $id $_pidx)))
              ($_prefixes (remove-atom &prem_prefix ($_prefix $_pprem $id $_ppidx)))
              ($_ccls-idx (remove-atom ccls_index ($ccls $id $_prems2)))
@@ -353,7 +340,7 @@
 (= (withdraw-named-rules! $name)
    (let* (($kbs (withdraw-rule-ids! (list_to_set (collapse (match rule_name_index ($name $id) (the Number $id))))))
           ($_index (collapse (remove-atom rule_name_index ($name $_any))))
-          ($_gated (remove-data-rows! &prior_gated_rules (quote ($_h $_k $_p $name $_b $_a $_c))))
+          ($_gated (remove-data-rows! &prior_gated_rules (quote ($_h $_k $_p $name $_b $_info $_a $_c))))
           ($_live (remove-data-rows! &prior_gated_live (quote ($_lh $_lk $_lp $name $_lid))))
           ($_rule-templates (remove-data-rows! &spec_template
              (quote ($_rh (specialization-template-row $_rk $_rhead $_rtriggers (compile-specialization $_rparams $_rprior (: $name $_rtype $_rtv)))))))

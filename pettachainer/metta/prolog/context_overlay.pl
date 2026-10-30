@@ -151,6 +151,9 @@ context_local_member(C,Keys) :-
 % canonical structural rows can be shared, but normal MAIN evaluation never
 % applies them. Query adapters, whose proof has no assumption token, are
 % ordinary MAIN work.
+'context-addition'(['source-plan',Source,Role,Priors,Parents,Addition], ['source-plan',MainSource,MainRole,MainPriors,MainParents,MainAddition]) :- !,
+    context_canonical(Source,MainSource), context_canonical(Role,MainRole), context_canonical(Priors,MainPriors), context_canonical(Parents,MainParents),
+    'context-addition'(Addition,MainAddition).
 'context-addition'(['rules',[Premises,'|-',Conclusion]], ['rules',[MainPs,'|-',MainConcl]]) :- !,
     context_canonical(Conclusion,MainConcl), context_canonical(Premises,MainPs).
 'context-addition'(Fact, Fact).

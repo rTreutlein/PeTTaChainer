@@ -329,7 +329,7 @@
                 (let* (($_rules (record-stored-rules! forward $hash $key $proof))
                        ($_stored (add-atom &sk_forward_stored ($hash $key $fact $ev $deps)))
                        ($_kb (add-atom &kb $fact)))
-                   (kb-index-fact! live $fact)))))
+                   (kb-index-fact! live prediction $fact)))))
       (sk-note-fact! $type $kbctx)))
 
 (: sk-key-result (-[semidet]-> (List (Statement KBContext Proof TV)) SkeletonKey (List (Statement KBContext Proof TV))))

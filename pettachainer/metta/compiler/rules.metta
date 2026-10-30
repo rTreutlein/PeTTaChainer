@@ -210,8 +210,18 @@
                     (append-flat
                        $execs
                        (append-flat $ctv-execs ((CPU $mp ($atv $rule-ctv) $btv)))))))
-            (canonical-addition $shape-kb $allargs
-               (brand Proof (quote (by $prf $proof-token))) $out-b $btv))))
+            (let ($output-key $negative) (canon $out-b)
+               (brand CompiledAddition
+                  (source-application-plan
+                     (forward-source $prf $a $value $negative
+                        (if (if (== $inner ()) (is-var $atv) false) (not (computing? false $a)) false))
+                     (case $tv (
+                        ((STV $_s $_c)
+                           (cons (data $kb (rule-base-rate-pattern $params $rate-a))
+                              (cons (data $kb (rule-base-rate-pattern $params $last)) ())))
+                        ($_ctv ())))
+                     (canonical-addition $shape-kb $allargs
+                        (brand Proof (quote (by $prf $proof-token))) $out-b $btv)))))))
       (if (is-var $out-b) (empty) (compile-outputs (: $shape-kb (by $prf $prfb) $out-b $btv2)))))))
 
 ;; A sample rule's premises and its proof's arguments, built conjunct by
@@ -313,7 +323,10 @@
         ($b-plan (base-rate-read-plan $kb $b1))
         ($ctv (CTV (the STVType $itv) (STV (unknown-branch-centre $kb $b) 0)))
         ($rule-likelihoods (likelihood-read $ctv $ctv (negative-source (the OptionalSTV $raw-atv) (the OptionalSTV $btv) (the STVType $itv)))))
-      (inversion-addition (make-kb-context $kb $ctx $vars) $prf cpu $truth-premises $a $b $inverse-execs
+      (brand CompiledAddition
+       (source-application-plan (reverse-source $prf population)
+        (cons (data $kb $a1) (cons (data $kb $b1) ()))
+        (inversion-addition (make-kb-context $kb $ctx $vars) $prf cpu $truth-premises $a $b $inverse-execs
          (append-flat (prior-base-rate-premises $kb $a1 $raw-atv $atv)
             (append-flat (base-rate-premises $kb $b1 $raw-btv)
                (the (List Goal)
@@ -321,7 +334,7 @@
                    (CPU ReadLikelihoodContext () $read-context)
                    (CPU rule-likelihood-read (quote ($kb $prf $a1 $b1 $rule-likelihoods $read-context)) $read-likelihoods)
                    (CPU CTVInversionFormula (quote ($atv $btv $read-likelihoods)) $iitv)))))
-         $atv $iitv)))
+         $atv $iitv)))))
 
 ;; Whether an inversion or completion target is a stage (prolog/sorts.pl):
 ;; one the rule's own sorts make a stage is one in every instance, so `$stage`
@@ -380,6 +393,15 @@
                (data (append-flat (base-rate-premises $kb $consequent $_centre) $goals) $read)))
          ($_stv (data $goals $read))))))
 
+;; Ordered population cohorts read while resolving source likelihoods. This
+;; accompanies application plans; consumers never infer cohorts from CPU code.
+(: source-likelihood-cohorts (-[det]-> KB Statement Statement TV (List (KB Statement))))
+(= (source-likelihood-cohorts $kb $a $b $tv)
+   (case $tv (
+      ((STV $_s $_c) (cons (data $kb $a) (cons (data $kb $b) ())))
+      ((CTV (STV $_p $cp) (STV $_n $cn))
+         (if (if (>= $cp 1.0) (>= $cn 1.0) false) () (cons (data $kb $b) ()))))))
+
 ;; A rule declared `(WithPrior p (Implication a b))` is inverted per
 ;; instance by Bayes' rule: P(a) is the instance's prior and P(b) follows from
 ;; it and the rule by total probability, so an observation of b updates what is
@@ -407,12 +429,16 @@
           (compile-implication-ctv-execs $kb $params $a $b $tv $value deferred-rates))
        (($read-goals $read-likelihoods)
           (likelihood-read-premises $kb $prf $a-rate-pattern $b-rate-pattern $tv $rule-likelihoods))
+       ($cohorts (source-likelihood-cohorts $kb $a-rate-pattern $b-rate-pattern $tv))
        ($prior-token (if $population cpu $prior-prf)))
-      (inversion-addition $kc $prf $prior-token $truth-premises $a $b $inverse-execs
+      (brand CompiledAddition
+       (source-application-plan (reverse-source $prf $prior)
+        (if $population (cons (data $kb $a-rate-pattern) $cohorts) $cohorts)
+        (inversion-addition $kc $prf $prior-token $truth-premises $a $b $inverse-execs
          (append-flat $prior-goals
             (append-flat (append-flat $ctv-execs $read-goals)
                ((CPU CTVBayesFormula (quote ($atv $read-likelihoods)) $iitv))))
-         $atv $iitv)))
+         $atv $iitv)))))
 
 ;; Complete each child M of a pure And/Or H from its siblings O and original
 ;; consequence C; whole-H inversion proves H without projecting its children.
@@ -463,6 +489,9 @@
                    (($read-goals $read-rule-likelihoods)
                       (likelihood-read-premises $kb $prf $antecedent-rate-pattern $consequence-rate-pattern
                          $tv $rule-likelihoods))
+                   ($cohorts (source-likelihood-cohorts $kb $antecedent-rate-pattern $consequence-rate-pattern $tv))
+                   ($target-cohort (data $kb (rule-base-rate-pattern $params $target)))
+                   ($all-cohorts (append-flat $cohorts (cons $target-cohort ())))
                    ($proof-token
                       (implication-proof-token (append $others-proofs $consequent-proofs)))
                    ($consequent-proof (implication-proof-token $consequent-proofs))
@@ -495,11 +524,13 @@
                                          (quote ($consequent-obs-tv $completion-ctv))
                                          $out-tv))))))))))))
                   (brand CompiledAddition
+                   (source-application-plan structural-source
+                    $all-cohorts
                      ((cons (CPU ReadLikelihoodContext $recipe $_recipe-context) $premises) |-
                         (: $shape-kb
                            ((antecedent-completion $prf $idx with cpu (prior $target-prior))
                             $proof-token)
-                           $target $out-tv))))
+                           $target $out-tv)))))
                (empty))))
       (compile-antecedent-completion
          $kb $shape-kb $prf $tv $truth-premises $value $params
@@ -728,7 +759,7 @@
              ($value (if $refine? $truth-tv $tv))
              ($use (if $refine? learned-rates reconciled-rates))
              ($_equivalence (if $refine? () (register-equivalence-rule! $kb $prf $tv $a $b))))
-            (superpose (
+            (let $application (superpose (
                ;; Source truth lives at its ordinary statement key. The
                ;; executable CTV uses the immutable stated value directly,
                ;; with the ordinary base rates supplied by its permanent row.
@@ -835,7 +866,12 @@
                         $kb $shape-kb $prf $tv $truth-premises $value $params
                         $full $b $children 0 $children))
                   (empty))
-               (compile-implication-statement-rules $kb $b)))))))
+               (compile-implication-statement-rules $kb $b)))
+               (brand CompiledAddition
+                  (source-rule-plan
+                     (source-rule $prf $shape-kb $a $b $tv $params $prior
+                        (collapse (compile-reversible-compute-plan $a $b)))
+                     $application)))))))
 
 ;; Main statement compiler.
 ;;
