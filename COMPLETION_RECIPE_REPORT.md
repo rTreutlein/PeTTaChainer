@@ -185,3 +185,81 @@ No master/main/other-worktree code, shared venv, remote branch, GitHub state or
 admission service was changed. Standard verify-cache, runtime-cache and
 benchmark-output writes are runner-owned. No push or merge was performed.
 Commits use the exact trailers from the brief.
+
+## P2 follow-up: coincident sibling/consequence keys (2026-10-30)
+
+Starting HEAD: `2b79a00fc1354ddf254bf5e3cbe3d9b07d515846`.
+Master remains `80ea56284ada130c87dc0f261f0aa0c826752fba`.
+
+The review found a real policy regression: for `(And (A $x) (C $x)) ->
+(C $x)`, completing A read its earlier C occurrence under sibling exclusions.
+When C was supplied only by inversion of `C -> D` from observed D, that read
+excluded C's derived view and suppressed the completion. The new regression
+failed before the fix, returning only A's population prior
+`(STV 0.30000555540123885 0.9)`.
+
+The existing prefix reader now checks each statement key against the consequence
+with nonbinding `=alpha`. Coincident keys use observation exclusions with no
+closed pin, exactly as on master; the remaining sibling path is unchanged.
+The recipe's three ground scalars, native projection and row representation are
+unchanged. A static ordinal cannot generally decide coincidence: statement keys
+are selected and instantiated by joins, and distinct template variables may bind
+to coincident or distinct keys. Keeping the comparison at the bound-key read is
+the smallest general fix; it adds no metadata or helper functions.
+
+The regression observes D through the C-to-D rule and asserts master's full
+truth value for A, `(STV 0.5010040747520484 0.9667304990543287)`. The reference
+run used the existing harness-frozen `2bd2f6ca-d020d024b` build; a byte comparison
+of every tracked production file in `pettachainer/` and `third_party/` confirmed
+zero differences from current master. Logs: `scratch/coincident-master.log`,
+`scratch/coincident-master-source-check.log`, `scratch/coincident-red.log`,
+and `scratch/coincident-focused.log`. The focused file passes all four tests.
+
+Core o200k tokens: **323,166 -> 323,230 (+64)** for this fix, still **634 below
+master's 323,864**. Executable lines: **16,087 -> 16,089 (+2)**, one above
+master's 16,088. Named functions are unchanged. The twelve previously deleted
+names still have zero references across production, third-party, tests and docs.
+Logs: `scratch/coincident-tokens-before.log`, `scratch/coincident-tokens-after.log`,
+`scratch/coincident-counts.log`, `scratch/coincident-symbol-audit.log`.
+
+No existing expected value, proof or scheduler score was changed. The only new
+expected value is master's regression answer above; `EXPECTED_FAILURES` and
+public signatures are unchanged. All PeTTa, test and benchmark processes used
+the pinned worktree environment and capped admission, with `ulimit -v 16000000`,
+DISPLAY unset and stdin from `/dev/null`. No master/main/other-worktree code,
+shared venv, GitHub state, branch push/merge or admission-service change was made.
+
+Implementation commit: `e5d81bae` (Restore observation policy for coincident
+completion keys), with the brief's exact trailers.
+
+- Required `capped --slots 16 env PETTA_JOBS=16 scripts/verify.sh`: **PASS**,
+  exit 0, all six gates, 368 s wall. MeTTa: 162 passed, 0 failed. Python:
+  992 tests / 63 files / 591 units, 64 expected failures, 1 skip; 4,496 query
+  rows and zero aborts. Import scaling, judgment scaling (3 query rows, zero
+  aborts) and ConceptNet passed. Verify recorded PASS key `bff07d357614` before
+  this documentation appendix. Log: `scratch/coincident-verify.log`.
+- Required `compare.sh master <worktree> --full`: **PASS**, exit 0, 23 cases;
+  accuracy identical across all 22 summarized cases, including identical replay
+  belief streams. Fuzzer flags remain **6 -> 6**, with zero unsupported KBs and
+  zero crashes. 56 runs executed (including confirmation reruns), 1/45 stored
+  results reused, 882 s wall including queue/admission waits. All six initial
+  timing flags failed to repeat on paired reruns; no confirmed regression.
+  The scale-l/spq16 timing pair is marked `load differs`, so it does not establish
+  a comparable-load timing result. Learned mined b50/r50/h10/s3 peak RSS is
+  **606.8 -> 607.3 MB (+0.08%)**. This is a process peak, not live-heap size.
+  Log: `scratch/coincident-full.log`. Report:
+  `/nexus/Dev/OpenCog/bench/results/compare/80ea5628_vs_2b79a00f-d8e94e372_full/report.md`.
+- Repository-required `compare.sh anchor <worktree> --canary`: **PASS**, exit 0,
+  six cases, 11 runs executed including reruns, six stored anchor results reused,
+  225 s wall. Accuracy differs from the older anchor in four cases; all four
+  differences are present on master too. Nine inherited anchor gaps are
+  nonblocking; the harness's master comparison has no regression. Log:
+  `scratch/coincident-canary.log`. Report:
+  `/nexus/Dev/OpenCog/bench/results/compare/anchor-b4065459_vs_e5d81bae_canary/report.md`.
+
+The full comparison's uncommitted-snapshot label and the canary's implementation
+commit label resolve to the same final production runtime tree, `c8a827a35213`.
+The new regression restores the former prior-only answer to master's completion
+value; no existing test or benchmark accuracy expectation moved. The inherited expected failures, skipped
+nightly test and ConceptNet's unavailable strict defect counter remain limits.
+The final report appendix is a documentation-only change after verification.
