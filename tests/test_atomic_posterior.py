@@ -94,6 +94,7 @@ class AtomicPosteriorTests(unittest.TestCase):
                 expected = prior * predictive / (prior * predictive + (1 - prior) * (1 - predictive))
                 row, = h.query_many_refs(['(: $p (B a) $tv)'], steps=1000)[0]
                 self.assertAlmostEqual(row.tv[1], expected, delta=1e-12)
+                self.assertEqual(row.tv[2], .9999)
                 if confidence < 1:
                     self.assertGreater(row.tv[1], 0)
                     self.assertLess(row.tv[1], 1)

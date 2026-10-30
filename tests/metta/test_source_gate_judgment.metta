@@ -1,5 +1,7 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 
+;; Confidence comparisons allow floating-point reassociation at 1e-12;
+;; proof patterns remain exact; both TV fields use the oracle precision.
 ;; #45: the source acceptance is observed, while A is assumed privately.
 ;; These cold/warm proofs retain both inputs. The derived And(B, C) is a
 ;; prediction, so it moves C from its uniform prior by probability kinematics,
@@ -13,15 +15,19 @@
 !(test (collapse (let
    (: (conditional-implication ((node-jeffrey 1
       (by (consequent-projection $source $child rule)
-         (conjunction accepted (ctx proof $ctx))) $prediction $conditionals) cpu)) $type $tv)
-   (query 300 wrappedGate45 (: $p (Implication (A $x) (C $x)) $value)) $tv))
-   ((STV 0.8655786350145539 0.03980772466060817)))
+         (conjunction accepted (ctx proof $ctx))) $prediction $conditionals) cpu)) $type (STV $s $c))
+   (query 300 wrappedGate45 (: $p (Implication (A $x) (C $x)) $value))
+      (data (< (abs-math (- $s 0.8655786350145539)) 0.000000000001)
+            (< (abs-math (- $c 0.03980772466060817)) 0.000000000001))))
+   ((true true)))
 !(test (collapse (let
    (: (conditional-implication ((node-jeffrey 1
       (by (consequent-projection $source $child rule)
-         (conjunction accepted (ctx proof $ctx))) $prediction $conditionals) cpu)) $type $tv)
-   (query 300 wrappedGate45 (: $p (Implication (A $x) (C $x)) $value)) $tv))
-   ((STV 0.8655786350145539 0.03980772466060817)))
+         (conjunction accepted (ctx proof $ctx))) $prediction $conditionals) cpu)) $type (STV $s $c))
+   (query 300 wrappedGate45 (: $p (Implication (A $x) (C $x)) $value))
+      (data (< (abs-math (- $s 0.8655786350145539)) 0.000000000001)
+            (< (abs-math (- $c 0.03980772466060817)) 0.000000000001))))
+   ((true true)))
 
 !(compileadd unwrappedGate45 (: accepted (AcceptSource S) (STV 1 1)))
 !(compileadd unwrappedGate45 (: rule
@@ -29,14 +35,18 @@
    (STV 0.8 0.6)))
 !(test (collapse (let
    (: (conditional-implication ((node-jeffrey 1
-      (by (by rule accepted) (ctx proof $ctx)) $prediction $conditionals) cpu)) $type $tv)
-   (query 300 unwrappedGate45 (: $p (Implication (A $x) (C $x)) $value)) $tv))
-   ((STV 0.8657957244652751 0.04001674008863015)))
+      (by (by rule accepted) (ctx proof $ctx)) $prediction $conditionals) cpu)) $type (STV $s $c))
+   (query 300 unwrappedGate45 (: $p (Implication (A $x) (C $x)) $value))
+      (data (< (abs-math (- $s 0.8657957244652751)) 0.000000000001)
+            (< (abs-math (- $c 0.04001674008863015)) 0.000000000001))))
+   ((true true)))
 !(test (collapse (let
    (: (conditional-implication ((node-jeffrey 1
-      (by (by rule accepted) (ctx proof $ctx)) $prediction $conditionals) cpu)) $type $tv)
-   (query 300 unwrappedGate45 (: $p (Implication (A $x) (C $x)) $value)) $tv))
-   ((STV 0.8657957244652751 0.04001674008863015)))
+      (by (by rule accepted) (ctx proof $ctx)) $prediction $conditionals) cpu)) $type (STV $s $c))
+   (query 300 unwrappedGate45 (: $p (Implication (A $x) (C $x)) $value))
+      (data (< (abs-math (- $s 0.8657957244652751)) 0.000000000001)
+            (< (abs-math (- $c 0.04001674008863015)) 0.000000000001))))
+   ((true true)))
 
 ;; Inspect the live private value: MAIN evidence/dependency identity survives
 ;; borrowing, the certain gate is read as a condition (given-ev), and the

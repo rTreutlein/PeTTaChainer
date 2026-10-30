@@ -105,15 +105,25 @@
 ;; revised to P* = .8997 (n = 7200), M = P* + (1 - P*)(1/3) = .9331, as for a
 ;; plain And conclusion; M keeps the uniform prior's variance, hence the low
 ;; confidence.
+;; Confidence comparisons allow floating-point reassociation at 1e-12.
 !(compileadd projectionSelfKb (: r (Implication (G $x) (And (Implication (A $x) (B $x)) (M $x))) (STV 0.9 0.9)))
 !(compileadd projectionSelfKb (: g (G c) (STV 1 1)))
-!(test (let (: $_proof $_type $tv) (query 300 projectionSelfKb (: $p (M c) $tv)) $tv) (STV 0.9331614438710613 0.0846757387459353))
+!(test (let (: $_proof $_type (STV $s $c)) (query 300 projectionSelfKb (: $p (M c) $tv))
+   (data (< (abs-math (- $s 0.9331614438710613)) 0.000000000001)
+         (< (abs-math (- $c 0.0846757387459353)) 0.000000000001)))
+   (true true))
 !(compileadd projectionSelfGroundKb (: r (Implication (G) (And (Implication (A) (B)) (M))) (STV 0.9 0.9)))
 !(compileadd projectionSelfGroundKb (: g (G) (STV 1 1)))
-!(test (let (: $_proof $_type $tv) (query 300 projectionSelfGroundKb (: $p (M) $tv)) $tv) (STV 0.9331614438710613 0.0846757387459353))
+!(test (let (: $_proof $_type (STV $s $c)) (query 300 projectionSelfGroundKb (: $p (M) $tv))
+   (data (< (abs-math (- $s 0.9331614438710613)) 0.000000000001)
+         (< (abs-math (- $c 0.0846757387459353)) 0.000000000001)))
+   (true true))
 !(compileadd projectionPlainKb (: r (Implication (G) (And (X) (M))) (STV 0.9 0.9)))
 !(compileadd projectionPlainKb (: g (G) (STV 1 1)))
-!(test (let (: $_proof $_type $tv) (query 300 projectionPlainKb (: $p (M) $tv)) $tv) (STV 0.9331614438710613 0.0846757387459353))
+!(test (let (: $_proof $_type (STV $s $c)) (query 300 projectionPlainKb (: $p (M) $tv))
+   (data (< (abs-math (- $s 0.9331614438710613)) 0.000000000001)
+         (< (abs-math (- $c 0.0846757387459353)) 0.000000000001)))
+   (true true))
 ;; Inspect the live judgment before the ordinary query bracket removes its
 ;; temporary context, so this checks semantic evidence rather than proof leaves.
 !(let* (((compilation-plan (: $ctx $proof $type $tv) $adds)

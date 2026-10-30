@@ -38,7 +38,9 @@ event_node_moments(Vars, Terms0, Goals, Answers) :-
             maplist(ratio(Z0), N0, Ss),
             maplist(square_ratio(Z0), N0, H0),
             exclude([_-D]>>(D = point(_)), Vars, Free),
-            (   exact_second_moments(Free, StableTerms, Goals, Mu, H0, Exact)
+            (   Free == []
+            ->  maplist([S, a(S, 0.0, exact)]>>true, Ss, StableAnswers)
+            ;   exact_second_moments(Free, StableTerms, Goals, Mu, H0, Exact)
             ->  (   Exact == bound
                 ->  maplist(bound_answer, Ss, StableAnswers)
                 ;   maplist(exact_answer(Z0), Ss, Exact, StableAnswers) )
