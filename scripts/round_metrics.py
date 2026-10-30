@@ -45,7 +45,7 @@ def append(repo, branch, base, landed, results=RESULTS):
     now = datetime.now(timezone.utc)
     hours = (now.timestamp() - int(commits[0].split()[1])) / 3600
     stats = git(repo, "diff", "--numstat", f"{base}..{landed}",
-                "--", ".", ":(exclude)docs/**", ":(exclude,glob)**/*_REPORT.md")
+                "--", "pettachainer")
     changes = [entry.split(b"\t", 2) for entry in stats.splitlines()]
     iterations = 0
     for report in results.glob("compare/*/compare.json"):

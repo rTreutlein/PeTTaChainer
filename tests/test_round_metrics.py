@@ -81,7 +81,7 @@ class RoundMetrics(unittest.TestCase):
         self.assertEqual(row["landed_commit"], self.landed)
         self.assertEqual(row["branch_commits"], "2")
         self.assertEqual((row["files_changed"], row["lines_added"], row["lines_removed"]),
-                         ("6", "7", "2"))
+                         ("5", "5", "2"))
         self.assertEqual((row["core_tokens_before"], row["core_tokens_after"]), ("8", "18"))
         self.assertEqual(row["compare_reports"], "3")
         self.assertEqual((rows[1]["core_tokens_before"], rows[1]["core_tokens_after"]), ("", ""))
@@ -90,7 +90,7 @@ class RoundMetrics(unittest.TestCase):
         self.assertAlmostEqual(float(row["hours"]), elapsed, places=6)
 
     def test_rename_uses_git_numstat_defaults(self):
-        (self.repo / "other.txt").rename(self.repo / "renamed\tfile\n.txt")
+        (self.repo / "pettachainer/core.py").rename(self.repo / "pettachainer/renamed\tfile\n.py")
         renamed = self.commit("rename")
         with patch.dict(sys.modules, tiktoken=None):
             metrics.append(self.repo, "round-metrics", self.landed, renamed, self.results)
