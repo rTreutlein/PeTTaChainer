@@ -20,10 +20,6 @@
 
 ;; --- Upward joins --------------------------------------------------------------
 
-;; Keep selection as an output across the FFI: nth0/4 types its third
-;; position as an input under strict checking.
-(: rule-premise (-[semidet]-> Number (List SkPattern) SkPattern))
-
 (: sk-forward-start-step (-[semidet]-> SkeletonKey Atom Atom Atom))
 (= (sk-forward-start-step (sk-key $type $kbctx) $_acc $trigger)
    (let $_started
@@ -100,15 +96,7 @@
 
 ;; --- The run ----------------------------------------------------------------
 
-(: SkeletonForwardItem Type)
-(: sk-fwd-seed (-[det]-> SkeletonKey SkeletonForwardItem))
-(: sk-fwd-key (-[det]-> SkeletonKey SkeletonForwardItem))
-(: sk-fwd-rest (-[det]-> SkeletonKey SkeletonForwardItem))
-
-;; The agenda a run leaves, carried to the next run on its knowledge base
-;; (docs/metta/forward_units.md).
-(: &sk_forward_agenda (SpaceOf (KB Number SkeletonForwardItem)))
-!(bind! &sk_forward_agenda (new-space))
+(datatype SkeletonForwardItem (sk-fwd-seed SkeletonKey) (sk-fwd-key SkeletonKey) (sk-fwd-rest SkeletonKey))
 
 ;; The share of a run's units its own facts get before the carried agenda
 ;; competes for the rest. Process-wide.
@@ -119,10 +107,6 @@
 
 (: set-forward-seed-share (-[det]-> Number Bool))
 (= (set-forward-seed-share $share) (change-state! forward_seed_share $share))
-
-;; Per key, the value a forward run last built on.
-(: &sk_forward_taken (SpaceOf (Number SkeletonKey SkeletonValue)))
-!(bind! &sk_forward_taken (new-space))
 
 (: sk-taken-value (-[det]-> SkeletonKey SkeletonValue))
 (= (sk-taken-value $key)
@@ -174,7 +158,6 @@
 (= (sk-item-key (sk-row-item $_seq $_khash $key $_rhash $_row)) $key)
 (= (sk-item-key (sk-fold-check $_hash $fold)) $fold)
 
-
 ;; A reader whose value differs from the one a run last built on goes on the
 ;; agenda by how far it moved from it. Work a budget cut off is therefore found
 ;; again by the next run that reaches the reader.
@@ -202,8 +185,7 @@
                       ($_none ())))))
             (sk-forward-start! $key))))))
 
-(: SkeletonForwardEntry Type)
-(: sk-fwd-at (-[det]-> Number SkeletonForwardItem SkeletonKey SkeletonForwardEntry))
+(datatype SkeletonForwardEntry (sk-fwd-at Number SkeletonForwardItem SkeletonKey))
 
 ;; The keys of the rows reading a key, current or stale.
 (: sk-reader-keys-step (-[det]-> (List SkeletonKey) SkeletonForwardEntry (List SkeletonKey)))
@@ -257,9 +239,7 @@
           ($changed (fold-semidet sk-changed-step $agenda $readers)))
       (if (> (search-id-value sk_eval_budget) 0) $changed (fold-semidet sk-rest-step $changed $entries))))
 
-(: SkeletonWave Type)
-(: sk-wave
-   (-[det]-> (List SkeletonForwardEntry) (Heap SkeletonForwardItem) (List SkeletonKey) SkeletonWave))
+(datatype SkeletonWave (sk-wave (List SkeletonForwardEntry) (Heap SkeletonForwardItem) (List SkeletonKey)))
 
 ;; A wave takes the agenda's keys in order of how far each key changed while
 ;; the rows they bring fit the room: new rows of their joins (rows numbered
@@ -291,8 +271,7 @@
                      (sk-forward-wave $room (+ $stale $more) $rest (cons (sk-fwd-at $priority $item $key) $wave)
                         (case $item (((sk-fwd-key $_k) (cons $key $taken)) ($_other $taken))))))))))))
 
-(: SkeletonRun Type)
-(: sk-run (-[det]-> (Heap SkeletonForwardItem) (List SkeletonKey) SkeletonRun))
+(datatype SkeletonRun (sk-run (Heap SkeletonForwardItem) (List SkeletonKey)))
 
 ;; Waves run while the allowance stays above the floor and the agenda lasts.
 ;; Each wave commits to its one result, so the loop leaves no choice points.

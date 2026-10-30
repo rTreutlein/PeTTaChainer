@@ -3,17 +3,17 @@
 ;; cached merged values and the pending-work index; they never evaluate,
 ;; expand or start anything.
 
-(: DiagnosticSearch Type)
-;; roots, roots with search work left, deliveries still queued, steps left
-(: search (-[det]-> (List SkPattern) Number Number Number DiagnosticSearch))
-(: DiagnosticRoute Type)
-;; rule, premise node, conclusion, conclusion proof, statements still to
-;; prove, evidence of the premise keys already bound
-(: continuation (-[det]-> Number SkPattern Statement Proof (List Statement) (List Evidence) DiagnosticRoute))
-(: candidate (-[det]-> Number SkPattern Statement Proof (List Statement) (List Evidence) DiagnosticRoute))
-(: DiagnosticNode Type)
-;; expanded, work left, answers with a value, children, routes
-(: node (-[det]-> Bool Bool Number (List SkPattern) (List DiagnosticRoute) DiagnosticNode))
+(datatype DiagnosticSearch
+   ;; roots, roots with search work left, deliveries still queued, steps left
+   (search (List SkPattern) Number Number Number))
+(datatype DiagnosticRoute
+   ;; rule, premise node, conclusion, conclusion proof, statements still to
+   ;; prove, evidence of the premise keys already bound
+   (continuation Number SkPattern Statement Proof (List Statement) (List Evidence))
+   (candidate Number SkPattern Statement Proof (List Statement) (List Evidence)))
+(datatype DiagnosticNode
+   ;; expanded, work left, answers with a value, children, routes
+   (node Bool Bool Number (List SkPattern) (List DiagnosticRoute)))
 
 ;; Whether the search still has work at or below a node: it is unexpanded, or
 ;; the pending-work index holds work below it. A root never reached has no
@@ -43,8 +43,7 @@
 ;; statement premise without a stored fact is the gap, with the statements
 ;; from it on still to prove and the evidence of the facts bound before it. A
 ;; rule whose every premise has a fact has no gap.
-(: DiagnosticGap Type)
-(: gap (-[det]-> SkPattern (List Statement) (List Evidence) DiagnosticGap))
+(datatype DiagnosticGap (gap SkPattern (List Statement) (List Evidence)))
 (: diagnostic-gap (-[nondet]-> (List SkPattern) (List Evidence) DiagnosticGap))
 (= (diagnostic-gap () $_evidence) (empty))
 (= (diagnostic-gap (cons $premise $rest) $evidence)

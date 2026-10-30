@@ -33,8 +33,7 @@
       (collapse (match &sk_row ($hash $_key $_rhash (sk-row $_ident $_concl $premises $_seq)) $premises))))
 
 ;; A frozen key's rows leave with their reader links, stale marks and views.
-(: SkeletonRowRef Type)
-(: sk-row-ref (-[det]-> SkeletonKey Number SkeletonRow SkeletonRowRef))
+(datatype SkeletonRowRef (sk-row-ref SkeletonKey Number SkeletonRow))
 
 ;; A frozen key nothing reads any more, and that is a member of no fold but
 ;; base rates and implication instance folds (which keep their members'
@@ -145,8 +144,7 @@
                 ($_collected (deps-gc! (sk-deps-roots))))
             $epoch))))
 
-(: SkeletonFrozen Type)
-(: sk-frozen (-[det]-> Number SkeletonKey SkeletonFrozen))
+(datatype SkeletonFrozen (sk-frozen Number SkeletonKey))
 
 ;; The summary is the merge of what the key's rows derived; its stored facts
 ;; stay as they are. It keeps that value's evidence, so overlap with facts

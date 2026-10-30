@@ -1,11 +1,9 @@
 ;; Forward schemas: trigger and output keys, aggregate identities and
 ;; observations, and the stored facts of a statement.
 
-(datatype NoForwardOutputCandidate
-   no-forward-output-candidate)
+(datatype NoForwardOutputCandidate no-forward-output-candidate)
 
-(datatype ForwardOutputKey
-   (forward-output-key KBContext Statement))
+(datatype ForwardOutputKey (forward-output-key KBContext Statement))
 
 (: forward-base-rate-identity
    (-[det]-> KB Statement ForwardAggregateIdentityKey))
@@ -19,14 +17,12 @@
 (: forward-class-link-descriptor
    (-[det]-> KB Term Term SkeletonKey ForwardAggregateDescriptor))
 
-(datatype ForwardAggregateIdentityRow
-   (forward-aggregate-identity-row ForwardAggregateIdentityKey Number))
+(datatype ForwardAggregateIdentityRow (forward-aggregate-identity-row ForwardAggregateIdentityKey Number))
 
 (datatype ForwardAggregateInterest
    (forward-aggregate-interest ForwardTriggerKey Number ForwardAggregateDescriptor))
 
-(datatype ForwardAggregateState
-   (forward-aggregate-state Number Number Number Number))
+(datatype ForwardAggregateState (forward-aggregate-state Number Number Number Number))
 
 (datatype ForwardAggregateObservationValue
    no-forward-aggregate-observation-value
@@ -105,8 +101,3 @@
                (if (materialized-forward-fact? $fact) (empty)
                   (if $copies $fact
                      (if (space-row-present? &sk_forward_stored ((index-hash (sk-key $ftype $fkb)) $_key $fact $_ev $_deps)) (empty) $fact)))))))))
-
-(: update-aggregate-sources!
-   (-[det]-> Number ForwardAggregateObservationKey SourceList Number SourceList Number Bool))
-
-(: aggregate-readers (-[det]-> Number Number (List ForwardAggregateObservationKey)))

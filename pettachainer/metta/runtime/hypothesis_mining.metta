@@ -13,66 +13,6 @@
 ;; rules, so adding stays constant time. Reviewing and dropping hypotheses is
 ;; the review's work (hypothesis_review.metta).
 
-;; kb -> the new hypotheses one fact may add, and the live ones a consequent
-;; pattern may have.
-(: &hypothesis_mining (SpaceOf (KB Number Number)))
-!(bind! &hypothesis_mining (new-space))
-
-;; kb -> the predicate of its link facts, (link earlier later).
-(: &hm_link (SpaceOf (KB Atom)))
-!(bind! &hm_link (new-space))
-
-;; Time point -> kb, a true link fact it is an end of.
-(: &hm_links (SpaceOf (Atom KB Atom)))
-!(bind! &hm_links (new-space))
-
-;; A fact's features are read from the last `hm-window` true facts recorded
-;; for each of its constants, newest first: value hash -> kb, value, the
-;; value's count of recorded facts, global sequence number, statement, its
-;; time point and layer, with the value's count beside.
-(: &hm_recent (SpaceOf (Number KB Atom Number Number Atom Atom Atom)))
-!(bind! &hm_recent (new-space))
-(: &hm_value_count (SpaceOf (Number KB Atom Number)))
-!(bind! &hm_value_count (new-space))
-
-;; Observations in the last hm-window distinct time points of each KB.
-;; A late link can replay those endpoints; older observations leave this index.
-;; False observations are outcomes too, but never antecedent features.
-(: &hm_period (SpaceOf (Number KB Atom Number Atom Number Atom)))
-!(bind! &hm_period (new-space))
-(: &hm_period_count (SpaceOf (KB Number)))
-!(bind! &hm_period_count (new-space))
-(: &hm_period_order (SpaceOf (Number KB Atom Number)))
-!(bind! &hm_period_order (new-space))
-
-;; Pattern hash -> kb, consequent pattern, facts of it seen since its first
-;; hypothesis: the opportunities a hypothesis had since it was born.
-(: &hm_outcomes (SpaceOf (Number KB Atom Number)))
-!(bind! &hm_outcomes (new-space))
-
-;; Consequent hash -> kb, consequent, rule name, antecedent, the
-;; consequent's count when it was born. Only live hypotheses.
-(: &hm_live (SpaceOf (Number KB Atom Atom Atom Number)))
-!(bind! &hm_live (new-space))
-
-;; Live hypotheses no review has read yet: their first read folds their
-;; instances and needs budget (hypothesis_review.metta).
-(: &hm_unread (SpaceOf (Atom KB)))
-!(bind! &hm_unread (new-space))
-
-;; Implication hash -> kb, implication: tried candidates. Screening can clear
-;; one when current instance folds no longer support its screen; other drops stay tried.
-(: &hm_tried (SpaceOf (Number KB Atom)))
-!(bind! &hm_tried (new-space))
-
-;; Screening key hash -> kb, key, dropped name, implication.
-;; One reason per screened candidate; reconsideration reads current folds.
-(: &hm_screened (SpaceOf (Number KB SkeletonKey Atom Atom)))
-!(bind! &hm_screened (new-space))
-;; Only changed screening keys await the next review; repeated changes coalesce.
-(: &hm_screen_dirty (SpaceOf (Number KB SkeletonKey)))
-!(bind! &hm_screen_dirty (new-space))
-
 (: hm-screen-changed! (-[det]-> Number SkeletonKey Atom))
 (= (hm-screen-changed! $hash $key)
    (collapse (once (match &hm_screened ($hash $kb $stored $_name $_rule)
@@ -80,11 +20,6 @@
          (if (space-row-present? &hm_screen_dirty ($hash $kb $key)) ()
             (add-atom &hm_screen_dirty ($hash $kb $key)))
          (empty))))))
-
-;; Implication hash -> kb, implication, the instance and the context of its
-;; first sighting: singles seen once and not proposed yet.
-(: &hm_seen (SpaceOf (Number KB Atom Number Atom)))
-!(bind! &hm_seen (new-space))
 
 (: hm-window (-[det]-> Number))
 (= (hm-window) 24)
@@ -118,8 +53,7 @@
          ((cons $count $_rest) $count)
          (() 0)))))
 
-(: HmOutcome Type)
-(: hm-outcome (-[det]-> Atom Number HmOutcome))
+(datatype HmOutcome (hm-outcome Atom Number))
 
 (: hm-count-outcome! (-[det]-> KB Atom Atom))
 (= (hm-count-outcome! $kb $pattern)
@@ -241,11 +175,9 @@
 ;; makes it hold. At most max-new are proposed.
 ;; Candidate proposal changes neither observation counts nor the recent window:
 ;; a late link joins existing observations without ingesting them a second time.
-(: HmMiningLimits Type)
-(: hm-limits (-[det]-> Number Number HmMiningLimits))
+(datatype HmMiningLimits (hm-limits Number Number))
 
-(: HmObservation Type)
-(: hm-observation (-[det]-> Atom Number Atom Atom HmObservation))
+(datatype HmObservation (hm-observation Atom Number Atom Atom))
 (: hm-propose-observation! (-[det]-> KB HmMiningLimits (Number (List AnnotatedStatement)) HmObservation (Number (List AnnotatedStatement))))
 
 (= (hm-propose-observation! $kb (hm-limits $max-new $max-live) $state (hm-observation $type $s $layer $features))
@@ -291,10 +223,6 @@
                          ())))
       (let ($_proposed $picked) (hm-propose-observation! $kb $setting (0 ()) (hm-observation $type $s $layer $features))
          $picked)))
-
-;; The hypotheses an added statement proposes, to be compiled by compileadd.
-;; A true link fact is recorded under the two time points it links.
-(: hypothesis-link-observations (-[det]-> Atom Atom Number (List HmObservation)))
 
 (: hm-observe! (-[det]-> KB AnnotatedStatement (List AnnotatedStatement)))
 (= (hm-observe! $kb $stmt)

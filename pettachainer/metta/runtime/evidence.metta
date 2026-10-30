@@ -82,13 +82,6 @@
 (= (make-space-row4 $first $second $third $fourth)
    (brand SpaceAtom (cons $first (cons $second (cons $third (cons $fourth ()))))))
 
-(: add-space-atom! (-[det]-> $space SpaceAtom Bool))
-
-;; A counter's value, 0 before it is set (runtime_helpers.pl): read on every
-;; search step, so kept native.
-(: search-id-value (-[det]-> CounterKey Number))
-(: fresh-rule-id (-[det]-> Number Number))
-
 (: next-search-id (-[det]-> CounterKey Number))
 (= (next-search-id $key) (let $n (search-id-value $key) (progn (change-state! $key (+ $n 1)) $n)))
 
@@ -101,8 +94,6 @@
       ((cons $ev $_rest) $ev)
       (() (ev-set 0)))))
 
-(: proof-ref-negated? (-[det]-> Number Bool))
-(: proof-zero-likelihood? (-[det]-> Proof Bool))
 ;; cdr-atom exposes the erased proof representation as an untyped list. This
 ;; is the boundary that restores the semantic Proof brand to each raw child.
 (: proof-children (-[det]-> Expression (List Proof)))
@@ -343,13 +334,6 @@
                   (evidence-union $base (evidence-set (cons (rule-ev $typed-kbid $name) ())))
                   $base)))))))
 
-;; A proof that gives way to another: a connective's formula over its parts
-;; (a conjunction, disjunction or conditioned reading) to a compound node's
-;; joint posterior of the same key, which reads every part apart from the
-;; compound; a settled step to the complete
-;; step it settles, which reads the settling part with the compound's other
-;; parts.
-(: sk-step-proof (-[det]-> Proof Proof))
 (: proof-dominates? (-[det]-> Proof Proof Bool))
 (= (proof-dominates? $prf-a $prf-b)
    (if (case $prf-a (

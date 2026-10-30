@@ -13,10 +13,6 @@
 ;; has negative evidence (ONA's anticipation). A fact stated for the time point
 ;; after the link is not reconciled with the false one: the link closes it.
 
-;; kb -> its observed predicates.
-(: &observed (SpaceOf (KB Atom)))
-!(bind! &observed (new-space))
-
 (: set-observed-predicate (-[det]-> KB Atom Bool))
 (= (set-observed-predicate $kb $head)
    (let* (($_declared (declared-head! $head))

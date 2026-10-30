@@ -46,8 +46,7 @@
 ;; Inverts compute goals from the conclusion backwards: each goal's one
 ;; unknown direct input is computed by the inverse operation, then the
 ;; original goal validates it.
-(datatype ComputeInversePlan
-   (inverse-compute-plan (List Goal) (List Variable)))
+(datatype ComputeInversePlan (inverse-compute-plan (List Goal) (List Variable)))
 
 (: inverse-compute-goals (-[semidet]-> (List Goal) (List Variable) ComputeInversePlan))
 (= (inverse-compute-goals () $known) (inverse-compute-plan () $known))
@@ -85,8 +84,7 @@
    (let ($params $pattern) (copy_term ($params (rule-query-pattern $side)))
       (brand Statement $pattern)))
 
-(datatype RatePlan
-   (rate-plan (List Goal) Atom))
+(datatype RatePlan (rate-plan (List Goal) Atom))
 (: base-rate-read-plan (-[det]-> KB Statement RatePlan))
 (= (base-rate-read-plan $kb $pattern)
    (let $goals (base-rate-premises $kb $pattern $result) (rate-plan $goals $result)))
@@ -99,10 +97,7 @@
 ;; evidence; reconciling would count them again, so only the negative branch
 ;; is reconciled. `deferred-rates`: the application resolves the likelihoods
 ;; itself (rule-likelihood-read).
-(datatype RateUse
-   reconciled-rates
-   learned-rates
-   deferred-rates)
+(datatype RateUse reconciled-rates learned-rates deferred-rates)
 
 ;; Rules stored with an STV need a CTV derived from antecedent/consequent base
 ;; rates before modus ponens can use them. An explicit CTV already carries both
@@ -258,13 +253,6 @@
 (= (rule-evidence-registered? $kbid $name)
    (not (== (collapse (once (match &rule_evidence_names ($name $kbid) true))) ())))
 
-;; Ground given rules, by name and KB. A ground implication is knowledge about
-;; its particular instances, as a fact is: its applications carry a certain
-;; rule-ev entry, so a view that never applied it cannot stand for one that
-;; did. A general given rule stays a parameter and carries no entry.
-(: &given_rules (SpaceOf (Proof KB)))
-!(bind! &given_rules (new-space))
-
 (: given-rule? (-[det]-> KB Proof Bool))
 (= (given-rule? $kbid $name) (not (== (collapse (once (match &given_rules ($name $kbid) true))) ())))
 
@@ -326,24 +314,6 @@
 (= (register-rule-evidence-name! $kb $name)
    (let $_added (collapse (once (add-atom &rule_evidence_names ($name $kb)))) ()))
 
-;; given rules whose every branch has strength 0 or 1, by name and KB
-(: &deterministic_rules (SpaceOf (Proof KB)))
-!(bind! &deterministic_rules (new-space))
-
-;; Rules stated as a certain equivalence, ((1, 1), (0, 1)), over one
-;; statement with the conclusion's variables, by their proof name as their
-;; applications carry it, such as (bi-backward name): the conclusion is the
-;; premise, so an application of one update is that update
-;; (sk-prior-update-of). A premise with a variable the conclusion lacks, as in
-;; (P $x $y) -> (Q $x), is one of many instances, whose population prior is
-;; not the conclusion's: carrying its update put Q's own inversion under P's
-;; prior. A rule named no_inverse
-;; declares its conclusion no observation of its premise, and a refined rule
-;; holds by its learned truth: neither is one (the conflict benchmark's claims
-;; run from a source-wide reliability to each claimed node, no_inverse).
-(: &equivalence_rules (SpaceOf (Proof KB)))
-!(bind! &equivalence_rules (new-space))
-
 (: equivalence-rule? (-[det]-> KB Proof Bool))
 (= (equivalence-rule? $kb $prf) (not (== (collapse (once (match &equivalence_rules ($prf $kb) true))) ())))
 
@@ -376,8 +346,7 @@
 ;; A conjunction's conjuncts grouped into parts that share no variables;
 ;; ground conjuncts join the first part that has variables, since a single
 ;; instance multiplies nothing.
-(datatype ConjunctSplit
-   (conjunct-split (List Atom) (List Atom)))
+(datatype ConjunctSplit (conjunct-split (List Atom) (List Atom)))
 (: split-by-variables (-[det]-> (List Variable) (List Atom) ConjunctSplit ConjunctSplit))
 (= (split-by-variables $vars $part (conjunct-split $touching $apart))
    (if (== (/==\ $vars (extract-vars $part)) ())
@@ -408,8 +377,7 @@
 ;; The premises estimating a pattern's base rate as `$brtv`, its prior: a
 ;; compound's is one aggregate key per pattern (CompoundRate, #142), any other
 ;; statement is folded.
-(datatype BaseRateParts
-   (base-rate-parts (List Goal) (List Atom)))
+(datatype BaseRateParts (base-rate-parts (List Goal) (List Atom)))
 (: base-rate-premises (-[det]-> KB Statement $truth-value (List Goal)))
 (= (base-rate-premises $kb $pattern $brtv)
    (if (head-is-member? $pattern (Not And Or))
@@ -523,29 +491,12 @@
 ;; drains its population. This carries no observation or prior evidence.
 (= (population-prior-tv no-evidence) (STV 0.5 0.0))
 
-;; A KB may declare that it stores only the true instances of a predicate
-;; (logic KBs of Provable, Path or Ancestor facts): its stored instances are
-;; then no sample of the predicate's population, their rate (1) estimates
-;; nothing, and an inversion over it would assert every antecedent of every
-;; stored conclusion. Declared before the rules that would be inverted onto
-;; it are added.
-(: &positive_only_predicates (SpaceOf (KB Atom)))
-!(bind! &positive_only_predicates (new-space))
-
 (: set-positive-only-predicate (-[det]-> KB Atom Bool))
 (= (set-positive-only-predicate $kb $head)
    (let $_declared (declared-head! $head)
       (if (== (collapse (once (match &positive_only_predicates ($kb $head) true))) ())
          (let $_row (add-atom &positive_only_predicates ($kb $head)) true)
          true)))
-
-;; A pattern one of whose conjuncts (or a negated conjunct's statement) has a
-;; positive-only predicate.
-;; A KB may declare that a predicate's rules and facts are the only ways one of
-;; its statements becomes true (docs/metta/complete_predicates.md). Declared
-;; before knowledge is added.
-(: &complete_predicates (SpaceOf (KB Atom)))
-!(bind! &complete_predicates (new-space))
 
 (: complete-predicate? (-[det]-> KB Atom Bool))
 (= (complete-predicate? $kb $head)
@@ -601,8 +552,7 @@
 
 ;; A sample rule's premises and its proof's arguments, built conjunct by
 ;; conjunct, and the antecedent truth values.
-(datatype InstanceSampleParts
-   (instance-sample-parts (List Goal) (List Atom) (List Atom)))
+(datatype InstanceSampleParts (instance-sample-parts (List Goal) (List Atom) (List Atom)))
 (: implication-instance-premise (-[det]-> KB Atom InstanceSampleParts InstanceSampleParts))
 (= (implication-instance-premise $kb $conjunct (instance-sample-parts $premises $proofs $tvs))
    (instance-sample-parts
@@ -893,17 +843,14 @@
 
 ;; A grounded rule is one specialization job. The specialization engine below
 ;; handles template indexing and late facts.
-(datatype SpecializationJob
-   (compile-specialization (List Variable) Atom AnnotatedStatement))
+(datatype SpecializationJob (compile-specialization (List Variable) Atom AnnotatedStatement))
 
 ;; These rows cross atom-space storage boundaries, so their tags are stable
 ;; schemas rather than local multiple-return wrappers.
 
-(datatype SpecializationTemplateRow
-   (specialization-template-row KB Atom (List Atom) SpecializationJob))
+(datatype SpecializationTemplateRow (specialization-template-row KB Atom (List Atom) SpecializationJob))
 
-(datatype SpecializationDoneRow
-   (specialization-done-row KB SpecializationJob))
+(datatype SpecializationDoneRow (specialization-done-row KB SpecializationJob))
 
 (: emit-specialization (-[nondet]-> KB SpecializationJob CompiledAddition))
 ;; --- Rule specialization against structural facts -------------------------

@@ -7,26 +7,6 @@
           ((CTV $pos $neg) (min (tv-confidence $pos) (tv-confidence $neg)))
           ($_other 1.0)))))
 
-;; A lookup column is hashed with every variable replaced by one marker
-;; (imported Prolog helper index-hash): the integer lets SWI build a JIT hash
-;; index on the space, while the complete key stored beside it lets =alpha
-;; reject collisions and distinguish variable-sharing patterns.
-;; The hashes of a statement's prefixes, its head with its first one, two, ...
-;; arguments, up to the first argument that is not ground, longest first
-;; (imported Prolog helper statement-prefix-hashes; see &kb_prefix).
-(: statement-prefix-hashes (-[det]-> $statement (List Number)))
-;; The hash a statement with variables is stored under, and the hashes a
-;; pattern with a ground prefix reads such statements by besides its longest
-;; prefix (imported Prolog helpers; see &kb_open).
-(: statement-open-hash (-[det]-> $statement Number))
-(: statement-open-probes (-[det]-> $statement (List Number)))
-
-;; Fact lookup extends these prefixes through an implication antecedent's
-;; nested heads, keeping source templates selective without changing node keys.
-(: kb-fact-prefix-hashes (-[det]-> $statement (List Number)))
-(: kb-fact-open-hash (-[det]-> $statement Number))
-(: kb-fact-open-probes (-[det]-> $statement (List Number)))
-
 (: normalize-expected-stv (-[det]-> $truth-value STVType))
 (= (normalize-expected-stv $tv)
    (if (is-var $tv) (STV 1.0 1.0)

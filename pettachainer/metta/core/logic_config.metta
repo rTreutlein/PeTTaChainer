@@ -1,30 +1,19 @@
 !(bind! &logic_config (new-space))
 
-(: LogicName Type)
-(: PLN LogicName)
+(datatype LogicName PLN)
 
-(: CompoundPremiseMode Type)
-(: All CompoundPremiseMode)
-(: Any CompoundPremiseMode)
+(datatype CompoundPremiseMode All Any)
 
-(: CompoundOutputMode Type)
-(: ProjectAll CompoundOutputMode)
-(: NoProjection CompoundOutputMode)
+(datatype CompoundOutputMode ProjectAll NoProjection)
 
-(: CompoundSettlingConfig Type)
-(: compound-settling (-[det]-> $head STVType CompoundSettlingConfig))
+(datatype CompoundSettlingConfig (compound-settling $head STVType))
 
-(: RuleForm Type)
-(: BidirectionalImplication RuleForm)
+(datatype RuleForm BidirectionalImplication)
 
-(: LogicNameConfig Type)
-(: logic-name (-[det]-> LogicName LogicNameConfig))
-(: CompoundPremiseConfig Type)
-(: compound-premise-mode (-[det]-> $head CompoundPremiseMode CompoundPremiseConfig))
-(: CompoundOutputConfig Type)
-(: compound-output-mode (-[det]-> $head CompoundOutputMode CompoundOutputConfig))
-(: RuleFormConfig Type)
-(: rule-form (-[det]-> $head RuleForm RuleFormConfig))
+(datatype LogicNameConfig (logic-name LogicName))
+(datatype CompoundPremiseConfig (compound-premise-mode $head CompoundPremiseMode))
+(datatype CompoundOutputConfig (compound-output-mode $head CompoundOutputMode))
+(datatype RuleFormConfig (rule-form $head RuleForm))
 
 (: clear-logic-config (-[det]-> (List Bool)))
 (= (clear-logic-config) (remove-all-atoms &logic_config))

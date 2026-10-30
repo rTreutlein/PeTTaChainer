@@ -10,6 +10,17 @@
 :- use_module(event_node).
 :- ensure_loaded(event_graph).
 
+% Register the table's direct native calls and feed its signatures through the
+% ordinary PeTTa loader, preserving type checks and load-cache ownership.
+'declare-natives!'(Mode, Entries, true) :-
+    findall(Source,
+            ( member(Entry, Entries),
+              ( Entry = [Name|Types] -> swrite([:, Name, [Mode|Types]], Source)
+              ; Name = Entry, Source = "" ),
+              import_prolog_function(Name, true) ), Sources),
+    atomics_to_string(Sources, "\n", Source),
+    process_metta_string(Source, _, '&self').
+
 'event-node-message'(Formula, Index, K, [KProof, KTV], Siblings, Proofs, Keys,
                      ['node-message-result', TV, Likelihood]) :-
     observed(KProof, KTV),

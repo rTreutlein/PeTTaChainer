@@ -15,8 +15,7 @@
    (Alias (Goal TV Proof)))
 (: CompiledPremises
    (Alias ((List Goal) (List Proof) TV)))
-(datatype CompilationPlan
-   (compilation-plan Goal (List CompiledAddition)))
+(datatype CompilationPlan (compilation-plan Goal (List CompiledAddition)))
 
 ;; Completion positions count statement reads and contextual instructions,
 ;; which survive construction's ground CPU removal. Rule registration consumes
@@ -348,8 +347,7 @@
 
 ;; One lowered source premise may expand into several executable goals, but it
 ;; still contributes one evidence value and one proof token to its caller.
-(datatype PremiseBundle
-   (premise-bundle (List Goal) TV Proof))
+(datatype PremiseBundle (premise-bundle (List Goal) TV Proof))
 
 (: statement-children
    (-[det]-> Expression (List Statement)))
@@ -683,7 +681,6 @@
                (reverse-onto $execs $current-execs))
             (cons $proof $current-proofs)
             $next-tv))))
-
 
 ;; A connective over parts read by `$read`: source order and left association,
 ;; with the first premise supplying the initial TV and proof.
@@ -1029,10 +1026,8 @@
 ;; suffixes: matching a suffix against an `exists` pattern would unify ordinary
 ;; variable-headed terms into open conses. The walk threads the witnesses seen
 ;; so far, each paired with its query variable.
-(datatype RuleQueryState
-   (rule-query-state $term (List WitnessVar)))
-(datatype WitnessVar
-   (witness-var Atom Variable))
+(datatype RuleQueryState (rule-query-state $term (List WitnessVar)))
+(datatype WitnessVar (witness-var Atom Variable))
 
 (: witness-query-var (-[det]-> Atom (List WitnessVar) Atom))
 (= (witness-query-var $_witness ()) ())

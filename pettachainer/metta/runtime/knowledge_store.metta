@@ -1,14 +1,13 @@
-(: KbBackend Type)
-(: live KbBackend)
-(: temp KbBackend)
-;; permanent rules only the backward chainer uses: no forward premise index
-(: backward KbBackend)
+(datatype KbBackend
+   live
+   temp
+   ;; permanent rules only the backward chainer uses: no forward premise index
+   backward)
 
 ;; The raw clause reference crosses the Prolog FFI and has no MeTTa-level
 ;; representation.  This is one of the intentionally dynamic boundaries.
 (: ClauseRef (Newtype Atom))
-(: TempQueryRef Type)
-(: clause_ref (-[det]-> ClauseRef TempQueryRef))
+(datatype TempQueryRef (clause_ref ClauseRef))
 
 (: kb-add-atom (-[det]-> KbBackend $space SpaceAtom Bool))
 (= (kb-add-atom live $space $expr) (add-space-atom! $space $expr))
@@ -42,14 +41,6 @@
 (: kb-remove-prefix-row! (-[det]-> Atom Number Bool))
 (= (kb-remove-prefix-row! ($type $kbctx $proof $tv) $hash)
    (remove-atom &kb_prefix ($hash $type $kbctx $proof $tv)))
-
-;; A rule premise is indexed by its statement's head (prem_index, which a
-;; forward run reads) and, unless its head is a variable, in &prem_prefix by the
-;; longest ground prefix of its statement within its KB, so the rules a ground
-;; key is a premise of are found by hashing the key's prefixes
-;; (statement-prefix-keys) instead of walking every premise with its head.
-(: &prem_prefix (SpaceOf (Number (| Goal (Statement KBContext Proof TV)) Number Number)))
-!(bind! &prem_prefix (new-space))
 
 ;; The &prem_prefix keys of a statement's prefixes in a KB, its head alone first.
 (: statement-prefix-keys (-[det]-> Atom Statement (List Number)))
@@ -161,12 +152,6 @@
       ((cons $premise $rest)
          (cons (typed-runtime-premise $premise) (typed-runtime-premises $rest))))))
 
-;; A certain fact of a ground statement two or more forward rules conclude is
-;; an outcome the combination modes learn from; it waits for the first merge
-;; that needs its predicate's mode (docs/metta/combination_modes.md).
-(: &combination_pending (SpaceOf (Number Atom Atom (Statement KBContext Proof TV))))
-!(bind! &combination_pending (new-space))
-
 (: note-combination-outcome! (-[det]-> (Statement KBContext Proof TV) Atom))
 (= (note-combination-outcome! $fact)
    (case $fact (
@@ -216,10 +201,6 @@
                      (no-forward-output-candidate ())))))
             (let $_index (kb-index-fact! $backend $fact)
                (kb-add-atom $backend &kb (brand SpaceAtom $fact)))))))
-
-;; Static completion roles belong to the rule, never its joins or rows.
-(: &completion_recipe (SpaceOf (Number CompletionRecipe)))
-!(bind! &completion_recipe (new-space))
 
 (: contextual-cpu? (-[det]-> $formula Bool))
 (= (contextual-cpu? $fun)
@@ -286,19 +267,6 @@
        ($_aggregates (register-forward-aggregate-premises! (== $backend live) $rule-args)))
       $id))
 
-;; An inversion or antecedent completion onto a positive-only predicate reads
-;; a population prior that only an explicit user rate supplies (#12). Without
-;; one the row can never conclude, and a live row that never settles would be
-;; recomputed on every pass. So the row is registered under the rate it reads,
-;; and is a rule only while that rate is set: set-base-rate adds it and
-;; clear-base-rate withdraws it (prior-gated-rate-changed!), at a cost of the
-;; rows reading that rate. A temporary query row is compiled again by the next
-;; query, so it is only dropped.
-(: &prior_gated_rules (SpaceOf (Number KB Statement Proof KbBackend Atom Atom)))
-!(bind! &prior_gated_rules (new-space))
-(: &prior_gated_live (SpaceOf (Number KB Statement Proof Number)))
-!(bind! &prior_gated_live (new-space))
-
 (: kb-add-gated-rule! (-[semidet]-> KbBackend KB Statement Atom Atom (List $none)))
 (= (kb-add-gated-rule! $backend $kb $pattern $args $ccls)
    (let $user (user-base-rate? $kb $pattern)
@@ -333,11 +301,6 @@
                      (let $_row (remove-variant-row! &prior_gated_live (quote ($hash $kb $stored $name $id))) $id)
                      (empty)))))
             ()))))
-
-;; The producers installed with each lifetime (install-producers!); the
-;; temporary ones leave with the query's temporary rules.
-(: &installed_producers (SpaceOf (Number KbBackend CompiledAddition)))
-!(bind! &installed_producers (new-space))
 
 (: clear-temp-query-adds (-[det]-> (List $none)))
 (= (clear-temp-query-adds)

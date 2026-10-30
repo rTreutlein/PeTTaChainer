@@ -221,6 +221,142 @@ store_schema('&forward_aggregate_read', main, '(Number Number Number)').
 % through the estimate and does not count in it.
 store_schema('&forward_aggregate_fold', main, '(Number Number)').
 
+% Additional plain compiler/runtime stores use the same typed-space loader.
+% Ground given rules, by name and KB. A ground implication is knowledge about
+% its particular instances, as a fact is: its applications carry a certain
+% rule-ev entry, so a view that never applied it cannot stand for one that
+% did. A general given rule stays a parameter and carries no entry.
+store_schema('&given_rules', plain, '(Proof KB)').
+% given rules whose every branch has strength 0 or 1, by name and KB
+store_schema('&deterministic_rules', plain, '(Proof KB)').
+% Rules stated as a certain equivalence, ((1, 1), (0, 1)), over one
+% statement with the conclusion's variables, by their proof name as their
+% applications carry it, such as (bi-backward name): the conclusion is the
+% premise, so an application of one update is that update
+% (sk-prior-update-of). A premise with a variable the conclusion lacks, as in
+% (P $x $y) -> (Q $x), is one of many instances, whose population prior is
+% not the conclusion's: carrying its update put Q's own inversion under P's
+% prior. A rule named no_inverse
+% declares its conclusion no observation of its premise, and a refined rule
+% holds by its learned truth: neither is one (the conflict benchmark's claims
+% run from a source-wide reliability to each claimed node, no_inverse).
+store_schema('&equivalence_rules', plain, '(Proof KB)').
+% A KB may declare that it stores only the true instances of a predicate
+% (logic KBs of Provable, Path or Ancestor facts): its stored instances are
+% then no sample of the predicate's population, their rate (1) estimates
+% nothing, and an inversion over it would assert every antecedent of every
+% stored conclusion. Declared before the rules that would be inverted onto
+% it are added.
+store_schema('&positive_only_predicates', plain, '(KB Atom)').
+% A pattern one of whose conjuncts (or a negated conjunct's statement) has a
+% positive-only predicate.
+% A KB may declare that a predicate's rules and facts are the only ways one of
+% its statements becomes true (docs/metta/complete_predicates.md). Declared
+% before knowledge is added.
+store_schema('&complete_predicates', plain, '(KB Atom)').
+% SWI indexes &kb by a statement's head only, so a lookup by head and
+% arguments walked every fact with that head, across the whole history. Each
+% fact is therefore also stored in &kb_prefix under the hash of every ground
+% prefix of its statement, including nested antecedent heads for implications
+% (kb-fact-prefix-hashes), and a fact whose statement
+% has variables in &kb_open under the hash of exactly its longest one
+% (kb-fact-open-hash), so a lookup reads only the open facts that share
+% one of its own prefixes (see kb-facts). The rows follow &kb's: added with the
+% same backend, removed with the fact.
+store_schema('&kb_prefix', plain, '(Number Statement KBContext Proof TV)').
+store_schema('&kb_open', plain, '(Number Statement KBContext Proof TV)').
+% A rule premise is indexed by its statement's head (prem_index, which a
+% forward run reads) and, unless its head is a variable, in &prem_prefix by the
+% longest ground prefix of its statement within its KB, so the rules a ground
+% key is a premise of are found by hashing the key's prefixes
+% (statement-prefix-keys) instead of walking every premise with its head.
+store_schema('&prem_prefix', plain, '(Number (| Goal (Statement KBContext Proof TV)) Number Number)').
+% A certain fact of a ground statement two or more forward rules conclude is
+% an outcome the combination modes learn from; it waits for the first merge
+% that needs its predicate's mode (docs/metta/combination_modes.md).
+store_schema('&combination_pending', plain, '(Number Atom Atom (Statement KBContext Proof TV))').
+% Static completion roles belong to the rule, never its joins or rows.
+store_schema('&completion_recipe', plain, '(Number CompletionRecipe)').
+% An inversion or antecedent completion onto a positive-only predicate reads
+% a population prior that only an explicit user rate supplies (#12). Without
+% one the row can never conclude, and a live row that never settles would be
+% recomputed on every pass. So the row is registered under the rate it reads,
+% and is a rule only while that rate is set: set-base-rate adds it and
+% clear-base-rate withdraws it (prior-gated-rate-changed!), at a cost of the
+% rows reading that rate. A temporary query row is compiled again by the next
+% query, so it is only dropped.
+store_schema('&prior_gated_rules', plain, '(Number KB Statement Proof KbBackend Atom Atom)').
+store_schema('&prior_gated_live', plain, '(Number KB Statement Proof Number)').
+% The producers installed with each lifetime (install-producers!); the
+% temporary ones leave with the query's temporary rules.
+store_schema('&installed_producers', plain, '(Number KbBackend CompiledAddition)').
+% Reference answers borrow the latest query batch's proofs. Context cleanup
+% may remove every other holder; keep the batch rooted until the next query
+% replaces it, without retaining an unbounded history of returned answers.
+store_schema('&query_proofs', plain, '(Proof)').
+% kb -> its observed predicates.
+store_schema('&observed', plain, '(KB Atom)').
+% kb -> the new hypotheses one fact may add, and the live ones a consequent
+% pattern may have.
+store_schema('&hypothesis_mining', plain, '(KB Number Number)').
+% kb -> the predicate of its link facts, (link earlier later).
+store_schema('&hm_link', plain, '(KB Atom)').
+% Time point -> kb, a true link fact it is an end of.
+store_schema('&hm_links', plain, '(Atom KB Atom)').
+% A fact's features are read from the last `hm-window` true facts recorded
+% for each of its constants, newest first: value hash -> kb, value, the
+% value's count of recorded facts, global sequence number, statement, its
+% time point and layer, with the value's count beside.
+store_schema('&hm_recent', plain, '(Number KB Atom Number Number Atom Atom Atom)').
+store_schema('&hm_value_count', plain, '(Number KB Atom Number)').
+% Observations in the last hm-window distinct time points of each KB.
+% A late link can replay those endpoints; older observations leave this index.
+% False observations are outcomes too, but never antecedent features.
+store_schema('&hm_period', plain, '(Number KB Atom Number Atom Number Atom)').
+store_schema('&hm_period_count', plain, '(KB Number)').
+store_schema('&hm_period_order', plain, '(Number KB Atom Number)').
+% Pattern hash -> kb, consequent pattern, facts of it seen since its first
+% hypothesis: the opportunities a hypothesis had since it was born.
+store_schema('&hm_outcomes', plain, '(Number KB Atom Number)').
+% Consequent hash -> kb, consequent, rule name, antecedent, the
+% consequent's count when it was born. Only live hypotheses.
+store_schema('&hm_live', plain, '(Number KB Atom Atom Atom Number)').
+% Live hypotheses no review has read yet: their first read folds their
+% instances and needs budget (hypothesis_review.metta).
+store_schema('&hm_unread', plain, '(Atom KB)').
+% Implication hash -> kb, implication: tried candidates. Screening can clear
+% one when current instance folds no longer support its screen; other drops stay tried.
+store_schema('&hm_tried', plain, '(Number KB Atom)').
+% Screening key hash -> kb, key, dropped name, implication.
+% One reason per screened candidate; reconsideration reads current folds.
+store_schema('&hm_screened', plain, '(Number KB SkeletonKey Atom Atom)').
+% Only changed screening keys await the next review; repeated changes coalesce.
+store_schema('&hm_screen_dirty', plain, '(Number KB SkeletonKey)').
+% Implication hash -> kb, implication, the instance and the context of its
+% first sighting: singles seen once and not proposed yet.
+store_schema('&hm_seen', plain, '(Number KB Atom Number Atom)').
+store_schema('&combination_tally', plain, '(Number Atom Atom CombinationTally)').
+% A KB's hazard: the prior probability that a sample of a refined rule's
+% branch starts a new regime of its rate (docs/metta/hypothesis_rules.md,
+% "Regimes"); 0 keeps one regime.
+store_schema('&rule_change_hazard', plain, '(KB Number)').
+% A rule's inversion into a compound reads the rule's own conclusion as its
+% observation, so its views are nothing to that rule's joins reading the
+% compound as their premise: they exclude what depends on their conclusion.
+% Below a root, expanding a compound node starts the inversion of a rule only
+% once something besides that rule's joins reads the node; until then it
+% waits here (node hash, inverted rule, node, match), and a later reader, a
+% join of another rule (sk-wait-on!) or a query root, starts it (#142).
+store_schema('&sk_deferred_inversion', plain, '(Number Atom SkPattern SkeletonMatch)').
+% A fold a forward join reads that no search has expanded, other than a base
+% rate, whose estimate the cache holds; the run searches it before evaluating.
+store_schema('&sk_forward_folds', plain, '(Number SkPattern)').
+% The agenda a run leaves, carried to the next run on its knowledge base
+% (docs/metta/forward_units.md).
+store_schema('&sk_forward_agenda', plain, '(KB Number SkeletonForwardItem)').
+% Per key, the value a forward run last built on.
+store_schema('&sk_forward_taken', plain, '(Number SkeletonKey SkeletonValue)').
+
 % Run before loading consumers so whole-file type analysis sees the generated
 % SpaceOf declarations. PeTTa's ordinary loader owns validation and snapshots.
 'declare-stores!'(true) :-

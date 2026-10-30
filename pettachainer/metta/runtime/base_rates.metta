@@ -26,10 +26,8 @@
                (STV (/ (+ (* $s $n) (* 0.5 $k)) (+ $n $k)) $c))))
       ($_other $tv))))
 
-(: BaseRateAggregateKey Type)
-(: base-rate-aggregate-key-value (-[det]-> KB Statement $mode BaseRateAggregateKey))
-(: NoBaseRateAggregateKey Type)
-(: no-base-rate-aggregate-key NoBaseRateAggregateKey)
+(datatype BaseRateAggregateKey (base-rate-aggregate-key-value KB Statement $mode))
+(datatype NoBaseRateAggregateKey no-base-rate-aggregate-key)
 
 (: base-rate-aggregate-key (-[det]-> $arguments (| BaseRateAggregateKey NoBaseRateAggregateKey)))
 (= (base-rate-aggregate-key $args)
@@ -131,4 +129,3 @@
                 (base-rate-cache-entries-for-mode $kbid $pattern $mode)))
           ($_readers (base-rate-readers-changed! $kbid $pattern)))
       ()))
-

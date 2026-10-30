@@ -48,8 +48,7 @@
 (: set-bounded-agenda-pruning (-[det]-> Bool Bool))
 (= (set-bounded-agenda-pruning $enabled) (change-state! bounded_agenda_pruning $enabled))
 
-(: HeapSplit Type)
-(: heap-split (-[det]-> (Heap $item) (Heap $item) HeapSplit))
+(datatype HeapSplit (heap-split (Heap $item) (Heap $item)))
 
 (: heap-split-best (-[semidet]-> Number (Heap $item) (Heap $item) HeapSplit))
 (= (heap-split-best $count $src $kept)

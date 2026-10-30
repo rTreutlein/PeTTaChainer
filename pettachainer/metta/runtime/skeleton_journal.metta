@@ -9,9 +9,6 @@
 ;; can journal their additions. Ingestion only records; the next query
 ;; activates new facts and rules against already-expanded patterns.
 
-(: remove-data-rows! (-[det]-> Atom $pattern Bool))
-(: remove-variant-row! (-[det]-> Atom $row Bool))
-
 ;; --- Types --------------------------------------------------------------------
 
 (: SkFact (Alias (Statement KBContext Proof TV)))
@@ -28,99 +25,82 @@
 ;; What a value belongs to: a statement in a context, a fold, one group of a
 ;; grouped fold, a compound's prior (sk-prior, #142), or a connective's own
 ;; evidence for the completions of its parts (sk-evidence, #142).
-(: SkeletonKey Type)
-;; A fold's arguments come out of a CPU goal, whose arguments are polymorphic;
-;; they are typed as a fold spec once, where the fold is computed.
-(: sk-key (-[det]-> Statement KBContext SkeletonKey))
-(: sk-fold (-[det]-> $spec SkeletonKey))
-(: sk-group (-[det]-> $spec SkeletonKey))
-(: sk-prior (-[det]-> $spec SkeletonKey))
-(: sk-evidence (-[det]-> $spec SkeletonKey))
+(datatype SkeletonKey
+   ;; A fold's arguments come out of a CPU goal, whose arguments are polymorphic;
+   ;; they are typed as a fold spec once, where the fold is computed.
+   (sk-key Statement KBContext)
+   (sk-fold $spec)
+   (sk-group $spec)
+   (sk-prior $spec)
+   (sk-evidence $spec))
 
 ;; a key a conditioned read takes as known true or false, or a complete
 ;; statement a closed read takes as unfounded (docs/metta/complete_predicates.md)
-(: SkeletonGiven Type)
-(: sk-given (-[det]-> Number SkeletonKey Bool SkeletonGiven))
-(: sk-unfounded (-[det]-> Number SkeletonKey SkeletonGiven))
+(datatype SkeletonGiven (sk-given Number SkeletonKey Bool) (sk-unfounded Number SkeletonKey))
 
-(: SkeletonFilter Type)
-;; the proof and truth-value pattern a consumer asks for
-(: sk-filter (-[det]-> Proof TV SkeletonFilter))
-(: sk-any-filter SkeletonFilter)
+(datatype SkeletonFilter
+   ;; the proof and truth-value pattern a consumer asks for
+   (sk-filter Proof TV)
+   sk-any-filter)
 
 ;; owner rule-id conclusion done-premises remaining-premises premise-keys.
 ;; The premises taken so far are kept most recent first, apart from the ones
 ;; left, so a stored join holds each premise once.
-(: SkeletonWaiter Type)
-(: sk-partial
-   (-[det]-> SkPattern Number SkFact (List SkPattern) (List SkPattern) (List SkeletonKey)
-       SkeletonWaiter))
+(datatype SkeletonWaiter
+   (sk-partial SkPattern Number SkFact (List SkPattern) (List SkPattern) (List SkeletonKey)))
 
 ;; A row: which rule over which premise keys, its conclusion and premises with
 ;; proof and truth-value variables unbound, and its creation number.
-(: SkeletonIdent Type)
-(: sk-ident (-[det]-> Number (List SkeletonKey) SkeletonKey SkeletonIdent))
-(: SkeletonRow Type)
-(: sk-row (-[det]-> SkeletonIdent SkFact (List SkPattern) Number SkeletonRow))
+(datatype SkeletonIdent (sk-ident Number (List SkeletonKey) SkeletonKey))
+(datatype SkeletonRow (sk-row SkeletonIdent SkFact (List SkPattern) Number))
 
 ;; A computed value: a fact with its evidence and the hashes of the keys it
 ;; depends on, a computation or fold result with the proof that replaces a `cpu`
 ;; token, or nothing.
-(: SkeletonValue Type)
-(: sk-val (-[det]-> SkFact EvidenceSet Number SkeletonValue))
+(datatype SkeletonValue
+   (sk-val SkFact EvidenceSet Number)
+   (sk-goal-val Goal Proof EvidenceSet Number)
+   sk-none)
 
 ;; The merge of two views, or, for views that share an uncertain statement
 ;; and neither of which contains the other's evidence, the statements to
 ;; condition on, the union of their dependencies, and the more confident
 ;; view, kept when the merge is not conditioned
 ;; (docs/metta/overlap_conditioning.md)
-(: SkeletonPairing Type)
-(: sk-paired (-[det]-> SkeletonValue SkeletonPairing))
-(: sk-overlap (-[det]-> (List SkeletonKey) Number SkeletonValue SkeletonPairing))
+(datatype SkeletonPairing (sk-paired SkeletonValue) (sk-overlap (List SkeletonKey) Number SkeletonValue))
 ;; Two views of one statement merged (backward/evaluation.metta); stored facts
 ;; merge by it too (forward/schema.metta).
 (: sk-merge-facts
    (-[semidet]-> Bool (List Number) SkFact EvidenceSet Number SkFact EvidenceSet Number
        SkeletonPairing))
-(: sk-goal-val (-[det]-> Goal Proof EvidenceSet Number SkeletonValue))
-(: sk-none SkeletonValue)
 ;; Public output only; never an ordinary view or a materializable proof.
-(: SkeletonWaitingAnswer Type)
-(: sk-waiting (-[det]-> SkeletonValue SkeletonWaitingAnswer))
-(: SkeletonVersion Type)
-;; row creation number, row hash, view
-(: sk-version (-[det]-> Number Number SkeletonValue SkeletonVersion))
+(datatype SkeletonWaitingAnswer (sk-waiting SkeletonValue))
+(datatype SkeletonVersion
+   ;; row creation number, row hash, view
+   (sk-version Number Number SkeletonValue))
 
-(: SkeletonLink Type)
-(: sk-child-link (-[det]-> SkPattern SkPattern SkeletonLink))
-(: sk-answer-link (-[det]-> SkPattern SkeletonKey SkeletonLink))
-(: sk-use-link (-[det]-> SkeletonKey SkeletonKey SkeletonLink))
-(: sk-join-link (-[det]-> SkeletonWaiter SkeletonKey SkeletonLink))
+(datatype SkeletonLink
+   (sk-child-link SkPattern SkPattern)
+   (sk-answer-link SkPattern SkeletonKey)
+   (sk-use-link SkeletonKey SkeletonKey)
+   (sk-join-link SkeletonWaiter SkeletonKey))
 
 ;; creation-number key-hash key row-hash row
-(: SkeletonItem Type)
-(: sk-row-item (-[det]-> Number Number SkeletonKey Number SkeletonRow SkeletonItem))
-;; a fold to recompute at the end of a pass: fold key hash, fold key
-(: sk-fold-check (-[det]-> Number SkeletonKey SkeletonItem))
-(: SkeletonDelivery Type)
-(: sk-delivery (-[det]-> SkPattern SkeletonKey SkeletonDelivery))
+(datatype SkeletonItem
+   (sk-row-item Number Number SkeletonKey Number SkeletonRow)
+   ;; a fold to recompute at the end of a pass: fold key hash, fold key
+   (sk-fold-check Number SkeletonKey))
+(datatype SkeletonDelivery (sk-delivery SkPattern SkeletonKey))
 ;; a delivery taken off the queue with its number
-(: SkeletonQueued Type)
-(: sk-queued (-[det]-> Number SkeletonDelivery SkeletonQueued))
-(: SkeletonJoin Type)
-(: sk-join (-[det]-> SkeletonWaiter SkeletonKey SkeletonJoin))
-(: SkeletonDeferred Type)
-(: sk-deferred
-   (-[det]-> SkPattern Number SkFact (List SkPattern) (List SkeletonKey) SkeletonDeferred))
-(: SkeletonPending Type)
-(: sk-pending-rule (-[det]-> Number SkeletonPending))
-(: sk-pending-fact (-[det]-> SkeletonKey SkeletonPending))
+(datatype SkeletonQueued (sk-queued Number SkeletonDelivery))
+(datatype SkeletonJoin (sk-join SkeletonWaiter SkeletonKey))
+(datatype SkeletonDeferred (sk-deferred SkPattern Number SkFact (List SkPattern) (List SkeletonKey)))
+(datatype SkeletonPending (sk-pending-rule Number) (sk-pending-fact SkeletonKey))
 
 ;; Store schemas and indexing contracts: prolog/store_schema.pl.
 ;; The bootstrap installs their specialized interfaces before loading this module.
 
 ;; --- Evaluation types and state ------------------------------------------------
-
 
 ;; An implication instance fold's tally, by fold hash: its KB's hazard, its
 ;; sample counter, and per branch (P(B|A), P(B|not A)) the segments of its
@@ -130,44 +110,22 @@
 ;; and its id; the members reading a statement directly, by the statement's
 ;; key hash, so a reader's own sample is found by the keys it excludes; and the
 ;; folds with members to take, by fold hash.
-(: RegimeSegment Type)
-(: regime-segment (-[det]-> Number Number Number RegimeSegment))
-(: InstanceRegimeState Type)
-(: instance-regimes (-[det]-> Number Number (List RegimeSegment) (List RegimeSegment) InstanceRegimeState))
-;; A branch's sample taken into its segments, the segments and the member's
-;; segment after it; and the segments' evidence (runtime_helpers.pl).
-(: regime-take! (-[det]-> Number Number Number (List RegimeSegment) Number BaseRateEvidenceState BaseRateEvidenceState ((List RegimeSegment) Number)))
-(: regime-evidence (-[det]-> Number (List RegimeSegment) BaseRateEvidenceState))
+(datatype RegimeSegment (regime-segment Number Number Number))
+(datatype InstanceRegimeState (instance-regimes Number Number (List RegimeSegment) (List RegimeSegment)))
 
 (: SourceList (Newtype Atom))
 (: source-list (-[det]-> (List Atom) SourceList))
-(: source-list-union (-[det]-> SourceList SourceList SourceList))
-(: SupportCounts Type)
-(: support-counts (-[det]-> Number Number Number Number Number SupportCounts))
-(: observation-keys (-[det]-> SourceList (List Number)))
-(: observation-sources (-[det]-> (| EvidenceSet Evidence) SourceList))
-(: update-likelihood-support! (-[det]-> Atom Atom SourceList Number Number Bool))
-(: likelihood-support-counts (-[det]-> Atom SupportCounts))
-(: likelihood-sources (-[det]-> Atom Number SourceList))
-(: likelihood-support-admissible? (-[det]-> Atom SourceList Bool))
+(datatype SupportCounts (support-counts Number Number Number Number Number))
 
-(: SkeletonBranch Type)
-(: sk-cut-view (-[det]-> (List Number) SkeletonValue SkeletonBranch))
+(datatype SkeletonBranch (sk-cut-view (List Number) SkeletonValue))
 
 ;; Deferred exclusion reads, by row digest. MAIN requests survive queries;
 ;; an Assuming world keeps only its own requests until that world ends.
-(: SkeletonBranchRequest Type)
-(: sk-wanted (-[det]-> Number Number SkeletonKey Number (List Number) SkeletonBranchRequest))
+(datatype SkeletonBranchRequest (sk-wanted Number Number SkeletonKey Number (List Number)))
 
 !(change-state! sk_branch_budget 0)
 !(change-state! sk_root_claim_budget 0)
 !(change-state! sk_root_claim_cap 0)
-;; The ordinary readers being computed, innermost first (runtime_helpers.pl).
-;; Nested evaluations carry exclusions, so they leave the stack in place. A
-;; reader is a row's identity, not its whole row.
-(: sk-push-reader! (-[det]-> (Number SkeletonKey Number) Atom))
-(: sk-restore-readers! (-[det]-> Atom Bool))
-(: sk-active-reader (-[nondet]-> (Number SkeletonKey Number)))
 !(change-state! sk_branch_unpaid 0)
 !(change-state! sk_representative_budget 0)
 
@@ -175,14 +133,12 @@
 
 ;; a key's merged value for an open pattern and no exclusion, with the
 ;; dependencies of the versions it merged
-(: SkeletonMerged Type)
-(: sk-merged (-[det]-> Number SkeletonKey Number SkeletonValue SkeletonMerged))
+(datatype SkeletonMerged (sk-merged Number SkeletonKey Number SkeletonValue))
 
 ;; rows waiting for conditioning, by key and row hash, with estimated cost,
 ;; and the rows this evaluation paid it for; a key's merge waiting for
 ;; conditioning has row hash -1 (docs/metta/overlap_conditioning.md)
-(: SkeletonRootLimit Type)
-(: sk-root-limit (-[det]-> Number Number SkeletonRootLimit))
+(datatype SkeletonRootLimit (sk-root-limit Number Number))
 
 !(change-state! sk_input_id 0)
 
@@ -225,22 +181,9 @@
 ;; A deferred branch read holds its consumer only until that exact read is
 ;; settled. Keep ordinary stale-input debt separate: branch settlement cannot
 ;; discharge it.
-(: SkeletonHold Type)
-(: sk-stale-input SkeletonHold)
-(: sk-branch-hold (-[det]-> Number SkeletonKey Number (List Number) SkeletonHold))
+(datatype SkeletonHold sk-stale-input (sk-branch-hold Number SkeletonKey Number (List Number)))
 
 ;; --- Query metrics ------------------------------------------------------------
-
-;; Inference time, process-wide (runtime_helpers.pl); reasoning never reads it.
-(: inference-clock (-[det]-> Number))
-(: inference-add! (-[det]-> Number Bool))
-
-;; Opt-in diagnostic counters kept natively; reasoning never reads them.
-(: query_metrics_enabled (-[det]-> Bool))
-(: query_metrics_set_enabled (-[det]-> Bool Bool))
-(: query_metric_value (-[det]-> Atom Number))
-(: query_metric_set (-[det]-> Atom Number Number))
-(: query_metric_increment (-[det]-> Atom Number))
 
 ;; --- Journal ------------------------------------------------------------------
 
@@ -291,29 +234,3 @@
                 (sk-dirty! $key)
                 ())))
       ()))
-
-;; MAIN identity and mutable evaluation scope are separate. These native
-;; operations own Assuming's read-through value overlay.
-(: context-add! (-[det]-> Atom $row Bool))
-(: context-remove! (-[det]-> Atom $row Bool))
-(: set-context-reuse-threshold (-[det]-> Number Bool))
-(: context-searching? (-[det]-> Atom Bool))
-(: context-rule-visible? (-[det]-> Number Bool))
-(: context-search-goal (-[det]-> SkPattern SkPattern))
-(: context-answer-seeds! (-[det]-> SkPattern Bool))
-(: context-seeded? (-[det]-> Statement KBContext Bool))
-(: context-addition (-[det]-> RuntimeAddition RuntimeAddition))
-(: context-note-rule! (-[det]-> Number SkFact Bool))
-(: context-leaves (-[det]-> SkeletonKey (List SkFact)))
-(: context-finish! (-[semidet]-> Number Number (List SkPattern) (List (List RuntimeResult)) (List (List RuntimeResult))))
-(: context-clear! (-[det]-> Bool))
-
-(: context-rule-premises (-[det]-> SkFact (List SkPattern) (List SkPattern)))
-
-(: context-propagate? (-[semidet]-> SkeletonKey Bool))
-
-(: context-rule-enabled? (-[det]-> Atom Bool))
-
-(: context-start! (-[det]-> Bool))
-
-(: context-cold-merged (-[semidet]-> Number SkeletonKey SkeletonFilter SkeletonMerged))

@@ -26,6 +26,26 @@ assert janus.query_once("""
             atom_concat('&ctx_',_N,_R), declared_space_type(_R,_T),
             functor(_H,_R,_A), predicate_property(_H,static)))
 """)["truth"]
+# Generated native declarations must retain their effects and polymorphic
+# sharing through both a cold load and a cached replay.
+assert janus.query_once("""
+    fun('deps-union'),
+    declared_fn_type('deps-union', ['Number','Number'], 'Number', det),
+    fun('event-node-value'),
+    declared_fn_type('event-node-value', _, _, semidet),
+    fun('sk-active-reader'),
+    declared_fn_type('sk-active-reader', [], _, nondet),
+    declared_fn_type('member-canon', [_A], _B, det), var(_A), _A == _B,
+    declared_fn_type(alpha_unique_keys, [['List',_T]], ['List',_U], det),
+    var(_T), _T == _U
+""")["truth"]
+# Plain-store schemas keep their scalar first column and row arity.
+assert janus.query_once("""
+    declared_space_type('&kb_prefix', _PrefixRow),
+    _PrefixRow = ['Number'|_], length(_PrefixRow, 5),
+    declared_space_type('&hm_recent', _RecentRow),
+    _RecentRow = ['Number'|_], length(_RecentRow, 8)
+""")["truth"]
 h.add_atoms_no_check([
     '(: (no_inverse r) (Implication (Action x) (Effect x)) (STV 1 1))',
 ])

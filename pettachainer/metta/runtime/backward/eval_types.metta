@@ -1,11 +1,6 @@
-;; Evaluator datatypes, native signatures and stores. Loaded before their users.
-
+;; Evaluator datatypes. Loaded before their users.
 
 ;; --- Values -----------------------------------------------------------------
-
-;; The last rule application of a proof, with its premise proofs still
-;; references (runtime_helpers.pl).
-(: same-proof? (-[det]-> Proof Proof Bool))
 
 ;; A view as updates of a prior: an inversion or an antecedent completion, or
 ;; a factored merge of several, updates its prior; any other view is its own
@@ -20,10 +15,7 @@
 
 ;; Registered as truth rows are built, rather than walking all producer rows
 ;; at every sensor read. Ambiguous producer folds cannot certify independence.
-(datatype RuleFold
-   (rule-fold SkeletonKey)
-   no-rule-fold
-   ambiguous-rule-fold)
+(datatype RuleFold (rule-fold SkeletonKey) no-rule-fold ambiguous-rule-fold)
 
 (datatype SkeletonReadPolicy
    sk-greedy-read
@@ -45,7 +37,6 @@
    (sk-entangled (List SkeletonKey) Number SkeletonRowState))
 
 (datatype CompletionInputs no-completion-inputs (completion-inputs SkeletonKey (List SkPattern) SkFact (List SkPattern) Bool))
-(: rule-completion-inputs (-[det]-> Number (List SkPattern) CompletionInputs))
 
 (datatype LikelihoodContext (likelihood-context (List Number) EvidenceSet))
 
@@ -54,8 +45,6 @@
 ;; Per consequent predicate: the outcomes counted, their sum, and the log score
 ;; of each mode on the outcomes several disjoint forward views met on.
 (datatype CombinationTally (combination-tally Number Number Number Number Number))
-(: &combination_tally (SpaceOf (Number Atom Atom CombinationTally)))
-!(bind! &combination_tally (new-space))
 
 ;; --- Overlapping views (docs/metta/overlap_conditioning.md) ------------------
 
@@ -70,8 +59,7 @@
 
 ;; A fold over a key's values: merge so far, and the first overlap's
 ;; statements and dependencies.
-(datatype SkeletonMerging
-   (sk-merging SkeletonValue (List SkeletonKey) Number))
+(datatype SkeletonMerging (sk-merging SkeletonValue (List SkeletonKey) Number))
 
 (datatype SkeletonDigest (sk-digest Number Number))
 
@@ -117,12 +105,6 @@
 
 (datatype SkeletonExistentialFold (sk-exists-state STVType SkeletonValue Bool (List Proof) EvidenceSet (List Number)))
 
-;; A KB's hazard: the prior probability that a sample of a refined rule's
-;; branch starts a new regime of its rate (docs/metta/hypothesis_rules.md,
-;; "Regimes"); 0 keeps one regime.
-(: &rule_change_hazard (SpaceOf (KB Number)))
-!(bind! &rule_change_hazard (new-space))
-
 ;; A fold's digest sums a signature of each member's sample: the observation
 ;; of its consequent, the facts of the sample's evidence other than its
 ;; antecedent's stored facts, and the antecedent's strength, the share of the
@@ -139,9 +121,7 @@
 ;; covered members, members still to come
 (datatype SkeletonCover (sk-cover Number Number))
 
-(datatype SkeletonGroup
-   (sk-group-found SkPattern (List SkeletonKey))
-   sk-group-missing)
+(datatype SkeletonGroup (sk-group-found SkPattern (List SkeletonKey)) sk-group-missing)
 
 ;; What conditioning evaluates: a row (exclusions, key hash, key, row hash,
 ;; row) or a key's merge (hash, key, reader's filter and exclusions).
@@ -149,21 +129,7 @@
    (sk-row-target (List Number) Number SkeletonKey Number SkeletonRow)
    (sk-key-target Number SkeletonKey SkeletonFilter (List Number)))
 
-;; Observed likelihoods, then Jeffrey updates; graph replacements must be compatible.
-(: event-network-read (-[semidet]-> SkeletonKey SkeletonFilter (List Number) EvidenceSet SkeletonValue SkeletonValue))
-
-(: proof-unsettled-sources (-[det]-> Proof (List Number)))
-
-;; Keep the reference kernel in its fold boundary: PeTTa specializes its
-;; writable row variables there. Only the immutable diagnostic is memoized;
-;; current drop/rebuild status is checked again before every use.
-(: sk-row-has-bayes? (-[det]-> Number SkeletonKey Number Bool))
-
 (datatype TokenReplacement (token-state Atom (List Proof)))
-
-(: proof-representative? (-[det]-> Proof Bool))
-
-(: proof-given-evidence (-[det]-> Proof EvidenceSet))
 
 ;; this pass's remaining items and the next pass's, by their order
 (datatype SkeletonWork (sk-work (Heap SkeletonItem) (Heap SkeletonItem)))
@@ -179,13 +145,6 @@
    (sk-view-change Number (List Number))
    (sk-value-same Number Number (List Number))
    (sk-outside-change (List Number) Number))
-
-;; A row is forced once per evaluation by each cause. Supported changes are
-;; finite, and forced propagation never creates a new cause, even through a
-;; fold, so feedback still ends. A row never computed is not forced: its first
-;; view changes its key whatever caused it.
-(: sk-force-causes! (-[det]-> Number Number (List Number) Atom))
-(: sk-force-reset! (-[det]-> Atom))
 
 ;; A key is needed at the fewest steps from a root it is reached by. The keys
 ;; are visited breadth first, a level of keys one step further than the last
@@ -210,17 +169,10 @@
 ;; then oldest. Actual conditioned rows spend the remaining allowance as
 ;; they run; no estimate gates admission. Each target gets at most one
 ;; ordinary turn per evaluation, and an exhausted target stays pending.
-(datatype SkeletonWaiting
-   (sk-row-waiting SkeletonItem)
-   (sk-key-waiting Number SkeletonKey))
+(datatype SkeletonWaiting (sk-row-waiting SkeletonItem) (sk-key-waiting Number SkeletonKey))
 (datatype SkeletonClaim (sk-claim Number Number Number SkeletonWaiting))
 
-(: sk-order-claims (-[det]-> (List SkeletonClaim) (List SkeletonClaim)))
-
 (datatype BackwardQueryMetric (query-metric Atom Number))
-
-;; Proof-indexed subsumption preserves root order (runtime_helpers.pl).
-(: prune_answer_instances (-[det]-> (List RuntimeResult) (List RuntimeResult)))
 
 ;; Nominal capabilities keep reads lazy across the compiler specialization boundary.
 (datatype SkeletonValueReader (sk-value-reader (-[semidet]-> SkeletonKey SkeletonFilter (List Number) SkeletonValue)))

@@ -2,12 +2,6 @@
 ;; boundary out of knowledge_store lets compilation/storage remain a
 ;; foundational dependency of both chainers.
 
-;; Reference answers borrow the latest query batch's proofs. Context cleanup
-;; may remove every other holder; keep the batch rooted until the next query
-;; replaces it, without retaining an unbounded history of returned answers.
-(: &query_proofs (SpaceOf (Proof)))
-!(bind! &query_proofs (new-space))
-
 ;; A function call gives each answer fresh destructuring variables; placing
 ;; this let inside a lambda would capture the fields across the whole batch.
 (: retain-query-proof! (-[det]-> (Number AnnotatedStatement) Bool))
@@ -23,9 +17,8 @@
 ;; the written statement and its canonical form (`member-canon`),
 ;; compiler-alternative order, and duplicates; additions
 ;; are already in their final installation order for that group.
-(: QueryExecutionPlan Type)
-(: query-execution-plan
-   (-[det]-> (List (Number Statement AnnotatedStatement CompiledQueryGoal)) (List RuntimeAddition) QueryExecutionPlan))
+(datatype QueryExecutionPlan
+   (query-execution-plan (List (Number Statement AnnotatedStatement CompiledQueryGoal)) (List RuntimeAddition)))
 
 (: merge-query-execution-plans (-[det]-> QueryExecutionPlan QueryExecutionPlan QueryExecutionPlan))
 (= (merge-query-execution-plans

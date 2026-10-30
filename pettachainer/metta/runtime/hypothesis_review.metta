@@ -19,8 +19,7 @@
 
 ;; A live hypothesis under review: name, antecedent, consequent, its
 ;; consequent's count when it was born, truth.
-(: HmReviewed Type)
-(: hm-reviewed (-[det]-> Atom Atom Atom Number Atom HmReviewed))
+(datatype HmReviewed (hm-reviewed Atom Atom Atom Number Atom))
 
 ;; For a ground goal, a hypothesis whose consequent unifies with it and
 ;; whose antecedent then holds of stored facts; for a variable, any.

@@ -9,21 +9,10 @@
 ;; computed only by evaluation. Rows, answers and waiters are append-only, so a
 ;; later query continues from the skeleton earlier queries built.
 
-(: SkeletonMatch Type)
-;; rule-id contextualized-premises conclusion
-(: sk-match (-[det]-> Number (List SkPattern) SkFact SkeletonMatch))
-(: SkeletonRuleDef Type)
-(: sk-rule-def (-[det]-> SkFact (List SkPattern) SkeletonRuleDef))
-
-;; A rule's inversion into a compound reads the rule's own conclusion as its
-;; observation, so its views are nothing to that rule's joins reading the
-;; compound as their premise: they exclude what depends on their conclusion.
-;; Below a root, expanding a compound node starts the inversion of a rule only
-;; once something besides that rule's joins reads the node; until then it
-;; waits here (node hash, inverted rule, node, match), and a later reader, a
-;; join of another rule (sk-wait-on!) or a query root, starts it (#142).
-(: &sk_deferred_inversion (SpaceOf (Number Atom SkPattern SkeletonMatch)))
-!(bind! &sk_deferred_inversion (new-space))
+(datatype SkeletonMatch
+   ;; rule-id contextualized-premises conclusion
+   (sk-match Number (List SkPattern) SkFact))
+(datatype SkeletonRuleDef (sk-rule-def SkFact (List SkPattern)))
 
 (: sk-cons-step (-[semidet]-> (List $item) $item (List $item)))
 (= (sk-cons-step $items $item) (cons $item $items))
@@ -51,15 +40,10 @@
 (: sk-expand! (-[semidet]-> SkPattern Number Number Atom))
 (: sk-rule-match (-[nondet]-> SkFact SkeletonMatch))
 ;; node, depth, node hash
-(: SkeletonFrontier Type)
-(: sk-frontier (-[det]-> SkPattern Number Number SkeletonFrontier))
+(datatype SkeletonFrontier (sk-frontier SkPattern Number Number))
 ;; a node with its hash
-(: SkeletonNodeAt Type)
-(: sk-node-at (-[det]-> Number SkPattern SkeletonNodeAt))
+(datatype SkeletonNodeAt (sk-node-at Number SkPattern))
 (: sk-search! (-[semidet]-> (Heap SkeletonFrontier) Atom))
-(: term-cost (-[det]-> $term Number))
-(: grows-from? (-[det]-> SkPattern SkPattern Bool))
-(: link-open-variables (-[det]-> SkeletonKey SkeletonKey Bool))
 
 ;; --- Node identity ----------------------------------------------------------
 
@@ -227,22 +211,6 @@
          ())))
 
 ;; --- Pending work -------------------------------------------------------------
-
-;; A walk enters only nodes whose search may still have work: the node or one
-;; below it is unexpanded, or holds parked deliveries, deferred joins or
-;; deferred rows. Every node of a cycle reaches what the others reach, so the
-;; nodes are kept as the components of their cycles, an acyclic graph whose
-;; components count their work items and their pending child components; a
-;; change of state moves the parents' counts. Whether a node is pending is
-;; then one lookup, exact at any time (runtime_helpers.pl, "Pending work").
-;; Work items: being unexpanded, each parked delivery, deferred join and
-;; deferred row; sk-work! adds or takes them.
-(: sk-link-pending! (-[det]-> Number SkPattern Number SkPattern Atom))
-(: sk-work! (-[det]-> Number SkPattern Number Atom))
-(: sk-pending? (-[det]-> Number SkPattern Bool))
-(: sk-pending-children (-[det]-> Number SkPattern (List SkeletonNodeAt)))
-;; Parked deliveries, deferred joins or deferred rows at a node's hash.
-(: sk-holds-work? (-[det]-> Number Bool))
 
 ;; --- Base rates -------------------------------------------------------------
 
@@ -678,11 +646,6 @@
 
 ;; --- Partial joins and rows -------------------------------------------------
 
-;; A fold a forward join reads that no search has expanded, other than a base
-;; rate, whose estimate the cache holds; the run searches it before evaluating.
-(: &sk_forward_folds (SpaceOf (Number SkPattern)))
-!(bind! &sk_forward_folds (new-space))
-
 (: sk-forward-note-fold! (-[det]-> SkPattern Atom))
 (= (sk-forward-note-fold! $premise)
    (case (copy_term $premise) (
@@ -721,8 +684,7 @@
 ;; with them: that instance is no key of its own and has no rows to read. The
 ;; variables the join left open stay linked, so evaluation binds them through
 ;; the key's value, as a fold's result binds the conclusion.
-(: SkeletonReading Type)
-(: sk-reading (-[det]-> (List SkeletonKey) (List SkPattern) SkeletonReading))
+(datatype SkeletonReading (sk-reading (List SkeletonKey) (List SkPattern)))
 (: sk-read-step (-[semidet]-> SkeletonReading SkPattern SkeletonReading))
 (= (sk-read-step (sk-reading $keys $read) $premise)
    (case $premise (
@@ -1234,9 +1196,6 @@
       (fold-semidet sk-park-step () $entries)))
 
 ;; --- Expansion --------------------------------------------------------------
-
-(: rule-lookup-needs-occurs-check (-[det]-> Atom Bool))
-(: ccls-index-occurs-matches (-[det]-> Atom (List (SkFact Number (List SkPattern)))))
 
 (: sk-context-search? (-[det]-> SkFact Bool))
 (= (sk-context-search? ($_type ($kbid $ctx $_vars) $_proof $_tv))
@@ -1818,8 +1777,7 @@
 ;; The base-rate folds that rules concluding a statement read over a pattern
 ;; the statement belongs to, the priors their inversions and completions
 ;; update, with the rules reading them.
-(: SkeletonPriorFold Type)
-(: sk-prior-fold (-[det]-> Number Atom SkeletonPriorFold))
+(datatype SkeletonPriorFold (sk-prior-fold Number Atom))
 (: sk-prior-folds (-[semidet]-> Statement (List SkeletonMatch) (List SkeletonPriorFold)))
 (= (sk-prior-folds $type $matches)
    (collapse
@@ -1931,7 +1889,6 @@
 ;; built without the search returning to them.
 (: sk-activate-world-reader (-[semidet]-> Statement Atom SkeletonKey Atom))
 (: sk-activate-fact-step (-[semidet]-> Atom SkeletonKey Atom))
-(: sk-fact-watches (-[det]-> Number (List SkPattern)))
 (= (sk-activate-fact-step $_acc $key)
    (case $key (
       ((sk-key $type $kbctx)
@@ -2040,8 +1997,7 @@
 ;; is unexpanded or has work waiting at it (parked deliveries, deferred joins
 ;; or rows). A node whose search is exhausted never answers without new
 ;; knowledge. Each node is visited once; the walk stops at the first such node.
-(: SkeletonGrowth Type)
-(: sk-growth (-[det]-> Bool (List Number) SkeletonGrowth))
+(datatype SkeletonGrowth (sk-growth Bool (List Number)))
 
 (: sk-grows (-[semidet]-> SkeletonGrowth SkeletonNodeAt SkeletonGrowth))
 (= (sk-grows (sk-growth $found $seen) (sk-node-at $hash $node))
