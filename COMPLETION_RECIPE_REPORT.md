@@ -1,175 +1,187 @@
-# Antecedent-completion recipe
+# Antecedent-completion recipe: final follow-up
 
 Branch: `completion-recipe`.
 Worktree: `/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.claude/worktrees/completion-recipe`.
-Base: `80ea56284ada130c87dc0f261f0aa0c826752fba`.
+Base/master: `80ea56284ada130c87dc0f261f0aa0c826752fba`.
 
-## Design as built
+The first implementation (`202619a0`, documented in `c6c6891e`) compiled
+completion roles but retained the recipe on executable inputs. Its learned
+mined b50 peak RSS rose from 607.0 to 788.7 MB. This report records the
+once-per-rule follow-up and supersedes that implementation and its measurements.
 
-The compiler emits a leading contextual instruction carrying
-`(completion-recipe target compound context consequence-index opening)`.
-Positions count statement inputs, excluding CPU instructions. The observation is
-at `consequence-index`; positions before it are sibling inputs, including a
-refined rule's truth input. The recipe shares the original executable variables;
-it contains no truth values or current answers. Keeping the recipe on the existing
-`ReadLikelihoodContext` instruction lets the existing row builder retain it without
-changing any reserved construction or journal files. Its context result is unused.
-Ordinary likelihood-context reads retain their existing behavior.
+The resumed audit confirmed that `6c0a9d2c` already completed the requested
+storage and classifier cleanup. No further production or test edits were needed.
+The full comparison's learned mined b50 peak is **608.4 -> 605.7 MB (-0.44%)**;
+a fresh paired dev-server run confirms **610.3 -> 607.6 MB (-0.44%)**. Both
+meet the requested +5% limit. Core tokens and executable lines both decrease.
 
-Evaluation selects the recipe directly from the leading instruction. It obtains
-the observation's registered key by position, preserving the open keys retained by
-row construction. A positional cursor replaces per-statement key-shape
-classification. The compound, target and opening polarity are compiler data.
-Consequence reads retain their observation exclusions; sibling reads retain the
-compound/consequence exclusions, known-false exception, closed pin and fallback
-under the target's opening condition. Evidence and dependency handling remain in
-the existing reader. Evidence-role selection also uses the recipe instead of the
-completion proof head. Refined-rule score registration skips the metadata to reach
-its original first executable input.
+## Storage diagnosis and final design
 
-The public raw `add-to-kb` entry normalizes a completion lacking a recipe once,
-at ingestion. One preparation fold extracts its static compound, input positions
-and opening polarity. Source-compiled rows already have the recipe and bypass
-this normalization. There is no evaluator fallback to rediscover roles.
+The leading `ReadLikelihoodContext` instruction retained the full variable-sharing
+recipe in the executable inputs. Rule indexes, partial joins, retained rows and
+fresh evaluation copies therefore carried the target, compound and context again.
+The recipe was input data, not a proof-DAG node. Its unused context result did not
+justify retaining that instruction.
 
-Removed production functions:
+Registration now consumes the compiler marker before constructing any rule index.
+`&completion_recipe`, indexed first by the existing rule id, holds three ground
+scalars once per compiled completion: observation statement ordinal, compound
+contextual-instruction ordinal and opening polarity. Rows retain their existing
+owner id and executable inputs; no recipe instruction, extra row field or recipe
+copy enters a row or proof. Raw `add-to-kb` rules prepare the same scalar metadata
+once at registration. Temporary metadata follows the backend's existing clause
+references, and rule withdrawal removes permanent metadata.
 
-- `sk-compound-evidence-step`
-- `sk-last-statement-step`
-- `sk-completed-given-step`
+The contextual ordinal addresses instructions that survive ground-CPU removal;
+the observation ordinal counts statement inputs only. The native projection borrows
+the original input terms, including their open registered keys and TV/proof
+variables, and splits the sibling/observation/tail reads by those positions.
+Evaluation preserves the original instruction and evidence order. No numerical
+read, exclusion, closed-pin, opening-condition or evidence policy changed.
 
-The role-discovery portion of `sk-completion-state` is gone. Its remaining work
-implements the read policies. The existing `sk-inverted-proof?` replaces a duplicate
-inline inversion classifier. `sk-completion-proof?` remains live in the reserved
-skeleton's population-prior/waiter routing; evaluation no longer calls it.
+Two implementation constraints are now explicit. A synthetic population-prior row
+borrows its requesting completion's owner id but is not that compiled template:
+its missing contextual instruction naturally selects ordinary evaluation. Also,
+projecting executable inputs through `collapse` would copy their variables away
+from the row's conclusion. The native boundary selects the indexed metadata and
+projects directly, without a `findall` of row data. Regression tests cover both
+conditions, shared output-variable identity, cold answers, raw And/Or and polarity
+parity, refined-truth registration, and multiple rows sharing one ground recipe.
 
-The positional iterator and premise kernel remain separate. Combining them was
-rejected by the pinned strict compiler with residual list type checks and an
-unproved `fold-flat` call. This is a demonstrated specialization boundary, not a
-convenience wrapper. A later attempted `foldr-flat` cleanup used the wrong callback
-argument order, was reverted, and its runs were stopped. Final validation must be
-read from the final-code records below, not the discarded `daa6e5530` build.
+## Deletion and size
 
-## Size and symbol audit
+The follow-up deletes these production MeTTa functions:
+`completion-recipe-of`, `statement-input-step`, `sk-completion-state`,
+`sk-completion-position-step`, `sk-completion-premise-step`,
+`sk-completion-proof?`, `sk-condition-evidence`,
+`store-rule-expected-score!`, and `register-truth-premise!`.
+The initial implementation also deleted `sk-compound-evidence-step`,
+`sk-last-statement-step` and `sk-completed-given-step`.
+There are zero references to these names in `pettachainer/`, `third_party/`,
+`tests/` or `docs/`. Positional sibling reading replaces the consequence/sibling
+shape classifier; waiter and evidence routing no longer classify completion proof
+heads. `sk-leaf-premise-step` and `sk-without-hash-step` remain live typed fold
+boundaries required by strict specialization, rather than test scaffolding.
 
-Counts use the supplied `scratch/core_count.py` and `o200k_base`; executable lines
-exclude blank and comment-only lines. Python production code, Prolog and third-party
-code are unchanged.
+The compiler marker, raw preparation and policy readers remain MeTTa. The native
+code only selects the indexed descriptor and projects the existing instruction
+list while preserving variable identity. No inference policy moved to Prolog.
+The skeleton changes are limited to the requested completion-classifier deletion
+and sharing the contextual-instruction predicate with registration.
 
-| Scope | Before | After | Delta |
-|---|---:|---:|---:|
-| Core tokens | 323,864 | 323,664 | -200 |
-| Core plus third-party tokens | 341,549 | 341,349 | -200 |
-| Touched production MeTTa tokens | 80,154 | 79,954 | -200 |
-| Core executable lines | 16,088 | 16,122 | +34 |
-| Touched production MeTTa executable lines | 3,939 | 3,973 | +34 |
+| Core scope | Original base 80ea5628 | Previous c6c6891e | Follow-up | Change from original |
+|---|---:|---:|---:|---:|
+| o200k tokens | 323,864 | 323,664 | 323,166 | -698 |
+| Executable lines | 16,088 | 16,122 | 16,087 | -1 |
+| Named-function change | 0 | +1 | -3 | -3 |
 
-The token count includes consolidating duplicated policy comments into concise
-recipe documentation and references to the existing design documents. This is a
-reduction in runtime role discovery, not a reduction in executable line count.
-Four preparation/access/iteration functions replace three evaluator scanners, so
-there is one more named production function overall.
+The follow-up itself removes 498 tokens, 35 executable lines and four named
+functions. Core plus unchanged third-party tokens: 340,851, down 698 from the
+original 341,549. Counts use the supplied scripts and include production MeTTa,
+Prolog and Python; Python and third-party code are unchanged. Logs:
+`scratch/followup-counts.log`, `scratch/followup-symbols.log`.
 
-Symbol audit: zero hits for all three deleted names across `pettachainer/`,
-`third_party/`, `tests/` and `docs/`. No reserved files were edited.
+Fresh counts reproduce these totals (`scratch/resume-counts.log`,
+`scratch/resume-core-count.log`). A fresh audit also finds zero hits for all
+twelve names deleted across the initial implementation and follow-up
+(`scratch/resume-symbol-audit.log`, empty on success). Counts follow the supplied
+counter's benchmark/simulation exclusions. Raw registration still recognizes an
+unmarked compiled completion once, as required by public `add-to-kb`; evaluator,
+waiter and evidence routing use the indexed metadata.
 
-## Tests and moved values
+## Validation and measurements
 
-No existing expected truth value, proof, scheduling score or API signature changed.
-The existing evidence-role unit probe now supplies the explicit completion recipe
-instead of relying on its proof head; its expected values are unchanged.
+- Strict MeTTa suite: PASS, 162 passed, 0 failed
+  (`scratch/followup-metta-gate.log`).
+- Focused recipe tests: PASS, 3 tests including four raw-ingestion subcases
+  (`scratch/followup-python-confirmed.log`).
+- Evidence-role tests: PASS, 4 tests, unchanged expected values
+  (`scratch/followup-evidence-gate.log`). The collector test now exercises the
+  actual row-result path instead of a deleted internal helper.
+- Required verify with 16 admission slots: **PASS**, exit 0, all six gates,
+  358 s wall. MeTTa: 162 passed, 0 failed. Python: 991 tests in 63 files /
+  591 units, 64 expected failures and 1 skip; 4,495 query rows, 0 aborts.
+  Import scaling, judgment scaling (3 query rows, 0 aborts) and ConceptNet
+  passed. Log: `scratch/resume-verify.log`. The runner did not record a cache
+  entry because this report was edited during the run; production and test
+  files remained at `6c0a9d2c` throughout. ConceptNet's strict defect counter
+  is unavailable; that gate checks the result-row count and abort markers.
+- Required full comparison with master: **PASS**, 23 cases, identical numeric
+  accuracy in all 22 summarized cases; fuzzer flags unchanged (6 -> 6), no crashes.
+  All 45/45 results reused for the identical production runtime tree. Report:
+  `/nexus/Dev/OpenCog/bench/results/compare/80ea5628_vs_6c0a9d2c-daa2f2ec0_full/report.md`.
+  Learned stage 3 untimed mined b50/r50/h10/s3 peak RSS: **608.4 -> 605.7 MB
+  (-0.44%)**, below +5% (638.82 MB). Compared with the original 607.0 MB master
+  observation, 605.7 MB is -0.21%; the previous candidate consumed 788.7 MB.
+  These are process peaks, not live-heap measurements.
+- Required anchor canary: **PASS**, trusted identical-tree verdict reused
+  (key `9e30fbc2f699`, original 2026-10-30T01:51:40), no new runs. Four of six
+  cases differ in accuracy from the older anchor; those differences are present
+  on master too. Nine inherited anchor gaps, no blocking regression. Report:
+  `/nexus/Dev/OpenCog/bench/results/compare/anchor-b4065459_vs_6c0a9d2c-daa2f2ec0_canary/report.md`.
+- Paired dev-server full-case retimes: **PASS** for all four cases. The full
+  report has no confirmed flag,
+  but four apparent slowdowns were excluded because load differs: timed b50/s3,
+  untimed soft0.9, reliable conflict l, and learned untimed mined b50. Each is
+  retimed with `BENCH_TIMING_FULL=1 ... --full --only <case> --timing --retime`.
+  All eight fresh host runs exited 0 at load 1, with identical accuracy and
+  no timing flags. The matched learned host run also confirms peak RSS
+  **610.3 -> 607.6 MB (-0.44%)**. Logs:
+  `scratch/resume-paired-retimes.log`, `scratch/resume-canary-paired.log`.
+- Fresh paired canary against master: **PASS**. The standard
+  `master <worktree> --canary --timing --retime` checks all six canary cases
+  behind the inherited anchor flags. All 12 fresh host runs exited 0 at load 1,
+  with identical accuracy and no confirmed timing flags. Report:
+  `/nexus/Dev/OpenCog/bench/results/compare/80ea5628_vs_6c0a9d2c-dea2921dc_canary-retime-20261030T020300/report.md`.
 
-New tests cover recipe/executable variable sharing, refined-truth registration,
-raw-ingestion parity for And/Or and positive/negated targets, and positions after
-ground CPU instructions are removed. Raw tests query the live process because
-subprocess replay cannot include a raw Janus mutation. The final focused run passed
-both tests (four raw-ingestion subcases).
+Fresh paired dev-server job wall seconds (master -> candidate):
 
-Diagnostic queries of `(And (A $x) (C $x)) -> (C $x)` and the Or variant matched the
-harness's frozen master build, with one report and with two independent reports of
-C. Both versions returned the same population prior for A,
-`(STV 0.30000555540123885 0.9)`.
+| Full-case retime | Master | Candidate |
+|---|---:|---:|
+| Stage 3 timed b50/s3 | 13.17 | 13.02 |
+| Stage 3 untimed soft0.9 b100/s4 | 45.94 | 44.97 |
+| Reliable conflict l/spq4/s1 | 62.96 | 62.61 |
+| Learned stage 3 untimed mined b50/r50/h10/s3 | 88.55 | 88.43 |
 
-## Gates and benchmarks
+| Canary retime | Master | Candidate |
+|---|---:|---:|
+| Live b50, 5 shifts, s1 | 10.36 | 10.36 |
+| Reliable conflict l/spq4/s1 | 62.79 | 62.61 |
+| Scale m/spq4/r10/s1 | 35.43 | 35.23 |
+| Stated conflict l/spq4/s1 | 25.95 | 25.85 |
+| ONA conditioning s1 | 10.53 | 10.55 |
+| ONA identity matching s8 | 14.43 | 14.37 |
 
-- `scripts/verify.sh`: **PASS**, all six gates. MeTTa: 162 passed, 0 failed.
-  Python: 990 tests in 63 files / 590 units, 64 expected failures and 1 skip;
-  4,493 query rows, 0 aborts. Import scaling, judgment scaling and ConceptNet
-  passed. Total wall time 1,081 s with four workers. Cache PASS key
-  `b958e0533451`. Log: `scratch/verify-final.log`.
-- Focused recipe tests: PASS, 2 tests / 4 raw-ingestion subcases
-  (`scratch/recipe-python-final.log`).
-- `compare.sh master <worktree> --full`: **PASS**, accuracy changed in 0 cases;
-  23 cases, including the standard n100/s22 fuzzer (22 cases have numeric
-  accuracy summaries), 6 runs executed and 39 of 45 results reused. Report:
-  `/nexus/Dev/OpenCog/bench/results/compare/80ea5628_vs_80ea5628-d93cd3c16_full/report.md`.
-  Fresh local job wall times: scale l/spq16/s1 151.25 -> 152.55 s;
-  learned stage 3 untimed mined b50/r50/h10/s3 82.22 -> 82.41 s.
-  The report's seconds metrics are 136.7 -> 137.8 and
-  79.9 -> 80.15 respectively. Learned peak RSS rose from 607.0 to 788.7 MB
-  (+181.7 MB), below the gate's regression threshold; scale peak RSS was
-  essentially unchanged at 1,359 MB. No speedup or memory reduction is claimed.
-- `compare.sh anchor <worktree> --canary --retime`: **PASS**, all 12 fresh
-  dev-server runs exit 0. Accuracy changed in 4 of 6 cases versus the older
-  anchor; those differences are on master too, not new answer changes here.
-  The report lists 9 inherited anchor gaps and no blocking regression:
-  `/nexus/Dev/OpenCog/bench/results/compare/anchor-b4065459_vs_80ea5628-d93cd3c16_canary-retime-20261030T001016/report.md`.
-- Fresh paired dev-server `compare.sh master 202619a0 --canary --timing --retime`:
-  **PASS**, accuracy changed in 0 cases; all 12 fresh runs exit 0.
-  Report: `/nexus/Dev/OpenCog/bench/results/compare/80ea5628_vs_202619a0_canary-retime-20261030T002054/report.md`.
-  Fresh job wall times (master -> candidate, dev-server load 1):
-  live 10.40 -> 10.61 s; scale 35.42 -> 35.55 s; reliable conflict
-  62.89 -> 63.31 s; stated conflict 25.97 -> 26.05 s; ONA conditioning
-  10.52 -> 10.54 s; ONA identity matching 14.44 -> 14.41 s.
-  This is the required direct paired retime of the canary's anchor timing gaps;
-  it confirms no timing regression relative to master.
+Reports (under `/nexus/Dev/OpenCog/bench/results/compare/`):
 
-The final runtime tree is `eb830a1e6ace3b2b6ed787cce1d79e7579ed9c6c`.
-The uncommitted benchmark label `80ea5628-d93cd3c16` and commit `202619a0`
-contain exactly this same runtime code. The earlier quick comparison passed
-with zero accuracy changes, before the final comment consolidation.
+- `80ea5628_vs_6c0a9d2c-daa2f2ec0_full-stage_3_timed_b50_s3-retime-20261030T020055/report.md`
+- `80ea5628_vs_6c0a9d2c-dea2921dc_full-stage_3_untimed_soft0.9-retime-20261030T020251/report.md`
+- `80ea5628_vs_6c0a9d2c-d1d548c94_full-pln-reliable_l-retime-20261030T020545/report.md`
+- `80ea5628_vs_6c0a9d2c-d1d548c94_full-stage_3_untimed_learned_mined-retime-20261030T021057/report.md`
 
-The first timing attempt failed with exit 127 because dev-server lacked this
-worktree's interpreter path. Its summary PASS is not used as timing evidence.
-An independent remote venv was copied from that host's matching pinned venv,
-then repointed under this worktree's path; no shared venv was modified. The
-successful anchor retime replaced all 12 failed/missing timing observations.
-The full comparison uses its standard local timing policy.
+No existing expected truth value, proof, scheduler score or public signature was
+changed. The `EXPECTED_FAILURES` set was not edited. Earlier failed development
+runs are not final gate evidence. In
+particular, the original HEAD was rechecked in this worktree and passed its two
+recipe tests before the candidate was restored. No master, other-worktree,
+shared-venv, remote-branch, GitHub or admission-service changes were made.
 
-Before investigating source-level timing differences, the documented SWI
-module-table condition was checked with a read-only public-module/prefix probe.
-On dev-server both frozen master and candidate have 3,965 procedure entries in
-4,096 slots (96.8018% occupancy). Both load the same SWI 9.3.33 library,
-SHA-256 `d39628926f34c1e47386b12c1f1ca042c4b62263fd58732e038ddaa83f849746`.
-The local installed library is SHA-256
-`8ae99d54a7773df741a2f66b95d8924b684118acc0ba67b571df4cf830d6eba5`,
-with the same occupancy. Logs: `scratch/module-table-{local,dev}.log`.
-This confirms the documented near-full-table condition; occupancy alone is not
-proof of a causal timing difference. No table mutation, engine patch, padding,
-stack reserve or runtime tuning was introduced.
+Implementation commit: `6c0a9d2cae8343b98f98895e35e30e9d2ad4c0d2`.
+The benchmark runtime identity is `35cb9f15a090`. The harness reused runs labeled
+`c6c6891e-d3a0287b4`, explicitly recording their identical runtime tree in the
+full report. A subsequent documentation-only commit records these final results.
 
-All PeTTa, test and benchmark invocations used the pinned worktree environment,
-`/nexus/Dev/OpenCog/bench/capped`, `ulimit -v 16000000`, unset `DISPLAY`, and
-stdin from `/dev/null`. Final verify uses four workers and a declared 16,000 MB
-peak. Earlier overlapping draft verification runs were canceled; they are not
-claimed as final gates. The benchmark harness owns its frozen builds and seeds.
+## Execution rules and limits
 
-## Commits and limits
+All resumed PeTTa, test and benchmark commands used the pinned worktree
+environment, `/nexus/Dev/OpenCog/bench/capped`, `ulimit -v 16000000`, unset
+`DISPLAY`, and stdin from `/dev/null`. Verify used 16 admission slots and
+`PETTA_JOBS=16`. The harness owns benchmark profiles, builds, cases and seeds;
+no custom runner or frozen build was introduced.
 
-The unchanged suite still has 64 expected failures and one skipped nightly test;
-this cleanup does not correct those numerical or coverage limitations.
-ConceptNet passed by its abort-marker scan; its strict defect counter is
-unavailable in that gate. Validation covers implementation commit `202619a0`;
-the subsequent report-only commit changes no runtime or test code.
-
-Implementation commit:
-
-`202619a04aa6bf83eec44b5f4db8ce1058970afe Compile antecedent-completion input roles once`
-
-The report is recorded in a subsequent documentation-only commit. Both commits
-use the exact trailers from the brief. No push or merge was performed.
-
-No master/main/other-worktree code, reserved files, shared venv, GitHub state,
-remote branch or admission service was changed. Standard verify-cache, runtime-cache and benchmark-output writes occurred
-through the approved runners. The independent remote venv and diagnostic scripts
-were created only under the owned completion-recipe path.
+The existing numerical expected failures and skipped nightly test remain suite
+limitations. Earlier failed development runs are not final gate evidence.
+No master/main/other-worktree code, shared venv, remote branch, GitHub state or
+admission service was changed. Standard verify-cache, runtime-cache and
+benchmark-output writes are runner-owned. No push or merge was performed.
+Commits use the exact trailers from the brief.
