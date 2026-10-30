@@ -3,7 +3,7 @@
 Worktree: `/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.claude/worktrees/struct3`.
 Branch: `struct3`; base: `a9cd7e1bcc81c807ee9a60fd1a3a276c47d22a64`.
 Implementation: **26d3a380**, `Record proof semantics with immutable proof identities`.
-This report checkpoint precedes final verification; completed gate results will be recorded in a report-only follow-up.
+Pre-verification report checkpoint: **08739ee6**. This report-only follow-up records the completed acceptance gates; all required checks passed on the implementation tree. Both implementation and report commits carry the requested Co-Authored-By and Claude-Session trailers.
 
 ## Diagnosis and design as built
 
@@ -63,7 +63,7 @@ Token counts use `o200k_base` and the supplied counter:
 
 ## Tests and values
 
-- The complete strict MeTTa suite passed **162 files, zero failures** after the owner rewiring and again after observation-source recording. Logs: `scratch/metta-accepted.log`, `scratch/metta-owner-final.log`. These include `test_proof_state_history.metta` and `test_prior_factored_merge.metta`. Final verification below will cover the committed tree, including the last open-head construction guard.
+- The complete strict MeTTa suite passed **162 files, zero failures** after the owner rewiring and again after observation-source recording. Logs: `scratch/metta-accepted.log`, `scratch/metta-owner-final.log`. These include `test_proof_state_history.metta` and `test_prior_factored_merge.metta`. Final verification below passed on the committed tree, including the last open-head construction guard.
 - Five new Python boundary tests passed on the implementation tree: `scratch/proof-metadata-accepted.log`. They compare inline/reference update relations; replace a stored explanation while checking unchanged prior/update and givens; compare inline/reference joint dominance and conditional-statement dominance; check catalog role, owner/result/dependency capture; verify opaque semantic-tag user proofs and unbound-head preservation; remove an executable rule row while retaining its application template; and check metadata/template cleanup. Several of these checks are combined within one test method.
 - Existing direct given-evidence tests now call `record-proof!` and check the owner record rather than a removed memo predicate. Their expected signed evidence and numerical values are unchanged.
 - Exploratory quick comparison: **PASS, accuracy changed in zero cases**, 106 seconds wall; report `/nexus/Dev/OpenCog/bench/results/compare/a9cd7e1b_vs_a9cd7e1b-d342d92b9_quick/report.md`, log `scratch/compare-quick.log`. Its runtime snapshot predates the final source-property consolidation, so it is iteration evidence only. The full/canary runs below judge the committed implementation.
@@ -75,10 +75,27 @@ During iteration, strict checking caught erased index-id/list boundaries, and th
 
 Every PeTTa/test/benchmark process uses `/nexus/Dev/OpenCog/bench/capped`, `ulimit -v 16000000`, DISPLAY unset and stdin from `/dev/null`. MeTTa suites use `scripts/test_metta.sh` and the worktree's pinned executable. Comparisons set `PETTACHAINER_REPO` to this worktree. The remote timing host received an independent `.venv` only under the remote struct3 path; its editable import and script interpreters point there. No shared environment or other worktree was edited.
 
-At this checkpoint, `compare.sh master <worktree> --full` and `compare.sh anchor <worktree> --canary --retime` are running against implementation **26d3a380**. Focused rule-retirement, double-negation and given-evidence tests are also running. Their completed results and the final `capped --slots 16 env PETTA_JOBS=16 scripts/verify.sh` result will be appended in a report-only commit after this checkpoint. Any flagged case will receive the required paired dev-server retime.
+All final runs use implementation **26d3a380**, runtime tree **8e42844b9db9**. Master is **a9cd7e1b**, runtime tree **3460f596e6ee**; PeTTa runtime **eec735bf4d1d3e31**. The report was committed before starting final verification. There were no source/test changes during these final runs.
+
+- **Full master comparison: PASS, accuracy changed in zero cases.** All 22 accuracy comparisons are identical, plus the reference/fuzzer gate: 23 cases, **44 runs executed and one of 45 results reused**, **157 seconds wall**. All **45 accuracy records exit 0**, with no unsupported marker. Both regression and false-flag lists are empty. The fuzzer retains the same five flagged KBs, with no newly flagged KB, unsupported input or crash. Report: `/nexus/Dev/OpenCog/bench/results/compare/a9cd7e1b_vs_26d3a380_full/report.md`; data: adjacent `compare.json`; log: `scratch/compare-full.log`.
+- Full suite time totals range from **-2% to +3%** versus master: SupplyNet +3%, scale/conflict/learned +2%, replay/CombiNet -1%, fuzzer -2%. These are measured timings at pool loads 18–24, not claimed speedups. The largest scale peak rises from **1,395 to 1,498 MB**. No time or memory threshold is flagged, so no additional flagged-case retime is required.
+- **Fresh paired canary retime: PASS**, six cases, **all 12 fresh dev-server timing jobs exit 0 at load 1**, **301 seconds wall**. The comparison executed 17 jobs including local accuracy work. Its 12 accuracy records also exit 0, with no unsupported marker. Four cases differ from the historical anchor; the embedded comparison with this task's master has **no answer movement**, reusing all 12 records. All nine anchor deficits also occur on master and are nonblocking under the prescribed runner. No regression or false timing flag remains. Report: `/nexus/Dev/OpenCog/bench/results/compare/anchor-b4065459_vs_26d3a380_canary-retime-20261030T222912/report.md`; data: adjacent `compare.json`; log: `scratch/compare-canary.log`. The earlier step-2 baseline already has these historical anchor gaps.
+- **Focused Python checks: PASS.** `test_rule_retirement.py`: **13 tests** (`scratch/rule-retirement-final.log`); `test_double_negation_evidence.py`: **4 tests** (`scratch/double-negation-final.log`); `test_certain_observation_overlap.py`: **4 tests** (`scratch/given-evidence-final.log`); new metadata boundary checks: **5 tests** (`scratch/proof-metadata-accepted.log`). The complete final suite repeats all of them. A separate private-context probe finds the same catalog `forward-source` role on all three observed applications through Assuming/implication-judgment evaluation (`scratch/private-roles.log`).
+- **Final `capped --slots 16 env PETTA_JOBS=16 scripts/verify.sh`: PASS, all six gates**, **259 seconds wall**, recorded verification key **efa6d542e974**. Strict MeTTa: **162 files passed, zero failed**. Python: **1,027 tests / 69 files / 629 units**, the same **24 expected failures and one skip**, **4,528 query metric rows and zero aborts**. Import scaling: **0.994** late/early median ratio, chunks **2.527, 2.534, 2.517, 2.513 seconds**. Judgment scaling passed with three query rows and zero aborts. ConceptNet returned exactly two results. Log: `scratch/verify-final.log`.
+
+Fresh paired **process wall seconds** against the historical anchor (these are historical baseline gaps, not the extraction's cost):
+
+| Case | Anchor | struct3 |
+|---|---:|---:|
+| live b50, five shifts, seed 1 | 6.99 | 10.45 |
+| conflict pln-reliable l spq4 s1 | 9.85 | 68.49 |
+| scale m spq4 r10 s1 | 22.53 | 36.70 |
+| conflict pln-stated l spq4 s1 | 10.07 | 26.99 |
+| ONA conditioning s1 | 5.61 | 10.79 |
+| ONA identitymatching s8 | 6.75 | 14.67 |
 
 No scheduling, allowance or anytime policy changed, so curves are outside the brief. No pushes, merges or GitHub writes were made. Master/main-checkout/other-worktree code is untouched; prescribed runner outputs and verification-cache writes are the authorized shared artifacts.
 
 ## Limits
 
-This is structural separation, with **+1,078 core tokens**, **13 additional file edges** and a **one-file larger SCC**. It does not establish replacement coverage for deleting inversion, completion, observed messages, Jeffrey updates or joint routes. Inline temporary proofs still cross the centralized normalizer; stored proofs read recorded metadata. Logical source provenance remains shared and lazily resolved rather than eagerly flattened. Existing numerical approximations and proof identity/selector policies remain. Final acceptance gates are pending at this report checkpoint.
+This is structural separation, with **+1,078 core tokens**, **13 additional file edges** and a **one-file larger SCC**. It does not establish replacement coverage for deleting inversion, completion, observed messages, Jeffrey updates or joint routes. Inline temporary proofs still cross the centralized normalizer; stored proofs read recorded metadata. Logical source provenance remains shared and lazily resolved rather than eagerly flattened. Existing numerical approximations and proof identity/selector policies remain. All required acceptance gates are complete and passing. No answer moved against the actual base, no known extraction-specific regression remains, and every process started for this task has finished. The worktree is ready for coordinator review; no push or merge was performed.
