@@ -35,9 +35,11 @@
 (: sk-outcome-views (-[det]-> SkeletonValueReader Atom Atom (List STVType)))
 (= (sk-outcome-views $reader $type $kbctx)
    (case (collapse (once
-         (let* (($views (collapse (match ccls_index (($type $kbctx (by $rule $premise) $tv) $_id $args)
-                          (let $ev (fold-semidet (sk-stored-premise-step $reader) (ev-set 0) $args)
-                             (sk-val (assemble-runtime-fact $type $kbctx (by $rule $premise) $tv) $ev 0)))))
+         (let* (($applications (application-values $type $kbctx))
+                ($views (collapse
+                   (let* (((application-value $found-type $found-ctx $rule $premise $tv $args) (superpose $applications))
+                          ($ev (fold-semidet (sk-stored-premise-step $reader) (ev-set 0) $args)))
+                      (sk-val (assemble-runtime-fact $found-type $found-ctx (by $rule $premise) $tv) $ev 0))))
                 ($references (map-semidet sk-reference-of $views))
                 ($specific (fold-semidet (sk-outcome-step $references) () $references)))
             (fold-semidet sk-disjoint-view-step (data () (ev-set 0)) (sk-sample-groups (the (List SkeletonValue) $specific)))))) (

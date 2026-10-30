@@ -65,6 +65,7 @@ source_catalog_erase_fact(Identity, Ref) :-
     erase(Ref), retractall(source_catalog_identity(Identity, Ref)), 'source-catalog-changed!'(KB, true).
 
 'source-catalog-remove!'(Id, true) :-
+    proof_template_erase(Id),
     ( retract(source_catalog_application(Id, Source, _, [_, [KB|_]], _, _, _))
     -> retractall(source_catalog_sequence(Id, _)), retractall(source_catalog_output(_, Id)), retractall(source_catalog_open(_, Id)), retractall(source_catalog_child(_, Id, _, _)),
        retractall(source_catalog_prior(_, Id, _, _, _)),

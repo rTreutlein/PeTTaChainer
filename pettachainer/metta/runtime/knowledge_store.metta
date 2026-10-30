@@ -160,13 +160,16 @@
    (case $fact (
       (($type ($kb MAIN Nil) $_proof (STV $_s $c))
          (if (if (>= $c 1.0) (if (is-expr $type) (== (extract-vars $type) ()) false) false)
-            (case (list_to_set (collapse (match ccls_index (($type ($kb MAIN Nil) (by $rule $_premise) $_tv) $_id $_args) $rule))) (
+            (let* (($scope (data $kb MAIN Nil))
+                   ($applications (application-values $type $scope)))
+               (case (list_to_set (collapse
+                      (let (application-value $_type $_ctx $rule $_premise $_tv $_args) (superpose $applications) $rule))) (
                ((cons $_first (cons $_second $_more))
                   (let* (($head (car-atom $type))
                          ($hash (index-hash (quote ($kb $head))))
                          ($_row (add-atom &combination_pending ($hash $kb $head $fact))))
                      ()))
-               ($_fewer ())))
+               ($_fewer ()))))
             ()))
       ($_other ()))))
 
@@ -226,6 +229,7 @@
              (+ 1000000000 (next-search-id bwd_tmp_ruleid))
              (let $fresh (fresh-rule-id (search-id-value ruleid))
                 (progn (change-state! ruleid (+ $fresh 1)) $fresh))))
+       ($_proof (proof-template! $id $typed-ccls $rule-args))
        ($_catalog (source-catalog-rule! $backend $id $info $typed-ccls))
        ($_recipe (if (== $recipe no-completion) true
           (kb-add-atom $backend &completion_recipe (brand SpaceAtom (data $id $recipe)))))

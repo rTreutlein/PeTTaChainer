@@ -10,6 +10,7 @@
 :- use_module(event_node).
 :- ensure_loaded('../compiler/source_ingress').
 :- ensure_loaded(source_catalog).
+:- ensure_loaded(proof_semantics).
 :- ensure_loaded(event_graph).
 
 % Register the table's direct native calls and feed its signatures through the
@@ -103,13 +104,6 @@ part_dist(K, ['STV', S, C], Proof, Dist) :-
     event_node_dist(Kind, S, C, K, Dist).
 
 observed(KProof, ['STV', _, Ck]) :- ( Ck >= 1.0 -> true ; stored_proof(KProof) ).
-
-stored_proof(Proof) :-
-    nonvar(Proof),
-    ( Proof = ['proof-ref', Pid], user:'&proof'(Pid, Stored, _, _) -> true ; Stored = Proof ),
-    (   Stored = ['fact-source', _, _] -> true
-    ;   Stored = ['@', _, Merge] -> stored_proof(Merge)
-    ;   Stored = ['merge/revision', Left, Right], stored_proof(Left), stored_proof(Right) ).
 
 % An observation's factor on the worlds where K holds, and 1 - it elsewhere:
 % its predictive strength, or its strength when certain.
@@ -353,7 +347,7 @@ perturbed(4, X, P, _, F1, F0, P, X, F1, F0).
     pairs_values(Sorted, Ordered).
 
 jeffrey_order_key(['sk-val', [_, _, Proof, _], Ev|_], Key) :-
-    'sk-step-proof'(Proof, [['node-jeffrey', Index, _KProof, Prediction, Conditionals]|_]),
+    'proof-semantic'(Proof, ['kinematic-update', _KProof, Prediction, Conditionals, Index, _]),
     'evidence-entries'(Ev, Entries), msort(Entries, Sources),
     Key = Prediction-Conditionals-Index-Sources.
 
@@ -742,40 +736,6 @@ argument_shape(Arg, Shape) :-
     ; nonvar(Stored), Stored = ['unsettled-summary',_,Source] -> 'sk-step-proof'(Source, Step)
     ; Step = Stored ).
 
-'proof-zero-likelihood?'(Proof, Zero) :-
-    ( proof_ref_id(Proof,Pid), user:'&proof'(Pid,Value,_,_) -> Stored=Value ; Stored=Proof ),
-    ( nonvar(Stored), Stored=['unsettled-summary',_,Source] -> 'proof-zero-likelihood?'(Source,Zero)
-    ; nonvar(Stored), Stored=['zero-likelihood',_] -> Zero=true ; Zero=false ).
-
-% Confidence weakening follows immediate proof references without revisiting
-% history. Memoized per immutable proof; collection removes the memo with it.
-:- dynamic proof_unsettled_memo/2.
-'proof-unsettled-sources'(Proof, Sources) :-
-    ( proof_ref_id(Proof, Pid)
-    -> ( proof_unsettled_memo(Pid, Known) -> Sources=Known
-       ; user:'&proof'(Pid, Stored, _, _), 'proof-unsettled-sources'(Stored, Sources),
-         assertz(proof_unsettled_memo(Pid, Sources)) )
-    ; findall(Source,
-        ( sub_term(Child, Proof), nonvar(Child),
-          ( Child=['unsettled-summary',Source,_], number(Source)
-          ; proof_ref_id(Child, Id), 'proof-unsettled-sources'(['proof-ref',Id],Nested), member(Source,Nested) ) ),
-        All), sort(All, Sources) ).
-
-% A retained ordinary view can seed the lazy representative channel only
-% when none of its premise keys combined several views. Otherwise replay that
-% row with representative premises rather than relabelling the union proof.
-:- dynamic proof_representative_memo/2.
-'proof-representative?'(Proof, Single) :-
-    ( proof_ref_id(Proof, Pid)
-    -> ( proof_representative_memo(Pid, Known) -> Single=Known
-       ; user:'&proof'(Pid, Stored, _, _), 'proof-representative?'(Stored, Single),
-         assertz(proof_representative_memo(Pid, Single)) )
-    ; ( sub_term(Child,Proof), nonvar(Child),
-        ( Child=[Tag|_], nonvar(Tag), memberchk(Tag,['factored-revision','merge/revision',combination,'class-mixture'])
-        ; proof_ref_id(Child,Id), 'proof-representative?'(['proof-ref',Id],false) ) )
-    -> Single=false
-    ; Single=true ).
-
 % Pure row classification stays opaque to PeTTa's CPU argument specialization.
 % A reference cannot certify an endpoint without a Bayes update. Unknown goal
 % heads/functions remain eligible; this test never binds the stored template.
@@ -785,40 +745,6 @@ argument_shape(Arg, Shape) :-
       ( var(Premise)
       ; Premise=[Tag, Fun|_], (var(Tag) ; Tag=='CPU', (var(Fun) ; Fun=='CTVBayesFormula')) )
     -> Has=true ; Has=false ).
-
-% A hard fact read as a completion's given sibling carries no dependence
-% between that context and another update. Keep the full signed source set;
-% the MeTTa consumer checks the facts' current certainty in their exact scope.
-% Each immutable reference's context is computed once from its immediate
-% children. The memo follows the proof store's collector, like its rule memo.
-:- dynamic proof_given_memo/2.
-
-'proof-given-evidence'(Proof, ['ev-set', Set]) :-
-    proof_given_evidence(Proof, Set).
-
-proof_given_evidence(Proof, Set) :-
-    (   proof_ref_id(Proof, Pid)
-    ->  (   proof_given_memo(Pid, Known) -> Set = Known
-        ;   user:'&proof'(Pid, Stored, _, _), proof_given_evidence(Stored, Set),
-            assertz(proof_given_memo(Pid, Set)) )
-    ;   nonvar(Proof), Proof = [FactTag, _, _], FactTag == 'fact-source' -> Set = 0
-    ;   nonvar(Proof), Proof = [NegTag, Inner], NegTag == negated
-    ->  proof_given_evidence(Inner, InnerSet),
-        'evidence-negated'(['ev-set', InnerSet], ['ev-set', Set])
-    ;   nonvar(Proof), Proof = [Head, Compound], nonvar(Head), Head = [Completion | _],
-        Completion == 'antecedent-completion', nonvar(Compound), Compound = [Conjunction | Witnesses],
-        Conjunction == conjunction
-    ->  append(Siblings, [_Observation], Witnesses),
-        'proof-term-evidence'('proof-walk-in-kb', [conjunction | Siblings], ['ev-set', Given]),
-        proof_given_children(Proof, Nested), ev_union(Given, Nested, Set)
-    ;   is_list(Proof) -> proof_given_children(Proof, Set)
-    ;   Set = 0 ),
-    refs_gc_touch_set(Set).
-
-proof_given_children([], 0).
-proof_given_children([Child | Rest], Set) :-
-    proof_given_evidence(Child, ChildSet), proof_given_children(Rest, RestSet),
-    ev_union(ChildSet, RestSet, Set).
 
 % Different result keys can intern the same proof under different ids. Compare
 % the proof DAG without its result metadata or constructing an expanded tree.
@@ -879,6 +805,7 @@ opaque_proof_step(Step) :-
 'deps-gc!'(Roots, true) :-
     empty_nb_set(Live),
     forall(member(Root, Roots), deps_mark(Root, Live)),
+    forall(proof_metadata(_, _, _, _, _, Deps, _, _, _, _), deps_mark(Deps, Live)),
     size_nb_set(Live, Kept), flag(deps_gc_kept, _, Kept),
     length(Roots, Read), flag(deps_gc_roots, _, Read),
     flag(deps_next_id, Next, Next), flag(deps_gc_next, _, Next),
@@ -923,6 +850,7 @@ refs_holder('&materialized_facts', 6, [5, 6]).
 refs_holder('&forward_aggregate_observation', 6, [3]).
 refs_holder('&combination_pending', 4, [4]).
 refs_holder('&query_proofs', 1, [1]).
+refs_holder(proof_template, 4, [2, 3, 4]).
 refs_holder(context_entry, 5, [4]).
 refs_holder(context_hidden, 5, [4]).
 refs_holder(context_propagated, 4, [4]).
@@ -1141,7 +1069,7 @@ refs_gc_follow_loop(Units, Left) :-
     ->  (   user:'&proof'(Pid, Stored, Leaves, _)
         ->  term_size(Stored, Size), flag(refs_gc_marked_words, Marked, Marked + Size),
             refs_gc_mark_term(Stored), refs_gc_mark_term(Leaves),
-            ( proof_given_memo(Pid, Given) -> refs_gc_mark_set(Given) ; true )
+            proof_metadata_mark(Pid)
         ;   true ),
         (   Units == inf -> Next = inf ; Next is Units - 1 ),
         refs_gc_follow_loop(Next, Left)
@@ -1160,10 +1088,7 @@ refs_gc_dead(unions, ev_union_memo(Key, Union), _, SetLimit) :-
 refs_gc_live_set(Set, SetLimit) :- ( Set =:= 0 ; Set >= SetLimit ; refs_gc_set(Set) ), !.
 
 refs_gc_erase(proofs, user:'&proof'(Pid, _, _, _), Ref) :- !,
-    erase(Ref), retractall(user:'&proof_fact'(Pid, _, _)), retractall(proof_rules_memo(Pid, _)),
-    retractall(proof_given_memo(Pid, _)),
-    retractall(proof_unsettled_memo(Pid, _)),
-    retractall(proof_representative_memo(Pid, _)),
+    erase(Ref), proof_metadata_erase(Pid), retractall(proof_rules_memo(Pid, _)),
     forget_summary_user(Pid).
 refs_gc_erase(sets, ev_set(Set, _, _, _, _), Ref) :- !,
     erase(Ref), retractall(ev_given_memo(Set, _)), retractall(ev_inherited_memo(Set, _)).
@@ -1661,17 +1586,6 @@ proof_rules(Pid, Set) :-
 'proof-ref-negated?'(Pid, Negated) :-
     ( user:'&proof'(Pid, _, _, Flags), Flags /\ 1 =:= 1 -> Negated = true ; Negated = false ).
 
-% Publication receives the identity from the exact row being evaluated.
-% Folds have identity -1; temporary query rows cannot be withdrawn. Encoding
-% the owner as id+1 reserves metadata zero without losing real rule id zero.
-'record-view-rule!'(Pid, Rule, Proof, Owner) :-
-    term_size(Proof, Words), flag(refs_gc_words, Before, Before + Words),
-    ( Rule >= 0, Rule < 1000000000 -> Owner is Rule + 1 ; Owner = 0 ),
-    % A frozen summary's rows are gone. Its source identities must survive
-    % physical retirement until this proof has captured its transitive set.
-    forall(( sub_term(Ref, Proof), nonvar(Ref), Ref = [Tag, H, E], Tag == forgotten,
-             integer(H), integer(E) ), (assertz(summary_user(Pid, H, E)), assertz(summary_ref(H, E, Pid)))).
-
 forget_summary_user(Pid) :-
     forall(retract(summary_user(Pid, Hash, Epoch)), retractall(summary_ref(Hash, Epoch, Pid))).
 
@@ -1798,13 +1712,13 @@ dormancy_supported(Type, Ctx, Forbidden, Path, Depth) :-
                        dormancy_premise_supported(Proof, PType, PCtx, Forbidden, [Type-Ctx|Path], Depth1)) ) ) ).
 
 dormancy_premise_supported(Proof, Type, Ctx, Forbidden, Path, Depth) :-
-    (   Type-Ctx \== Forbidden, Proof = [['antecedent-completion'|_]|_], \+ dormancy_derived(Type, Ctx) -> true
+    (   Type-Ctx \== Forbidden, 'proof-semantic'(Proof, ['prior-update',completion,_,_,_,_]), \+ dormancy_derived(Type, Ctx) -> true
     ;   dormancy_supported(Type, Ctx, Forbidden, Path, Depth) ).
 
 dormancy_derived(Type, Ctx) :-
     (   dormancy_complete(Type, Ctx) -> true
     ;   \+ \+ ( dormancy_row(rules('runtime-rule-row', _, [Type, Ctx, Proof|_], _)),
-                 ( Proof = [by|_] ; Proof = [negated, [by|_]] ) ) ).
+                 'rule-application-proof?'(Proof, true) ) ).
 
 % A complete statement always has a value once its search settles: its rule
 % applications read closed, and with none it is unfounded, false

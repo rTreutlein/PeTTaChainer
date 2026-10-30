@@ -174,6 +174,12 @@
 ;; the statement and truth value a stored fact proof proves
 (: &proof_fact (SpaceOf (Number Statement TV)))
 
+;; An installed application has explicit semantic inputs beside its explanation.
+(datatype ProofApplicationTemplate
+   (application-template Statement KBContext Proof Proof (List Atom)))
+(datatype ProofApplicationValue
+   (application-value Statement KBContext Proof Proof TV (List Atom)))
+
 (: Evidence (Newtype Atom))
 (: given-ev (-[det]-> KBContext Proof Statement Evidence))
 (: fact-ev (-[det]-> KBContext Proof Statement Evidence))

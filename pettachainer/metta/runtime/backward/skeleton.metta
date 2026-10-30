@@ -1232,16 +1232,12 @@
 ;; joint of its parts, under any negations.
 (: sk-node-row? (-[det]-> Atom Bool))
 (= (sk-node-row? $proof)
-   (if (if (is-expr $proof) (not (== $proof ())) false)
-      (let $head (car-atom $proof)
-         (if (is-var $head) false
-            (if (== $head negated) (sk-node-row? (car-atom (cdr-atom $proof)))
-            (if (== $head node-message) true
-               (case (copy_term $head) (
-                  ((node-joint $_spec $_joint-source) true)
-                  ((node-jeffrey $_j-idx $_j-source $_j-prediction $_j-conditionals) true)
-                  ($_other false)))))))
-      false))
+   (case (proof-semantic (brand Proof $proof)) (
+      ((message $_source $_likelihood $_index $_parts) true)
+      ((joint $_source $_parts $_spec) true)
+      ((kinematic-update $_source $_prediction $_conditionals $_index $_parts) true)
+      ((negated $inner) (sk-node-row? $inner))
+      ($_other false))))
 
 ;; Fixed source-fact node rows are compiled in MAIN. Reuse their logic in
 ;; the judgment, with contextual premises, rather than importing a MAIN view
@@ -1422,12 +1418,10 @@
 ;; projections, which are evidence.
 (: rule-application-proof? (-[det]-> Atom Bool))
 (= (rule-application-proof? $proof)
-   (if (is-expr $proof)
-      (let $head (car-atom $proof)
-         (if (is-var $head) false
-            (if (== $head by) true
-               (if (== $head negated) (rule-application-proof? (car-atom (cdr-atom $proof))) false))))
-      false))
+   (case (proof-semantic (brand Proof $proof)) (
+      ((application $_name $_premises) true)
+      ((negated $inner) (rule-application-proof? $inner))
+      ($_other false))))
 
 ;; The ways a statement becomes true: its rule applications and, for a
 ;; connective, its producers, which read its parts (`compound-readings`).
@@ -1687,17 +1681,11 @@
 
 ;; The rule an inversion match inverts, or none.
 (: sk-inverted-rule (-[det]-> SkeletonMatch Atom))
-(= (sk-inverted-rule (sk-match $_id $_premises ($_type $_kbctx $proof $_tv)))
-   (if (is-expr $proof)
-      (let $head (car-atom $proof) (if (head-is? $head inverted) (car-atom (cdr-atom $head)) none))
-      none))
+(= (sk-inverted-rule (sk-match $id $_premises $_conclusion)) (proof-inversion-name $id))
 
 ;; The name of the rule a join applies, none for a producer or an adapter.
 (: sk-rule-name (-[det]-> Number Atom))
-(= (sk-rule-name $id)
-   (case (collapse (once (match rules (runtime-rule-row $id ($_t $_c $proof $_v) $_ps) $proof))) (
-      ((cons $proof $_none) (if (head-is? $proof by) (car-atom (cdr-atom $proof)) none))
-      (() none))))
+(= (sk-rule-name $id) (proof-application-name $id))
 
 ;; The rules whose joins wait on a node.
 (: sk-reader-names (-[det]-> Number (List Atom)))

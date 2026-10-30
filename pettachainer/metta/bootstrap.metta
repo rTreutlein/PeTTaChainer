@@ -56,7 +56,7 @@
 
 !(import! &self runtime/values)
 !(import! &self runtime/scheduling)
-!(import! &self runtime/evidence)
+!(import! &self runtime/proofs)
 !(import! &self runtime/kb_index)
 !(import! &self runtime/skeleton_journal)
 !(import! &self runtime/base_rates)

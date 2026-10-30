@@ -117,7 +117,7 @@
                    (if (== $head by)
                       (cdr-atom (cdr-atom $prf))
                    (if (== $mode proof-walk-in-kb)
-                      (if (proof-term-leaf-head? $head) () (cdr-atom $prf))
+                      (if (if (is-var $head) false (proof-term-leaf-head? $head)) () (cdr-atom $prf))
                       ())))))
          (proof-children $children))
       ()))
@@ -337,9 +337,9 @@
 
 (: proof-dominates? (-[det]-> Proof Proof Bool))
 (= (proof-dominates? $prf-a $prf-b)
-   (if (case $prf-a (
-          (((node-joint $_spec $_source) $_parts)
-             (case (sk-step-proof $prf-b) (
+   (if (case (proof-semantic $prf-a) (
+          ((joint $_source $_parts $_spec)
+             (case (proof-semantic $prf-b) (
                 ((cons conjunction $_conjuncts) true)
                 ((cons disjunction $_disjuncts) true)
                 ((conditioned $_weight $_yes $_no) true)
@@ -350,12 +350,12 @@
       ;; Applying an implication statement to its query's certain
       ;; assumption restates that statement's positive branch. This is
       ;; the same source even when a certain rule has no evidence id.
-      (case (sk-step-proof $prf-b) (
+      (case (proof-semantic $prf-b) (
          ((conditional-implication $inner)
-            (case (sk-step-proof (brand Proof $inner)) (
-               ((by $statement $assumption)
+            (case (proof-semantic (brand Proof $inner)) (
+               ((application $statement ($assumption))
                   (if (assumption-proof? (sk-step-proof (brand Proof $assumption)))
-                     (== (sk-step-proof $prf-a) (sk-step-proof (brand Proof $statement))) false))
+                     (== (proof-semantic $prf-a) (proof-semantic (brand Proof $statement))) false))
                ($_other-inner false))))
          ($_other-proof false))))))
 
@@ -411,8 +411,8 @@
 ;; Membership here compares by-proof rule names, not compiled ids or premises.
 (: specialization-has-rule? (-[det]-> Proof Proof Bool))
 (= (specialization-has-rule? $prior $other)
-   (case (data (sk-step-proof $prior) (sk-step-proof $other)) (
-      (((by $rule $_premise) (by $other-rule $_other-premise)) (== $rule $other-rule))
+   (case (data (proof-semantic $prior) (proof-semantic $other)) (
+      (((application $rule ($_premise)) (application $other-rule ($_other-premise))) (== $rule $other-rule))
       (((merge/revision $left $right) $_other)
          (if (specialization-has-rule? (brand Proof $left) $other) true
             (specialization-has-rule? (brand Proof $right) $other)))
@@ -422,7 +422,7 @@
 
 (: more-specific-application? (-[semidet]-> Proof Proof Bool))
 (= (more-specific-application? $prf-a $prf-b)
-   (let* (($step-a (sk-step-proof $prf-a)) ($step-b (sk-step-proof $prf-b)))
+   (let* (($step-a (proof-semantic $prf-a)) ($step-b (proof-semantic $prf-b)))
    (case (data $step-a $step-b) (
       (((specializes $specific-a $prior-a $_raw-a $_ptv-a) $_other-b)
          (if (specialization-has-rule? (brand Proof $prior-a) $prf-b) false
@@ -432,7 +432,7 @@
       (($_other-a (merge/revision $left-b $right-b))
          (if (more-specific-application? $prf-a (brand Proof $left-b))
             (more-specific-application? $prf-a (brand Proof $right-b)) false))
-      (((by $rule-a $premise-a) (by $rule-b $premise-b))
+      (((application $rule-a ($premise-a)) (application $rule-b ($premise-b)))
          (if (== $rule-a $rule-b) false
             (let* (($facts-a (application-facts $premise-a))
                    ($facts-b (application-facts $premise-b)))

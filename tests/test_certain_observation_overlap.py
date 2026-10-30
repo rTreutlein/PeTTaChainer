@@ -87,8 +87,8 @@ class CertainObservationOverlapTests(unittest.TestCase):
             "'evidence-set'([['fact-ev',Scope,report,['Report']]],ER), "
             "Part=[['antecedent-completion',r,1,with,cpu,[prior,['STV',0.3,0.9]]], "
             " [conjunction,['fact-source',EA,a],['fact-source',EB,b],['fact-source',ER,report]]], "
-            "'sk-store-proof!'(0,Part,['ev-set',0],Inner), "
-            "'sk-store-proof!'(0,[by,f,[negated,Inner]],['ev-set',0],Root), "
+            "'next-search-id'(proof_id,IP), 'record-proof!'(IP,0,Part,['ev-set',0],0,[],Inner), "
+            "'next-search-id'(proof_id,RP), 'record-proof!'(RP,0,[by,f,[negated,Inner]],['ev-set',0],0,[],Root), "
             "'proof-given-evidence'(Root,Given), 'evidence-entries'(Given,Before), "
             "'evidence-union'(EA,EB,AB), 'evidence-union'(AB,ER,All), "
             "assertz(user:'&completion_recipe'(-1,['completion-recipe',2,0,true])), "
@@ -109,8 +109,8 @@ class CertainObservationOverlapTests(unittest.TestCase):
             "  'proof-given-evidence'(Root,Given), 'evidence-entries'(Given,After)), retractall(user:'&sk_merged'(H,['CacheProbe'],probe,Root,false))), "
             "Root=['proof-ref',Pid], Inner=['proof-ref',Child], "
             "'stored-refs-gc!'(_), 'stored-refs-gc!'(_), "
-            "(proof_given_memo(Pid,_)->RootMemo=true;RootMemo=false), "
-            "(proof_given_memo(Child,_)->ChildMemo=true;ChildMemo=false), "
+            "(proof_metadata(Pid,_,_,_,_,_,_,_,_,_)->RootMemo=true;RootMemo=false), "
+            "(proof_metadata(Child,_,_,_,_,_,_,_,_,_)->ChildMemo=true;ChildMemo=false), "
             "'proof-given-evidence'([_Open,one,two],_), (var(_Open)->Unbound=true;Unbound=false)",
             {'Kb': h.kb},
         )

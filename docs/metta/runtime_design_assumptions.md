@@ -77,6 +77,18 @@ rule leaves to affected sets and their copies, visiting each node once. Copy
 registration and removal do not enumerate source rules; republishing replaces
 one registration. Provenance resolution still pays for previously uncached
 proof DAG nodes. Index storage is O(set nodes + copies).
+The proof owner also records the source-catalog role, normalized application or
+prior/update relation, signed given evidence, dependency id, zero-likelihood
+certificate, uncertainty sources and representative status at construction.
+References read those immutable records without decoding their explanations.
+Transient inline proofs normalize at that same boundary. Compiled application
+templates record their semantic inputs when installed and leave with their
+catalog ownership. Printed proofs and proof-pattern queries keep their exact
+shapes. Collection follows the records' proof/evidence handles, accounts for
+their allocated words and removes them with the existing proof id; dependency
+collection marks their dependency ids too. Certainty of given facts remains a
+live KB read, rather than a cached property of the proof name.
+
 A stale liveness memo checks subsequent retirement events or the set's leaves
 against the retirement index, whichever is smaller. Proof ids remain durable
 and never reusable. Every evaluated row captures its permanent owner in a proof

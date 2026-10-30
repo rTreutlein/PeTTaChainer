@@ -183,15 +183,15 @@
 
 (: sk-prior-update-of (-[det]-> KB Proof TV SkeletonPriorUpdate))
 (= (sk-prior-update-of $kb $proof $tv)
-   (case (sk-step-proof $proof) (
-      (((inverted $_rule with $prior (prior $prior-tv)) $_observation)
+   (case (proof-semantic $proof) (
+      ((prior-update inversion $_rule $prior (prior $prior-tv) $_observation)
          (sk-prior-update $prior (brand Proof (prior $prior-tv)) (cons $proof ())))
-      (((antecedent-completion $_completed $_idx with $completion-prior (prior $completion-prior-tv)) $_known)
+      ((prior-update completion $_completed $completion-prior (prior $completion-prior-tv) $_known)
          (sk-prior-update $completion-prior (brand Proof (prior $completion-prior-tv)) (cons $proof ())))
-      (((reported with $prior (prior $prior-tv)) $_report)
+      ((prior-update report $_report-rule $prior (prior $prior-tv) $_report)
          (sk-prior-update $prior (brand Proof (prior $prior-tv)) (cons $proof ())))
       ((factored-revision $prior $prior-tv $parts) (sk-prior-update $prior $prior-tv $parts))
-      ((by $rule $premise)
+      ((application $rule ($premise))
          (if (if (head-is? $premise conjunction) false (equivalence-rule? $kb (brand Proof $rule)))
             (case (sk-prior-update-of $kb (brand Proof $premise) $tv) (
                ((sk-prior-update $_own-source $_own-read ()) (sk-own-prior-update $proof $tv))
@@ -334,7 +334,7 @@
 (: sk-part-witnesses (-[det]-> (List Proof) (List Number)))
 (= (sk-part-witnesses ()) ())
 (= (sk-part-witnesses (cons $part $rest))
-   (let* (($witness (car-atom (cdr-atom (sk-step-proof $part))))
+   (let* (($witness (proof-update-witness $part))
           ($last-first (reverse (case $witness (((cons conjunction $proofs) $proofs) ($_one (cons $witness ()))))))
           ($read (the (List Atom) (cons (car-atom $last-first) ()))))
       (append-flat (map-flat sk-witness-hash $read) (sk-part-witnesses $rest))))
@@ -423,11 +423,11 @@
 ;; any of its views counts.
 (: sk-message-counted? (-[det]-> Proof Proof Bool))
 (= (sk-message-counted? $message $view)
-   (case (sk-step-proof $view) (
-      (((antecedent-completion $_rule $_idx with $formed $_prior) $_parts)
-         (case (sk-step-proof $message) (
-            ((node-message $_m-idx $source $_tokens $_likelihood) (sk-source-from? $source (brand Proof $formed)))
-            (((node-jeffrey $_j-idx $j-source $_prediction $_conditionals) $_j-parts) (sk-source-from? $j-source (brand Proof $formed)))
+   (case (proof-semantic $view) (
+      ((prior-update completion $_rule $formed $_prior $_parts)
+         (case (proof-semantic $message) (
+            ((message $source $_likelihood $_m-idx $_tokens) (sk-source-from? $source (brand Proof $formed)))
+            ((kinematic-update $j-source $_prediction $_conditionals $_j-idx $_j-parts) (sk-source-from? $j-source (brand Proof $formed)))
             ($_other false))))
       ((merge/revision $left $right)
          (if (sk-message-counted? $message (brand Proof $left)) true (sk-message-counted? $message (brand Proof $right))))
@@ -685,12 +685,12 @@
 ;; A conservative combination of twins still represents those same samples.
 (: sk-rule-digests (-[semidet]-> Statement KBContext Proof (List SkeletonDigest)))
 (= (sk-rule-digests $type $ctx $proof)
-   (case (sk-step-proof $proof) (
+   (case (proof-semantic $proof) (
       ((specializes $specific $_general $_raw $_prior)
          (sk-rule-digests $type $ctx (brand Proof $specific)))
-      ((by $rule $_premise)
+      ((application $rule ($_premise))
          (list_to_set (collapse (match rule_name_index ($rule $id)
-            (match rules (runtime-rule-row $id ($type $ctx (by $rule $_body) $_tv) $_args)
+            (let (application-template $type $ctx $rule $_body $_args) (application-rule (stored-number $id))
                (match &sk_rule_truth ($id $truth $_statement $_truth-ctx) (sk-truth-digest $truth)))))))
       ((combination revision $_prior3 $parts)
          (let $groups (map-semidet (sk-rule-digests $type $ctx) (proof-children $parts))
@@ -820,10 +820,10 @@
 
 (: sk-rule-reference (-[nondet]-> SkeletonValue Number SkeletonReference))
 (= (sk-rule-reference (sk-val ($type $ctx $proof $tv) $ev $deps) $s)
-   (let* (((by $rule $premise) (sk-step-proof $proof))
+   (let* (((application $rule ($premise)) (proof-semantic $proof))
           ($antecedent
              (case (collapse (once (match rule_name_index ($rule $id)
-                       (match rules (runtime-rule-row $id ($type $ctx (by $rule $premise) $_out) $_prems)
+                       (let (application-template $type $ctx $rule $premise $_prems) (application-rule (stored-number $id))
                           (match &sk_rule_truth ($id $_truth-hash $truth $_truth-ctx)
                              (let (RuleTruth (Implication $condition $type)) (copy_term $truth) $condition)))))) (
                 ((cons $refined $_more) $refined)
@@ -836,8 +836,8 @@
 
 (: sk-application-antecedent (-[semidet]-> Proof EvidenceSet ((List Atom) Number Bool)))
 (= (sk-application-antecedent $proof $ev)
-   (case (sk-step-proof $proof) (
-      ((by $rule $premise)
+   (case (proof-semantic $proof) (
+      ((application $rule ($premise))
          (let* ((($parts $s $complete) (sk-antecedent (brand Proof $premise) $ev))
                 ($source (sk-step-proof (brand Proof $rule))))
             (if (if (rule-application-proof? $source) true (head-is? $source merge/revision))
@@ -856,8 +856,8 @@
 
 (: sk-class-sources (-[det]-> SkFact EvidenceSet SourceList))
 (= (sk-class-sources ($type $ctx $proof $tv) $ev)
-   (case (sk-step-proof $proof) (
-      ((by $rule $_premise)
+   (case (proof-semantic $proof) (
+      ((application $rule ($_premise))
          (let $branch (case (collapse (once (sk-application-antecedent $proof $ev))) (
                          ((cons $found $_more)
                             (let ($_parts $s $_complete) (the ((List Atom) Number Bool) $found)
@@ -884,14 +884,14 @@
                    ($class-parts (sk-class-parts $class))
                    ((sk-val $fact $_ev $_deps) $view))
                (if (== (extract-vars $class-parts) ()) (the SkeletonReference $found)
-                  (case (sk-fact-step-proof $fact) (
-                     ((by $_rule (settled $_part)) (the SkeletonReference $found))
+                  (case (proof-semantic (proof-atom-proof $fact)) (
+                     ((application $_rule ((settled $_part))) (the SkeletonReference $found))
                      ($_full (sk-reference (sk-condition-class $s $parts) $view)))))))
          (() (case $view (
             ((sk-val $fact $_ev $_deps)
-               (case (sk-fact-step-proof $fact) (
+               (case (proof-semantic (proof-atom-proof $fact)) (
                   ;; A settling part is not the full condition.
-                  ((by $_rule (settled $_part)) (sk-reference no-class $view))
+                  ((application $_rule ((settled $_part))) (sk-reference no-class $view))
                   ($_full (sk-reference (sk-condition-class $s $parts) $view)))))
             ($_goal (sk-reference no-class $view)))))))))
 
@@ -899,8 +899,8 @@
 (= (sk-reference-of $view)
    (case $view (
       ((sk-val ($_type $_ctx $proof $_tv) $ev $_deps)
-         (case (sk-step-proof $proof) (
-            ((by $_rule $premise)
+         (case (proof-semantic $proof) (
+            ((application $_rule ($premise))
                (case (collapse (once (sk-application-antecedent $proof $ev))) (
                   ((cons $antecedent $_rest) (sk-reference-for $view (the ((List Atom) Number Bool) $antecedent)))
                   (() (case (collapse (once (sk-rule-reference $view 0.5))) (
@@ -1161,7 +1161,7 @@
 (: sk-rule-ctv (-[semidet]-> KB Atom CTVType))
 (= (sk-rule-ctv $kb $rule)
    (case (collapse (once (match rule_name_index ($rule $id)
-            (match rules (runtime-rule-row $id ($_type ($kb $_ctx $_vars) (by $rule $_premise) $_tv) $premises)
+            (let (application-template $_type ($kb $_ctx $_vars) $rule $_premise $premises) (application-rule (stored-number $id))
                (fold-semidet sk-rule-formula-step () $premises))))) (
       ((cons (cons $ctv ()) $_rest) $ctv))))
 

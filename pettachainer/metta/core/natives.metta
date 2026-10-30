@@ -105,6 +105,13 @@
    (sk-row-has-bayes? Number SkeletonKey Number Bool)
    (proof-representative? Proof Bool)
    (proof-given-evidence Proof EvidenceSet)
+   (proof-semantic Proof Atom)
+   (proof-update-witness Proof Atom)
+   (proof-template! Number Atom Atom Bool)
+   (proof-inversion-name Number Atom)
+   (proof-application-name Number Atom)
+   (application-values Atom Atom (List ProofApplicationValue))
+   (record-proof! Number Number Proof EvidenceSet Number Atom Proof)
    ;; Rule retirement and the physical stores exposing derived facts in &kb.
    (record-view-rule! Number Number Proof Number)
    (record-summary-rules! Number Number Proof Bool)
@@ -283,6 +290,7 @@
 ))
 
 !(declare-natives! -[semidet]-> (
+   (application-rule Number ProofApplicationTemplate)
    (member-shape Atom Atom Atom)
    ;; Observed likelihoods, then Jeffrey updates; graph replacements must be compatible.
    (event-network-read SkeletonKey SkeletonFilter (List Number) EvidenceSet EventNetworkRead)

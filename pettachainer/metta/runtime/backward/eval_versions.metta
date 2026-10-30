@@ -52,11 +52,11 @@
 (= (sk-reference-view $rule $computed)
    (case $computed (
       ((sk-val ($type $kbctx $proof $tv) $ev $vdeps)
-         (let* (($ref (sk-store-proof! $rule $proof $ev))
-                ($_fact (case $ref (((proof-ref $pid) (add-atom &proof_fact ($pid $type $tv)))))))
+         (let* (($fact (data $type $kbctx $tv))
+                ($ref (record-proof! (next-search-id proof_id) $rule $proof $ev $vdeps $fact)))
             (sk-val (data $type $kbctx $ref $tv) $ev $vdeps)))
       ((sk-goal-val $goal $goal-proof $gev $gdeps)
-         (sk-goal-val $goal (sk-store-proof! $rule $goal-proof $gev) $gev $gdeps))
+         (sk-goal-val $goal (record-proof! (next-search-id proof_id) $rule $goal-proof $gev $gdeps ()) $gev $gdeps))
       (sk-none sk-none))))
 
 (: sk-cache-branch!
@@ -194,19 +194,6 @@
       (collapse (once (match &ctx_sk_latest ($hash $stored (sk-version $seq $rhash $view))
          (if (=alpha $stored $key) (if (sk-live-view? $view) $view (empty)) (empty)))))))
 
-;; A stored view's proof moves to &proof under a fresh id and the view keeps a
-;; reference to it, so a view stays the size of one rule application however
-;; deep its derivation is. What the evidence of a proof needs from its whole
-;; tree, its computed evidence and whether it negates anything, is stored with
-;; it. Rewalking the printed proof loses rule evidence and fact identities.
-(: sk-store-proof! (-[semidet]-> Number Proof EvidenceSet Proof))
-(= (sk-store-proof! $rule $proof $ev)
-   (let* (($pid (next-search-id proof_id))
-          ($owner (record-view-rule! $pid $rule $proof))
-          ($flags (+ (* 2 $owner) (if (proof-term-contains-negated? $proof) 1 0)))
-          ($_row (add-atom &proof ($pid $proof $ev $flags))))
-      (proof-ref $pid)))
-
 ;; A new view becomes the row's latest; the one it replaces is kept.
 (: sk-store-view! (-[semidet]-> Number SkeletonKey Number Number SkeletonValue SkeletonValue))
 (= (sk-store-view! $hash $key $seq $rhash $view)
@@ -255,14 +242,14 @@
 (: sk-node-message? (-[det]-> SkeletonValue Bool))
 (= (sk-node-message? $value)
    (case $value (
-      ((sk-val $fact $_ev $_deps) (not (== (sk-message-likelihood (sk-fact-step-proof $fact)) ())))
+      ((sk-val $fact $_ev $_deps) (not (== (sk-message-likelihood (proof-atom-proof $fact)) ())))
       ($_none false))))
 
 ;; A message's likelihood; () for any other proof.
 (: sk-message-likelihood (-[det]-> Proof Atom))
 (= (sk-message-likelihood $step)
-   (case $step (
-      ((node-message $_idx $_source $_tokens $likelihood) $likelihood)
+   (case (proof-semantic $step) (
+      ((message $_source $likelihood $_idx $_tokens) $likelihood)
       ($_other ()))))
 
 ;; Zero-confidence STVs are unknown placeholders, not competing estimates.
@@ -647,8 +634,8 @@
 (= (sk-jeffrey-update? $value)
    (case $value (
       ((sk-val $fact $_ev $_deps)
-         (case (sk-fact-step-proof $fact) (
-            (((node-jeffrey $_idx $_source $_prediction $_conditionals) $_parts) true)
+         (case (proof-semantic (proof-atom-proof $fact)) (
+            ((kinematic-update $_source $_prediction $_conditionals $_idx $_parts) true)
             ($_view false))))
       ($_none false))))
 
@@ -689,7 +676,7 @@
 (= (sk-message-acc-step ($likelihoods $proofs $ev $deps) $message)
    (case $message (
       ((sk-val ($_type $_kbctx $proof $_tv) $mev $mdeps)
-         (data (cons (sk-message-likelihood (sk-step-proof $proof)) $likelihoods) (cons $proof $proofs)
+         (data (cons (sk-message-likelihood $proof) $likelihoods) (cons $proof $proofs)
             (evidence-union (the EvidenceSet $ev) $mev) (deps-union (the Number $deps) $mdeps)))
       ($_none (data $likelihoods $proofs $ev $deps)))))
 
@@ -700,8 +687,8 @@
       ((sk-val ($type $kbctx $proof (STV $s $c)) $ev $deps)
          (case $update (
             ((sk-val ($_utype $_ukbctx $uproof $_utv) $uev $udeps)
-               (case (sk-step-proof $uproof) (
-                  (((node-jeffrey $_idx $source (prediction (STV $ps $pc)) $conditionals) $_parts)
+               (case (proof-semantic $uproof) (
+                  ((kinematic-update $source (prediction (STV $ps $pc)) $conditionals $_idx $_parts)
                      (let $new (evidence-unique-count (evidence-confidence-k) $ev (proof-term-evidence proof-walk-in-kb $source))
                         (if (if (== $new 0.0) true (sk-message-counted? $uproof $proof)) $value
                            (sk-val (assemble-runtime-fact $type $kbctx (brand Proof (jeffrey-update $proof $uproof))
@@ -1100,11 +1087,7 @@
          ($_fold-key (sk-unifier-hashes $khash $key))))
       (case $key (
          ((sk-key $type $kbctx)
-            (if (if (is-expr $proof)
-                   (let $head (car-atom $proof)
-                      (if (is-var $head) false
-                         (case (copy_term $head) (((inverted $_rule with $_prior $_token) true) ($_other false)))))
-                   false)
+            (if (sk-inverted-proof? $proof)
                (hash-set (foldr-flat (sk-part-exclusions $kbctx) $own (sk-statement-parts (cons $type ()))))
                (if (head-is? $type ImplicationInstanceSample)
                   (case $type (
@@ -1305,10 +1288,9 @@
 
 (: sk-inverted-proof? (-[det]-> Atom Bool))
 (= (sk-inverted-proof? $proof)
-   (if (is-expr $proof)
-      (let $head (car-atom $proof)
-         (if (is-var $head) false (case (copy_term $head) (((inverted $_rule with $_prior $_token) true) ($_other false)))))
-      false))
+   (case (proof-semantic (brand Proof $proof)) (
+      ((prior-update inversion $_rule $_base $_read $_witness) true)
+      ($_other false))))
 
 ;; --- Evaluation -------------------------------------------------------------
 
