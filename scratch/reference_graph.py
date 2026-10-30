@@ -46,8 +46,8 @@ def references(term):
 
 
 def measure(root, revision=None):
-    files = subprocess.check_output(['git', '-C', str(root), 'ls-files', 'pettachainer/metta'], text=True).splitlines()
-    files += [str(p.relative_to(root)) for p in (root / 'pettachainer/metta').rglob('*.metta') if str(p.relative_to(root)) not in files and not revision]
+    command = ['ls-tree', '-r', '--name-only', revision, '--', 'pettachainer/metta'] if revision else ['ls-files', 'pettachainer/metta']
+    files = subprocess.check_output(['git', '-C', str(root), *command], text=True).splitlines()
     files = sorted(f for f in files if Path(f).suffix in ('.metta', '.pl'))
     rows = []
     for file in files:
