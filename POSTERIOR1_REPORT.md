@@ -1,7 +1,7 @@
 # POSTERIOR1: atomic posterior checkpoint, not ready to land
 
 Worktree `posterior1`, branch `posterior1`, base `2b6c42a8`. Earlier checkpoints are
-`dcf69289` and `765bcda2`. This report is written by the implementing agent. The step-1 acceptance
+`dcf69289`, `765bcda2`, `29e74cf3` and `50213418`. This report is written by the implementing agent. The step-1 acceptance
 criteria are **not yet met**: numerical fixture audits, final gates, and the required
 net deletion remain outstanding. Do not merge this checkpoint as completed step 1.
 
@@ -41,7 +41,9 @@ Point parameters are folded into world coefficients and identical remaining
 monomials are combined. Separable fallback messages retain their compressed
 product-moment parameter model, but now compile it into the shared event-node
 integrator. The separate variance/tensor/refinement implementation was deleted.
-A single broad Beta uses independently refined endpoint panels. The integrator
+A single broad Beta uses independently refined endpoint panels. A fixed
+parameter vector has exact zero variance without evaluating a cancelling second
+moment; the strengthened fractional/endpoint report test checks confidence .9999. The integrator
 handles forced goals exactly and integrates each goal's smaller event/complement
 to avoid cancellation at endpoints. A new closed-form tiny-complement regression
 checks a positive variance around 3.7e-17 on both sides of the event. Gauss-Jacobi rules are cached within the existing evaluator
@@ -75,9 +77,16 @@ stored-count preservation and unsupported-shape fallback.
   No expected failure was added. Removed keys are recorded in
   `scratch/posterior1-d0-ledger-removed.json` (the later 23). Fresh verification of
   the shared integrator and reduced ledger remains pending below.
-* No old numerical fixture pin was changed. The changed proof/TV fixtures remain
-  failing until independently derived and audited; their current failures are not
-  treated as evidence that their new values are acceptable.
+* Two lifecycle fixtures now compare their original TV references within 1e-12,
+  rather than requiring identical last floating bits. The references are unchanged:
+  nested projection (.9331614438710613, .0846757387459353), source gate wrapped
+  (.8655786350145539, .03980772466060817), and unwrapped
+  (.8657957244652751, .04001674008863015). Observed confidence differences were
+  2-4e-17. Proof patterns, evidence, borrowing, withdrawal and materialization
+  checks remain in place. Both full lifecycle fixtures pass. No substantive
+  changed mean/variance fixture was repinned or relaxed. Those failures remain
+  unaudited and are not treated as acceptable merely because the new engine
+  produced them.
 
 The shared integrator passes all **47** direct numerical, atomic, dependence and
 bridge lifecycle checks (`scratch/posterior1-shared-final-focused.log`). After
@@ -117,7 +126,7 @@ frequency readers still require the ordinary machinery. That route deletion and
 the required net reduction remain unfinished.
 
 Deleted base-tree functions: `graded_points/2`, `second_moment/5`, `first_rule/2`,
-`separable_refined/9`, `separable_variance/8`, `agree_variance/2`, `second_tensor/6`,
+`separable_refined/9`, `separable_variance/7`, `agree_variance/2`, `second_tensor/6`,
 `sized_rule/3`, `tensor_point/4`, `second_term/6`, `point_ws/3`. Their exact names
 have zero references under production, tests, third_party and docs. Endpoint
 panels now belong to `event_node.pl`; this is a shared numerical implementation,
@@ -128,9 +137,9 @@ Exact o200k count (`scratch/posterior1_counts.py`, same scope as supplied counte
 | tree | core | formulas/lowering | total | nonblank noncomment lines |
 |---|---:|---:|---:|---:|
 | 2b6c42a8 | 318919 | 17685 | 336604 | 16635 |
-| current checkpoint | 320266 | 17685 | 337951 | 16682 |
+| current checkpoint | 320298 | 17685 | 337983 | 16684 |
 
-Net **+1347 tokens, +47 lines**: this fails both required reduction gates. Line
+Net **+1379 tokens, +49 lines**: this fails both required reduction gates. Line
 count excludes blank and full-line comments; it is not a full language parser.
 The deleted functions are listed above. Internal signatures changed for
 `event-network-read`, `sk-forward-store!`, `sk-node-apply`, `separable` and
@@ -156,25 +165,49 @@ result and frozen-build artifacts.
   learned/mined retime passes with unchanged accuracy, 62.81 -> 62.89 s and
   607.7 -> 608.1 MB. Report:
   `/nexus/Dev/OpenCog/bench/results/compare/c873c6c3_vs_765bcda2-dabab1a49_full-untimed_learned_mined-retime-20261030T111015/report.md`.
-  The final producer/variance changes need fresh full/canary checks.
-* Anchor canary: runner PASS, accuracy changed in four cases; attribution and
-  strict RSS audit pending. Report:
-  `/nexus/Dev/OpenCog/bench/results/compare/anchor-b4065459_vs_dcf69289-db4d81904_canary/report.md`.
+  A later full comparison at `29e74cf3` also passes:
+  `/nexus/Dev/OpenCog/bench/results/compare/c873c6c3_vs_29e74cf3_full/report.md`.
+  Fuzzer 6 -> 5 flagged KBs, no new flag; global peak 1358 -> 1359 MB.
+  Learned/mined RSS 606.7 -> 604.4 MB. Per-case RSS still exceeds +5% for
+  stage 1 b100 s3 and CombiNet. Quiet paired retimes after the fixed-parameter
+  change preserve accuracy and time but confirm those memory deltas:
+  stage 1 160.7 -> 172 MB; CombiNet 135.8 -> 147 MB. Reports:
+  `/nexus/Dev/OpenCog/bench/results/compare/c873c6c3_vs_29e74cf3-de65995f5_full-stage_1_b100_s3-retime-20261030T114920/report.md`,
+  `/nexus/Dev/OpenCog/bench/results/compare/c873c6c3_vs_29e74cf3-de65995f5_full-combinet_n2_s1-retime-20261030T114752/report.md`.
+  These are full-profile cases, absent from the canary profile.
+* Anchor canary at `29e74cf3`: runner PASS, four accuracy differences against
+  the older anchor; candidate also checked against master. Report:
+  `/nexus/Dev/OpenCog/bench/results/compare/anchor-b4065459_vs_29e74cf3_canary/report.md`.
 * Capped slots-16 verify at `765bcda2`: FAIL, cache key `bb9e56d91319`,
   260 s. Lint/import scaling/judgment scaling/ConceptNet pass; MeTTa 143/162 pass;
   Python 1000 tests: 88 failures, 1 error, 23 unexpected successes, 24 expected
   failures, 1 skip, 4486 query rows and no aborts. The ledger's 23 successes were
-  subsequently removed. Final shared-integrator verify is pending; this updated
-  report is committed before it.
+  subsequently removed.
+* Shared-integrator verify at `29e74cf3`: FAIL, 285 s. D0: 520 checks with
+  21 expected failures and no new ordinary failures; P16 18/18. MeTTa 139 passed,
+  23 failed; Python 1002 tests, 93 failures, 1 error, 24 expected failures and
+  1 skip, no unexpected successes, 4487 query rows and zero aborts. The cache
+  record was rejected because a report typo was edited during the run. This
+  checkout's verify-cache.py hashes documentation, contrary to the newer runner
+  behavior described in the brief. No source or tests changed during that run.
+* After the lifecycle FP assertions were made precise at 1e-12, MeTTa is
+  141 passed, 21 failed; both projection/withdrawal and source-gate fixtures pass
+  (`scratch/posterior1-projection-lifecycle-metta.log`). The final fixed-parameter
+  change also passes 23 atomic/dependence checks
+  (`scratch/posterior1-point-variance-focused.log`).
+* This updated report is committed before the final unchanged-tree gate repeat.
+  Its completed outcomes and exact result paths will be written to
+  [the final gate status](scratch/POSTERIOR1_GATE_STATUS.md). That ignored artifact
+  can record results without changing the verified tree.
 * Earlier broad Python sweep: 1000 tests, 127 failures, 3 errors, 42 unexpected
   successes, 5 expected failures, 1 skip; diagnostic only, included intermediate
   edits and is not a final-tree result (`scratch/posterior1-python-second.log`).
 * Earlier MeTTa sweeps contain unaudited old pins and intermediate regressions;
-  none is claimed green. Nested conditional-consequent projection remained passing.
+  none is claimed green. The latest projection lifecycle checks pass as described above.
 
 Outstanding: complete route deletion without breaking FTV roles;
 audit every moved fixture against its model/oracle; rerun all D0 cases on one stable
-tree and shrink only confirmed ledger entries; pass verify, full accuracy/RSS and
-canary, and retime every final flagged case on the timing host. The checkpoint
+tree and shrink only confirmed ledger entries; pass verify, the strict per-case RSS gate and the final comparisons. The
+identified RSS cases have been retimed and remain above +5%. The checkpoint
 provides implemented and focused-tested admission/completion work, not completed
 step-1 acceptance.
