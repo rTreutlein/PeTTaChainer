@@ -201,7 +201,10 @@
    (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) (List SkeletonGiven) (List SkeletonValue) SkeletonValue))
 (= (sk-merge-key $hash $key $filter $exclude $given $views)
    (let* (($outside (hash-union $exclude (hash-set (sk-given-hashes $given))))
-          ($leaves (sk-leaf-views $hash $key $filter $outside))
+          ($posterior (event-network-read $key $filter $outside (ev-set 0) sk-none)))
+      (case $posterior (
+         (sk-none
+   (let* (($leaves (sk-leaf-views $hash $key $filter $outside))
           ($sources (sk-judgment-values $key
              (map-flat (sk-read-value $filter) (append-flat $leaves $views))))
           ($own (sk-own-values (sk-complete-values (sk-certain-or $leaves $sources))))
@@ -227,6 +230,8 @@
                   (if (== $cut ()) $merged
                      (sk-conditioned $given (sk-key-target $hash $key $filter $exclude) $hash -1
                         (hash-union $exclude $unifiers) $cut (+ 1 (deps-size $deps)) $merged $merged))))))))))
+
+         ($answer $answer)))))
 
 (: sk-summary-version
    (-[semidet]-> (List SkeletonGiven) Number SkeletonKey SkeletonFilter (List Number) (List SkeletonVersion) SkeletonVersion (List SkeletonVersion)))
@@ -426,7 +431,10 @@
 (= (sk-compatible-value $given $key $filter $exclude $ev $views)
    (let* (($hash (index-hash $key))
           ($outside (hash-union $exclude (hash-set (sk-given-hashes $given))))
-          ($leaves (sk-leaf-views $hash $key $filter $outside))
+          ($posterior (event-network-read $key $filter $outside $ev sk-none)))
+      (case $posterior (
+         (sk-none
+   (let* (($leaves (sk-leaf-views $hash $key $filter $outside))
           ($ignore (hash-union (sk-unifier-hashes $hash $key) $outside))
           ;; The compatible views come out of the step reversed; the split restores their order.
           (($messages $updates $compatible)
@@ -445,6 +453,8 @@
       (let $value (if $siblings (sk-key-fallback (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) $ignore $references $selected)
                      (fold-semidet (sk-merge-step (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) true $ignore) sk-none (sk-report-values (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) $selected)))
          (sk-calibrated-value $given $key $filter $outside (sk-node-apply (sk-value-reader sk-value) $key $filter $outside $ev (the (List SkeletonValue) $messages) (the (List SkeletonValue) $updates) $value)))))
+
+         ($answer $answer)))))
 
 ;; Reconstruct one proof per existing row only for an unanswered public root
 ;; after paid evaluation. Never expand or condition history here.
@@ -657,6 +667,8 @@
    (if (let (sk-row (sk-ident $rule $_keys $_key) $_concl $_prems $_seq) $row
           (if (rule-live? $rule) (context-rule-visible? $rule) false))
       (if (sk-claim-charge! $given)
+         (case (if (== $given ()) (event-network-read $key sk-any-filter $exclude (ev-set 0) sk-none) sk-none) (
+            (sk-none
          (let* (((sk-row (sk-ident $owner $_owner-keys $_owner-key) ($_type $_kbctx $proof $_tv) $_premises $_seq) $row)
                 ($readers (if (== $exclude ()) (sk-push-reader! ($khash $key $rhash)) ()))
                 ($exclusions (hash-union (sk-row-exclusions $khash $key $proof) $exclude))
@@ -681,7 +693,8 @@
             ;; Conditioned and closed reads consume this value without
             ;; publishing an ordinary view. Preserve the permanent owner now,
             ;; before a caller wraps it in a judgment, merge or fold.
-            (sk-reference-view $owner $value))
+            (sk-reference-view $owner $value)))
+            ($posterior $posterior)))
          sk-none)
       sk-none))
 

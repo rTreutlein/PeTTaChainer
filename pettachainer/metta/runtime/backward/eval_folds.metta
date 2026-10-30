@@ -297,10 +297,10 @@
 (: sk-node-apply (-[semidet]-> SkeletonValueReader SkeletonKey SkeletonFilter (List Number) EvidenceSet (List SkeletonValue) (List SkeletonValue) SkeletonValue SkeletonValue))
 (= (sk-node-apply $reader $key $filter $exclude $ev $messages $updates $value)
    (let $observed (if (== $messages ()) $value (sk-messages-on $reader $key $exclude $messages $value))
-      (event-network-read $key $filter $exclude $ev (if (== $updates ()) $observed
+      (if (== $updates ()) $observed
          (fold-semidet sk-jeffrey-step
             (if (== $observed sk-none) (sk-cavity-prior $reader $key (fold-semidet sk-value-ev-step (ev-set 0) $updates) $exclude) $observed)
-            (the (List SkeletonValue) (jeffrey-order $updates)))))))
+            (the (List SkeletonValue) (jeffrey-order $updates))))))
 ;; Read the cavity population rate without sources held by the messages/updates
 ;; or excluded by the reader. Only source facts count; an explicit rate overrides
 ;; the tally. Positive-only predicates have no prior without an explicit rate.
