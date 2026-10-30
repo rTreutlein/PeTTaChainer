@@ -453,13 +453,18 @@ expect_verify() {
     [[ $(cat "$tmp/verify-calls") == */land-feat && $out == *'ran: verify (log '* ]] || fail "verify did not run in the landing: $out"
   fi
 }
-for scenario in identical changed-candidate master-moved newer-failure landed-twice; do
+for scenario in identical docs-and-report changed-candidate master-moved newer-failure landed-twice; do
   fixture "reuse-$scenario"
   case $scenario in
     identical) agent_verify ;;
-    changed-candidate) agent_verify; echo more >>"$wt/y"; git -C "$wt" commit -qam more ;;
+    docs-and-report) agent_verify
+                     mkdir -p "$wt/docs"
+                     echo workflow >"$wt/docs/workflow.md"
+                     echo report >"$wt/GATE_REPORT.md"
+                     git -C "$wt" add docs GATE_REPORT.md; git -C "$wt" commit -qm report ;;
+    changed-candidate) agent_verify; echo '# more' >>"$wt/scripts/verify.sh"; git -C "$wt" commit -qam more ;;
     master-moved) agent_verify
-                  echo master >"$pc/z"; git -C "$pc" add z; git -C "$pc" commit -qm advance ;;
+                  echo '# master' >>"$pc/scripts/verify.sh"; git -C "$pc" commit -qam advance ;;
     newer-failure) agent_verify; agent_verify 1 ;;
     landed-twice) : >"$tmp/verify-calls"; run_land feat; expect_verify ran ;;
   esac
@@ -467,7 +472,7 @@ for scenario in identical changed-candidate master-moved newer-failure landed-tw
   run_land feat
   expect_status 0
   case $scenario in
-    identical|landed-twice) expect_verify reused ;;
+    identical|docs-and-report|landed-twice) expect_verify reused ;;
     *) expect_verify ran ;;
   esac
 done

@@ -410,15 +410,21 @@ scripts/land.sh <branch> --accept-flags approved-flags.tsv --clean --push
 
 - `scripts/verify.sh` records every run's PASS or FAIL in
   `.claude/verify-cache/records.jsonl` of the main checkout (append-only,
-  shared by all worktrees), under a key of the checkout's tree (tracked,
-  modified and untracked files as `.gitignore` leaves them, `.claude/`
-  excluded), the PeTTa runtime in its `.venv`, the installed distributions,
-  the interpreter and SWI-Prolog (`scripts/verify_cache.py`). A tree edited
-  while the gates ran is not recorded. When the newest record of the rebased
-  tree's key is a PASS, `land.sh` skips `verify.sh` and prints that record
+  shared by all worktrees), under a key of the gate inputs: `pettachainer/`,
+  `third_party/`, `tests/`, `scripts/`, examples, benchmark fixtures, the
+  MeTTa linter, the root library entry point and project/lock/ignore files
+  (tracked, modified and untracked as `.gitignore` leaves them), the PeTTa
+  runtime in its `.venv`, the installed distributions, the interpreter and
+  SWI-Prolog (`scripts/verify_cache.py`). Root `*_REPORT.md` files, `docs/`
+  and other non-executed files are excluded. Changes to gate inputs while
+  the gates run prevent recording; report and docs edits do not. When the
+  newest record of the rebased tree's key is a PASS, `land.sh` skips
+  `verify.sh` and prints that record
   (when, where, which commit). So an agent's own `verify.sh` run counts for
-  its landing if the rebase leaves the tree unchanged and the worktree has no
-  stray untracked files; a later failure of the same key withdraws a pass.
+  its landing if the rebase leaves the gate inputs unchanged; a later failure
+  of the same key withdraws a pass. Commit your report before the final
+  verify, or after it finishes. Reuse is automatic; a report-only commit
+  after verify keeps its result valid.
 - `compare.sh` reuses the verdict of an identical comparison (both trees,
   runtime, harnesses, cases, master's runs against the anchor and
   `compare.py` itself) whose newest verdict is a `PASS` with every run

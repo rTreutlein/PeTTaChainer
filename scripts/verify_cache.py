@@ -7,8 +7,8 @@ tested, so scripts/land.sh can skip the gates for code that already passed.
                                                         <repo>'s key if a PASS;
                                                         exit 1 otherwise
 
-The key is the checkout's tree (tracked, modified and untracked files, as
-.gitignore leaves them; .claude/ excluded), the PeTTa runtime in its .venv
+The key is the tree of verify's inputs (tracked, modified and untracked
+files, as .gitignore leaves them), the PeTTa runtime in its .venv
 (the same digest bench/compare.py uses), the installed distributions, the
 interpreter and SWI-Prolog. Records go to .claude/verify-cache/records.jsonl
 in the main checkout, append-only, shared by all its worktrees. See
@@ -27,6 +27,15 @@ import time
 from pathlib import Path
 
 
+# Keep in step with verify.sh and the runners it invokes: the suites also
+# execute examples, benchmark fixtures and the MeTTa linter. Reports, docs
+# and unrelated root files cannot affect those gates.
+INPUTS = ("pettachainer", "third_party", "tests", "scripts", "examples",
+          "benchmarks", "tools/metta-linter", "lib_pettachainer.metta",
+          "pyproject.toml", ".python-version", ".gitignore", "uv.lock",
+          "poetry.lock", "pdm.lock", "Pipfile.lock", "requirements*.txt", "requirements*.lock")
+
+
 def git(repo: Path, *args: str, env: dict | None = None) -> str:
     return subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True, text=True, env=env).stdout.strip()
 
@@ -41,7 +50,9 @@ def output(*argv: str) -> str:
 def components(repo: Path) -> dict:
     with tempfile.TemporaryDirectory() as scratch:
         env = dict(os.environ, GIT_INDEX_FILE=f"{scratch}/index")
-        git(repo, "add", "-A", "--", ".", ":(exclude).claude", env=env)
+        paths = sorted({str(path.relative_to(repo)) for pattern in INPUTS for path in repo.glob(pattern)})
+        if paths:
+            git(repo, "add", "-A", "--", *paths, env=env)
         tree = git(repo, "write-tree", env=env)
     packages = next((repo / ".venv/lib").glob("python3*/site-packages"), None)
     digest = hashlib.sha256()
@@ -55,7 +66,7 @@ def components(repo: Path) -> dict:
 
 
 def key(identity: dict) -> str:
-    return hashlib.sha256(json.dumps(["verify-cache 1", identity], sort_keys=True).encode()).hexdigest()
+    return hashlib.sha256(json.dumps(["verify-cache 2", identity], sort_keys=True).encode()).hexdigest()
 
 
 def store(repo: Path) -> Path:
@@ -70,7 +81,7 @@ def main(command: str, repo: str, *args: str) -> int:
         return 0
     if command == "record":
         started, status, seconds = args
-        # A tree edited while the gates ran tested neither version.
+        # Gate inputs edited while the gates ran tested neither version.
         if key(identity) != started:
             print("verify cache: the checkout changed during the run; result not recorded")
             return 0
