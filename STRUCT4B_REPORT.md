@@ -3,8 +3,10 @@
 Worktree: `/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.claude/worktrees/struct4b`.
 Branch: `struct4b`; base: **3d72b4c6**.
 Implementation: **a3f6cddb**, `Centralize exposed KB copy publication and removal`.
-This report and the publication audit are committed before final verification.
-Final acceptance results will be recorded in a report-only follow-up.
+Pre-verification report and reproducible publication audit: **8e9f5e0e**,
+committed before final verification. This report-only follow-up records the
+completed acceptance gates, including the flagged scale case's dev-server
+retime. All commits carry the requested Co-Authored-By and Claude-Session trailers.
 
 ## Diagnosis and design as built
 
@@ -153,19 +155,89 @@ Comparisons set `PETTACHAINER_REPO` to this worktree. An independent remote
 timing; its editable import and script interpreters point there. The shared
 remote environment was read to make that copy and is unmodified.
 
-At this pre-verification checkpoint, the following prescribed comparisons are
-running or awaiting their results:
+All final gates use implementation **a3f6cddb**, runtime tree
+**7bdde4b095f9**. The base is **3d72b4c6**, runtime tree **8e42844b9db9**;
+PeTTa runtime **eec735bf4d1d3e31**. The quick comparison's dirty snapshot has
+exactly the same runtime tree as the implementation commit. There are no
+source/test changes after the implementation commit.
 
-- `compare.sh master <worktree> --quick`: `scratch/compare-quick.log`.
-- `compare.sh master <worktree> --full`: `scratch/compare-full.log`.
-- `compare.sh anchor <worktree> --canary --retime`:
-  `scratch/compare-canary.log` (requests fresh paired dev-server timing).
-- Final `capped --slots 16 env PETTA_JOBS=16 scripts/verify.sh` will run after
-  this report is committed. Any flagged full-comparison case receives the
-  prescribed paired dev-server retime before hand-back.
+- Quick comparison: **PASS, accuracy changed in zero cases**, 62 seconds wall;
+  14 runs executed, five of 19 results reused. Report:
+  `/nexus/Dev/OpenCog/bench/results/compare/3d72b4c6_vs_3d72b4c6-d46865c84_quick/report.md`;
+  log: `scratch/compare-quick.log`.
+- `compare.sh master <worktree> --full`: **PASS, accuracy changed in zero
+  cases**. All 22 accuracy comparisons are identical, plus the reference/fuzzer
+  gate: 23 cases, **38 runs executed, nine of 45 results reused**, **401 seconds
+  wall**. All **45 accuracy records exit 0**, with no unsupported marker.
+  The fuzzer retains the same five flagged KBs, zero unsupported inputs and
+  zero crashes. Report:
+  `/nexus/Dev/OpenCog/bench/results/compare/3d72b4c6_vs_a3f6cddb_full/report.md`;
+  data: adjacent `compare.json`; log: `scratch/compare-full.log`.
+- One local scale timing flag did **not** repeat on the runner's automatic
+  paired rerun: `scale l spq16 s1`, normalized inference seconds
+  **145.2 → 187.5** initially, **109.7 → 109.3** on rerun. The initial process
+  wall samples were **182.08 → 227.51 seconds** at pool loads **24 → 33**;
+  rerun samples **134.29 → 134.04 seconds** at loads **19 → 20**.
+  The required additional **paired dev-server retime passed**, with identical
+  accuracy: **158.57 → 157.30 process wall seconds**, both exit 0 at load 1,
+  and identical **1,501.6 MB** peak RSS. Inference seconds are **142.2 → 140.9**.
+  Command: `BENCH_TIMING_FULL=1 compare.sh master <worktree> --full --only
+  "scale l spq16 s1" --retime`; two fresh timing jobs, **435 seconds wall**
+  including preparation/queue time. No regression or false flag remains in
+  that retime. Report:
+  `/nexus/Dev/OpenCog/bench/results/compare/3d72b4c6_vs_8e9f5e0e_full-scale_l_spq16_s1-retime-20261030T233108/report.md`;
+  data: adjacent `compare.json`; log: `scratch/scale-paired-retime.log`.
+  This report names checkpoint **8e9f5e0e**, with the implementation's identical
+  runtime tree **7bdde4b095f9**, and reuses the stored accuracy for those trees.
+  Local suite totals include noisy -28% to +13% timing differences; none is
+  claimed as a speedup or a confirmed regression. Scale peak RSS is unchanged
+  at **1,498 MB**. No memory threshold is flagged.
+- Fresh paired `compare.sh anchor <worktree> --canary --retime`: **PASS**,
+  six cases, **all 12 fresh dev-server timing jobs exit 0 at load 1**,
+  **302 seconds wall**. The runner executed 17 jobs including local accuracy
+  work. All 12 accuracy records exit 0 without an unsupported marker. Four
+  cases differ from the historical anchor; the embedded comparison with this
+  task's master has **no answer movement**, reusing all 12 records. All nine
+  anchor deficits are also present on master and are nonblocking under the
+  prescribed runner. No regression or false timing flag remains. Report:
+  `/nexus/Dev/OpenCog/bench/results/compare/anchor-b4065459_vs_a3f6cddb_canary-retime-20261030T232155/report.md`;
+  data: adjacent `compare.json`; log: `scratch/compare-canary.log`.
+- Final `capped --slots 16 env PETTA_JOBS=16 scripts/verify.sh`: **PASS, all
+  six gates**, **297 seconds wall**, recorded verification key
+  **1784183f9c97**. Strict MeTTa: **162 files**, zero failures. Python:
+  **1,030 tests / 70 files / 630 units**, the same **24 expected failures and
+  one skip**, **4,534 query metric rows and zero aborts**. Import scaling:
+  **1.078** late/early median ratio, chunks **2.580, 2.589, 2.610, 2.964
+  seconds**. Judgment scaling passed with three query rows and zero aborts;
+  ConceptNet returned exactly two results. Log: `scratch/verify-final.log`.
 
-No scheduling, budget or anytime policy changes, so curves are outside scope.
-The final report-only follow-up will record verdicts, report paths, exit/status
-coverage and any remaining limits. No push, merge or GitHub write is made.
-The local code changes are confined to struct4b; prescribed benchmark outputs
-and the runner-authorized verification cache are the only shared writes.
+Fresh paired **process wall seconds** against the historical anchor (these
+are historical baseline gaps, not the extraction's cost):
+
+| Case | Anchor | struct4b |
+|---|---:|---:|
+| live b50, five shifts, seed 1 | 6.94 | 10.56 |
+| conflict pln-reliable l spq4 s1 | 9.91 | 68.60 |
+| scale m spq4 r10 s1 | 22.64 | 36.53 |
+| conflict pln-stated l spq4 s1 | 10.14 | 27.09 |
+| ONA conditioning s1 | 5.59 | 10.80 |
+| ONA identitymatching s8 | 6.80 | 14.62 |
+
+No scheduling, budget or anytime policy changed, so curves are outside scope.
+No push, merge or GitHub write is made. Local code changes are confined to
+struct4b; prescribed benchmark outputs and the runner-authorized verification
+cache are the only shared writes.
+
+## Limits
+
+This is a storage-ownership separation: **four KB writer files become one**,
+with **+402 core tokens**, **ten additional file edges**, **four fewer external
+callee references**, and a **one-file larger SCC**. Copy layouts, evidence and
+provenance policies, numerical approximations, index behavior and query budgets
+are unchanged. It enables later copy-lifecycle simplification; it does not
+claim that the physical stores or inference routes can already be deleted.
+All required acceptance gates are complete and passing, including the extra
+paired dev-server retime. No answer moved against the actual base, no known
+extraction-specific regression remains, and every process started for this
+task has finished. The branch is ready for coordinator review; no push or
+merge was performed.
