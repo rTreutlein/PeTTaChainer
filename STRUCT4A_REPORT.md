@@ -3,7 +3,17 @@
 Worktree: `/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.claude/worktrees/struct4a`.
 Branch: `struct4a`; base: `3d72b4c65b3c004b17883425f10bdd4a2d59c4b8`.
 Implementation: **35bac73a**, `Centralize value publication and eviction in one owner`.
-This report checkpoint is committed before the final verification. Acceptance results below are completed in a report-only follow-up.
+Pre-verification report checkpoint: **75a0d509**. The implementation and checkpoint have the requested trailers; this report-only follow-up records the completed acceptance results.
+
+Commits preceding this final report-only follow-up (`git log --oneline master..HEAD`):
+
+```text
+75a0d509 Record struct4a ownership measurements before final verification
+35bac73a Centralize value publication and eviction in one owner
+```
+
+The implementation commit contains the owner and regression. The checkpoint records the structural measurements before final verification; this follow-up records the finished gates and timing checks.
+
 
 ## Diagnosis and design as built
 
@@ -84,13 +94,29 @@ The new test distinguishes a forced proof-only refresh from a forced truth-value
 
 All tests, PeTTa and benchmark execution use `/nexus/Dev/OpenCog/bench/capped`, `ulimit -v 16000000`, DISPLAY unset and stdin from `/dev/null`. MeTTa runs through the repository-pinned executable and suite runner. Comparisons set `PETTACHAINER_REPO` to this worktree. Only the remote struct4a environment was prepared for timing; the remote shared environment was read as its copy source, not modified.
 
-- Quick comparison: running at checkpoint; `scratch/compare-quick.log`. It captured an earlier whitespace-only form of the same implementation equations.
-- `compare.sh master <worktree> --full`: running at checkpoint; `scratch/compare-full.log`.
-- `compare.sh anchor <worktree> --canary --retime`: running at checkpoint; `scratch/compare-canary.log`. This requests fresh paired dev-server timings.
-- Final `capped --slots 16 env PETTA_JOBS=16 scripts/verify.sh`: starts after this report is committed. Log: `scratch/verify-final.log`.
+- Quick comparison: **PASS; accuracy changed in 0 cases**, all nine compared accuracy cases identical plus the reference check. Nine runs executed, ten results reused, 66 seconds wall. Report: `/nexus/Dev/OpenCog/bench/results/compare/3d72b4c6_vs_3d72b4c6-d650f6181_quick/report.md`; log: `scratch/compare-quick.log`. This captured an earlier whitespace-only form of the same implementation equations. Its Stage 3 timing sample had differing loads; the fresh dev-server retime below supersedes that timing evidence.
+- `compare.sh master <worktree> --full`: **PASS; accuracy changed in 0 cases**, all 22 accuracy comparisons identical plus the fuzzer gate. **45 runs executed, two reused, 335 seconds wall**. All 45 present accuracy records have exit 0 and no unsupported marker. Base runtime tree `8e42844b9db9`; candidate `9d0ed86716a0`; PeTTa runtime `eec735bf4d1d3e31`. Report: `/nexus/Dev/OpenCog/bench/results/compare/3d72b4c6_vs_35bac73a_full/report.md`; data: adjacent `compare.json`; log: `scratch/compare-full.log`. One local timing flag did not repeat: conflict pln-reliable l spq4 s1 metric seconds **61.66 -> 81.96**, paired rerun **50.65 -> 50.33**. It is preserved as a false flag, not discarded. A fresh paired dev-server check of that case is recorded below.
+- `compare.sh anchor <worktree> --canary --retime`: **PASS**, six cases, **18 runs executed**, including **all 12 fresh paired dev-server jobs exiting 0 at load 1**, **797 seconds wall including the shared timing-slot queue**. All 12 accuracy records exit 0 and have no unsupported marker. The older anchor differs in four cases; all nine anchor deficits are also present on master and are nonblocking under the prescribed runner. The embedded comparison with actual base 3d72b4c6 reused all 12 records. Report: `/nexus/Dev/OpenCog/bench/results/compare/anchor-b4065459_vs_35bac73a_canary-retime-20261030T232919/report.md`; data: adjacent `compare.json`; log: `scratch/compare-canary.log`. No extraction-specific canary regression remains.
+- Final `capped --slots 16 env PETTA_JOBS=16 scripts/verify.sh`: **PASS, all six gates**, **319 seconds wall**, recorded verification key **5651f58b5fda**. MeTTa: **162 files**, zero failures. Python: **1,027 tests / 69 files / 629 units**, the same **24 expected failures and one skip**; **4,528 query metric rows and zero aborts**. Import scaling: **0.946** late/early ratio, chunks **2.624, 2.571, 2.411, 2.501 seconds**. Judgment scaling: PASS, three query rows, zero aborts. ConceptNet: PASS, exactly two results. Log: `scratch/verify-final.log`.
+
+- Additional paired dev-server retime of **supplynet stage 3 timed b100 s3**: **PASS; accuracy changed in 0 cases**, both fresh jobs exit 0 at load 1. Process wall seconds **14.96 -> 15.06**; reported benchmark seconds **12.97 -> 13.05**, with peak RSS **226.6 -> 226.8 MB**. Report: `/nexus/Dev/OpenCog/bench/results/compare/3d72b4c6_vs_75a0d509_full-stage_3_timed_b100_s3-retime-20261030T233139/report.md`; log: `scratch/stage3-paired-retime.log`. Candidate report checkpoint 75a0d509 and implementation 35bac73a have the identical runtime tree **9d0ed86716a0**.
+- Additional paired dev-server retime of **conflict pln-reliable l spq4 s1**: **PASS; accuracy changed in 0 cases**, both fresh jobs exit 0 at load 1. Process wall seconds **68.64 -> 68.40**; reported benchmark seconds **67.23 -> 66.98**, peak RSS **325.3 -> 325.7 MB**. Report: `/nexus/Dev/OpenCog/bench/results/compare/3d72b4c6_vs_75a0d509_full-conflict_pln-reliable_l_spq4_s1-retime-20261030T233659/report.md`; log: `scratch/conflict-paired-retime.log`. This independently clears the full comparison's local false flag.
+
+Fresh paired **process wall seconds** against the historical anchor (these gaps also exist on the task's base; they are not the extraction's cost):
+
+| Case | Anchor | struct4a |
+|---|---:|---:|
+| live b50, five shifts, seed 1 | 6.94 | 10.43 |
+| conflict pln-reliable l spq4 s1 | 9.86 | 68.75 |
+| scale m spq4 r10 s1 | 22.65 | 36.62 |
+| conflict pln-stated l spq4 s1 | 10.03 | 27.17 |
+| ONA conditioning s1 | 5.61 | 10.79 |
+| ONA identitymatching s8 | 6.76 | 14.62 |
+
+The standalone **master-versus-candidate canary comparison also passes with accuracy changed in 0 cases**, all six compared cases identical. It reused the 12 accuracy records and ran six fresh candidate timing jobs successfully at load 1 (166 seconds wall). Report: `/nexus/Dev/OpenCog/bench/results/compare/3d72b4c6_vs_75a0d509-db618712b_canary/report.md`; log: `scratch/compare-master-canary.log`. The label includes the uncommitted report-only capture; its recorded runtime tree is the same **9d0ed86716a0**. This separately exposes the anchor run's embedded master comparison as a reviewable report.
 
 ## Limits and hand-back
 
-The measured structural result is one publication/eviction owner, not a smaller global call graph. Retained history and exclusion semantics, conditioning, numerical approximations, scheduling order and budgets remain. No scheduling/allowance/anytime policy changes require curves. The generic context facade, collectors and global reset infrastructure remain shared. This separation enables subsequent replacement/removal of duplicated value-cache bookkeeping; it does not justify removing historical or excluded proofs without separate semantic evidence.
+The measured structural result is one publication/eviction owner, not a smaller global call graph. Retained history and exclusion semantics, conditioning, numerical approximations, scheduling order and budgets remain. No scheduling/allowance/anytime policy changes require curves. Other modules retain read-only iteration through scoped value relations where selection needs it. The generic context facade, collectors and global reset infrastructure remain shared. This separation enables subsequent replacement/removal of duplicated value-cache bookkeeping; it does not justify removing historical or excluded proofs without separate semantic evidence.
 
-At this checkpoint the final gates are outstanding; this report is not yet a completed hand-back. No master/main-checkout/other-worktree code changes, pushes, merges or GitHub writes were made. The prescribed benchmark outputs and authorized verify-cache writes are shared runner artifacts.
+All required acceptance gates and paired retimes are complete and passing. No answer moved against the actual base, no known extraction-specific regression remains, and every process started for this task has finished. The worktree is ready for coordinator review. No master/main-checkout/other-worktree code changes, pushes, merges or GitHub writes were made. The prescribed benchmark outputs and authorized verify-cache writes are shared runner artifacts.
