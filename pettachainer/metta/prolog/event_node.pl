@@ -14,6 +14,8 @@ event_node_dist(view, S, C, _, bernoulli(S)) :- C =< 0.0, !.
 event_node_dist(view, S, C, K, beta(A, B)) :-
     N is K * C / (1 - C), A is max(1.0e-12, N * S), B is max(1.0e-12, N * (1 - S)).
 
+% Integrate the smaller side of each event to avoid subtracting two
+% near-one second moments when its complement has tiny but nonzero mass.
 event_node_moments(Vars, Terms0, Goals, Answers) :-
     foldl([t(C, _, _), M0, M]>>(M is max(M0, abs(C))), Terms0, 0.0, Scale),
     (   Scale =:= 0.0
@@ -22,21 +24,35 @@ event_node_moments(Vars, Terms0, Goals, Answers) :-
         pairs_keys_values(Vars, Ids, Dists),
         maplist(dist_mean, Dists, Means),
         pairs_keys_values(MuPairs, Ids, Means), list_to_assoc(MuPairs, Mu),
-        forms(Terms, Goals, Mu, Z0, N0),
+        forms(Terms, Goals, Mu, Z0, RawN),
         (   Z0 =< 0.0
         ->  Answers = inconsistent
-        ;   maplist(ratio(Z0), N0, Ss),
+        ;   maplist(constant_goal(Terms), Goals, Answers) -> true
+        ;   maplist(ratio(Z0), RawN, OriginalMeans),
+            findall(G, (nth1(I, Goals, G), nth1(I, OriginalMeans, S), S > 0.5), Complemented),
+            maplist({Goals, Complemented}/[t(C, L, H), t(C, L, H1)]>>
+                    findall(G, (member(G, Goals),
+                                (memberchk(G, Complemented) -> \+ memberchk(G, H) ; memberchk(G, H))), H1),
+                    Terms, StableTerms),
+            forms(StableTerms, Goals, Mu, Z0, N0),
+            maplist(ratio(Z0), N0, Ss),
             maplist(square_ratio(Z0), N0, H0),
             exclude([_-D]>>(D = point(_)), Vars, Free),
-            (   exact_second_moments(Free, Terms, Goals, Mu, H0, Exact)
+            (   exact_second_moments(Free, StableTerms, Goals, Mu, H0, Exact)
             ->  (   Exact == bound
-                ->  maplist(bound_answer, Ss, Answers)
-                ;   maplist(exact_answer(Z0), Ss, Exact, Answers) )
-            ;   maplist(one_dimension(Terms, Goals, Mu, Z0, N0, H0), Free, Dims),
-                first_order(Dims, Terms, Goals, Mu, H0, Hdmr),
-                polynomial_moments(Free, Terms, Goals, Mu, Poly),
+                ->  maplist(bound_answer, Ss, StableAnswers)
+                ;   maplist(exact_answer(Z0), Ss, Exact, StableAnswers) )
+            ;   maplist(one_dimension(StableTerms, Goals, Mu, Z0, N0, H0), Free, Dims),
+                first_order(Dims, StableTerms, Goals, Mu, H0, Hdmr),
+                polynomial_moments(Free, StableTerms, Goals, Mu, Poly),
                 length(Goals, G), numlist(1, G, Is),
-                maplist(goal_answer(Z0, Ss, Hdmr, Poly), Is, Answers) ) ) ).
+                maplist(goal_answer(Z0, Ss, Hdmr, Poly), Is, StableAnswers) ),
+            maplist([S, a(_, V, Kind), a(S, V, Kind)]>>true, OriginalMeans, StableAnswers, Answers) ) ).
+
+% A goal forced by every surviving term is independent of all parameters.
+constant_goal(Terms, Goal, a(S, 0.0, exact)) :-
+    ( forall(member(t(C, _, Hits), Terms), (C =:= 0 ; memberchk(Goal, Hits))) -> S = 1.0
+    ; forall(member(t(C, _, Hits), Terms), (C =:= 0 ; \+ memberchk(Goal, Hits))), S = 0.0 ).
 
 exact_answer(Z0, S, E, a(S, V, exact)) :- V is max(0.0, E / Z0 - S * S).
 
@@ -65,8 +81,24 @@ tensor_moments(N, Limit, Free, Terms, Goals, Mu, Size, E) :-
     ;   E = none ).
 
 axis_rule(N, Count, Id-D, Id-Rule) :-
-    ( Count > 3, D = beta(A, B), min(A, B) > 10, A + B > 1000 -> Nodes is 1 + (N + 7) // 8 ; Nodes = N ),
-    dist_rule(D, Nodes, Rule).
+    ( Count =:= 1, D = beta(A, B), A >= 1, B >= 1, A + B =< 10
+    -> Nodes is max(16, N), graded_rule(D, Nodes, Rule)
+    ; ( Count > 3, D = beta(A, B), min(A, B) > 10, A + B > 1000 -> Nodes is 1 + (N + 7) // 8 ; Nodes = N ),
+      dist_rule(D, Nodes, Rule) ).
+
+% Geometric endpoint panels resolve thin likelihood boundary layers. Each
+% refinement uses a different rule on every panel of the same Beta density.
+graded_rule(beta(A, B), N, rule(Xs, Ws)) :-
+    numlist(1, 12, Ks), maplist([K, X]>>(X is 10.0 ** (-K)), Ks, Lows0), reverse(Lows0, Lows),
+    maplist([X, Y]>>(Y is 1 - X), Lows0, Highs),
+    append([[0.0], Lows, [0.5], Highs, [1.0]], Breaks),
+    dist_rule(beta(1.0, 1.0), N, rule(Us, Weights)),
+    LogBeta is lgamma(A) + lgamma(B) - lgamma(A + B),
+    findall(X-W,
+            ( nextto(Lo, Hi, Breaks), nth1(I, Us, U), nth1(I, Weights, Wu),
+              X is Lo + (Hi - Lo) * U,
+              W is Wu * (Hi - Lo) * exp((A - 1) * log(X) + (B - 1) * log(1 - X) - LogBeta) ), Pairs),
+    pairs_keys_values(Pairs, Xs, Ws).
 
 agree_moments(H0, Ea, Eb) :-
     maplist([E, H, C]>>(C is E - H), Ea, H0, Ca),

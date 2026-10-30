@@ -23,11 +23,10 @@ rules. Forward copies, frozen summaries and materialized outputs are excluded. P
 negative uses of the same canonical source are one factor, with polarity
 already represented by its stored strength. Node outputs never become reports.
 
-The E3 graph reader follows admitted skeleton structure to find compound
-and atomic observations, then reads fixed conditional templates through the
-conclusion index. All visible live producers must match the supported template;
+The graph reader discovers atomic and compound observations through live
+conclusion and premise indexes, without requiring an observed compound seed. All visible live producers must match the supported template;
 one unsupported producer rejects the graph. It supports an acyclic graph with
-one explicit, single-parent CTV per conclusion, at most twelve atoms and twelve
+one explicit CTV source per conclusion, with a ground Boolean antecedent, at most twelve atoms and twelve
 parameters, and at most twenty-four visited statements during observation discovery. Other templates retain the
 ordinary evaluator. Observed children outside a compound enter the same joint
 model. Shared parents are one event bit in the enumeration; given branches are
@@ -36,19 +35,19 @@ Only a root with neither source counts nor a population prior remains uniform.
 Population prior proofs and dependencies accompany the answer without becoming
 observations.
 
-The output subscribes to the model's keys, including children without a report,
+The output subscribes to every visited key, including children without a report,
 so a late observation can wake its readers. Its dependency set holds raw roots
 and observations; internal inferred marginals do not become primitive inputs.
-Rule-owner references retain withdrawal identity. Structural discovery is cached
-per scope and overlay world; plans, including unsupported results, are also keyed
-by both `sk-input-epoch` and the skeleton row generation, including negative
-availability results. This avoids rediscovering the same graph at every
-read while letting new rows change the plan. Numerical results are keyed by the
-full model and sources. All three caches clear with evaluation forcing state.
+Rule-owner references retain withdrawal identity. Structural discovery and plans, including unsupported results, are cached by
+scope, overlay frame and input epoch. An epoch change retires that frame's older
+KB snapshots; skeleton row creation does not change source templates. Numerical
+results are keyed by the full model and sources. Caches clear with evaluation
+forcing state.
 They hold source data rather than output proof DAGs. Population priors are read
 after plan lookup. A replacement must satisfy the caller's proof/TV filter and
 have no evidence overlap with its exclusion evidence; otherwise the compatible
-ordinary value survives. Compiler forms, including
+ordinary value survives. An admitted model with impossible evidence returns no
+answer and cannot fall back to a stored source. Compiler forms, including
 frequency-valued implication conjuncts, retain their existing readers.
 
 ## Compound readers and merging
@@ -116,11 +115,15 @@ Exact polynomial second moments supply the constant-Z result. Otherwise a
 second-order ratio expansion must agree with HDMR within a factor of two, and
 the larger estimate must exceed its estimated next-order error.
 
-Separable messages use tensor integration of their prior and product variables,
-with at most four dimensions. Successive rules refine to the same 257-node and
-70,000-point limits. One broad Beta (shapes at least one, sum at most ten) uses
-sixteen-point Gauss-Legendre integration on intervals graded to 1e-12 of both
-endpoints, resolving thin likelihood boundary layers.
+Separable fallback messages retain their product-moment parameter model and
+compile its affine likelihoods into the shared integrator's monomials. There is
+one quadrature implementation. A single broad Beta (shapes at least one, sum at
+most ten) uses endpoint panels graded to 1e-12, starting with sixteen Gauss-Legendre
+points per panel and comparing independently refined passes. Forced goals have
+exact zero variance. Other goals integrate their smaller event or complement,
+avoiding cancellation between near-one second moments. The original atom cap
+also applies to separable fallback messages; over-cap messages retain their
+analytic mean and claim the variance bound.
 
 ## Output and unknown dependence
 

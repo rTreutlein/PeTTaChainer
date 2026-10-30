@@ -1,6 +1,6 @@
 % Admitted conditional graphs: docs/metta/event_node_contract.md.
 :- use_module(library(ugraphs)).
-:- dynamic event_graph_plan/5, event_graph_input/4, '&prem_prefix'/4, rule_name_index/2.
+:- dynamic event_graph_plan/5, event_graph_input/4, event_graph_epoch/3, '&prem_prefix'/4, rule_name_index/2.
 % A source with no likelihoods remains a count. Only posterior answers cross
 % the propagated-moment boundary; unsupported reads retain the ordinary value.
 'event-network-read'(Key, Filter, Exclude, Ev, Out) :-
@@ -34,6 +34,11 @@ graph_plan(Key, Plan) :-
     Key = ['sk-key', _, Scope], ground(Key), Scope = [_, _, _],
     ( context_active(Frame) -> true ; Frame = main ),
     Scope = [KB|_], ( '&ctx_sk_input_epoch'(KB, Generation) -> true ; Generation = 0 ),
+    ( event_graph_epoch(KB, Frame, Generation) -> true
+    ; retractall(event_graph_epoch(KB, Frame, _)), assertz(event_graph_epoch(KB, Frame, Generation)),
+      retractall(event_graph_plan(_, Frame, _, ['sk-key', _, [KB|_]], _)),
+      retractall(event_graph_input(_, Frame-_, ['sk-key', _, [KB|_]], _)),
+      retractall(event_graph_memo(_, _, _)) ),
     term_hash(Key, Hash),
     ( event_graph_plan(Hash, Frame, Generation, Key, Cached) -> true
     ; Key = ['sk-key', Goal, Scope],
@@ -50,16 +55,6 @@ graph_model(['sk-key', Goal, Scope], Observed, Watched, Stamp, graph(Models, Fac
         findall(T-P, (member(model(T, conditional(Parent, _, _, _), _), Models),
                         node_formula(Parent, _, [], Ps), member(P, Ps)), Edges),
         vertices_edges_to_ugraph([], Edges, Graph), top_sort(Graph, _),
-        ( Compounds \== []
-        ; member(model(_, conditional(_, _, _, _), _), Models)
-        ; member(T, Observed),
-          Scope = [KB|_], 'statement-prefix-keys'(KB, T, Hashes),
-          member(H, Hashes), '&prem_prefix'(H, [T, Scope, _, _], Id, Index),
-          rules('runtime-rule-row', Id, [Child, Scope, [by, _, _], _], Ps),
-          nth0(Index, Ps, [T, Scope, _, _]), ground(Child),
-          graph_input(Child, Scope, Stamp, input(conditional(_, _, _, _), _, _)) ),
-        node_formula(Goal, _, [], GoalAtoms),
-        forall(member(T, GoalAtoms), memberchk(model(T, _, _), Models)),
         findall(Fact, ( member(Type, Compounds), graph_sources(Type, Scope, Fs), member(Fact, Fs) ), CompoundFacts),
         findall(Fact, ( member(model(_, conditional(_, _, _, _), Fs), Models), member(Fact, Fs) ), Reports),
         append(CompoundFacts, Reports, Factors0), sort(Factors0, Factors),
@@ -112,18 +107,19 @@ graph_atoms([Type|Rest], Scope, Stamp, M0, Models) :-
 % All forward producers in a discovered component must have one explicit
 % CTV template. Inverse and compound-reader rows are views of these sources.
 graph_template(Type, Scope, Model) :-
-    findall(producer(Id, Name, Head, Ps),
-            ( ccls_index([Type, Scope, Proof, _], Id, Ps), nonvar(Proof),
+    findall(producer(Id, Name, Head),
+            ( ccls_index([Type, Scope, Proof, _], Id, _), nonvar(Proof),
               ( Proof = [Head, Name, _], Head == by
               ; Proof = [Head, [by, Name, _]], Head == negated ),
               'rule-live?'(Id, true), 'context-rule-visible?'(Id, true) ), Producers),
     ( Producers == [] -> Model = root
-    ; Producers = [producer(_, Name, _, _)|_], ground(Name), Name \= [no_inverse|_],
-      forall(member(producer(_, N, H, _), Producers), (N == Name, H == by)),
+    ; Producers = [producer(_, Name, _)|_], ground(Name), Name \= [no_inverse|_],
+      forall(member(producer(_, N, H), Producers), (N == Name, H == by)),
       \+ ( rule_name_index(Name, Rid),
            rules('runtime-rule-row', Rid, [_, Scope, [[inverted, Name, with, PriorToken, _], _], _], _),
            PriorToken \== cpu ),
-      member(producer(Id, _, _, Ps), Producers),
+      member(producer(Id, _, _), Producers),
+      rules('runtime-rule-row', Id, [Type, Scope, _, _], Ps),
       foldl(graph_premise(Scope), Ps, []-none, _-conditional(Parent, Pos, Neg)),
       ground([Parent, Pos, Neg]), !,
       Model = conditional(Parent, Id-Name, Pos, Neg) ).
@@ -178,10 +174,8 @@ graph_answer(Models, Factors, Goal, Vars, TV) :-
 
 graph_moments(Models, Factors, Goal, Vars, TV) :-
     graph_terms(Models, Factors, Goal, Vars, Terms),
-      ( forall(member(t(C, _, Hits), Terms), ( C =:= 0 ; Hits == [1] )) -> S = 1.0, V = 0.0
-      ; forall(member(t(C, _, Hits), Terms), ( C =:= 0 ; Hits == [] )) -> S = 0.0, V = 0.0
-      ; event_node_moments(Vars, Terms, [1], [a(S, V0, Kind)]),
-        ( Kind == bound -> V = bound ; V = V0 ) ),
+    event_node_moments(Vars, Terms, [1], [a(S, V0, Kind)]),
+    ( Kind == bound -> V = bound ; V = V0 ),
     'evidence-confidence-k'(K), node_stv(K, S, V, TV).
 
 graph_terms(Models, Factors, Goal, Vars, Terms) :-
@@ -189,21 +183,13 @@ graph_terms(Models, Factors, Goal, Vars, Terms) :-
             ( maplist([model(T, _, _), T-B]>>member(B, [0, 1]), Models, Bits),
               foldl(graph_factor(Bits), Factors, 0.0, LF), LF \== ninf,
               maplist(graph_literal(Bits), Models, All),
-              foldl(graph_fixed(Vars), All, LF-[], LW-Lits), LW \== ninf,
+              foldl(node_fixed_literal(Vars), All, LF-[], LW-Lits), LW \== ninf,
               ( graph_holds(Goal, Bits) -> Hits = [1] ; Hits = [] ) ), Worlds),
     Worlds \== [],
     foldl([LW-_-_, M0, M]>>(M is max(M0, LW)), Worlds, -1.0e300, Top),
     maplist({Top}/[LW-Lits-Hits, (Lits-Hits)-C]>>(C is exp(LW - Top)), Worlds, Weighted),
     keysort(Weighted, Ordered), group_pairs_by_key(Ordered, Groups),
     maplist([ (Lits-Hits)-Cs, t(C, Lits, Hits) ]>>(sum_list(Cs, C)), Groups, Terms).
-
-% Integrate point parameters into the coefficient before quadrature. Worlds
-% with the same remaining monomial and goal can then be summed exactly.
-graph_fixed(Vars, Id-B, W0-L0, W-L) :-
-    memberchk(Id-Dist, Vars),
-    ( Dist = point(P)
-    -> ( B =:= 1 -> F = P ; F is 1 - P ), safe_log(F, LF), log_add(W0, LF, W), L = L0
-    ; W = W0, L = [Id-B|L0] ).
 
 graph_literal(Bits, model(Type, root, _), Type-B) :- memberchk(Type-B, Bits).
 graph_literal(Bits, model(Type, conditional(Parent, _, _, _), _), branch(Type, P)-B) :-

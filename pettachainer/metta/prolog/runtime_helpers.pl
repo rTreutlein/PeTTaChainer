@@ -183,31 +183,37 @@ literal_factor([likelihood, [C|Ls], I, M, _, Dists], f(W, L1, L0)) :-
 literal_dist(Dists, I, D) :- integer(I), !, nth0(I, Dists, D).
 literal_dist(Dists, ['Not', I], D) :- nth0(I, Dists, D0), complement_dist(D0, D).
 
+% Integrate point parameters into the coefficient before quadrature. Worlds
+% with the same remaining monomial and goal can then be summed exactly.
+node_fixed_literal(Vars, Id-B, W0-L0, W-L) :-
+    memberchk(Id-Dist, Vars),
+    ( Dist = point(P)
+    -> ( B =:= 1 -> F = P ; F is 1 - P ), safe_log(F, LF), log_add(W0, LF, W), L = L0
+    ; W = W0, L = [Id-B|L0] ).
+
 separable_moments(PDist, Factors, Count, S, V, Max) :-
     dist_mean(PDist, Mu),
     maplist([f(W, _, _), Mw]>>moments(W, Mw, _), Factors, Ws),
     log_lambdas(Factors, Ws, LL1, LL0),
     log_weighted(Mu, LL1, A), log_weighted_complement(Mu, LL0, B),
-    log_sum(A, B, LZ),
-    LZ \== ninf,
-    exp_diff(A, LZ, S),
+    log_sum(A, B, LZ), LZ \== ninf, exp_diff(A, LZ, S),
     ( ( A == ninf ; B == ninf ) -> Max = 0.0 ; Max is exp(A + B - 2 * LZ) ),
     maplist(narrowed, Factors, Narrowed),
-    include([f(W, _, _)]>>( W \= point(_) ), Narrowed, Wide),
-    ( PDist = point(_) -> PDims = [] ; PDims = [PDist] ),
-    findall(W, member(f(W, _, _), Wide), WDists),
-    append(PDims, WDists, Dims0),
-    ( Dims0 = [beta(Ab, Bb)], Ab >= 1.0, Bb >= 1.0, Ab + Bb =< 10.0 -> Dims = [broad(beta(Ab, Bb))] ; Dims = Dims0 ),
-    length(Dims, D),
-    (   ( D =:= 0 ; Max =:= 0.0 )
-    ->  V = 0.0
-    ;   ( D > 4 ; Count > 12 )
-    ->  V = bound
-    ;   Dims = [broad(Dist)]
-    ->  graded_points(Dist, Points), second_moment(PDist, Narrowed, LZ, Points, E), V is max(0.0, E - S * S)
-    ;   first_rule(D, N),
-        separable_variance(PDist, Narrowed, Dims, N, LZ, S, V0),
-        separable_refined(PDist, Narrowed, Dims, D, N, V0, LZ, S, V) ).
+    findall(I-W, ( nth1(I, Narrowed, f(W, _, _)), W \= point(_) ), Nuisance),
+    Vars = [0-PDist|Nuisance], exclude([_-D]>>(D = point(_)), Vars, Free), length(Free, D),
+    ( ( D =:= 0 ; Max =:= 0 ) -> V = 0.0
+    ; ( D > 4 ; Count > 12 ) -> V = bound
+    ; findall(LW-Lits-Hits,
+              ( maplist([I-_, I-Bit]>>member(Bit, [0, 1]), Nuisance, Bits), member(P, [0, 1]),
+                findall(Wv, ( nth1(I, Narrowed, f(W, _, _)),
+                              ( W = point(Wv) -> true ; memberchk(I-Wv, Bits) ) ), World),
+                log_lambdas(Narrowed, World, L1, L0),
+                ( P = 1 -> L = L1, Hits = [1] ; L = L0, Hits = [] ),
+                foldl(node_fixed_literal(Vars), [0-P|Bits], L-[], LW-Lits), LW \== ninf ), Weighted),
+      foldl([LW-_-_, M0, M]>>(M is max(M0, LW)), Weighted, -1.0e300, Top),
+      maplist({Top}/[LW-Lits-Hits, t(C, Lits, Hits)]>>(C is exp(LW - Top)), Weighted, Terms),
+      event_node_moments(Vars, Terms, [1], [a(_, V0, Kind)]),
+      ( Kind == bound -> V = bound ; V = V0 ) ).
 
 % A factor whose lambdas change by less than 1e-9 of themselves over its W's
 % whole range is constant to that precision: its W is a point at its mean.
@@ -219,42 +225,6 @@ narrowed(F, F).
 lambda_flat(L, Mw) :-
     lambda_at(L, Mw, X), lambda_at(L, 0.0, X0), lambda_at(L, 1.0, X1),
     ( X =:= 0.0 -> X0 =:= 0.0, X1 =:= 0.0 ; abs(X0 - X) =< 1.0e-9 * X, abs(X1 - X) =< 1.0e-9 * X ).
-
-graded_points(beta(A, B), Points) :-
-    numlist(1, 12, Ks),
-    maplist([K, X]>>(X is 10.0 ** (-K)), Ks, Lows0), reverse(Lows0, Lows),
-    maplist([X, Y]>>(Y is 1 - X), Lows0, Highs),
-    append([[0.0], Lows, [0.5], Highs, [1.0]], Breaks),
-    dist_rule(beta(1.0, 1.0), 16, rule(Us, Ws)),
-    LogBeta is lgamma(A) + lgamma(B) - lgamma(A + B),
-    findall(Wt-[X],
-            ( nextto(Lo, Hi, Breaks), nth1(I, Us, U), nth1(I, Ws, Wu),
-              X is Lo + (Hi - Lo) * U,
-              Wt is Wu * (Hi - Lo) * exp((A - 1) * log(X) + (B - 1) * log(1 - X) - LogBeta) ),
-            Points).
-
-second_moment(PDist, Factors, LZ, Points, E) :-
-    ( PDist = point(P0) -> PFixed = yes(P0) ; PFixed = no ),
-    foldl(second_term(PFixed, Factors, LZ), Points, 0.0, E).
-
-first_rule(1, 33).
-first_rule(2, 17).
-first_rule(3, 9).
-first_rule(4, 5).
-
-separable_refined(PDist, Factors, Dims, D, N, V0, LZ, S, V) :-
-    N1 is 2 * N - 1,
-    (   ( N1 > 257 ; N1 ** D > 70000 )
-    ->  V = bound
-    ;   catch(separable_variance(PDist, Factors, Dims, N1, LZ, S, V1), error(evaluation_error(_), _), fail)
-    ->  (   agree_variance(V0, V1) -> V = V1
-        ;   separable_refined(PDist, Factors, Dims, D, N1, V1, LZ, S, V) )
-    ;   V = bound ).
-
-separable_variance(PDist, Factors, Dims, N, LZ, S, V) :-
-    second_tensor(PDist, Factors, Dims, N, LZ, E), V is max(0.0, E - S * S).
-
-agree_variance(V1, V2) :- abs(V1 - V2) =< 0.01 * max(V1, V2) + 1.0e-300.
 
 % Logs with ninf for log 0.
 safe_log(X, L) :- ( X > 0.0 -> L is log(X) ; L = ninf ).
@@ -296,32 +266,6 @@ product_dist(Ds, beta(A, B)) :-
     foldl([D, M0-X0, M1-X1]>>( moments(D, M, X2), M1 is M0 * M, X1 is X0 * X2 ), Ds, 1.0-1.0, M-X2),
     Var is max(X2 - M * M, 1.0e-300),
     T is max(0.0, M * (1 - M) / Var - 1), A is max(1.0e-6, M * T), B is max(1.0e-6, (1 - M) * T).
-
-second_tensor(PDist, Factors, Dims, N, LZ, E) :-
-    maplist(sized_rule(N), Dims, Rules),
-    findall(W-Xs, tensor_point(Rules, 1.0, W, Xs), Points),
-    second_moment(PDist, Factors, LZ, Points, E).
-
-sized_rule(N, Dist, Rule) :- dist_rule(Dist, N, Rule).
-
-tensor_point([], W, W, []).
-tensor_point([rule(Xs, Ws)|Rules], W0, W, [X|Rest]) :-
-    nth1(I, Xs, X), nth1(I, Ws, Wi), W1 is W0 * Wi,
-    tensor_point(Rules, W1, W, Rest).
-
-second_term(PFixed, Factors, LZ, W-Xs, E0, E) :-
-    (   PFixed = yes(P) -> Ws0 = Xs ; Xs = [P|Ws0] ),
-    point_ws(Factors, Ws0, Ws),
-    log_lambdas(Factors, Ws, LL1, LL0),
-    log_weighted(P, LL1, A), log_weighted_complement(P, LL0, B),
-    log_sum(A, B, LZp),
-    (   ( A == ninf ; LZp == ninf ; W =< 0.0 ) -> E = E0
-    ;   E is E0 + exp(log(W) + 2 * A - LZp - LZ) ).
-
-% Each factor's W at a tensor point: its point value, or the next wide value.
-point_ws([], [], []).
-point_ws([f(point(Wv), _, _)|Fs], Wide, [Wv|Ws]) :- !, point_ws(Fs, Wide, Ws).
-point_ws([_|Fs], [Wv|Wide], [Wv|Ws]) :- point_ws(Fs, Wide, Ws).
 
 union_node(PDist, Likelihoods, S, V) :-
     foldl(union_atoms, Likelihoods, [target-PDist], Atoms),
@@ -496,6 +440,7 @@ node_subset([_|Xs], Ys) :- node_subset(Xs, Ys).
     retractall(event_node:jacobi_rule(_, _, _, _, _)),
     retractall(event_graph_memo(_, _, _)),
     retractall(event_graph_input(_, _, _, _)),
+    retractall(event_graph_epoch(_, _, _)),
     retractall(event_graph_plan(_, _, _, _, _)),
     ( context_active(C) -> true ; C=main ),
     forall(retract(sk_forced_seen(C,Trie)),trie_destroy(Trie)).

@@ -270,6 +270,20 @@ class EventNodeTests(unittest.TestCase):
                 self.assertGreaterEqual(v, 0.5 * var, how)
         self.assertAlmostEqual(moments(*or_node(0.5)[:2], 1)[0][0], 2 / 3, delta=1e-12)
 
+    def test_tiny_complement_keeps_its_positive_variance(self):
+        epsilon = 1e-9
+        b = 1 - epsilon
+        integral = -1 / b**2 - 1 / (2 * b) - math.log(epsilon) / b**3
+        expected = epsilon**2 * integral / ((1 + epsilon) / 2) - (epsilon / (1 + epsilon))**2
+        terms = [(1.0, [('p', 1)], [1]), (epsilon, [('p', 0)], [2])]
+        actual = moments([('p', 'beta(1.0, 1.0)')], terms, 2)
+        for s, variance, kind in actual:
+            self.assertEqual(kind, 'exact')
+            self.assertGreater(variance, 0)
+            self.assertAlmostEqual(variance / expected, 1, delta=1e-7)
+        self.assertAlmostEqual(actual[0][0], 1 / (1 + epsilon), delta=1e-15)
+        self.assertAlmostEqual(actual[1][0], epsilon / (1 + epsilon), delta=1e-20)
+
     def test_no_possible_world_is_inconsistent(self):
         self.assertEqual(moments([('a', 'point(1.0)')], [(1.0, [('a', 0)], [1])], 1), 'inconsistent')
 

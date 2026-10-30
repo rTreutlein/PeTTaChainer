@@ -46,6 +46,18 @@ class AtomicPosteriorTests(unittest.TestCase):
                                     {'Pid': int(row.proof[1])})
         self.assertEqual(len(evidence['Entries']), 1)
 
+    def test_uncertain_wide_conjunction_returns_a_bound_without_enumeration(self):
+        request = json.loads(Path(__file__).with_name('fixtures').joinpath('issue150.json').read_text())
+        h = PeTTaChainer()
+        started = time.monotonic()
+        h.add_atoms_no_check([request['entries'][0]['atom'].replace('(STV 1 1)', '(STV 1 0.9)')])
+        row, = h.query_many_refs(['(: $p (Event Event_95fb56869e14af48_75423f0c) $tv)'], steps=500)[0]
+        m = 7201 / 7202
+        likelihood_one = 1 - m + (2 * m - 1) * 2**-29
+        self.assertAlmostEqual(row.tv[1], likelihood_one / (likelihood_one + 1 - m), delta=1e-12)
+        self.assertEqual(row.tv[2], 0)
+        self.assertLess(time.monotonic() - started, 10)
+
     def test_boolean_antecedent_completions_match_the_joint_oracle(self):
         for parent, holds in (
             ('(And (A $x) (B $x))', lambda w: w['A'] & w['B']),

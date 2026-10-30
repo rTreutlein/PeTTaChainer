@@ -196,7 +196,7 @@ class EventReviewRegressionTests(unittest.TestCase):
             "findall(_E,event_graph_plan(_,main,_E,['sk-key',['Or',['A',a],['B',a]],[Kb,'MAIN','Nil']],_),Gs)",
             {'Kb': h.kb})['Gs']
         # Compiler indexes, not skeleton rows, now define the plan.
-        self.assertEqual(len(set(generations)), 2)
+        self.assertEqual(len(set(generations)), 1)
 
     def test_an_stv_producer_forces_the_whole_graph_to_fall_back(self):
         h = self.load(probes(*SETTINGS['H'])['P3'])
