@@ -55,78 +55,19 @@ context_removed(C, Space, Row) :-
        assertz(context_hidden(Index, C, Space, Pattern, removed))
     ; Head =.. [Space|Pattern], retractall(Head) ).
 
-% Each overlay store, its arity, and whether a context starts it empty
-% (local: transient scheduling state) or reads MAIN beneath it (main: durable
-% values, aggregate tallies and per-reader compatibility history).
-
-context_store('&sk_latest',3,main).
-context_store('&sk_view',4,main).
-context_store('&sk_representative',6,local).
-context_store('&sk_summary_reference',7,local).
-context_store('&sk_branch',6,main).
-context_store('&sk_branch_owner',5,main).
-context_store('&sk_branch_dirty',1,main).
-context_store('&sk_branch_reader',3,main).
-context_store('&sk_branch_wanted',5,local).
-context_store('&sk_support',3,main).
-context_store('&sk_merged',5,main).
-context_store('&sk_reader',4,main).
-context_store('&sk_stale_reader',4,main).
-context_store('&sk_stale',2,main).
-context_store('&sk_new',6,local).
-context_store('&sk_dirty',2,local).
-context_store('&sk_queued',3,local).
-context_store('&sk_forced',3,local).
-context_store('&sk_fold_pending',2,local).
-context_store('&sk_partial',2,main).
-context_store('&sk_given_pending',3,local).
-context_store('&sk_root_exhausted',3,local).
-context_store('&sk_input_epoch',2,main).
-context_store('&sk_root_spent',3,local).
-context_store('&sk_given_granted',2,local).
-context_store('&sk_conditioning',2,local).
-context_store('&sk_refresh',2,local).
-context_store('&sk_restale',2,local).
-context_store('&sk_held',3,local).
-context_store('&sk_branch_hold',5,local).
-context_store('&sk_instance_changed',2,local).
-context_store('&sk_instance_checked',1,local).
-context_store('&sk_instance_tally',3,main).
-context_store('&sk_instance_member',6,main).
-context_store('&sk_instance_regime',3,main).
-context_store('&sk_instance_digest',2,main).
-context_store('&sk_instance_sig',3,main).
-context_store('&sk_instance_read',4,main).
-context_store('&sk_sample_support',7,main).
-context_store('&sk_sample_source',6,main).
-context_store('&sk_branch_support',3,main).
-context_store('&sk_truth_fold',3,main).
-context_store('&sk_rate_dirty',4,main).
-context_store('&sk_rate_readers',2,main).
-context_store('&sk_truth_factor',2,main).
-context_store('&base_rate_cache',2,main).
-context_store('&forward_aggregate_identity',2,main).
-context_store('&forward_aggregate_interest_by_trigger',2,main).
-context_store('&forward_aggregate_triggers',2,main).
-context_store('&forward_aggregate_state',4,main).
-context_store('&forward_aggregate_observation',6,main).
-context_store('&forward_aggregate_fold',2,main).
-context_store('&forward_aggregate_read',3,main).
-
-% Separate read relations leave the ordinary physical MAIN stores inspectable
-% by collectors and provenance audits. No runtime predicate is monkey-patched.
-% MAIN is a direct indexed call, not a constructed meta-call. Empty stores
-% are declared here so the direct call also fails cleanly before a first write.
-% The load-cache prelude can consult this source twice; bootstrap each facade
-% once, since compile_predicates makes it static.
-:- forall(context_store(Space, Arity, _),
-          ( dynamic(Space/Arity),
+% Store metadata and specialized MAIN read facades are generated once from
+% store_schema.pl. The load-cache prelude may consult this source twice.
+:- ensure_loaded(store_schema).
+:- forall((store_schema(Space, Policy, Text), memberchk(Policy,[main,local])),
+          ( sread(Text, Row), length(Row, Arity),
+            dynamic(Space/Arity),
             atom_concat('&', Name, Space), atom_concat('&ctx_', Name, Read),
             ( current_predicate(Read/Arity) -> true
-            ; functor(Head,Read,Arity), Head=..[_|Args], Main=..[Space|Args],
+            ; dynamic(context_store/3), assertz(context_store(Space,Arity,Policy)),
+              functor(Head,Read,Arity), Head=..[_|Args], Main=..[Space|Args],
               assertz((Head :- (context_active(C) -> context_overlay_rows(C,Space,Args) ; Main))),
               compile_predicates([Read/Arity]) ) )).
-
+:- compile_predicates([context_store/3]).
 
 % A cold read of an unchanged key is ordinary MAIN work. Test only actual
 % local values of this key or its direct inputs; this is not reachability from

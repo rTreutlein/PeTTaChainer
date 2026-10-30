@@ -299,7 +299,9 @@ class TestOverlayWriteBoundary(unittest.TestCase):
     def test_context_stores_have_no_raw_metta_writers(self):
         import re
         root = Path(__file__).resolve().parents[1] / "pettachainer" / "metta"
-        stores = set(re.findall(r"context_store\('([^']+)'", (root / "prolog/context_overlay.pl").read_text()))
+        PeTTaChainer()
+        stores = set(janus.query_once("findall(_S, context_store(_S,_,_), Stores)")["Stores"])
+        self.assertTrue(stores, "audit must inspect the generated overlay stores")
         violations = []
         for path in root.rglob("*.metta"):
             source = re.sub(r";[^\n]*", "", path.read_text())

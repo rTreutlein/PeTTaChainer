@@ -346,9 +346,6 @@
 (: BaseRateEntry Type)
 (: base-rate
    (-[det]-> KB Statement TV BaseRateSource $mode BaseRateEntry))
-;; entries by a hash of their knowledge base and pattern
-(: &base_rate_cache (SpaceOf (Number BaseRateEntry)))
-(: &ctx_base_rate_cache (SpaceOf (Number BaseRateEntry)))
 
 (: IdentityFinish Type)
 (: identity IdentityFinish)

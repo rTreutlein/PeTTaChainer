@@ -116,60 +116,12 @@
 (: sk-pending-rule (-[det]-> Number SkeletonPending))
 (: sk-pending-fact (-[det]-> SkeletonKey SkeletonPending))
 
-;; --- Spaces -------------------------------------------------------------------
+;; Store schemas and indexing contracts: prolog/store_schema.pl.
+;; The bootstrap installs their specialized interfaces before loading this module.
 
-(: &sk_expanded (SpaceOf (Number SkPattern)))
-!(bind! &sk_expanded (new-space))
-;; expanded fact patterns by a copy of their statement and context, so
-;; activation finds the ones a new fact or rule conclusion unifies with in one
-;; match and gets them back uninstantiated
-(: &sk_node_terms (SpaceOf (Statement KBContext SkPattern)))
-!(bind! &sk_node_terms (new-space))
-;; ground nodes and fold member nodes reading any proof and value, by a copy of
-;; their statement and context, under the hash of the statement's longest
-;; ground prefix, or of its head when it has none, with the node's hash
-(: &sk_node_prefix (SpaceOf (Number Statement KBContext Number SkPattern)))
-!(bind! &sk_node_prefix (new-space))
-;; open nodes whose rules were started, under the hash of the statement's
-;; longest ground prefix, or of its head when it has none, with the node's
-;; hash; and the open nodes each one subsumes, which read its answers instead
-;; of starting rules (sk-subsumers), by the general node's hash
-(: &sk_open_node (SpaceOf (Number Number SkPattern)))
-!(bind! &sk_open_node (new-space))
-(: &sk_subsumed (SpaceOf (Number SkPattern SkPattern)))
-!(bind! &sk_subsumed (new-space))
-(: &sk_answer (SpaceOf (Number SkPattern SkeletonKey)))
-!(bind! &sk_answer (new-space))
-;; A root's key answering its node with its population prior, for the
-;; antecedent completions waiting on it only (sk-start-prior!).
-(: &sk_prior_answer (SpaceOf (Number SkPattern SkeletonKey)))
-!(bind! &sk_prior_answer (new-space))
-;; Read-only delivery relation for compact native continuation payloads.
-;; Write and remove through sk-store-wait! / retirement, never add-atom.
-(: &sk_wait (SpaceOf (Number SkPattern SkeletonWaiter)))
-!(bind! &sk_fact_watch (new-space))
-;; child links: owner hash, owner, child, child hash
-(: &sk_child (SpaceOf (Number SkPattern SkPattern Number)))
-!(bind! &sk_child (new-space))
-(: &sk_row (SpaceOf (Number SkeletonKey Number SkeletonRow)))
-!(bind! &sk_row (new-space))
-;; Child links, answers and use edges already recorded, by link hash.
-(: &sk_link (SpaceOf (Number)))
-!(bind! &sk_link (new-space))
-;; Direct aggregate readers are replayable on eviction, one mark per row.
-(: &sk_aggregate_row (SpaceOf (Number SkeletonKey Number)))
-!(bind! &sk_aggregate_row (new-space))
-;; Join digests leave with their waiter or when their conclusion thaws.
-(: &sk_join_link (SpaceOf (Number Number)))
-!(bind! &sk_join_link (new-space))
-;; member key -> a fold or group key over it
-(: &sk_use (SpaceOf (Number SkeletonKey SkeletonKey)))
-!(bind! &sk_use (new-space))
-;; tally fold (a base rate or an implication instance fold) -> a member that
-;; joined or changed since the fold last took it, by fold hash and member hash
-(: &sk_rate_dirty (SpaceOf (Number Number SkeletonKey SkeletonKey)))
-(: &ctx_sk_rate_dirty (SpaceOf (Number Number SkeletonKey SkeletonKey)))
-!(bind! &sk_rate_dirty (new-space))
+;; --- Evaluation types and state ------------------------------------------------
+
+
 ;; An implication instance fold's tally, by fold hash: its KB's hazard, its
 ;; sample counter, and per branch (P(B|A), P(B|not A)) the segments of its
 ;; samples' regimes, ['regime-segment', Id, W, M] (runtime_helpers.pl,
@@ -186,31 +138,7 @@
 ;; segment after it; and the segments' evidence (runtime_helpers.pl).
 (: regime-take! (-[det]-> Number Number Number (List RegimeSegment) Number BaseRateEvidenceState BaseRateEvidenceState ((List RegimeSegment) Number)))
 (: regime-evidence (-[det]-> Number (List RegimeSegment) BaseRateEvidenceState))
-(: &sk_instance_tally (SpaceOf (Number SkeletonKey InstanceRegimeState)))
-(: &ctx_sk_instance_tally (SpaceOf (Number SkeletonKey InstanceRegimeState)))
-!(bind! &sk_instance_tally (new-space))
-(: &sk_instance_member (SpaceOf (Number Number SkeletonKey Number Number InstanceEvidenceState)))
-(: &ctx_sk_instance_member (SpaceOf (Number Number SkeletonKey Number Number InstanceEvidenceState)))
-!(bind! &sk_instance_member (new-space))
-(: &sk_instance_regime (SpaceOf (Number Number Number)))
-(: &ctx_sk_instance_regime (SpaceOf (Number Number Number)))
-!(bind! &sk_instance_regime (new-space))
-;; An implication instance fold's digest of its samples, by fold hash
-;; (sk-instance-digest!).
-(: &sk_instance_digest (SpaceOf (Number Number)))
-(: &ctx_sk_instance_digest (SpaceOf (Number Number)))
-!(bind! &sk_instance_digest (new-space))
-;; the signature each member was taken with, by member hash and fold hash
-(: &sk_instance_sig (SpaceOf (Number Number Number)))
-(: &ctx_sk_instance_sig (SpaceOf (Number Number Number)))
-!(bind! &sk_instance_sig (new-space))
-(: &sk_instance_read (SpaceOf (Number Number Number SkeletonKey)))
-;; the rules a link's samples leave out (sk-sample-exclusions), by link and
-;; rule-id epoch
-(: &sk_sample_exclusions (SpaceOf (Number Atom Atom (List Evidence))))
-!(bind! &sk_sample_exclusions (new-space))
-(: &ctx_sk_instance_read (SpaceOf (Number Number Number SkeletonKey)))
-!(bind! &sk_instance_read (new-space))
+
 (: SourceList (Newtype Atom))
 (: source-list (-[det]-> (List Atom) SourceList))
 (: source-list-union (-[det]-> SourceList SourceList SourceList))
@@ -222,108 +150,15 @@
 (: likelihood-support-counts (-[det]-> Atom SupportCounts))
 (: likelihood-sources (-[det]-> Atom Number SourceList))
 (: likelihood-support-admissible? (-[det]-> Atom SourceList Bool))
-(: &sk_sample_support (SpaceOf (Number Number Atom Atom SourceList Number Number)))
-(: &ctx_sk_sample_support (SpaceOf (Number Number Atom Atom SourceList Number Number)))
-(: &sk_sample_source (SpaceOf (Number Number Atom Atom Number Number)))
-(: &ctx_sk_sample_source (SpaceOf (Number Number Atom Atom Number Number)))
-(: &sk_branch_support (SpaceOf (Number Atom SupportCounts)))
-(: &ctx_sk_branch_support (SpaceOf (Number Atom SupportCounts)))
-(: &sk_truth_fold (SpaceOf (Number Number SkeletonKey)))
-(: &ctx_sk_truth_fold (SpaceOf (Number Number SkeletonKey)))
-!(bind! &sk_sample_support (new-space))
-!(bind! &sk_sample_source (new-space))
-!(bind! &sk_branch_support (new-space))
-!(bind! &sk_truth_fold (new-space))
-(: &sk_instance_changed (SpaceOf (Number SkeletonKey)))
-(: &ctx_sk_instance_changed (SpaceOf (Number SkeletonKey)))
-!(bind! &sk_instance_changed (new-space))
-;; the instance folds an evaluation already brought current, by fold hash
-(: &sk_instance_checked (SpaceOf (Number)))
-(: &ctx_sk_instance_checked (SpaceOf (Number)))
-!(bind! &sk_instance_checked (new-space))
-;; base-rate cache pattern hash -> a key reading that pattern's entries
-(: &sk_rate_readers (SpaceOf (Number SkeletonKey)))
-(: &ctx_sk_rate_readers (SpaceOf (Number SkeletonKey)))
-!(bind! &sk_rate_readers (new-space))
-;; key -> a row reading it directly, by row key hash and row hash
-(: &sk_reader (SpaceOf (Number SkeletonKey Number Number)))
-(: &ctx_sk_reader (SpaceOf (Number SkeletonKey Number Number)))
-!(bind! &sk_reader (new-space))
-;; key -> the fact a forward run stored for it in &kb, with its value's
-;; evidence and what that value was derived through
-(: &sk_forward_stored (SpaceOf (Number SkeletonKey SkFact EvidenceSet Number)))
-!(bind! &sk_forward_stored (new-space))
-;; key -> the summary a frozen key keeps in &kb (see forgetting.metta), with
-;; its value's evidence and the keys within two steps of it
-(: &sk_summary (SpaceOf (Number SkeletonKey SkFact EvidenceSet Number)))
-!(bind! &sk_summary (new-space))
-;; key with rows -> the last epoch a row was created for it or it was needed
-(: &sk_key_epoch (SpaceOf (Number SkeletonKey Number)))
-!(bind! &sk_key_epoch (new-space))
-;; frozen keys, until nothing reads them any more and they are buried
-(: &sk_frozen (SpaceOf (Number SkeletonKey)))
-!(bind! &sk_frozen (new-space))
-;; key -> a node it answers, by node hash, kept while forgetting is on so a
-;; buried key leaves its nodes' answers
-(: &sk_answered (SpaceOf (Number SkeletonKey Number SkPattern)))
-;; A refined rule's truth goal, per rule id, and the score factor of that
-;; goal's current value (docs/metta/hypothesis_rules.md).
-(: &sk_rule_truth (SpaceOf (Number Number Statement KBContext)))
-!(bind! &sk_rule_truth (new-space))
-(: &sk_truth_factor (SpaceOf (Number Number)))
-(: &ctx_sk_truth_factor (SpaceOf (Number Number)))
-!(bind! &sk_truth_factor (new-space))
-!(bind! &sk_answered (new-space))
-;; key -> a stale row that read it, by row key hash and row hash
-(: &sk_stale_reader (SpaceOf (Number SkeletonKey Number Number)))
-(: &ctx_sk_stale_reader (SpaceOf (Number SkeletonKey Number Number)))
-!(bind! &sk_stale_reader (new-space))
-;; fold node -> member node
-(: &sk_fold (SpaceOf (Number SkPattern SkPattern)))
-!(bind! &sk_fold (new-space))
-;; member node -> fold node
-(: &sk_member_of (SpaceOf (Number SkPattern SkPattern)))
-!(bind! &sk_member_of (new-space))
-;; group key -> its grouped fold node
-(: &sk_group_of (SpaceOf (Number SkeletonKey SkPattern)))
-!(bind! &sk_group_of (new-space))
-;; each row's and fold's latest view, and the views it replaced
-(: &sk_latest (SpaceOf (Number SkeletonKey SkeletonVersion)))
-(: &ctx_sk_latest (SpaceOf (Number SkeletonKey SkeletonVersion)))
-!(bind! &sk_latest (new-space))
-(: &sk_view (SpaceOf (Number SkeletonKey Number SkeletonValue)))
-(: &ctx_sk_view (SpaceOf (Number SkeletonKey Number SkeletonValue)))
-!(bind! &sk_view (new-space))
+
 (: SkeletonBranch Type)
 (: sk-cut-view (-[det]-> (List Number) SkeletonValue SkeletonBranch))
-(: &sk_summary_reference (SpaceOf (Number SkeletonKey Number (List SkeletonGiven) (List Number) SkeletonFilter SkeletonValue)))
-(: &ctx_sk_summary_reference (SpaceOf (Number SkeletonKey Number (List SkeletonGiven) (List Number) SkeletonFilter SkeletonValue)))
-!(bind! &sk_summary_reference (new-space))
-(: &sk_representative (SpaceOf (Number SkeletonKey Number (List SkeletonGiven) (List Number) SkeletonValue)))
-(: &ctx_sk_representative (SpaceOf (Number SkeletonKey Number (List SkeletonGiven) (List Number) SkeletonValue)))
-!(bind! &sk_representative (new-space))
-;; Exclusion-specific row views: row digest -> owner key, row hash, cuts,
-;; freshness, value. Owner records keep the direct input keys, once per cached row;
-;; input-key-indexed readers invalidate only cached branches that read it.
-(: &sk_branch (SpaceOf (Number SkeletonKey Number (List Number) Bool SkeletonValue)))
-(: &ctx_sk_branch (SpaceOf (Number SkeletonKey Number (List Number) Bool SkeletonValue)))
-!(bind! &sk_branch (new-space))
-(: &sk_branch_owner (SpaceOf (Number Number SkeletonKey Number (List SkeletonKey))))
-(: &ctx_sk_branch_owner (SpaceOf (Number Number SkeletonKey Number (List SkeletonKey))))
-!(bind! &sk_branch_owner (new-space))
-(: &sk_branch_dirty (SpaceOf (Number)))
-(: &ctx_sk_branch_dirty (SpaceOf (Number)))
-!(bind! &sk_branch_dirty (new-space))
-(: &sk_branch_reader (SpaceOf (Number SkeletonKey Number)))
-(: &ctx_sk_branch_reader (SpaceOf (Number SkeletonKey Number)))
-!(bind! &sk_branch_reader (new-space))
+
 ;; Deferred exclusion reads, by row digest. MAIN requests survive queries;
 ;; an Assuming world keeps only its own requests until that world ends.
 (: SkeletonBranchRequest Type)
 (: sk-wanted (-[det]-> Number Number SkeletonKey Number (List Number) SkeletonBranchRequest))
-(: &sk_branch_wanted (SpaceOf (Number Number SkeletonKey Number (List Number))))
-(: &ctx_sk_branch_wanted (SpaceOf (Number Number SkeletonKey Number (List Number))))
-!(bind! &sk_branch_wanted (new-space))
+
 !(change-state! sk_branch_budget 0)
 !(change-state! sk_root_claim_budget 0)
 !(change-state! sk_root_claim_cap 0)
@@ -335,49 +170,20 @@
 (: sk-active-reader (-[nondet]-> (Number SkeletonKey Number)))
 !(change-state! sk_branch_unpaid 0)
 !(change-state! sk_representative_budget 0)
-;; Only the current rebuild records cuts; a child propagates its completed
-;; cuts to its parent. Keep the original exclusions beside the cuts: closed
-;; reads' local pins must not weaken the enclosing rebuild's exclusions.
-;; Frames leave when the rebuild returns.
-(: &sk_branch_cuts (SpaceOf (Number (List Number) (List Number))))
-!(bind! &sk_branch_cuts (new-space))
+
 !(change-state! sk_branch_at 0)
-;; every dependency a row's views ever had, by key hash and row hash
-(: &sk_support (SpaceOf (Number Number Number)))
-(: &ctx_sk_support (SpaceOf (Number Number Number)))
-!(bind! &sk_support (new-space))
+
 ;; a key's merged value for an open pattern and no exclusion, with the
 ;; dependencies of the versions it merged
 (: SkeletonMerged Type)
 (: sk-merged (-[det]-> Number SkeletonKey Number SkeletonValue SkeletonMerged))
-(: &sk_merged (SpaceOf (Number SkeletonKey Number SkeletonValue Bool)))
-(: &ctx_sk_merged (SpaceOf (Number SkeletonKey Number SkeletonValue Bool)))
-!(bind! &sk_merged (new-space))
-;; rows not evaluated yet, and the rows one evaluation scheduled per pass
-(: &sk_new (SpaceOf (sk-row-item Number Number SkeletonKey Number SkeletonRow)))
-(: &ctx_sk_new (SpaceOf (sk-row-item Number Number SkeletonKey Number SkeletonRow)))
-!(bind! &sk_new (new-space))
-(: &sk_queued (SpaceOf (Number Number Number)))
-(: &ctx_sk_queued (SpaceOf (Number Number Number)))
-!(bind! &sk_queued (new-space))
-;; fold key hash -> pending change cause (preserved through forced propagation)
-(: &sk_fold_pending (SpaceOf (Number Number)))
-(: &ctx_sk_fold_pending (SpaceOf (Number Number)))
-!(bind! &sk_fold_pending (new-space))
-;; exact folds whose latest view is incomplete, by fold key hash
-;; (docs/metta/partial_folds.md)
-(: &sk_partial (SpaceOf (Number SkeletonKey)))
-(: &ctx_sk_partial (SpaceOf (Number SkeletonKey)))
-!(bind! &sk_partial (new-space))
+
 ;; rows waiting for conditioning, by key and row hash, with estimated cost,
 ;; and the rows this evaluation paid it for; a key's merge waiting for
 ;; conditioning has row hash -1 (docs/metta/overlap_conditioning.md)
 (: SkeletonRootLimit Type)
 (: sk-root-limit (-[det]-> Number Number SkeletonRootLimit))
-;; Fixed input generation and the allowance already attempted.
-(: &sk_input_epoch (SpaceOf (KB Number)))
-(: &ctx_sk_input_epoch (SpaceOf (KB Number)))
-!(bind! &sk_input_epoch (new-space))
+
 !(change-state! sk_input_id 0)
 
 (: sk-input-changed! (-[det]-> KB Atom))
@@ -393,14 +199,6 @@
            (($_aggregate $args) (brand KB (car-atom $args)))))
       (chainer-first-or 0 (collapse (once (match &ctx_sk_input_epoch ($kb $epoch) $epoch))))))
 
-(: &sk_root_exhausted (SpaceOf (Number SkeletonKey SkeletonRootLimit)))
-(: &ctx_sk_root_exhausted (SpaceOf (Number SkeletonKey SkeletonRootLimit)))
-!(bind! &sk_root_exhausted (new-space))
-;; Work is shared across all exclusion reads of a queried key in one evaluation.
-(: &sk_root_spent (SpaceOf (Number SkeletonKey Number)))
-(: &ctx_sk_root_spent (SpaceOf (Number SkeletonKey Number)))
-!(bind! &sk_root_spent (new-space))
-
 (: sk-clear-root-cap! (-[det]-> Number SkeletonKey Atom))
 (= (sk-clear-root-cap! $hash $key)
    (let $_cleared (collapse (match &ctx_sk_root_exhausted ($hash $stored $cap)
@@ -408,27 +206,12 @@
                (context-remove! &sk_root_exhausted ($hash $stored $cap)) (empty))))
       ()))
 
-(: &sk_given_pending (SpaceOf (Number Number Number)))
-(: &ctx_sk_given_pending (SpaceOf (Number Number Number)))
-!(bind! &sk_given_pending (new-space))
-(: &sk_given_granted (SpaceOf (Number Number)))
-(: &ctx_sk_given_granted (SpaceOf (Number Number)))
-!(bind! &sk_given_granted (new-space))
-;; rows and keys being conditioned, by key and row hash: a read of one inside
-;; its own conditioning keeps its approximate value
-(: &sk_conditioning (SpaceOf (Number Number)))
-(: &ctx_sk_conditioning (SpaceOf (Number Number)))
-!(bind! &sk_conditioning (new-space))
 ;; Claim state: -1 outside a claim, 0/1 prepaid row credits, -2 exhausted.
 ;; The pass's cutset depth is 64 outside a paid pass; sk_claim_cut is 1 once
 ;; a nested conditioning used its approximation (see sk-deepen).
 !(change-state! sk_claim_state -1)
 !(change-state! sk_claim_depth 64)
 !(change-state! sk_claim_cut 0)
-;; keys whose value changed outside evaluation, once each, by key hash
-(: &sk_dirty (SpaceOf (Number SkeletonKey)))
-(: &ctx_sk_dirty (SpaceOf (Number SkeletonKey)))
-!(bind! &sk_dirty (new-space))
 
 ;; A key changed again before the evaluation took it is recorded once: each
 ;; record schedules every reader of the key.
@@ -438,125 +221,13 @@
       (if (== (collapse (once (match &ctx_sk_dirty ($hash $stored) (if (=alpha $stored $key) true (empty))))) ())
          (let $_row (context-add! &sk_dirty ($hash $key)) ())
          ())))
-;; rules and facts added since the last activation
-(: &sk_pending_rules (SpaceOf (sk-pending-rule Number)))
-!(bind! &sk_pending_rules (new-space))
-(: &sk_pending_facts (SpaceOf (sk-pending-fact SkeletonKey)))
-!(bind! &sk_pending_facts (new-space))
-;; new answers waiting to reach the joins on their node
-;; by a unique delivery number: nodes may unify, so a delivery is removed by
-;; its number, never by its pattern
-(: &sk_answer_queue (SpaceOf (Number SkeletonDelivery)))
-!(bind! &sk_answer_queue (new-space))
-;; deliveries an earlier query left over, by node hash
-(: &sk_parked (SpaceOf (Number Number SkeletonDelivery)))
-!(bind! &sk_parked (new-space))
-;; joins an answer reached after the row allowance ran out, by owner hash and
-;; join hash
-(: &sk_deferred_joins (SpaceOf (Number Number SkeletonJoin)))
-!(bind! &sk_deferred_joins (new-space))
-;; rows found after the row allowance ran out, by owner hash and row hash
-(: &sk_deferred
-   (SpaceOf (Number Number (sk-deferred SkPattern Number SkFact (List SkPattern) (List SkeletonKey)))))
-!(bind! &sk_deferred (new-space))
-;; rows and waiters created from query-local rules, removed after the query
-(: &sk_temp_rows (SpaceOf (Number SkeletonKey Number SkeletonRow)))
-!(bind! &sk_temp_rows (new-space))
-(: &sk_temp_waits (SpaceOf (Number SkPattern SkeletonWaiter)))
-!(bind! &sk_temp_waits (new-space))
-;; children linked since the walk last looked, by node hash
-(: &sk_fresh (SpaceOf (Number SkPattern)))
-!(bind! &sk_fresh (new-space))
-;; each expanded or linked node's search score: the best value a join
-;; waiting on it assigned
-(: &sk_score (SpaceOf (Number SkPattern Number)))
-!(bind! &sk_score (new-space))
-;; rows one evaluation must recompute for a change from outside it, with the
-;; causes that forced them. Evaluation-local native tries deduplicate causes.
-(: &sk_forced (SpaceOf (Number Number Number)))
-(: &ctx_sk_forced (SpaceOf (Number Number Number)))
-!(bind! &sk_forced (new-space))
-;; fact keys that answered a node, by key hash, and by their statement and
-;; context for structural lookup
-(: &sk_keys (SpaceOf (Number SkeletonKey)))
-!(bind! &sk_keys (new-space))
-(: &sk_key_terms (SpaceOf (Statement KBContext Number)))
-!(bind! &sk_key_terms (new-space))
-;; the same keys by statement prefix, as &kb_prefix and &kb_open index &kb:
-;; every key under each ground prefix hash, keys with variables also under
-;; the hash of exactly their longest ground prefix
-(: &sk_key_prefix (SpaceOf (Number Statement KBContext Number)))
-!(bind! &sk_key_prefix (new-space))
-(: &sk_key_open (SpaceOf (Number Statement KBContext Number)))
-!(bind! &sk_key_open (new-space))
-;; Private observation readers, including empty reads, subscribe to MAIN.
-;; Prefix indexes select only readers of the added statement; lookup columns
-;; are copied apart from the original private key, which must stay open.
-(: &sk_world_reader (SpaceOf (Number SkeletonKey)))
-!(bind! &sk_world_reader (new-space))
-(: &sk_world_prefix (SpaceOf (Number Statement KB SkeletonKey)))
-!(bind! &sk_world_prefix (new-space))
-(: &sk_world_open (SpaceOf (Number Statement KB SkeletonKey)))
-!(bind! &sk_world_open (new-space))
-;; A borrowed late input can sit beyond the normal shallow stale refresh.
-;; Its indexed stale cascade remains demand-visible until recomputation pays.
-(: &sk_world_changed (SpaceOf (Number SkeletonKey)))
-!(bind! &sk_world_changed (new-space))
-(: &sk_world_stale (SpaceOf (Number Number)))
-!(bind! &sk_world_stale (new-space))
-(: &sk_world_done (SpaceOf (Number Number)))
-!(bind! &sk_world_done (new-space))
-(: &sk_world_seen (SpaceOf (Number SkeletonKey)))
-!(bind! &sk_world_seen (new-space))
-;; per reading key: the hashes of the keys unifying with it, its own first
-(: &sk_unifiers (SpaceOf (Number SkeletonKey (List Number))))
-!(bind! &sk_unifiers (new-space))
-;; reading keys with a cached set, by a copy of their statement and context,
-;; indexed as keys with variables are in &sk_key_prefix and &sk_key_open
-(: &sk_reader_prefix (SpaceOf (Number Statement KBContext Number SkeletonKey)))
-!(bind! &sk_reader_prefix (new-space))
-(: &sk_reader_open (SpaceOf (Number Statement KBContext Number SkeletonKey)))
-!(bind! &sk_reader_open (new-space))
-;; (kb pattern) of a fold's compiled member goal, by hash
-(: &sk_fold_members (SpaceOf (Number Atom SkPattern)))
-!(bind! &sk_fold_members (new-space))
-;; the current query's roots
-(: &sk_roots (SpaceOf (Number SkPattern)))
-!(bind! &sk_roots (new-space))
-;; nodes the current walk visited
-(: &sk_seen (SpaceOf (Number SkPattern)))
-!(bind! &sk_seen (new-space))
-;; keys the current query's roots read, directly or through rows and folds,
-;; with the fewest such steps from a root
-(: &sk_needed (SpaceOf (Number SkeletonKey Number)))
-!(bind! &sk_needed (new-space))
-;; rows whose inputs changed while no query needed them, by key and row hash
-(: &sk_stale (SpaceOf (Number Number)))
-(: &ctx_sk_stale (SpaceOf (Number Number)))
-!(bind! &sk_stale (new-space))
-;; stale rows the current query needs, recomputed by its evaluation
-(: &sk_refresh (SpaceOf (Number Number)))
-(: &ctx_sk_refresh (SpaceOf (Number Number)))
-!(bind! &sk_refresh (new-space))
-;; rows the evaluation needs that the stale cascade reached while it ran, by
-;; key and row hash: readers of a fold, computed again, and readers of a key,
-;; staled once the query has read its answers
-(: &sk_restale (SpaceOf (Number Number)))
-(: &ctx_sk_restale (SpaceOf (Number Number)))
-!(bind! &sk_restale (new-space))
+
 ;; A deferred branch read holds its consumer only until that exact read is
 ;; settled. Keep ordinary stale-input debt separate: branch settlement cannot
 ;; discharge it.
 (: SkeletonHold Type)
 (: sk-stale-input SkeletonHold)
 (: sk-branch-hold (-[det]-> Number SkeletonKey Number (List Number) SkeletonHold))
-(: &sk_held (SpaceOf (Number Number SkeletonHold)))
-(: &ctx_sk_held (SpaceOf (Number Number SkeletonHold)))
-!(bind! &sk_held (new-space))
-;; Exact exclusion contexts held by this evaluation, indexed by branch slot.
-(: &sk_branch_hold (SpaceOf (Number Number SkeletonKey Number (List Number))))
-(: &ctx_sk_branch_hold (SpaceOf (Number Number SkeletonKey Number (List Number))))
-!(bind! &sk_branch_hold (new-space))
 
 ;; --- Query metrics ------------------------------------------------------------
 
@@ -621,9 +292,6 @@
                 ())))
       ()))
 
-(: &sk_thawed (SpaceOf (Number SkeletonKey)))
-!(bind! &sk_thawed (new-space))
-
 ;; MAIN identity and mutable evaluation scope are separate. These native
 ;; operations own Assuming's read-through value overlay.
 (: context-add! (-[det]-> Atom $row Bool))
@@ -643,7 +311,6 @@
 (: context-rule-premises (-[det]-> SkFact (List SkPattern) (List SkPattern)))
 
 (: context-propagate? (-[semidet]-> SkeletonKey Bool))
-
 
 (: context-rule-enabled? (-[det]-> Atom Bool))
 

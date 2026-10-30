@@ -25,22 +25,8 @@
 (datatype ForwardAggregateInterest
    (forward-aggregate-interest ForwardTriggerKey Number ForwardAggregateDescriptor))
 
-;; Both indexes expose the selective numeric hash as their first generated
-;; Prolog argument.  Complete keys remain in the payload to reject collisions.
-(: &forward_aggregate_identity (SpaceOf (Number ForwardAggregateIdentityRow)))
-(: &ctx_forward_aggregate_identity (SpaceOf (Number ForwardAggregateIdentityRow)))
-(: &forward_aggregate_interest_by_trigger (SpaceOf (Number ForwardAggregateInterest)))
-(: &ctx_forward_aggregate_interest_by_trigger (SpaceOf (Number ForwardAggregateInterest)))
-(: &forward_aggregate_triggers (SpaceOf (Number ForwardTriggerKey)))
-(: &ctx_forward_aggregate_triggers (SpaceOf (Number ForwardTriggerKey)))
-
 (datatype ForwardAggregateState
    (forward-aggregate-state Number Number Number Number))
-
-;; Numeric state is keyed by the aggregate id; the external constructor
-;; also carries the exact number of live contributions for drained reads.
-(: &forward_aggregate_state (SpaceOf (Number Number Number Number)))
-(: &ctx_forward_aggregate_state (SpaceOf (Number Number Number Number)))
 
 (datatype ForwardAggregateObservationValue
    no-forward-aggregate-observation-value
@@ -74,24 +60,6 @@
 (: forward-output-index-hash (-[det]-> ForwardOutputKey Number))
 (= (forward-output-index-hash (forward-output-key $kb $type)) (term_hash (quote ($kb $type))))
 
-
-;; Per-observation support and its reverse lookup. Query exclusions touch
-;; only observations reached by excluded keys, never the whole population.
-(: &forward_aggregate_observation
-   (SpaceOf (Number ForwardAggregateObservationKey ForwardAggregateObservationValue Number Number SourceList)))
-(: &ctx_forward_aggregate_observation
-   (SpaceOf (Number ForwardAggregateObservationKey ForwardAggregateObservationValue Number Number SourceList)))
-!(bind! &forward_aggregate_observation (new-space))
-(: &forward_aggregate_read (SpaceOf (Number Number Number)))
-(: &ctx_forward_aggregate_read (SpaceOf (Number Number Number)))
-!(bind! &forward_aggregate_read (new-space))
-
-;; The skeleton fold key each base-rate aggregate is the estimate of: aggregate
-;; id, fold key hash. A member whose value depends on that key was derived
-;; through the estimate and does not count in it.
-(: &forward_aggregate_fold (SpaceOf (Number Number)))
-(: &ctx_forward_aggregate_fold (SpaceOf (Number Number)))
-!(bind! &forward_aggregate_fold (new-space))
 (: link-aggregate-fold! (-[det]-> Number Number Atom))
 (= (link-aggregate-fold! $id $hash)
    (if (space-row-present? &ctx_forward_aggregate_fold ($id $hash)) ()
