@@ -2,11 +2,11 @@
 
 Worktree: `/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.claude/worktrees/struct2`.
 Branch: `struct2`; base: `48bdacf5b53c2baf837485515d112583034eb4cd`.
-The implementation and this report are committed before final verification. Final gate results and commit IDs will be recorded in a report-only follow-up.
+Implementation and pre-verification report checkpoint: **5c597334** (`Separate source catalog from executable inference applications`). This report-only follow-up records the completed final gates. Both commits are on struct2, with the requested Co-Authored-By and Claude-Session trailers.
 
 ## Diagnosis and design as built
 
-The interrupted work contained a usable first catalog and four focused tests. I retained its compiler annotations, indexing owner, graph conversion and lifetime integration, then completed the compiler ingress, explicit fact roles, authored instance-prior admission and open-query indexes. No executable/numerical route is deleted in this step.
+The graph recovered source meaning from executable premise rows, producer/inverse proof shapes and CTV instruction layout. Cavity readers recovered cohorts from compiled folds. Those implicit dependencies prevented removing executable routes independently. The retained interrupted implementation provided compiler annotations and a catalog owner; the completed change supplies compiler ingress, explicit fact roles, authored instance-prior admission, complete indexes, installation order and bounded fact deduplication. No executable/numerical route is deleted in this step.
 
 `compiler/rules.metta` annotates emitted applications with source roles and ordered population cohorts at the same point that it constructs their numerical plans. An authored rule descriptor is `(source-rule name scope antecedent consequent truth parameters instance-prior reverse-binding-plans)`. It retains the Boolean sides, original truth and WithPrior declaration, explicit ForAll parameters, and the reversible computation/binding plan. Forward application metadata records the branch source, Boolean antecedent, resolved truth expression, output polarity and admission eligibility. Reverse applications record their source/prior role; structural applications remain distinct. Source descriptors are interned modulo alpha-renaming, with reference-counted installation ownership.
 
@@ -70,25 +70,36 @@ Deleted names have zero hits across `pettachainer/`, `third_party/`, `tests/` an
 
 ## Tests and values
 
-- Latest complete MeTTa run before explicit fact-role publication: **162 passed, 0 failed**, strict determinism, including instance priors and compute inversion. `scratch/metta-ingress-final.log`. Final verification below must cover the complete final tree.
+- Final verification: **162 MeTTa files passed, 0 failed**, strict determinism, including `test_instance_prior.metta` and `test_compute_inversion.metta`. The Python suite passed **1,022 tests in 68 files**, including every focused file, with the same **24 expected failures and one skip**. Log: `scratch/verify-accepted.log`.
 - Seven source-catalog tests check model equality after CPU reordering and removal of rules/conclusion indexes/skeleton rows; unchanged catalog generation after those operations; prior-cohort preservation; equivalent raw/annotated normalization; WithPrior rejection without rows and without ever installing inverse applications; and withdrawal/temporary-owner cleanup.
 - Prior-cohort checks compare ordered results and variable sharing against the existing independent prior decoder for STV, uncertain CTV, compound antecedents, ForAll, WithPrior, open queries and fixed output arguments. The fixed-argument/open-query check exposed an incomplete longest-prefix-only index; the final prefix/open indexes fix it.
 - Focused run: **42 tests passed** in `scratch/focused-final-roles.log` (six catalog, four completion recipe, 23 event node, nine atomic posterior). After the ordering/scaling fixes, **all seven catalog tests passed** again in `scratch/catalog-order-fixed.log`; final verification covers every focused test on the final tree.
 - **No expected numerical answer, confidence, proof value or scheduler score was changed.** Two compiler-inspection tests now unwrap the internal source plan before inspecting its executable product. No EXPECTED_FAILURES changes.
-- The intermediate full comparison before the last ingress/index/role changes passed with **accuracy changed in 0 cases**: `/nexus/Dev/OpenCog/bench/results/compare/48bdacf5_vs_48bdacf5-d8712caf9_full/report.md`. The final comparison below supersedes this as acceptance evidence.
 
 ## Final gates
 
 Every project/test/benchmark process uses `/nexus/Dev/OpenCog/bench/capped`, `ulimit -v 16000000`, DISPLAY unset and stdin from `/dev/null`. MeTTa uses this worktree's pinned executable through `scripts/test_metta.sh`. Comparisons use prescribed `compare.sh` with `PETTACHAINER_REPO` set to this worktree. A separate copy of the timing host's environment was prepared only under the remote struct2 path so paired dev-server jobs can use the same interpreter path.
 
-- Final `compare.sh master <worktree> --full`: running; log `scratch/compare-full-accepted.log`.
-- Final `compare.sh anchor <worktree> --canary --retime`: running; log `scratch/compare-canary-accepted.log`. Fresh paired dev-server timing covers all canary cases, including any flags. The historical anchor differs numerically from this task's base; the embedded master comparison must have no answer movement.
+- Final `compare.sh master <worktree> --full`: **PASS; accuracy changed in 0 cases**, all 22 accuracy comparisons identical plus the fuzzer gate. **44 runs executed, one reused, 312 seconds wall**. All **45 accuracy records** (base, candidate and reference) have exit 0 and no unsupported marker. Report: `/nexus/Dev/OpenCog/bench/results/compare/48bdacf5_vs_5c597334_full/report.md`; data: adjacent `compare.json`; log: `scratch/compare-full-accepted.log`. Base runtime tree `877b027ee6a8`; candidate `3460f596e6ee`; PeTTa runtime `eec735bf4d1d3e31`. No confirmed or false timing flags.
+- Final `compare.sh anchor <worktree> --canary --retime`: **PASS**, six cases, **all 12 fresh paired dev-server jobs exit 0 at load 1**, 277 seconds wall. The historical anchor differs in four cases; all nine anchor deficits are also present on master and are nonblocking under the prescribed runner. The embedded comparison with master has no answer movement. Report: `/nexus/Dev/OpenCog/bench/results/compare/anchor-b4065459_vs_f6640759-d20034c3d_canary-retime-20261030T204504/report.md`; data: adjacent `compare.json`; log: `scratch/compare-canary-accepted.log`. This snapshot was captured immediately before the checkpoint amendment; its runtime tree is **3460f596e6ee**, identical to implementation **5c597334**, as both comparison JSON files confirm.
 - First complete verification (`scratch/verify-final.log`): all semantic suites passed (162 MeTTa files, 1,021 Python tests, 24 existing expected failures, one skip; zero query aborts), but import scaling failed at **2.220** late/early chunk time. Broad statement-prefix fact deduplication scanned growing buckets of open implication facts. The final owner uses a separate variant-hash identity index with exact clause-reference removal; focused rerun `scratch/import-scaling-fixed.log` passes at **0.990**, chunks **2.330, 2.300, 2.276, 2.308 seconds**. No thresholds or workloads changed.
 - A separate overlap probe found that a later fixed-argument output could precede an earlier general output when both sources had the same name. An explicit installation sequence now preserves the former choice across prefix buckets and across temporary/permanent ID ranges; the new test pins the original source's Boolean parent.
-- Final `capped --slots 16 env PETTA_JOBS=16 scripts/verify.sh`: to run after this corrected report checkpoint is committed; log `scratch/verify-accepted.log`.
+- Final `capped --slots 16 env PETTA_JOBS=16 scripts/verify.sh`: **PASS, all six gates**, **317 seconds wall**, recorded verify key **7d41ec62fba7**. MeTTa: 162 files; Python: 1,022 tests / 68 files / 628 units, 24 existing expected failures and one skip, **4,527 query metric rows and zero aborts**. Import scaling: **0.852** late/early ratio, chunks **3.234, 2.912, 2.666, 2.568 seconds**. Judgment scaling passed with three query rows and zero aborts; ConceptNet returned exactly two results. Log: `scratch/verify-accepted.log`.
+- Additional paired dev-server retime of replay b25 s4 (the local run had a noisy process-wall sample): **PASS, accuracy unchanged**, base **7.04 s**, candidate **7.06 s**, both exit 0 at load 1. Uses `BENCH_TIMING_FULL=1 compare.sh master <worktree> --full --only "replay b25 s4" --retime`. Report: `/nexus/Dev/OpenCog/bench/results/compare/48bdacf5_vs_5c597334_full-replay_b25_s4-retime-20261030T205157/report.md`; log: `scratch/replay-paired-retime.log`.
 
 No scheduler/budget/anytime policy changed, so curves are outside the brief. No master/main-checkout/other-worktree code edits, pushes, merges or GitHub writes were made. The standard runner's shared benchmark artifacts and authorized verify-cache writes are the only shared outputs.
 
+Fresh paired **process wall seconds** against the historical anchor (these gaps also exist on the base; they are not the cost of this extraction):
+
+| Case | Anchor | struct2 |
+|---|---:|---:|
+| live b50, five shifts, seed 1 | 6.96 | 10.30 |
+| conflict pln-reliable l spq4 s1 | 9.87 | 63.04 |
+| scale m spq4 r10 s1 | 22.65 | 35.65 |
+| conflict pln-stated l spq4 s1 | 10.16 | 26.07 |
+| ONA conditioning s1 | 5.58 | 10.62 |
+| ONA identitymatching s8 | 6.80 | 14.51 |
+
 ## Limits
 
-The graph's existing admission/size/cycle restrictions and numerical approximations remain. The raw API cannot recover information absent from a raw application; it preserves the prior admission policy at the single compiler-owned boundary. Independent runtime uses of explanation/instruction shapes outside graph discovery/admission/cavity prior lookup remain for later structural steps. This report is a pre-verification checkpoint until the final gate section is completed.
+The graph's existing admission/size/cycle restrictions and numerical approximations remain. The raw API cannot recover information absent from a raw application; it preserves the prior admission policy at the single compiler-owned boundary. Independent runtime uses of explanation/instruction shapes outside graph discovery/admission/cavity prior lookup remain for later structural steps. All required acceptance gates are complete and passing. All processes started for this task have finished. No known extraction-specific regression or outstanding acceptance check remains. The core grows by 3,600 tokens and the largest SCC grows by three files; these are measured limits of this structural separation, not improvements claimed for this round.
