@@ -2,9 +2,11 @@
 
 Worktree: `/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.claude/worktrees/struct7`.
 Branch: `struct7`; actual base: **77cce1fa971ddb8aab5fe0da5de3add55c95a185**.
-This implementation/report checkpoint precedes final acceptance. The final
-verification, full comparison, curves and canary results are recorded below
-when finished; this checkpoint alone is not a completed hand-back.
+Implementation and pre-verification report checkpoint: **05c7a6ad**
+(`Separate application discovery and break owner-to-evaluator cycles`).
+All required acceptance gates and fresh paired timing follow-ups are complete
+and passing. This report-only follow-up records their results. No source or
+test input changes follow the implementation checkpoint.
 
 ## Design as built
 
@@ -208,14 +210,103 @@ outputs and the authorized verification-cache write are shared runner artifacts.
   log `scratch/compare-import-fixed.log`. Subsequent runtime edits only clean
   comments/whitespace, with MeTTa forms checked unchanged. Full acceptance uses
   the final committed tree itself.
-- Final standalone Python suite: **pending**.
-- Final `capped --slots 16 env PETTA_JOBS=16 scripts/verify.sh`: **pending**.
-- `compare.sh master <worktree> --full`: **pending**.
-- `compare.sh master <worktree> --curves`: **pending**.
-- `compare.sh anchor <worktree> --canary`: **pending**.
-- Fresh paired dev-server retimes for flagged cases: **pending if flagged**.
+- Final standalone Python suite: **PASS**, **1,040 tests / 73 files / 600
+  units**, **16 workers**, the existing **24 expected failures and one skip**,
+  **223.5 seconds wall**. Includes the requested priority-refinement test and
+  all five new application tests. Log: `scratch/python-accepted.log`.
+- Final `capped --slots 16 env PETTA_JOBS=16 scripts/verify.sh`: **PASS,
+  all six gates**, **272 seconds wall**, verification key **bed23d188b00**.
+  Strict MeTTa: **162 files**, zero failures. Python: **1,040 tests / 73 files /
+  600 units**, the same **24 expected failures and one skip**; **4,554 query
+  metric rows, zero aborts**. Import scaling: **0.998** late/early median ratio,
+  chunks **2.662, 2.668, 2.650, 2.668 seconds**. Judgment scaling passes with
+  three query rows and zero aborts. ConceptNet returns exactly two results.
+  Log: `scratch/verify-final.log`.
+- Final `compare.sh master <worktree> --full`: **PASS; accuracy changed in
+  zero cases**. All **22 accuracy comparisons** are identical, plus the
+  reference/fuzzer gate: **23 cases**, **42 jobs executed / five of 45 records
+  reused**, **816 seconds wall including the shared full-size queue**. All
+  **45 accuracy records exit 0**, no unsupported marker. The fuzzer retains
+  the same five flagged KBs, no newly flagged KB, zero unsupported KBs and
+  zero crashes. Report:
+  `/nexus/Dev/OpenCog/bench/results/compare/77cce1fa_vs_05c7a6ad_full/report.md`;
+  log `scratch/compare-full.log`. One local timing flag did not repeat:
+  scale l spq4 s1 inference seconds **56.15 -> 67.36**, local paired rerun
+  **45.35 -> 45.55**. It is retained as adverse timing evidence; its required
+  fresh dev-server pair is recorded below.
+- Final budget curves: **eight workloads / 40 paired budget points**, every
+  measured error **exactly equal**, no missing/mismatched budget and no
+  unsupported point, **664 seconds wall**. Includes scale m/l through 32
+  steps per query, ordinary/soft SupplyNet, ten regions, conflict and replay.
+  Report:
+  `/nexus/Dev/OpenCog/bench/results/compare/77cce1fa_vs_05c7a6ad_curves/curves.md`;
+  adjacent `curves.json`; log `scratch/compare-curves.log`. Times were taken
+  at changing local loads; these curves establish error/budget parity and
+  are not claimed as a speedup or as isolated timing evidence.
+- Fresh paired `compare.sh anchor <worktree> --canary --retime`: **PASS**,
+  six cases, **18 jobs executed**, all **12 fresh dev-server timing jobs exit
+  0 at load 1**, **349 seconds wall**. All **12 accuracy records exit 0**;
+  regression and false-flag lists are empty. The four cases differing from
+  the historical anchor and its nine deficits are also present on master;
+  none is introduced here. Candidate runtime tree **6ff8d0d26c24**. Report:
+  `/nexus/Dev/OpenCog/bench/results/compare/anchor-b4065459_vs_05c7a6ad_canary-retime-20261031T041321/report.md`;
+  log `scratch/compare-canary.log`.
+- Separate master/candidate canary: **PASS, all six cases exactly identical**,
+  12 accuracy records reused, six successful candidate timing jobs at load 1,
+  **190 seconds wall**. Report:
+  `/nexus/Dev/OpenCog/bench/results/compare/77cce1fa_vs_05c7a6ad-d5c78ae15_canary/report.md`;
+  log `scratch/compare-master-canary.log`. Its dirty label captures report-only
+  edits; the report records the implementation's identical runtime tree
+  **6ff8d0d26c24** and runs build **05c7a6ad**. No gate/source input changed.
+- Required fresh paired dev-server retime of **scale l spq4 s1**: **PASS**,
+  identical accuracy, both fresh jobs exit 0 at load 1, **169.5 seconds wall**
+  including preparation. Process wall seconds **69.93 -> 70.19**, peak RSS
+  **991.3 -> 993.0 MB**. Regression and false-flag lists are empty. Command:
+  `BENCH_TIMING_FULL=1 compare.sh master <worktree> --full --only
+  'scale l spq4 s1' --retime`. Report:
+  `/nexus/Dev/OpenCog/bench/results/compare/77cce1fa_vs_05c7a6ad-d5c78ae15_full-scale_l_spq4_s1-retime-20261031T042844/report.md`;
+  log `scratch/scale-paired-retime.log`. This clears the full comparison's
+  local false flag without changing a threshold.
+- Additional fresh paired dev-server retime of **conflict pln-reliable l
+  spq4 s1**: **PASS**, identical accuracy, both fresh jobs exit 0 at load 1,
+  **195.8 seconds wall**. Process wall seconds **68.68 -> 68.74**, peak RSS
+  **323.5 -> 324.5 MB**. The local full comparison's **68.27 -> 84.72**
+  inference seconds had mismatched loads and was not a valid timing flag;
+  this pair resolves that adverse sample too. Command uses the same supplied
+  full/only/retime runner and `BENCH_TIMING_FULL=1`. Report:
+  `/nexus/Dev/OpenCog/bench/results/compare/77cce1fa_vs_05c7a6ad-d4334afc0_full-conflict_pln-reliable_l_spq4_s1-retime-20261031T043045/report.md`;
+  log `scratch/conflict-paired-retime.log`. No regression or false flag remains.
+  Both retime labels capture report-only edits and record runtime tree
+  **6ff8d0d26c24**, identical to code commit **05c7a6ad**.
 
 The runner makes `--full` and `--curves` mutually exclusive; the brief's combined
-notation is executed as these two separate required comparisons. The report is
-committed before final verification. Final results, commit ids, exact benchmark
-paths and process cleanup status are added after all required gates finish.
+notation was executed as these two separate required comparisons. The report
+checkpoint was committed before final verification. Report-only updates retain
+that verification key; all source, test, runtime and benchmark inputs are fixed.
+
+## Hand-back and limits
+
+The branch is ready for coordinator review. Every required gate passes, every
+full/canary comparison against actual master has identical answers, and all 40
+curve budget points have identical measured errors. No old expected value or
+EXPECTED_FAILURES entry changes. The native clause audit preserves all indexing
+and numerical implementations. No timing or memory regression remains after
+fresh paired dev-server checks, and no noisy local time is claimed as a speedup.
+
+The largest measured file SCC shrinks **46 -> 20**; owners have zero upward
+paths under the retained graph rules. The remaining **20- and 18-file SCCs**
+and the explicit callback/read boundaries are real limits: this is not a global
+DAG or proof that arbitrary dynamic user calls cannot recurse. The supplied
+static graph does not measure generated predicates, store accesses or runtime
+frequency. Application binding still projects the compiler's existing compact
+completion recipe at the policy boundary; it does not delete that compiled
+route or claim a new numerical model. The original fold boundary remains for
+pinned compiler semantics. Later route deletion needs its own semantic coverage.
+
+Implementation **05c7a6ad** contains the design, five new tests, measurement tools
+and the pre-verification report. This final update changes the report only.
+Every commit has the exact requested Co-Authored-By and Claude-Session trailers.
+All processes started for this task have finished; the read-only process audit
+is `scratch/processes-final.json`. No push, merge, GitHub write, main-checkout
+code edit or other-worktree edit was performed. The prescribed runner outputs
+and authorized verification-cache write are the shared artifacts.
