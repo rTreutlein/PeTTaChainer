@@ -149,4 +149,6 @@ def source_oracle(sources, goal, rates=(), k=800, smoothing=False, nodes=None, r
         result = oracle.event_oracle(model, nodes=nodes, ratio_bound=ratio_bound)[next(iter(model['goals']))]
         if all(c >= 1 for _, c in oracle.params(model).values()):
             result['var'], result['c'] = 0., .9999
+            if ratio_bound:
+                result['ratio_bound'], result['bound_c'] = 0., .9999
         return result

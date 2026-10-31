@@ -11,8 +11,11 @@ def model(label, variables, terms, goals, truth=None, production=None):
         return []
     answers = moments(variables, terms, len(goals))
     assert answers != 'inconsistent', label
+    assert len(rows) == len(answers), label
     for row, (s, v, kind) in zip(rows, answers):
         assert math.isclose(s, row['strength'], rel_tol=1e-14, abs_tol=1e-15), (label, s, row['strength'])
+        if 'production' in row:
+            assert s == row['production'][0], (label, s, row['production'][0])
         row.update(runtime_strength=s, runtime_variance=v, runtime_kind=kind,
                    runtime_ratio=v/row['reference'] if row['reference'] > 0 else None)
         # The independent float pair sums can retain absolute roundoff on

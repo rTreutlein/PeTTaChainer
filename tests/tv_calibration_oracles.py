@@ -347,7 +347,7 @@ def event_oracle(m, nodes=9, ratio_bound=False):
             q = float(np.sum(wgrid * (N[g]-mu*Z)**2))
             t = float(np.sum(wgrid * (Z-EZ)**2))
             out[g]['ratio_bound'] = min(mu*(1-mu), (q+max(mu, 1-mu)*math.sqrt(t*q))/EZ**2)
-            out[g]['bound_c'] = (0. if out[g]['ratio_bound'] >= mu*(1-mu)
+            out[g]['bound_c'] = (0. if 0 < out[g]['ratio_bound'] >= mu*(1-mu)
                                  else conf_from_var(mu, out[g]['ratio_bound']))
     return out
 
