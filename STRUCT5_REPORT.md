@@ -1,10 +1,13 @@
 # Structure step 5: one owner for statistical contributions
 
 Worktree: `/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.claude/worktrees/struct5`.
-Branch: `struct5`; base: **84496c3e**. Implementation: **e3da7833**,
+Branch: `struct5`; base: **84496c3e**. Implementation: **948916f9**,
 `Centralize statistical contribution lifecycle in one ledger`.
-This checkpoint is committed before final verification. Acceptance commands below
-are still running; a report-only follow-up will record their completed results.
+Pre-verification report checkpoint: **821f6814**. This report-only follow-up
+records the completed gates. The implementation/checkpoint originally had labels
+`e3da7833`/`501597c5`; only commit-message trailer formatting was normalized,
+leaving their trees byte-identical. Benchmark reports retain those original
+labels. All final commits have both requested trailers in one Git trailer block.
 
 ## Diagnosis and design as built
 
@@ -163,27 +166,102 @@ threshold or existing expected value was weakened.
 
 ## Acceptance gates and limits
 
-Every PeTTa/test/benchmark command runs through the prescribed `capped` wrapper,
-with DISPLAY unset, `ulimit -v 16000000`, stdin from `/dev/null`. Tests use the
-worktree's pinned environment; MeTTa uses `scripts/test_metta.sh`. Comparisons set
-`PETTACHAINER_REPO` to this worktree and use the supplied runner, cases and seeds.
+Every PeTTa/test/benchmark command ran through the prescribed `capped` wrapper,
+with DISPLAY unset, `ulimit -v 16000000`, stdin from `/dev/null`. Tests used this
+worktree's pinned environment; MeTTa used `scripts/test_metta.sh`. Comparisons set
+`PETTACHAINER_REPO` to this worktree and used the supplied runner, cases and seeds.
 Only the remote struct5 environment was prepared for paired dev-server timings;
 its interpreter and editable-import paths point to struct5. No other worktree or
-shared environment is modified.
+shared environment was modified.
 
-At this pre-verification checkpoint:
+All runtime acceptance results concern master **84496c3e**, runtime tree
+**2d5bbdf13cd0**, and the implementation tree **e78e184f7266**; PeTTa runtime
+**eec735bf4d1d3e31**. The original benchmark labels `e3da7833` and `501597c5`
+refer to the same runtime as final implementation **948916f9** and checkpoint
+**821f6814**. No source/test changes occurred during final acceptance runs.
 
-- `compare.sh master <worktree> --quick`: running.
-- `compare.sh master <worktree> --full`: running.
-- `compare.sh anchor <worktree> --canary --retime`: running, requesting fresh paired
-  dev-server timing for all canary cases.
-- Final `capped --slots 16 env PETTA_JOBS=16 scripts/verify.sh`: starts after this
-  report is committed. Final results and any flagged-case retimes will be added
-  in a report-only follow-up.
+- Final `capped --slots 16 env PETTA_JOBS=16 scripts/verify.sh`: **PASS, all six
+  gates**, **309 seconds wall**, verification key **f1e7f14b3d1a**. Strict MeTTa:
+  **162 files passed, zero failed**. Python: **1,032 tests / 71 files / 598 units**,
+  the same **24 expected failures and one skip**; **4,534 query metric rows and
+  zero aborts**. Import scaling ratio **1.010**, chunks **2.720, 2.734, 2.717,
+  2.794 seconds**. Judgment scaling passed, three query rows and zero aborts.
+  ConceptNet passed, exactly two results. Log: `scratch/verify-final.log`.
+- `compare.sh master <worktree> --full`: **PASS; accuracy changed in zero cases**,
+  all 22 accuracy comparisons identical plus the fuzzer gate. **43
+  runs executed, 8 results reused, 377.1 seconds wall**.
+  All **45 accuracy records** exit 0 and have no unsupported marker. The fuzzer
+  retains the same five flagged KBs, with no unsupported KB or crash.
+  Report: `/nexus/Dev/OpenCog/bench/results/compare/84496c3e_vs_e3da7833_full/report.md`; data: adjacent `compare.json`;
+  log: `scratch/compare-full.log`.
+- `compare.sh anchor <worktree> --canary --retime`: **PASS**, six cases, **all 12
+  fresh paired dev-server jobs exit 0 at load 1**, **17 runs executed,
+  328.6 seconds wall**. Its 12 accuracy records also exit 0, with
+  no unsupported marker. The historical anchor differs in four cases; the same
+  nine anchor deficits occur on master and are nonblocking under the prescribed
+  runner. The embedded master comparison reuses all 12 accuracy records with
+  **no answer movement**. Report: `/nexus/Dev/OpenCog/bench/results/compare/anchor-b4065459_vs_e3da7833_canary-retime-20261031T011146/report.md`;
+  data: adjacent `compare.json`; log: `scratch/compare-canary.log`.
 
-No scheduling, allowance or anytime policy changes, so curves are outside this
-brief. Population/report/temporal policy and the numerical approximations remain.
-This is an ownership extraction, not justification for deleting inference routes
-or regime semantics. No push, merge, GitHub write, master code change or other
-worktree code change is performed. Standard runner outputs and the authorized
-shared verification-cache write are the only shared artifacts.
+The quick comparison is preserved as adverse timing evidence: **accuracy changed
+in zero cases**, but it reported a local scale regression, metric seconds
+**54.82 -> 61.91**, repeated locally **46.24 -> 80.65**. It executed
+16 runs, reused 5 results and took 328.2
+seconds wall. Report: `/nexus/Dev/OpenCog/bench/results/compare/84496c3e_vs_84496c3e-d7486beb4_quick/report.md`;
+log: `scratch/compare-quick.log`. The fresh dev-server pair below supersedes that
+timing evidence; it is not silently relabeled a passing quick run.
+
+The full comparison had three local timing flags that its own paired reruns did
+not repeat:
+
+| Case | Initial metric seconds, master -> candidate | Local paired rerun |
+|---|---|---|
+| supplynet stage 3 untimed b25 s4 | 12.92 -> 14.28 | 9.602 -> 9.936 |
+| learned stage 3 timed learned b50 r200 s1 | 15.66 -> 18.26 | 16.76 -> 16.83 |
+| learned stage 3 untimed learned mined b50 r50 h10 s3 | 75.1 -> 102.4 | 67.61 -> 67.14 |
+
+**Every locally flagged case was additionally retimed as a fresh master/candidate
+pair on the dev server**, using `BENCH_TIMING_FULL=1 compare.sh master <worktree>
+--full --only '<case>' --retime`. All eight fresh jobs exit 0 at load 1; each
+comparison passes with unchanged accuracy. These are process wall seconds:
+
+| Case | Master | struct5 |
+|---|---:|---:|
+| scale l spq4 s1 | 69.85 | 69.96 |
+| supplynet stage 3 untimed b25 s4 | 11.54 | 11.52 |
+| learned stage 3 timed learned b50 r200 s1 | 20.55 | 20.39 |
+| learned stage 3 untimed learned mined b50 r50 h10 s3 | 90.57 | 90.79 |
+
+Retiming reports and logs:
+
+- scale l spq4 s1: `/nexus/Dev/OpenCog/bench/results/compare/84496c3e_vs_501597c5_full-scale_l_spq4_s1-retime-20261031T011753/report.md`; `scratch/scale-paired-retime.log`.
+- supplynet stage 3 untimed b25 s4: `/nexus/Dev/OpenCog/bench/results/compare/84496c3e_vs_501597c5_full-supplynet_stage_3_untimed_b25_s4-retime-20261031T012024/report.md`; `scratch/supplynet-paired-retime.log`.
+- learned stage 3 timed learned b50 r200 s1: `/nexus/Dev/OpenCog/bench/results/compare/84496c3e_vs_501597c5_full-learned_stage_3_timed_learned_b50_r200_s1-retime-20261031T012024/report.md`; `scratch/learned-paired-retime.log`.
+- learned stage 3 untimed learned mined b50 r50 h10 s3: `/nexus/Dev/OpenCog/bench/results/compare/84496c3e_vs_501597c5_full-learned_stage_3_untimed_learned_mined_b50_r50_h10_s3-retime-20261031T012024/report.md`; `scratch/mined-paired-retime.log`.
+
+Fresh canary process wall seconds against the historical anchor (these gaps also
+exist on the task's master; they are not the cost of this extraction):
+
+| Case | Anchor | struct5 |
+|---|---:|---:|
+| ona conditioning s1 | 5.59 | 10.82 |
+| ona identitymatching s8 | 6.80 | 14.68 |
+| live b50 5 shifts s1 | 6.96 | 10.47 |
+| conflict pln-stated l spq4 s1 | 10.06 | 27.15 |
+| conflict pln-reliable l spq4 s1 | 9.86 | 68.65 |
+| scale m spq4 r10 s1 | 22.64 | 36.88 |
+
+No scheduling, allowance or anytime policy changed, so curves are outside this
+brief. Population/report/temporal policies and numerical approximations remain.
+Native support and numerical regime blocks were additionally checked byte for
+byte against their original base sections; both are identical. This extraction
+does not justify deleting inference routes or regime semantics.
+
+The result is **12 fewer writer-file/store pairs**, **+327 core tokens**, and a
+**two-file larger SCC**. No global cycle or performance improvement is claimed.
+No existing answer moved against the actual master base, no known
+extraction-specific regression remains, and all required gates are complete.
+Every process started for this task has finished. The branch is ready for
+coordinator review; no push, merge, GitHub write, master code change or other
+worktree code change was made. Standard runner outputs and the authorized shared
+verification-cache write are the only shared artifacts.
