@@ -252,13 +252,6 @@ statement_head(T, H) :-
     ; assertz(functional_predicate(Head, Kb, Arity, Positions)),
       'set-positive-only-predicate'(Kb, Head, true) ).
 
-functional_key(Type, Context, Key) :-
-    nonvar(Type), Type = [Head|Args], nonvar(Head),
-    ground(Context), Context = [Kb,'MAIN','Nil'], functional_predicate(Head, Kb, Arity, Positions),
-    length(Args, Arity), maplist(functional_arg(Args), Positions, Values),
-    ground(Values), Key = functional(Kb, Head, Values).
-functional_arg(Args, Position, Value) :- nth1(Position, Args, Value).
-
 % Validate before publication, including no-check/bulk ingestion. Declarations
 % are KB-local and apply to main-world inputs; private hypothetical facts do
 % not assign or conflict with the world's immutable value.

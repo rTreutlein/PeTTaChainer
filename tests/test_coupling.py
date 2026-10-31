@@ -20,7 +20,7 @@ class Coupling(unittest.TestCase):
         sources = {
             "compiler/compile.metta": "(= (compile) (read-one read-two read-one core-value))\n"
                                       "(= (ambiguous) True)\n; hidden\n",
-            "runtime/forward/rules.metta": "(= (read-one) (compile ambiguous))\n"
+            "runtime/backward/upward.metta": "(= (read-one) (compile ambiguous))\n"
                                            "(= (read-two) True)\n",
             "core/types.metta": "(= core-value (read-one))\n(= (ambiguous) False)\n",
             "prolog/runtime_state.pl": "hidden(X) :- hidden(X). % compile\n",
@@ -40,15 +40,15 @@ class Coupling(unittest.TestCase):
         edges = {(edge["from"], edge["to"]): edge["functions"] for edge in report["edges"]}
         self.assertEqual(edges, {
             ("Compiler", "Core types"): ["core-value"],
-            ("Compiler", "Forward"): ["read-one", "read-two"],
-            ("Core types", "Forward"): ["read-one"],
-            ("Forward", "Compiler"): ["compile"],
+            ("Compiler", "Executor"): ["read-one", "read-two"],
+            ("Core types", "Executor"): ["read-one"],
+            ("Executor", "Compiler"): ["compile"],
         })
         self.assertEqual(report["subsystem_edges"], 4)
         self.assertEqual(report["cross_functions"], 5)
         self.assertEqual(report["two_way_pairs"], 1)
-        self.assertEqual(report["two_way"], [("Compiler", "Forward")])
-        self.assertEqual((report["widest_interface"], report["widest_subsystem"]), (2, "Forward"))
+        self.assertEqual(report["two_way"], [("Compiler", "Executor")])
+        self.assertEqual((report["widest_interface"], report["widest_subsystem"]), (2, "Executor"))
 
     def test_cli_default_and_explicit_revision_ignore_working_tree(self):
         original = coupling.measure(self.repo)

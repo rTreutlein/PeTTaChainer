@@ -16,17 +16,29 @@ import re
 import subprocess
 import tarfile
 
+# Semantic ownership, not implementation language or load order. The legacy
+# paths let the same partition measure the pre-move baseline as well as HEAD.
+# Bootstrap/ABI owns declarations and composition; it is not a runtime layer.
 GROUPS = (
-    ("Posterior", r"prolog/(event_|source_catalog)|compiler/event_model"),
-    ("Evaluator: values/merge/folds", r"backward/(eval_values|eval_merge|eval_folds|eval_versions|value_store)"),
-    ("Evaluator: core/work", r"backward/(eval_core|eval_work|evaluation|execution|eval_sampling|upward|eval_types)"),
-    ("Proof search", r"backward/skeleton|skeleton_journal|proofs\.metta|prolog/proof_semantics|runtime/query\.metta|application_discovery|prolog/application_support"),
-    ("Compiler", r"metta/compiler/"),
-    ("Prolog stores", r"prolog/(runtime_state|store_schema|runtime_helpers|ingestion|context_overlay|sorts|eval_)"),
-    ("Statistics/learning", r"statistical_ledger|hypothesis_|rule_policy|rate_plans|forward/aggregates|base_rate|refinement"),
-    ("Forgetting", r"forgetting"),
-    ("Forward", r"runtime/forward/"),
-    ("Core types", r"metta/core/|bootstrap|logic_config"),
+    ('Posterior', r'prolog/(event_|source_catalog)|compiler/event_model|runtime/posterior/'),
+    ('Bootstrap/ABI', r'bootstrap|core/natives|petta_chainer.metta|store/contracts'),
+    ('Runtime terms', r'core/(runtime_terms|stored_terms|truth_values|fold_values)'),
+    ('Compiler plans', r'rate_plans|statistics/plans'),
+    ('API', r'runtime/(query|ingest|observed_predicates|hypothesis_review)|backward/diagnostics'),
+    ('Executor', r'backward/(execution|upward|forgetting)|runtime/presentation'),
+    ('Installation', r'runtime/(installation|configuration|knowledge_store)'),
+    ('Value store', r'(backward|store)/value_store|store/rows|store/retirement'),
+    ('Evaluator', r'backward/(eval_|evaluation)|runtime/evaluator/|runtime/(values|scheduling)'),
+    ('Proof search', r'backward/skeleton'),
+    ('Proofs', r'proofs.metta|prolog/proof_semantics|store/rule_identity'),
+    ('Statistics', r'statistical_ledger|hypothesis_mining|rule_policy|rate_plans|forward/aggregates|base_rate|refinement|runtime/statistics/'),
+    ('Input journal', r'skeleton_journal|store/journal'),
+    ('Fact store', r'runtime/(fact_reads|kb_publication|kb_index|application_policy)|store/(fact_|publication|schema|predicate_policy|application_policy)|forward/schema'),
+    ('Search state', r'store/(search_index|applications)|application_discovery|prolog/application_support'),
+    ('Allowances', r'runtime/execution|store/allowances'),
+    ('Compiler', r'metta/compiler/'),
+    ('Native stores', r'metta/prolog/'),
+    ('Core types', r'metta/core/|metta/lib/'),
 )
 
 
@@ -71,6 +83,7 @@ def measure(repo, ref="HEAD"):
              if source < target and (target, source) in edges]
     return {
         "ref": ref,
+        "unclassified_files": sorted(path for path, group in groups.items() if group == "Other runtime"),
         "nodes": nodes,
         "edges": [{"from": source, "to": target, "symbols": len(names),
                    "functions": sorted(names)}

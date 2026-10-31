@@ -64,16 +64,6 @@ proof_semantic_route(Head, Tail, Step, Semantic) :-
     -> Semantic=Step
     ; Semantic=['opaque-proof',Step] ).
 
-proof_metadata_mark(Pid) :-
-    ( proof_metadata(Pid, Role, _, Semantic, Given, Deps, Zero, Sources, Representative, Observed)
-    -> refs_gc_mark_term(Semantic), refs_gc_mark_term(Role), refs_gc_mark_set(Given),
-       term_size(metadata(Role, Semantic, Given, Deps, Zero, Sources, Representative, Observed), Words),
-       flag(refs_gc_marked_words, Before, Before+Words)
-    ; true ).
-proof_metadata_erase(Pid) :-
-    retractall(proof_metadata(Pid, _, _, _, _, _, _, _, _, _)),
-    retractall(user:'&proof_fact'(Pid, _, _)).
-
 % A hard fact read as a completion's given sibling carries no dependence
 % between that context and another update. Keep the full signed source set;
 % the MeTTa consumer checks the facts' current certainty in their exact scope.
@@ -180,3 +170,59 @@ stored_proof(Proof) :-
       ( Head == 'fact-source', Tail=[_,_]
       ; Head == '@', Tail=[_,Merge], stored_proof(Merge)
       ; Head == 'merge/revision', Tail=[Left,Right], stored_proof(Left), stored_proof(Right) ) ).
+
+% A stored proof is a DAG: each view's proof is one rule application whose
+% premise proofs are references to stored proofs. Expanding it as a tree
+% repeats every shared subproof, exponentially in how deeply values build on
+% merged values. The expansion instead prints a subproof that is referenced
+% more than once and itself refers to stored proofs in full at its first
+% occurrence, as (shared Id Proof), and as (shared Id) after that; a shared
+% subproof with no references of its own is a fixed-size term and is printed
+% where it occurs. Both passes visit each stored proof once.
+proof_dag_expand(Proof, Out) :-
+    empty_assoc(E),
+    proof_ref_counts(Proof, E, Counts),
+    proof_dag_term(Proof, Counts, E, _, Out).
+
+proof_ref_counts(T, C0, C) :-
+    (   var(T) -> C = C0
+    ;   T = ['proof-ref', Pid]
+    ->  (   get_assoc(Pid, C0, N)
+        ->  N1 is N + 1, put_assoc(Pid, C0, N1, C)
+        ;   put_assoc(Pid, C0, 1, C1),
+            (   '&proof'(Pid, Stored, _, _) -> proof_ref_counts(Stored, C1, C) ; C = C1 )
+        )
+    ;   T = ['fact-source',_,Source] -> proof_ref_counts(Source,C0,C)
+    ;   is_list(T) -> foldl(proof_ref_counts, T, C0, C)
+    ;   C = C0
+    ).
+
+proof_dag_term(T, Counts, D0, D, Out) :-
+    (   var(T) -> Out = T, D = D0
+    ;   T = ['proof-ref', Pid], '&proof'(Pid, Stored, _, _)
+    ->  (   get_assoc(Pid, Counts, N), N > 1, proof_has_ref(Stored)
+        ->  (   get_assoc(Pid, D0, _)
+            ->  Out = [shared, Pid], D = D0
+            ;   put_assoc(Pid, D0, true, D1),
+                proof_dag_term(Stored, Counts, D1, D, X),
+                Out = [shared, Pid, X]
+            )
+        ;   proof_dag_term(Stored, Counts, D0, D, Out)
+        )
+    ;   T = ['zero-likelihood',Source] -> proof_dag_term(Source,Counts,D0,D,Out)
+    ;   T = ['unsettled-summary',_,Source] -> proof_dag_term(Source,Counts,D0,D,Out)
+    ;   T = ['fact-source',_,Source] -> proof_dag_term(Source,Counts,D0,D,Out)
+    ;   is_list(T) -> proof_dag_list(T, Counts, D0, D, Out)
+    ;   Out = T, D = D0
+    ).
+
+proof_dag_list([], _, D, D, []).
+proof_dag_list([T|Ts], Counts, D0, D, [O|Os]) :-
+    proof_dag_term(T, Counts, D0, D1, O),
+    proof_dag_list(Ts, Counts, D1, D, Os).
+
+proof_has_ref(T) :-
+    nonvar(T),
+    (   T = ['proof-ref', _] -> true
+    ;   is_list(T), member(E, T), proof_has_ref(E) -> true
+    ).
