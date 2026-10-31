@@ -1,8 +1,9 @@
 # Runtime ownership and internal interfaces
 
 The public API is [API.md](API.md). The internal entry points below are the
-names currently consumed outside their subsystem; all other definitions are
-private to that owner. `scripts/coupling.py --json` reproduces this inventory.
+names currently consumed outside their subsystem. Other internal definitions
+belong to that owner; this inventory does not narrow the public API.
+`scripts/coupling.py --json` reproduces this inventory.
 It counts lexical references, including emitted instruction names, ABI tables
 and error context labels; it does not claim to resolve dynamic calls.
 
@@ -96,9 +97,13 @@ Composition and declarations only; no equation entry points.
 
 `chainer-many`, `chainer-many-materialize`, `execute-backward`, `expand-proof`, `present-query-plan-results`, `query-plan-runtime-goal`, `retain-query-proof!`, `run-query-execution-plan`.
 
-### Fact store (48)
+### Fact store (41)
 
-`application-read-plan`, `clear-temp-query-adds`, `complete-part?`, `complete-statement?`, `context-polymorphic-facts?`, `context-vars-in-type?`, `forward-fact-key`, `forward-output-index-hash`, `forward-premise-keys`, `forward-type-trigger-key`, `implication-instance-supported?`, `judgment-assumed-key?`, `judgment-consequent?`, `judgment-world-premise?`, `kb-add-atom`, `kb-fact-present?`, `kb-facts`, `kb-publish-fact!`, `kb-publish-materialized!`, `kb-publish-prediction!`, `kb-publish-summary!`, `kb-remove-prediction!`, `kb-retire-copy!`, `link-aggregate-fold!`, `materialized-forward-fact?`, `positive-only-pattern?`, `prefix-key`, `refined-rule?`, `set-positive-only-predicate`, `set-rule-refinement`, `sk-certain?`, `sk-clear-root-cap!`, `sk-dirty!`, `sk-fact-key`, `sk-fact-matches?`, `sk-full-fact`, `sk-full-proof`, `sk-input-changed!`, `sk-input-epoch`, `sk-known-leaf-step`, `sk-leaf-facts`, `sk-node-hash`, `sk-note-fact!`, `sk-note-rule!`, `sk-read-fact`, `sk-world-readers`, `statement-prefix-keys`, `unknown-branch-centre`.
+`application-read-plan`, `clear-temp-query-adds`, `complete-part?`, `complete-statement?`, `context-polymorphic-facts?`, `context-vars-in-type?`, `forward-fact-key`, `forward-output-index-hash`, `forward-premise-keys`, `forward-type-trigger-key`, `implication-instance-supported?`, `judgment-assumed-key?`, `judgment-consequent?`, `judgment-world-premise?`, `kb-add-atom`, `kb-fact-present?`, `kb-facts`, `kb-publish-fact!`, `kb-publish-materialized!`, `kb-publish-prediction!`, `kb-publish-summary!`, `kb-remove-prediction!`, `kb-retire-copy!`, `link-aggregate-fold!`, `materialized-forward-fact?`, `positive-only-pattern?`, `prefix-key`, `refined-rule?`, `set-positive-only-predicate`, `set-rule-refinement`, `sk-certain?`, `sk-fact-key`, `sk-fact-matches?`, `sk-full-fact`, `sk-full-proof`, `sk-known-leaf-step`, `sk-leaf-facts`, `sk-read-fact`, `sk-world-readers`, `statement-prefix-keys`, `unknown-branch-centre`.
+
+### Input journal (7)
+
+`sk-clear-root-cap!`, `sk-dirty!`, `sk-input-changed!`, `sk-input-epoch`, `sk-node-hash`, `sk-note-fact!`, `sk-note-rule!`.
 
 ### Installation (5)
 

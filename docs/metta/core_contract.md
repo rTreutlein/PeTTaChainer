@@ -1,7 +1,7 @@
 # Backward evaluator contract
 
-This is the normative contract for regeneration of `backward/evaluation.metta`,
-`backward/skeleton.metta` and `prolog/runtime_helpers.pl`. Preserve the public
+This is the normative contract for the evaluator in `runtime/evaluator/`,
+`runtime/backward/skeleton.metta` and `prolog/runtime_helpers.pl`. Preserve the public
 signatures in [API.md](API.md), answers, proof/evidence identity and budgeted
 behavior. A replacement must replace its old mechanism completely.
 
