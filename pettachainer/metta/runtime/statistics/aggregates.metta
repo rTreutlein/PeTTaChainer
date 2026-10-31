@@ -79,8 +79,6 @@
 (= (fa-dist-acc $a)(the DistributionSumCount $a))
 (: fa-ev-acc (-[det]-> $a BaseRateEvidenceState))
 (= (fa-ev-acc $a)(the BaseRateEvidenceState $a))
-(: fa-instance-acc (-[det]-> $a InstanceEvidenceState))
-(= (fa-instance-acc $a)(the InstanceEvidenceState $a))
 ;; A base-rate finish is read as the KB reads base rates (see
 ;; `smoothed-base-rate-tv`).
 (: finish-aggregate (-[semidet]-> KB Expression Expression Atom))

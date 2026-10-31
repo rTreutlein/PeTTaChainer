@@ -1,9 +1,6 @@
 ;; Input selection, proof/TV filtering and MAIN borrowing live in
 ;; runtime/fact_reads/selection. Construction consumes those indexed facts.
 
-(: sk-fact-key (-[det]-> SkFact SkeletonKey))
-(= (sk-fact-key ($type $kbctx $_proof $_tv)) (sk-key $type $kbctx))
-
 ;; A ground statement stored with confidence 1 is certain: no other proof
 ;; could change its value. Borrowed world facts cannot retire private search:
 ;; the judgment may find an assumption-dependent alternative to select instead.
@@ -22,7 +19,6 @@
 (= (sk-known-leaf-step $known ($_type ($_kb $ctx $_vars) $proof $tv))
    (if $known true
       (if (if (== $ctx MAIN) true (assumption-proof? $proof)) (certain-tvs? (cons $tv ())) false)))
-
 
 ;; --- Complete predicates (docs/metta/complete_predicates.md) ----------------
 

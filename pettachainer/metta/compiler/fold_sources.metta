@@ -1,3 +1,4 @@
+;; Decode lowered existential sources and filter empty instance judgments.
 
 (: existential-fold-source (-[nondet]-> Atom SkPattern))
 (= (existential-fold-source $premise)
@@ -15,3 +16,11 @@
                   (empty)))
             (empty)))
       ($_other (empty)))))
+
+(: InstanceEvidenceFormula (-[nondet]-> Bool TV TV))
+(= (InstanceEvidenceFormula $full? $tv)
+   (if (== $tv no-evidence) (empty)
+      (if $full? $tv
+         (let (STV $s $c)
+            (case $tv (((CTV $positive $_negative) $positive) ($_stv $tv)))
+            (if (> $c 0.0) (STV $s $c) (empty))))))

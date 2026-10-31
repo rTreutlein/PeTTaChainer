@@ -1,3 +1,22 @@
+(: configured-compound-premise-mode (-[det]-> $head CompoundPremiseMode))
+(= (configured-compound-premise-mode $head)
+   (let $matches (collapse (match &logic_config (compound-premise-mode $head $mode) $mode))
+      (if (== $matches ()) All (car-atom $matches))))
+
+(: configured-compound-output-mode (-[det]-> $head CompoundOutputMode))
+(= (configured-compound-output-mode $head)
+   (let $matches (collapse (match &logic_config (compound-output-mode $head $mode) $mode))
+      (if (== $matches ()) NoProjection (car-atom $matches))))
+
+(: bidirectional-implication-type? (-[det]-> Statement Bool))
+(= (bidirectional-implication-type? $Type)
+   (if (is-expr $Type)
+      (let $head (car-atom $Type)
+         (if (is-var $head)
+            false
+            (bidirectional-implication-form? $head)))
+      false))
+
 ;; Source-language analysis and premise lowering.
 ;;
 ;; Compiler overview

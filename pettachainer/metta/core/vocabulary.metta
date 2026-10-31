@@ -122,51 +122,6 @@
       (brand KBContext $kb)
       (make-kb-context (brand KB $kb) MAIN Nil)))
 
-;; Base-rate scans must leave ordinary open expressions intact while replacing
-;; compiler-generated existential witnesses with query variables, one per
-;; distinct witness: conjuncts that share a witness, as a skolemized variable
-;; shared, stay joined in the scan. Traverse expression nodes, never their list
-;; suffixes: matching a suffix against an `exists` pattern would unify ordinary
-;; variable-headed terms into open conses. The walk threads the witnesses seen
-;; so far, each paired with its query variable.
-(datatype RuleQueryState (rule-query-state $term (List WitnessVar)))
-(datatype WitnessVar (witness-var Atom Variable))
-
-(: witness-query-var (-[det]-> Atom (List WitnessVar) Atom))
-(= (witness-query-var $_witness ()) ())
-(= (witness-query-var $witness (cons (witness-var $stored $var) $rest))
-   (if (== $witness $stored) $var (witness-query-var $witness $rest)))
-
-(: rule-query-walk-list (-[det]-> (List $term) (List WitnessVar) RuleQueryState))
-
-(: rule-query-walk (-[det]-> $term (List WitnessVar) RuleQueryState))
-(= (rule-query-walk $term $witnesses)
-   (if (== $term ()) (rule-query-state () $witnesses)
-      (if (is-var $term) (rule-query-state $term $witnesses)
-         (if (is-expr $term)
-            (if (== (car-atom $term) exists)
-               (case (cdr-atom $term) (
-                  ((cons $_rule (cons $_idx (cons $_vars ())))
-                     (let $known (witness-query-var $term $witnesses)
-                        (if (== $known ())
-                           (rule-query-state $query-var (cons (witness-var $term $query-var) $witnesses))
-                           (rule-query-state $known $witnesses))))
-                  ($_other (rule-query-walk-list $term $witnesses))))
-               (rule-query-walk-list $term $witnesses))
-            (rule-query-state $term $witnesses)))))
-
-(= (rule-query-walk-list () $witnesses) (rule-query-state () $witnesses))
-(= (rule-query-walk-list (cons $head $rest) $witnesses)
-   (let* (((rule-query-state $new-head $after-head) (rule-query-walk $head $witnesses))
-          ((rule-query-state $new-rest $after-rest) (rule-query-walk-list $rest $after-head))
-          ($list (cons $new-head $new-rest)))
-      (rule-query-state $list $after-rest)))
-
-(: rule-query-pattern (-[det]-> $term $term))
-(= (rule-query-pattern $term)
-   (let (rule-query-state $pattern $_witnesses) (rule-query-walk $term ()) $pattern))
-
-
 (: contextual-cpu? (-[det]-> $formula Bool))
 (= (contextual-cpu? $fun)
    (stored-list-member? $fun (ContextRule ReadRate ReadLikelihoodContext CompoundEvidence)))

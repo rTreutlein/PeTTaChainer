@@ -1,4 +1,17 @@
+;; Proof and truth-value term classifiers, independent of evidence policy.
+;; A context assumption, or a statement a conditioned read takes as known.
+(: assumption-proof? (-[det]-> Proof Bool))
+(= (assumption-proof? $prf)
+   (if (is-expr $prf) (let $head (car-atom $prf) (if (== $head ctx) true (== $head given))) false))
 
+;; A certain fact, strength 0 or 1 at confidence 1, joins the same whether its
+;; evidence is shared or not: P(K and X) is P(X) or 0 either way. Evidence read
+;; off a proof term names the fact by its proof alone, negated under a Not.
+(: certain-tvs? (-[det]-> (List TV) Bool))
+(= (certain-tvs? $tvs)
+   (case $tvs (
+      ((cons (STV $s $c) $_rest) (if (>= $c 1.0) (if (>= $s 1.0) true (<= $s 0.0)) false))
+      ($_other false))))
 
 ;; A stated implication carries the same rule evidence as its applications,
 ;; including its positive and hypothetical reads. Other stored
@@ -388,7 +401,6 @@
          (if (if (== $a $b) true (settled-within? $a $b)) (settled-args-within? $as $bs) false))
       ($_other false))))
 
-
 (: sk-node-row? (-[det]-> Atom Bool))
 (= (sk-node-row? $proof)
    (case (proof-semantic (brand Proof $proof)) (
@@ -411,7 +423,6 @@
             (let* (($connective (car-atom $type)) ($any (atom_concat $connective introduction))) (head-is? $proof $any)))
          false)))
 
-
 ;; Compiler-marked joins whose premises intentionally share source evidence.
 (: shared-evidence-frontier-proof? (-[det]-> Proof Bool))
 (= (shared-evidence-frontier-proof? $proof)
@@ -429,3 +440,9 @@
       (no-input-entanglement false)
       ((result-input-entanglement $proof)
          (if (rule-application-proof? $proof) true (head-is? $proof conjunction))))))
+
+(: sk-full-proof (-[det]-> Proof Proof))
+(= (sk-full-proof $proof) (brand Proof (proof_dag_expand $proof)))
+
+(: sk-full-fact (-[det]-> SkFact SkFact))
+(= (sk-full-fact ($type $kbctx $proof $tv)) (data $type $kbctx (sk-full-proof $proof) $tv))

@@ -1,8 +1,6 @@
-;; Shared base-rate caches and finalizers.
+;; Shared base-rate cache reads.
 ;; Base-rate cache operations are shared by forward chaining and the compiled
 ;; query runtime, so they must be available before either consumer is loaded.
-(: base-rate-finish? (-[det]-> $finish Bool))
-(= (base-rate-finish? $finish) (== $finish base-rate))
 
 ;; A KB may read each computed base rate as a Beta estimate: its n
 ;; observations plus k pseudo-observations of complete ignorance at 0.5, so a
@@ -25,18 +23,6 @@
             (let* (($n (confidence-to-count $c)) ($k (evidence-confidence-k)))
                (STV (/ (+ (* $s $n) (* 0.5 $k)) (+ $n $k)) $c))))
       ($_other $tv))))
-
-(datatype BaseRateAggregateKey (base-rate-aggregate-key-value KB Statement $mode))
-(datatype NoBaseRateAggregateKey no-base-rate-aggregate-key)
-
-(: base-rate-aggregate-key (-[det]-> $arguments (| BaseRateAggregateKey NoBaseRateAggregateKey)))
-(= (base-rate-aggregate-key $args)
-   (case $args (
-      (($kbid $pattern $_extractor $_init $_fun $finish $_tv-mode)
-         (if (base-rate-finish? $finish)
-            (base-rate-aggregate-key-value (brand KB $kbid) (brand Statement $pattern) $finish)
-            no-base-rate-aggregate-key))
-      ($_other no-base-rate-aggregate-key))))
 
 ;; Cache rows lead with a hash of the knowledge base and pattern, so a lookup
 ;; reads only that pattern's entries; the alpha comparison rejects collisions.
@@ -63,12 +49,6 @@
 (: base-rate-cache-entries-for-mode (-[det]-> KB Statement $mode (List BaseRateEntry)))
 (= (base-rate-cache-entries-for-mode $kbid $pattern $mode)
    (base-rate-cache-mode-rows (base-rate-cache-hash $kbid $pattern) $kbid $pattern $mode))
-
-(: base-rate-entry-tv (-[det]-> BaseRateEntry TV))
-(= (base-rate-entry-tv (base-rate $_kbid $_stored $tv $_source $_mode)) $tv)
-
-(: base-rate-entry-user? (-[det]-> BaseRateEntry Bool))
-(= (base-rate-entry-user? (base-rate $_kbid $_stored $_tv $source $_mode)) (== $source user))
 
 (: cached-base-rate (-[nondet]-> KB Statement (List TV)))
 (= (cached-base-rate $kbid $pattern)

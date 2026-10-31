@@ -1,10 +1,5 @@
 ;; Indexed scoped fact reads and MAIN borrowing subscriptions.
 
-
-(: sk-full-proof (-[det]-> Proof Proof))
-(= (sk-full-proof $proof) (brand Proof (proof_dag_expand $proof)))
-(: sk-full-fact (-[det]-> SkFact SkFact))
-(= (sk-full-fact ($type $kbctx $proof $tv)) (data $type $kbctx (sk-full-proof $proof) $tv))
 (: sk-read-fact (-[det]-> SkeletonFilter SkFact SkFact))
 (= (sk-read-fact $filter ($type $scope $proof $tv))
    ;; Storage keeps one source value. A positive read projects its branch

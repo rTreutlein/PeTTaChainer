@@ -1,3 +1,44 @@
+;; An implication is also estimated from its instances: one sample per
+;; antecedent binding whose consequent is provable, both sides resolved through
+;; the backward chainer so derived instances count. Open world: an antecedent
+;; instance without a provable consequent is not a sample. A sample never uses
+;; a rule that restates the implication (see `sk-sample-exclusions`). The fold's
+;; strength is the mass-weighted consequent strength and its confidence
+;; count-based. Sampling needs plain predicate conjuncts whose consequent
+;; variables the antecedent binds.
+
+(: unsampled-conjunct? (-[det]-> Bool Atom Bool))
+(= (unsampled-conjunct? $seen $conjunct)
+   (if $seen true
+      (if (is-var $conjunct) true
+         (head-is-member? $conjunct
+            (And Or Not Implication BiImplication Exists Compute
+               KnownExistential ExistentialResidual)))))
+
+(: implication-instance-supported? (-[det]-> Statement Statement Bool))
+(= (implication-instance-supported? $antecedent $consequent)
+   (if (is-var $antecedent) false
+      (if (is-expr $consequent)
+         (if (fold-flat unsampled-conjunct? false
+                (cons $consequent (implication-side-conjuncts $antecedent)))
+            false
+            (vars-covered? $consequent (list_to_set (extract-vars $antecedent))))
+         false)))
+
+;; Only a rule certain in every branch is given. An uncertain CTV branch
+;; still learns from its instances when the other branch is certain.
+(: refined-rule? (-[det]-> KB Proof Statement Statement TV Bool))
+(= (refined-rule? $kb $prf $a $b $tv)
+   (if (== (collapse (once (match &rule_refinement ($kb true) true))) ()) false
+      (let* (($name (rule-evidence-base-name $prf))
+             ($c (case $tv (((STV $_s $c) $c)
+                ((CTV (STV $_ps $pc) (STV $_ns $nc))
+                   (if (is-var $pc) $pc (if (is-var $nc) $nc (min $pc $nc))))))))
+         (if (is-expr $name) false
+            (if (logic-rule? $name) false
+               (if (is-var $c) false
+                  (if (>= $c 1.0) false (implication-instance-supported? $a $b))))))))
+
 ;; Rule lowering and structural specialization form one recursive component:
 ;; derived views and specialization jobs compile new statements through
 ;; compile_, while compile_ dispatches back into both mechanisms.
@@ -564,7 +605,7 @@
    (if (is-expr $premise)
       (let $head (car-atom $premise)
          (if (is-var $head) false
-            (if (specializing-predicate? $head) (not (== (extract-vars $premise) ())) false)))
+            (if (not (== (collapse (match &logic_config (specializing-predicate $head) true)) ())) (not (== (extract-vars $premise) ())) false)))
       false))
 
 (: fact-head (-[det]-> Statement Atom))
@@ -664,7 +705,7 @@
 (: compile-ordinary-fact (-[nondet]-> KB Proof Statement TV CompiledAddition))
 (= (compile-ordinary-fact $kb $prf $Type $tv)
    (let $fact-kb
-      (if (context-polymorphic-facts? $kb) (make-kb-context $kb $ctx $vars) (kbctx $kb))
+      (if (space-row-present? &context_polymorphic_facts (quote ($kb true))) (make-kb-context $kb $ctx $vars) (kbctx $kb))
       (superpose (
          (brand CompiledAddition (() |- (: $fact-kb $prf $Type $tv)))
          (compile-specialization-fact-triggers $kb $Type)

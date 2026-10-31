@@ -269,7 +269,7 @@ store_schema('&kb_open', plain, '(Number Statement KBContext Proof TV)').
 % forward run reads) and, unless its head is a variable, in &prem_prefix by the
 % longest ground prefix of its statement within its KB, so the rules a ground
 % key is a premise of are found by hashing the key's prefixes
-% (statement-prefix-keys) instead of walking every premise with its head.
+% (statement-prefix-hashes) instead of walking every premise with its head.
 store_schema('&prem_prefix', plain, '(Number (| Goal (Statement KBContext Proof TV)) Number Number)').
 % A certain fact of a ground statement two or more forward rules conclude is
 % an outcome the combination modes learn from; it waits for the first merge

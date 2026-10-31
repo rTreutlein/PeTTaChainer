@@ -49,16 +49,6 @@
 (= (compound-connective? $head)
    (not (== (collapse (match &logic_config (compound-premise-mode $head $_mode) true)) ())))
 
-(: configured-compound-premise-mode (-[det]-> $head CompoundPremiseMode))
-(= (configured-compound-premise-mode $head)
-   (let $matches (collapse (match &logic_config (compound-premise-mode $head $mode) $mode))
-      (if (== $matches ()) All (car-atom $matches))))
-
-(: configured-compound-output-mode (-[det]-> $head CompoundOutputMode))
-(= (configured-compound-output-mode $head)
-   (let $matches (collapse (match &logic_config (compound-output-mode $head $mode) $mode))
-      (if (== $matches ()) NoProjection (car-atom $matches))))
-
 (: bidirectional-implication-form? (-[det]-> $head Bool))
 (= (bidirectional-implication-form? $head)
    (not (== (collapse (match &logic_config (rule-form $head BidirectionalImplication) true)) ())))
@@ -77,10 +67,6 @@
 (= (set-specializing-predicate $head)
    (let $_declared (declared-head! $head) (add-atom &logic_config (specializing-predicate $head))))
 
-(: specializing-predicate? (-[det]-> $head Bool))
-(= (specializing-predicate? $head)
-   (not (== (collapse (match &logic_config (specializing-predicate $head) true)) ())))
-
 !(clear-logic-config)
 !(set-logic-name PLN)
 !(set-compound-connective And All ProjectAll)
@@ -89,15 +75,6 @@
 !(set-compound-settling Or (STV 1.0 1.0))
 !(set-compound-connective LikelierThan All NoProjection)
 !(set-bidirectional-implication-form BiImplication)
-
-(: bidirectional-implication-type? (-[det]-> Statement Bool))
-(= (bidirectional-implication-type? $Type)
-   (if (is-expr $Type)
-      (let $head (car-atom $Type)
-         (if (is-var $head)
-            false
-            (bidirectional-implication-form? $head)))
-      false))
 
 ;; Compound lowering is deliberately configuration-driven. Merely being an
 ;; expression is insufficient: ordinary predicates such as (Friend a b) must

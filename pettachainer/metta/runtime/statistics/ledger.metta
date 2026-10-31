@@ -123,21 +123,6 @@
                     (once (context-add! &forward_aggregate_observation ($hash $key $value $sum $mass $sources))) ())))
       (forward-aggregate-state $id $new-sum $new-mass $new-count)))
 
-(: sk-instance-fold? (-[det]-> Atom Bool))
-(= (sk-instance-fold? ($_kb $_pattern $_extractor $_init $_function $finish $_mode))
-   (== $finish implication-instance-ctv))
-
-(: sk-instance-fold-key? (-[det]-> SkeletonKey Bool))
-(= (sk-instance-fold-key? $key)
-   (case $key (((sk-fold $args) (sk-instance-fold? $args)) ($_other false))))
-
-(: sk-rate-fold? (-[det]-> SkeletonKey Bool))
-(= (sk-rate-fold? $key)
-   (if (sk-instance-fold-key? $key) true
-      (case $key (
-         ((sk-fold ($_kb $_pattern $_extractor $_init $_function $finish $_mode)) (base-rate-finish? $finish))
-         ($_other false)))))
-
 (: ledger-instance-changed! (-[det]-> Number SkeletonKey Atom))
 (= (ledger-instance-changed! $hash $fold)
    (if (space-row-present? &ctx_sk_instance_changed ($hash $_stored)) ()
@@ -325,3 +310,8 @@
           ($_old (base-rate-cache-remove! $kb $pattern))
           ($_new (context-add! &base_rate_cache ($hash (base-rate $kb $stored $tv user any)))))
       ()))
+
+(: link-aggregate-fold! (-[det]-> Number Number Atom))
+(= (link-aggregate-fold! $id $hash)
+   (if (space-row-present? &ctx_forward_aggregate_fold ($id $hash)) ()
+      (let $_row (context-add! &forward_aggregate_fold ($id $hash)) ())))

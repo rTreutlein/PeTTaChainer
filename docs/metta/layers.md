@@ -1,0 +1,47 @@
+# Runtime layers
+
+The fixed 19-group partition in `scripts/coupling.py` measures these boundaries.
+Rows follow the intended upper-to-lower call order. Bootstrap/ABI composes the
+layers and supplies declarations; it is not an inference layer. Ownership and
+specialization order are described in [module_dependencies.md](module_dependencies.md).
+Public signatures in [API.md](API.md) remain binding.
+
+Each row lists every uniquely owned name referenced outside its group at the
+struct10 code checkpoint. Names used only within their owner are internal.
+The inventory includes instruction symbols, callbacks, native predicate names
+and diagnostic labels, so it is broader than a callable API. Reproduce it with
+`python3 scripts/coupling.py --json`; the group map is unchanged.
+
+| Layer | Entry points |
+| --- | --- |
+| API (6) | `compileadd`, `query`, `query-many`, `query-many-materialize`, `query-many-refs`, `query-materialize` |
+| Executor (8) | `chainer-many`, `chainer-many-materialize`, `execute-backward`, `expand-proof`, `present-query-plan-results`, `query-plan-runtime-goal`, `retain-query-proof!`, `run-query-execution-plan` |
+| Installation (4) | `inject-compiled-adds`, `kb-add-expr`, `sk-retire-store!`, `withdraw-named-rules!` |
+| Proof search (15) | `context-answer-seeds!`, `sk-activate-facts!`, `sk-activate-pending!`, `sk-activate-rule-row`, `sk-activate-rules!`, `sk-activate-thawed!`, `sk-advance!`, `sk-clear-temp!`, `sk-drain!`, `sk-park-deliveries!`, `sk-register-key!`, `sk-root-reader-step`, `sk-root-score-step`, `sk-root?`, `sk-walk!` |
+| Evaluator (39) | `EventNodeJeffrey`, `EventNodeJoint`, `EventNodeMessage`, `EventNodeValue`, `backward-query-metrics`, `bounded-agenda-prune`, `bounded-agenda-target-size`, `context-cold-merged`, `context-propagate?`, `instance-prior-tv`, `leaf-evidence-for-result`, `premises-expected-confidence`, `rule-likelihood-read`, `set-backward-query-metrics`, `sk-admits?`, `sk-admitted-versions`, `sk-change`, `sk-combination-mode`, `sk-drop-fold-view!`, `sk-evaluate!`, `sk-invalidate-world!`, `sk-key-value`, `sk-leaf-view`, `sk-merge-facts`, `sk-merge-step`, `sk-need-roots!`, `sk-observation-prior`, `sk-open-filter?`, `sk-part-prior`, `sk-rate-entries`, `sk-readers`, `sk-refresh-near!`, `sk-root-keys-step`, `sk-root-results`, `sk-rule-truth-key?`, `sk-stale-held!`, `sk-value`, `sk-version-view`, `stored-statement-candidate` |
+| Posterior (2) | `event_graph_reset`, `observed` |
+| Statistics (33) | `base-rate-cache-entries-for-mode`, `base-rate-cache-hash`, `base-rate-cache-remove!`, `base-rate-readers-changed!`, `cached-base-rate`, `fa-id`, `fa-left-out`, `fa-premise-subscriptions`, `fa-register!`, `fa-remove!`, `fa-result`, `fa-update!`, `finish-aggregate`, `forward-maintain-aggregates!`, `forward-rate-folds`, `hm-observe!`, `hm-outcomes`, `hm-pattern-hash`, `hm-screen-changed!`, `ledger-instance-changed!`, `ledger-instance-read-excluding`, `ledger-member-current!`, `ledger-read-excluding`, `ledger-replace-instance!`, `ledger-reset-regime!`, `ledger-set-base-rate!`, `ledger-take-change!`, `link-aggregate-fold!`, `register-forward-aggregate-premises!`, `sk-left-out`, `sk-rate-changed`, `sk-rate-dirty!`, `smoothed-base-rate-tv` |
+| Compiler plans (19) | `aggregate-fold-function?`, `and-tv-goals`, `antecedent-rate-premises`, `base-rate-aggregate-key`, `base-rate-finish?`, `base-rate-fold`, `base-rate-premises`, `base-rate-read-plan`, `compound-rate-goals`, `configured-population-prior-tv`, `conjunct-parts`, `population-prior-tv`, `prior-base-rate-premises`, `rate-children`, `rule-base-rate-pattern`, `sk-existential-fold?`, `sk-instance-fold-key?`, `sk-instance-fold?`, `sk-rate-fold?` |
+| Compiler (13) | `compile-implication-instance-adds`, `compile-implication-subgoal-query`, `existential-fold-source`, `externalize-proof-structure`, `externalize-query-proof`, `internalize-proof-structure`, `mm2compile`, `mm2compileQuery`, `mm2stmt`, `pretty`, `producers`, `rule-truth-installed?`, `statement-query-tv` |
+| Search state (32) | `application-read-plan`, `contextualize-rule-args`, `discover-triggered-applications`, `sk-add-reader!`, `sk-add-use!`, `sk-answers`, `sk-children`, `sk-context-search?`, `sk-direct-key-step`, `sk-drop-stale-reader!`, `sk-expanded?`, `sk-judgment-main-rule-match`, `sk-link-new!`, `sk-mark-dirty!`, `sk-mark-expanded!`, `sk-node-prefix`, `sk-node-score`, `sk-prior-folds`, `sk-prior-inputs`, `sk-raise-score!`, `sk-remove-reader!`, `sk-rule-goal`, `sk-rule-match`, `sk-set-truth-factor!`, `sk-stale-reader!`, `sk-touch-key!`, `sk-unifier-add!`, `sk-unifier-hashes`, `sk-unifying-key-hashes`, `sk-unifying-readers`, `sk-unindex-key!`, `sk-use-step!` |
+| Allowances (16) | `execution-allowances!`, `execution-close-frame!`, `execution-close-slice!`, `execution-open-frame!`, `execution-open-slice!`, `execution-reset-frames!`, `sk-branch-share`, `sk-close-claim!`, `sk-evaluation-free-depth`, `sk-evaluation-per-step`, `sk-open-claim!`, `sk-reserve-near!`, `sk-root-claim-limit`, `sk-root-claim-share`, `sk-take!`, `sk-walk-per-step` |
+| Value store (22) | `sk-branch-excludes?`, `sk-branch-values`, `sk-cache-branch!`, `sk-clear-query-values!`, `sk-deps-roots`, `sk-drop-merged!`, `sk-drop-row!`, `sk-drop-row-views!`, `sk-excludes?`, `sk-finish-branch-request!`, `sk-invalidate-branches!`, `sk-latest-view`, `sk-live-view?`, `sk-note-cuts!`, `sk-older-views`, `sk-request-branch!`, `sk-row-support`, `sk-same-view?`, `sk-store-view!`, `sk-uncache!`, `sk-update-representative!`, `sk-view-deps-step` |
+| Proofs (28) | `all-members?`, `assumption-proof?`, `certain-fact-evidence?`, `certain-tvs?`, `derivation-proof?`, `deterministic-rule?`, `equivalence-rule?`, `evidence-certainty-step`, `fact-evidence-entry`, `more-specific-application?`, `premise-evidence-overlap?`, `proof-atom-proof`, `proof-children`, `proof-dominates?`, `proof-input-entanglement?`, `proof-term-evidence`, `register-equivalence-rule!`, `register-rule-evidence!`, `rule-application-proof?`, `rule-evidence-base-name`, `rule-evidence-head`, `rule-name?`, `rule-result-evidence`, `shared-evidence-frontier-proof?`, `sk-full-fact`, `sk-full-proof`, `sk-node-row?`, `specialization-includes?` |
+| Input journal (6) | `sk-clear-root-cap!`, `sk-dirty!`, `sk-input-changed!`, `sk-input-epoch`, `sk-note-fact!`, `sk-note-rule!` |
+| Fact store (29) | `clear-temp-query-adds`, `complete-part?`, `complete-statement?`, `context-vars-in-type?`, `judgment-assumed-key?`, `judgment-consequent?`, `judgment-world-premise?`, `kb-add-atom`, `kb-fact-present?`, `kb-facts`, `kb-publish-fact!`, `kb-publish-materialized!`, `kb-publish-prediction!`, `kb-publish-summary!`, `kb-remove-prediction!`, `kb-retire-copy!`, `materialized-forward-fact?`, `positive-only-pattern?`, `prefix-key`, `set-positive-only-predicate`, `set-rule-refinement`, `sk-certain?`, `sk-fact-matches?`, `sk-known-leaf-step`, `sk-leaf-facts`, `sk-read-fact`, `sk-world-readers`, `unknown-branch-centre`, `user-base-rate?` |
+| Runtime terms (30) | `ExistentialFloor`, `alpha_unique_keys`, `assemble-runtime-fact`, `assemble-stored-runtime-fact`, `base-rate-entry-tv`, `base-rate-entry-user?`, `chainer-acyclic-term?`, `chainer-add-atom`, `chainer-first-or`, `cpu-call`, `expected-tv`, `fa-instance-acc`, `forward-fact-key`, `forward-output-index-hash`, `forward-premise-keys`, `forward-type-trigger-key`, `make-space-pair`, `make-space-row3`, `make-space-row4`, `next-search-id`, `normalize-expected-ctv`, `normalize-expected-evidence-tv`, `normalize-expected-likelihoods`, `normalize-expected-stv`, `sk-fact-key`, `stored-number`, `tv-confidence`, `typed-runtime-fact`, `typed-runtime-premise`, `typed-runtime-premises` |
+| Native stores (26) | `beta_kl`, `context_active`, `ev_union`, `functional_key`, `heap_pop`, `holds_work`, `particle_merge_resample`, `proof_dag_expand`, `proof_ref_id`, `proof_template_erase`, `prune_answer_instances`, `pw_find`, `pw_known`, `pw_pending_rep`, `pw_unlink`, `query_metric_increment`, `query_metric_set`, `query_metric_value`, `query_metrics_enabled`, `query_metrics_set_enabled`, `refs_gc_touch_set`, `sk_search_key`, `sk_unwatch_fact`, `sk_wait_ref`, `statement_index_hashes`, `stored_proof` |
+| Core types (28) | `any-flat?`, `append-flat`, `bidirectional-implication-form?`, `canon`, `compound-connective?`, `compound-source?`, `conjunct-leaves`, `contextual-cpu?`, `extract-vars`, `fold-semidet`, `foreach-flat`, `head-is-member?`, `head-is?`, `implication-side-conjuncts`, `implication-type?`, `kbctx`, `logic-rule?`, `make-kb-context`, `map-semidet`, `reverse-onto`, `seq2expr`, `sk-cons-step`, `sk-node-hash`, `source-computation-head?`, `space-row-present?`, `statement-children`, `stored-list-member?`, `vars-covered?` |
+| Bootstrap/ABI (0) | Composition and ABI declarations only. |
+
+Fact selection/publication, statistical contribution transactions, and indexed
+search state are separate interfaces. Pure key/TV adapters belong to Runtime
+terms; compiled fold classifiers belong to Compiler plans. Compiler-only
+admission and proof-search-only selectors stay with their callers. The two
+compound-mode readers retain their named compiler boundary because direct
+inlining changed compiled behavior.
+
+The remaining reciprocal pairs are Evaluator/Posterior and Native stores/Posterior.
+Native stores still names `compileadd` and `query` in error contexts, without
+calling either API operation. Value-store retirement calls indexed Search state
+operations. Neither the table nor this round claims all calls are downward.

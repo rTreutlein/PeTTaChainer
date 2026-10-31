@@ -1,3 +1,61 @@
+;; A rule's expected confidence, computed when the rule was stored; a refined
+;; rule's is scaled by what its current truth can add, read from the truth
+;; goal's value, or from its axiom until the goal has one.
+
+(: sk-rule-score (-[det]-> Number Number))
+(= (sk-rule-score $rule)
+   (* (chainer-first-or 1.0 (collapse (once (match rule_expected ($rule $score) $score))))
+      (chainer-first-or 1.0 (collapse (once (match &sk_rule_truth ($rule $hash $type $kbctx) (sk-truth-factor $hash $type $kbctx)))))))
+
+(: sk-truth-factor (-[det]-> Number Statement KBContext Number))
+(= (sk-truth-factor $hash $type $kbctx)
+   (case (collapse (once (match &ctx_sk_truth_factor ($hash $factor) $factor))) (
+      ((cons $factor $_rest) $factor)
+      (()
+         (let* (($factor
+                   (case (collapse (once (match &kb ($type $kbctx (rule-axiom $_name) $tv) $tv))) (
+                      ((cons $tv $_rest) (rule-truth-factor $tv))
+                      (() 1.0))))
+                ($_set (sk-set-truth-factor! $hash $factor)))
+            $factor)))))
+
+(: discover-application (-[semidet]-> Number SkFact (List SkPattern) SkPattern SkeletonMatch))
+(= (discover-application $id $ccls $args $node)
+   (let (sk-rule-def $conclusion $premises) (copy_term (sk-rule-def $ccls $args))
+      (if (case (copy_term $node) (
+             ((CPU $_fun $_args $_res) false)
+             (($type $kbctx $_proof $_tv)
+                (= $conclusion (assemble-stored-runtime-fact $type $kbctx $_rule-proof $_rule-tv)))))
+         (if (chainer-acyclic-term? $conclusion)
+            (sk-match $id (contextualize-rule-args $conclusion $premises) $conclusion)
+            (empty))
+         (empty))))
+
+(: sk-premise-rules-step (-[det]-> Statement KBContext Number (List SkeletonMatch) (List SkeletonMatch)))
+(= (sk-premise-rules-step $type $kbctx $prefix $found)
+   (append-flat
+      (collapse
+         (let* ((($_pattern $id $idx) (match &prem_prefix ($prefix $pattern $id $idx) ($pattern $id $idx)))
+                ((runtime-rule-row $id $ccls $prems) (match rules (runtime-rule-row $id $ccls $prems) (runtime-rule-row $id $ccls $prems)))
+                ($_rest (nth0 $idx $prems (assemble-stored-runtime-fact $type $kbctx $_proof $_tv))))
+            (sk-match $id $prems $ccls)))
+      $found))
+
+(: prefilter-premise-blocks? (-[det]-> SkPattern Bool))
+(= (prefilter-premise-blocks? $premise)
+   (once
+      (case $premise (
+         ((CPU $fun $args $res)
+            (if (if (contextual-cpu? $fun) true (aggregate-fold-function? $fun)) false
+               (if (if (is-var $fun) false (== (extract-vars $args) ()))
+                  (case (collapse (cpu-call 0 $fun $args)) (
+                     (() true)
+                     ((cons $result $_rest) (if (= $res $result) false true))))
+                  false)))
+         ;; Missing facts can arrive after this node has been expanded. Keep
+         ;; their ordinary join subscriptions instead of caching an empty search.
+         ($_fact false)))))
+
 ;; Durable skeleton construction: goal expansion, partial joins, rows, answers,
 ;; activation of later facts and rules, and the budgeted search walk.
 ;;
@@ -1068,7 +1126,6 @@
 ;; the statement belongs to, the priors their inversions and completions
 ;; update, with the rules reading them.
 
-
 (: sk-application-match? (-[det]-> Bool SkeletonMatch Bool))
 (= (sk-application-match? $found (sk-match $_rule $_premises ($_type $_kbctx $proof $_tv)))
    (if $found true (rule-application-proof? $proof)))
@@ -1166,7 +1223,8 @@
                                (collapse (match &sk_wait ($hash $premise $_waiter) $premise)))))))
                 ($_absorbed
                    (if (== (extract-vars $type) ())
-                      (fold-semidet sk-absorb-step () (foldr-flat (sk-premise-rules-step $type $kbctx) () (statement-prefix-keys $kbid $type)))
+                      (fold-semidet sk-absorb-step () (foldr-flat (sk-premise-rules-step $type $kbctx) () (map-flat (prefix-key $kbid)
+                         (cons (index-hash (if (is-expr $type) (car-atom $type) $type)) (statement-prefix-hashes $type)))))
                       ())))
             (if (== $ctx MAIN)
                (fold-semidet (sk-activate-world-reader $type) () (sk-world-readers $type (brand KB $kbid)))
@@ -1245,7 +1303,6 @@
 ;; is unexpanded or has work waiting at it (parked deliveries, deferred joins
 ;; or rows). A node whose search is exhausted never answers without new
 ;; knowledge. Each node is visited once; the walk stops at the first such node.
-
 
 (: sk-seen! (-[det]-> Number SkPattern Bool))
 (= (sk-seen! $hash $node)
@@ -1362,10 +1419,8 @@
                    $key)))))
       (foreach-flat sk-mark-dirty! $keys)))
 
-
 (: context-answer-seeds! (-[semidet]-> SkPattern Atom))
 (= (context-answer-seeds! $node) (let $_added (map-semidet (sk-add-answer! $node) (context-answer-keys $node)) true))
-
 
 ;; A root's producers are part of its scaffold and installed even when the
 ;; budget expands nothing.

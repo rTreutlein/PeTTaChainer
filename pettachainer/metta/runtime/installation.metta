@@ -27,16 +27,6 @@
                      (data $fold-type ($fold-kb $fold-ctx $fold-vars) $fold-prf $fold-tv) $id $idx)))))))
       (+ $idx 1)))
 
-;; Keep an empty instance fold live so later samples can refine it, but do
-;; not let its provisional no-evidence value become a public implication proof.
-(: InstanceEvidenceFormula (-[nondet]-> Bool TV TV))
-(= (InstanceEvidenceFormula $full? $tv)
-   (if (== $tv no-evidence) (empty)
-      (if $full? $tv
-         (let (STV $s $c)
-            (case $tv (((CTV $positive $_negative) $positive) ($_stv $tv)))
-            (if (> $c 0.0) (STV $s $c) (empty))))))
-
 ;; Index rules by the statement name embedded in their conclusion proof, so a
 ;; rule's rows are found by its name without scanning the rules space (rule
 ;; withdrawal, a refined rule's truth, its declaration). An assumed rule is
