@@ -801,26 +801,27 @@
 ;; after the compound exclude views depending on it.
 (: sk-row-state (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonReadPolicy SkeletonRow SkeletonRowState))
 (= (sk-row-state $given $exclusions $khash $policy (sk-row (sk-ident $rule $_keys $_key) ($type $kbctx $proof $_tv) $premises $_seq))
-   (let* (($pin (sk-closed-pin $khash $type $kbctx (derivation-proof? $type $proof)))
-          ($shared (shared-evidence-frontier-proof? $proof))
+   (let* (((application-inputs $derived $shared $node $entangle $completion)
+              (application-read-plan $rule (data $type $kbctx $proof $_tv) $premises))
+          ($pin (sk-closed-pin $khash $type $kbctx (the Bool $derived)))
           ($start (sk-acc () (evidence-set (sk-sample-exclusions $type $kbctx)) (cons (deps-key $khash) ()))))
-      (if (sk-node-row? $proof)
+      (if (the Bool $node)
          (let* (((cons $premise $parts) $premises)
                 (($node-type $node-kbctx $_proof $node-tv) $premise)
                 ($compound (sk-key $node-type $node-kbctx)))
             (fold-semidet
                (sk-premise-step $pin $given (hash-union (sk-unifier-hashes (index-hash $compound) $compound) $exclusions)
-                  $shared false $policy)
-               (sk-premise-step $pin $given $exclusions $shared false $policy $start $premise)
+                  (the Bool $shared) false $policy)
+               (sk-premise-step $pin $given $exclusions (the Bool $shared) false $policy $start $premise)
                $parts))
-         (case (rule-completion-inputs $rule $premises) (
+         (case $completion (
             (no-completion-inputs
-             (let $state (fold-semidet (sk-premise-step $pin $given $exclusions $shared false $policy) $start $premises)
+             (let $state (fold-semidet (sk-premise-step $pin $given $exclusions (the Bool $shared) false $policy) $start $premises)
                (if (if (== $policy sk-independent-read) false
-                       (if $shared false (if (rule-application-proof? $proof) true (head-is? $proof conjunction))))
+                       (proof-input-entanglement? $entangle))
                   (sk-entangle (hash-union $exclusions (hash-set (sk-given-hashes $given))) $state)
                   $state)))
-            ($completion (sk-read-completion $given $exclusions $khash (sk-key $type $kbctx) $shared $policy $start $completion)))))))
+            ($completion (sk-read-completion $given $exclusions $khash (sk-key $type $kbctx) (the Bool $shared) $policy $start $completion)))))))
 
 (: sk-read-completion
    (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey Bool SkeletonReadPolicy SkeletonRowState CompletionInputs SkeletonRowState))

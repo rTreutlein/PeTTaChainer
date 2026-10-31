@@ -165,3 +165,8 @@
 (: rule-query-pattern (-[det]-> $term $term))
 (= (rule-query-pattern $term)
    (let (rule-query-state $pattern $_witnesses) (rule-query-walk $term ()) $pattern))
+
+
+(: contextual-cpu? (-[det]-> $formula Bool))
+(= (contextual-cpu? $fun)
+   (stored-list-member? $fun (ContextRule ReadRate ReadLikelihoodContext CompoundEvidence)))

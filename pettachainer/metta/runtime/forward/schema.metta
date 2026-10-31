@@ -70,34 +70,3 @@
    (let $hash (forward-output-index-hash (forward-output-key $kb $type))
       (space-row-present? &materialized_facts
          (materialized-row $hash $type $kb ($type $kb $proof $tv) $_ev))))
-
-;; A statement's stored facts merged into one candidate: what the facts say
-;; about the statement together. Materialized facts are not stored facts: the
-;; skeleton derived them. A forward run's copy of a key's value is counted only
-;; when asked for: a base rate counts stored facts and hears of copies from the
-;; run that made them, while a membership read wants the latest value a run
-;; reported. A copy is looked up under the key of the row matched, which an open
-;; statement only finds once the match binds it.
-(: stored-candidate-step
-   (-[det]-> (| ForwardDerived NoForwardOutputCandidate) (Statement KBContext Proof TV) ForwardDerived))
-(= (stored-candidate-step $acc ($type $kb $proof $tv))
-   (let* (($fact (data $type $kb $proof $tv))
-          ($ev (evidence-set (cons (fact-evidence-entry $kb $proof $type) ()))))
-      (case $acc (
-         (no-forward-output-candidate (forward-derived $fact $ev))
-         ((forward-derived $current $current-ev)
-            (case (collapse (once (sk-merge-facts false () $current $current-ev 0 $fact $ev 0))) (
-               ((cons (sk-paired (sk-val $merged $merged-ev $_deps)) ()) (forward-derived $merged $merged-ev))
-               ((cons (sk-overlap $_shared $_deps (sk-val $merged $merged-ev $_fdeps)) ()) (forward-derived $merged $merged-ev))
-               ($_none (forward-derived $current $current-ev)))))))))
-
-(: stored-statement-candidate
-   (-[det]-> Statement KBContext Bool (| ForwardDerived NoForwardOutputCandidate)))
-(= (stored-statement-candidate $type $kb $copies)
-   (fold-flat stored-candidate-step no-forward-output-candidate
-      (let $facts (kb-facts $type $kb)
-         (collapse (let ($ftype $fkb $_proof $_tv) (superpose $facts)
-            (let $fact (data $ftype $fkb $_proof $_tv)
-               (if (materialized-forward-fact? $fact) (empty)
-                  (if $copies $fact
-                     (if (space-row-present? &sk_forward_stored ((index-hash (sk-key $ftype $fkb)) $_key $fact $_ev $_deps)) (empty) $fact)))))))))

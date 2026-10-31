@@ -21,32 +21,10 @@
 ;; --- Upward joins --------------------------------------------------------------
 
 (: sk-forward-start-step (-[semidet]-> SkeletonKey Atom Atom Atom))
-(= (sk-forward-start-step (sk-key $type $kbctx) $_acc $trigger)
-   (let $_started
-      (collapse
-         (let* ((($pattern $id $idx) (match prem_index ($trigger $pattern $id $idx) ($pattern $id $idx)))
-                ((runtime-rule-row $id $ccls $prems)
-                   (match rules (runtime-rule-row $id $ccls $prems) (runtime-rule-row $id $ccls $prems)))
-                ($premise (rule-premise (stored-number $idx) $prems))
-                ($_matched
-                   (case $premise (
-                      ((CPU $_function $_args $_result)
-                         (let* (($source (existential-fold-source $premise))
-                                ($outer-vars (extract-vars $_args))
-                                (($_out-type $kbctx $_out-proof $_out-tv) $ccls))
-                            (if (= $source (assemble-stored-runtime-fact $type $kbctx $_proof $_tv))
-                               (if (existential-outer-values? $outer-vars) true (empty))
-                               (empty))))
-                      ;; Match the contextualized premise. Its read policy
-                      ;; separates judgment support from executable seeds.
-                      ($_fact
-                         (if (= (contextualize-rule-premise $ccls $premise)
-                                (assemble-stored-runtime-fact $type $kbctx $_proof $_tv))
-                            true (empty)))))))
-            (if (if (if (sk-context-search? $ccls) false (rule-dormant? $id)) false (chainer-acyclic-term? $ccls))
-               (sk-advance! (sk-partial $ccls $id $ccls () $prems ()))
-               (empty))))
-      ()))
+(= (sk-forward-start-step $key $_acc $trigger)
+   (let $_started (collapse
+      (let (sk-match $id $premises $conclusion) (discover-triggered-applications $key $trigger)
+         (sk-advance! (sk-partial $conclusion $id $conclusion () $premises ())))) ()))
 
 ;; A taken key starts, for every rule premise it matches (by its statement's
 ;; head and by the KB-wide wildcard), a join with that premise bound to it.

@@ -36,7 +36,6 @@
    ;; the row read as independent, and its approximate value.
    (sk-entangled (List SkeletonKey) Number SkeletonRowState))
 
-(datatype CompletionInputs no-completion-inputs (completion-inputs SkeletonKey (List SkPattern) SkFact (List SkPattern) Bool))
 
 (datatype LikelihoodContext (likelihood-context (List Number) EvidenceSet))
 

@@ -49,6 +49,12 @@
 (datatype SkeletonWaiter
    (sk-partial SkPattern Number SkFact (List SkPattern) (List SkPattern) (List SkeletonKey)))
 
+(datatype CompletionInputs no-completion-inputs (completion-inputs SkeletonKey (List SkPattern) SkFact (List SkPattern) Bool))
+
+(datatype ApplicationInputs
+   ;; derivation pin, shared frontier, node route, entanglement, completion route
+   (application-inputs Bool Bool Bool ApplicationEntanglement CompletionInputs))
+
 ;; A row: which rule over which premise keys, its conclusion and premises with
 ;; proof and truth-value variables unbound, and its creation number.
 (datatype SkeletonIdent (sk-ident Number (List SkeletonKey) SkeletonKey))
@@ -234,3 +240,10 @@
                 (sk-dirty! $key)
                 ())))
       ()))
+
+
+(: sk-node-hash (-[det]-> SkPattern Number))
+(= (sk-node-hash $pattern)
+   (case $pattern (
+      ((CPU $_fun $args $_res) (index-hash $args))
+      (($type $kbctx $_proof $_tv) (index-hash (sk-key $type $kbctx))))))

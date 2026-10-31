@@ -541,15 +541,6 @@
 
 ;; --- Row views --------------------------------------------------------------
 
-;; Compiler-marked joins whose premises intentionally share source evidence.
-(: shared-evidence-frontier-proof? (-[det]-> Proof Bool))
-(= (shared-evidence-frontier-proof? $proof)
-   (if (is-var $proof) false
-      (if (is-expr $proof)
-         (let $head (car-atom $proof)
-            (if (is-var $head) false
-               (== $head total-implication-frontier)))
-         false)))
 (: replace-token-list (-[det]-> Atom (List Proof) TokenReplacement))
 (= (replace-token-list () $proofs) (token-state () $proofs))
 (= (replace-token-list (cons $head $tail) $proofs)
@@ -798,15 +789,6 @@
 ;; the next row and leaves one credit for a later row in this claim. This
 ;; preserves the existing two-rows-per-unit bound and integer allowances.
 ;; Nested conditioning shares the credit; unused credit expires at close.
-(: sk-open-claim! (-[det]-> Atom))
-(= (sk-open-claim!)
-   (progn (change-state! sk_claim_state 0)
-          (change-state! sk_claim_depth 64) (change-state! sk_claim_cut 0) ()))
-
-(: sk-close-claim! (-[det]-> Bool))
-(= (sk-close-claim!)
-   (let $exhausted (== (search-id-value sk_claim_state) -2)
-      (progn (change-state! sk_claim_state -1) (change-state! sk_claim_depth 64) (change-state! sk_claim_cut 0) $exhausted)))
 
 (: sk-claim-charge! (-[det]-> (List SkeletonGiven) Bool))
 (= (sk-claim-charge! $given)
@@ -1040,7 +1022,9 @@
                sk-none
                (sk-val $fact (if $unsupported (ev-set 0)
                      (let $result-ev (rule-result-evidence $fact $ev)
-                        (if (not (== (rule-completion-inputs $rule $premises) no-completion-inputs))
+                        (if (let (application-inputs $_derived $_shared $_node $_entangle $completion)
+                               (application-read-plan $rule (data $type $kbctx $proof $tv) $premises)
+                               (not (== $completion no-completion-inputs)))
                            (evidence-subtraction-certain $result-ev (proof-given-evidence $proof))
                            (if (if (sk-inverted-proof? $proof) true (head-is? $type ImplicationInstanceSample)) $result-ev
                               (evidence-condition $result-ev (fold-semidet sk-leaf-premise-step () $premises))))))

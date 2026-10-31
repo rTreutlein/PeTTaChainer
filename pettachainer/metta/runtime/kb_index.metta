@@ -24,3 +24,11 @@
             (space-row-present? &kb ($type $kbctx $proof $tv))
             (space-row-present? &kb_prefix ($hash $type $kbctx $proof $tv)))
          (space-row-present? &kb_open ($hash $type $kbctx $proof $tv)))))
+
+
+(: statement-prefix-keys (-[det]-> Atom Statement (List Number)))
+(= (statement-prefix-keys $kbid $type)
+   (map-flat (prefix-key $kbid)
+      (cons (index-hash (if (is-expr $type) (car-atom $type) $type)) (statement-prefix-hashes $type))))
+(: prefix-key (-[det]-> Atom Number Number))
+(= (prefix-key $kbid $hash) (index-hash (quote ($kbid $hash))))

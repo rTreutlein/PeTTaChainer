@@ -1,0 +1,9 @@
+core 329959  third_party 17685  total 347644
+    47230 pettachainer/metta/prolog/runtime_helpers.pl
+    30109 pettachainer/metta/runtime/backward/skeleton.metta
+    20143 pettachainer/metta/runtime/backward/eval_values.metta
+    17982 pettachainer/metta/runtime/backward/eval_versions.metta
+    15022 pettachainer/metta/runtime/backward/eval_core.metta
+    14944 pettachainer/metta/runtime/backward/eval_work.metta
+    13587 pettachainer/metta/compiler/rules.metta
+    11293 pettachainer/metta/compiler/source_lowering.metta

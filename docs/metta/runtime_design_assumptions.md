@@ -422,6 +422,27 @@ Jeffrey update and accepted numerical exception are documented in
 `assumption_queries.md`. It does not correct MAIN's separate stored-target /
 inversion revision confidence overcount.
 
+### Application discovery preserves binding phases
+
+Backward expansion, forward triggers and late activation exchange typed
+application plans. Discovery owns contextual matching and input routing;
+numerical reads consume the resulting policy without recovering that route
+from CPU instructions or explanation constructors. The durable row keeps its
+existing representation. Read policies are linked views of its premise and
+conclusion variables, rather than another persistent store.
+
+A transported result proof may be unbound before the premises are read and
+become a rule application during those reads. Its entanglement policy therefore
+retains that live proof binding and asks the proof owner after the fold. An
+early Boolean changes finite-budget answers. Keep the named `sk-row-state`
+fold boundary: passing writable row variables through another reduction changes
+PeTTa specialization. Publication, pending conditioning and reader scheduling
+remain controller operations; the row kernel returns its state.
+
+Storage and policy owners never call discovery or numerical evaluation.
+The executor owns allowances and frame lifetime; the invocation controller
+consumes those operations and owns search/evaluation/finally orchestration.
+
 ### Truth values are views, recomputed from what changed
 
 Evaluation computes each row's **view**: its conclusion from the premises'

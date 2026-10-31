@@ -9,15 +9,6 @@
 ;; computed only by evaluation. Rows, answers and waiters are append-only, so a
 ;; later query continues from the skeleton earlier queries built.
 
-(datatype SkeletonMatch
-   ;; rule-id contextualized-premises conclusion
-   (sk-match Number (List SkPattern) SkFact))
-(datatype SkeletonRuleDef (sk-rule-def SkFact (List SkPattern)))
-
-(: aggregate-fold-function? (-[det]-> $function Bool))
-(= (aggregate-fold-function? $function)
-   (stored-list-member? $function (FoldAllCompiled GroupedFoldAllCompiled CompoundRate)))
-
 ;; Signatures of the mutually recursive functions below.
 (: sk-add-answer! (-[semidet]-> SkPattern SkeletonKey Atom))
 (: sk-drain! (-[semidet]-> Atom))
@@ -33,7 +24,7 @@
 (: sk-activate-rules! (-[semidet]-> Atom))
 (: sk-activate-facts! (-[semidet]-> Atom))
 (: sk-expand! (-[semidet]-> SkPattern Number Number Atom))
-(: sk-rule-match (-[nondet]-> SkFact SkeletonMatch))
+
 ;; node, depth, node hash
 (datatype SkeletonFrontier (sk-frontier SkPattern Number Number))
 ;; a node with its hash
@@ -41,12 +32,6 @@
 (: sk-search! (-[semidet]-> (Heap SkeletonFrontier) Atom))
 
 ;; --- Node identity ----------------------------------------------------------
-
-(: sk-node-hash (-[det]-> SkPattern Number))
-(= (sk-node-hash $pattern)
-   (case $pattern (
-      ((CPU $_fun $args $_res) (index-hash $args))
-      (($type $kbctx $_proof $_tv) (index-hash (sk-key $type $kbctx))))))
 
 (: sk-expanded? (-[det]-> Number SkPattern Bool))
 (= (sk-expanded? $hash $pattern)
@@ -238,136 +223,8 @@
                    ($count (confidence-to-count $confidence)))
                (* $join-score (- (count-confidence (+ $count 1.0)) $confidence))))))))
 
-;; --- Leaves -----------------------------------------------------------------
-
-;; A view's proof is one rule application whose premise proofs are references
-;; to stored proofs; the full proof expands them, printing each shared
-;; subproof once (proof_dag_expand in runtime_helpers.pl).
-(: sk-full-proof (-[det]-> Proof Proof))
-(= (sk-full-proof $proof) (brand Proof (proof_dag_expand $proof)))
-
-(: sk-full-fact (-[det]-> SkFact SkFact))
-(= (sk-full-fact ($type $kbctx $proof $tv)) (data $type $kbctx (sk-full-proof $proof) $tv))
-
-(: sk-read-fact (-[det]-> SkeletonFilter SkFact SkFact))
-(= (sk-read-fact $filter ($type $scope $proof $tv))
-   ;; Storage keeps one source value. A positive read projects its branch
-   ;; without publishing a second value under the source's proof identity.
-   (let $fact (data $type $scope $proof $tv)
-      (case $filter (
-         ((sk-filter $_want-proof $want-tv)
-            (if (if (head-is? $want-tv STV)
-                   (head-is-member? $type (Implication QuantifiedRule)) false)
-               (case $tv (
-                  ((CTV $positive $_negative)
-                     ;; An executable conversion of a stated STV is the same
-                     ;; source, not another positive judgment of it.
-                     (let* (($source-proof (sk-step-proof $proof))
-                            ($sources (kb-facts $type $scope))
-                            ($conversion? (not (== (collapse (once
-                               (let ($stored-type $stored-scope $stored-proof (STV $_s $_c))
-                                  (superpose $sources)
-                                  (if (=alpha (data $type $scope $source-proof)
-                                              (data $stored-type $stored-scope $stored-proof))
-                                     true (empty))))) ()))))
-                        (if $conversion? $fact (data $type $scope $proof $positive))))
-                  ($_other $fact)))
-               $fact))
-         (sk-any-filter $fact)))))
-
-;; Tries the pattern on fresh copies so neither side gets bound; a proof
-;; pattern sees the full proof.
-(: sk-fact-matches? (-[det]-> SkeletonFilter SkFact Bool))
-(= (sk-fact-matches? $filter $fact)
-   (case (copy_term $filter) (
-      (sk-any-filter true)
-      ((sk-filter $want-proof $want-tv)
-         (let $read (sk-read-fact $filter $fact)
-            (sk-pattern-matches? $want-proof $want-tv (copy_term $read)))))))
-
-(: sk-pattern-matches? (-[det]-> Proof TV SkFact Bool))
-(= (sk-pattern-matches? $want-proof $want-tv ($type ($_kb $ctx $_vars) $got-proof $got-tv))
-   ;; Executable Assuming seeds wake their applications, but supply no
-   ;; positive judgment of the assumed implication.
-   (if (if (head-is? $want-tv STV)
-          (if (== $ctx MAIN) (if (implication-type? $type) (assumption-proof? $got-proof) false) false)
-          false) false
-   (if (if (is-var $want-proof) true
-           (if (head-is? $want-proof derived-implication)
-              (let $step (sk-step-proof $got-proof) (head-is? $step by))
-              (= (sk-full-proof $got-proof) $want-proof)))
-      (if (is-var $want-tv) true (= $got-tv $want-tv))
-      false)))
-
-;; Every fact of a goal's statement and context that passes the filter, read
-;; through the statement's prefix index (kb-facts); the probe for materialized
-;; rows runs only when some materialization happened.
-(: sk-leaf-facts (-[det]-> Statement KBContext SkeletonFilter (List SkFact)))
-(= (sk-leaf-facts $type $kbctx $filter)
-   (let* (($plain (not (space-row-present? &materialized_facts (quote (materialized-row $_hash $_type $_kb $_fact $_ev)))))
-          ($local (foldr-flat (sk-leaf-fact-step $plain $filter) () (kb-facts $type $kbctx))))
-      (case $kbctx (
-            (($kbid $ctx $vars)
-               (if (judgment-world-premise? $type $kbctx)
-                  (let $_watch (sk-watch-world! $type $kbctx (brand KB $kbid))
-                     (foldr-flat (sk-judgment-main-fact-step $kbctx $plain $filter) $local
-                        (kb-facts $type (kbctx (brand KB $kbid)))))
-                  $local))))))
-
-;; Subscribe before looking for facts: a missing world premise is still a
-;; live input of a durable judgment. Deduplicate by the private reader key.
-(: sk-watch-world! (-[det]-> Statement KBContext KB Atom))
-(= (sk-watch-world! $type $kbctx $kbid)
-   (let* (($key (sk-key $type $kbctx)) ($hash (index-hash $key)))
-      (if (== (collapse (once (match &sk_world_reader ($hash $stored)
-                  (if (=alpha $stored $key) true (empty))))) ())
-         (let* (($_reader (add-atom &sk_world_reader ($hash $key)))
-                ($lookup (copy_term $type))
-                ($prefixes (cons (statement-open-hash $type) (statement-open-probes $type)))
-                ($_prefixes (collapse (let $prefix (superpose $prefixes)
-                   (let $slot (index-hash (data $kbid $prefix))
-                      (add-atom &sk_world_prefix ($slot $lookup $kbid $key))))))
-                ($_open (if (== (extract-vars $type) ()) ()
-                   (let $slot (index-hash (data $kbid (statement-open-hash $type)))
-                      (add-atom &sk_world_open ($slot $lookup $kbid $key))))))
-            ())
-         ())))
-
-;; As with fact lookup, probe the longest prefix and shorter open prefixes.
-;; An open added fact can reach more-specific private readers as well.
-(: sk-world-readers (-[det]-> Statement KB (List SkeletonKey)))
-(= (sk-world-readers $type $kbid)
-   (let* (($prefix (statement-open-hash $type))
-          ($slot (index-hash (data $kbid $prefix)))
-          ($shorter (statement-open-probes $type)))
-      (append-flat
-         (collapse (match &sk_world_prefix ($slot $type $kbid $key) $key))
-         (collapse (let $open (superpose $shorter)
-            (let $open-slot (index-hash (data $kbid $open))
-               (match &sk_world_open ($open-slot $type $kbid $key) $key)))))))
-
-(: sk-leaf-fact-step (-[det]-> Bool SkeletonFilter SkFact (List SkFact) (List SkFact)))
-(= (sk-leaf-fact-step $plain $filter $fact $facts)
-   (let $read (sk-read-fact $filter $fact)
-      (if (sk-fact-matches? $filter $read)
-         (if (chainer-acyclic-term? $read)
-            (if $plain (cons $read $facts)
-               (if (materialized-forward-fact? $fact) $facts (cons $read $facts)))
-            $facts)
-         $facts)))
-
-;; Borrow only observations, never MAIN's derived/materialized values. A fixed
-;; premise may use the world, but an assumed key overrides its world value and
-;; a hypothetical individual must never be unified with a world individual.
-(: sk-judgment-main-fact-step
-   (-[det]-> KBContext Bool SkeletonFilter SkFact (List SkFact) (List SkFact)))
-(= (sk-judgment-main-fact-step $kbctx $plain $filter ($type $main $proof $tv) $facts)
-   (if (judgment-consequent? true $type $kbctx) $facts
-   (if (judgment-assumed-key? $type $kbctx) $facts
-      (if (== (sk-leaf-fact-step $plain $filter (data $type $main $proof $tv) ()) ()) $facts
-         (let $hash (index-hash (sk-key $type $main))
-            (if (space-row-present? &sk_forward_stored ($hash $_key ($type $main $proof $tv) $_ev $_deps)) $facts
-               (cons (sk-read-fact $filter (data $type $kbctx $proof $tv)) $facts)))))))
+;; Input selection, proof/TV filtering and MAIN borrowing live in
+;; runtime/fact_reads. Construction consumes those indexed facts.
 
 (: sk-fact-key (-[det]-> SkFact SkeletonKey))
 (= (sk-fact-key ($type $kbctx $_proof $_tv)) (sk-key $type $kbctx))
@@ -583,19 +440,6 @@
    (if (space-row-present? &ctx_sk_latest (quote ($_hash $_key $_version)))
       (sk-dirty! $key)
       ()))
-
-(: sk-existential-fold? (-[det]-> Atom Bool))
-(= (sk-existential-fold? $fold)
-   (let* (($args (case $fold (
-                    ((sk-fold $scalar) $scalar)
-                    ((sk-group $grouped) $grouped)
-                    ((CPU $_kind $spec $_result) $spec)
-                    ($_other ()))))
-          ($function (case $args (
-                        (($_kb $_body $_extract $_initial $f $_finish $_mode) $f)
-                        (($_kb2 $_body2 $_group $_extract2 $_initial2 $g $_finish2 $_mode2) $g)
-                        ($_other-args none)))))
-      (if (== $function OrFormula) true (== $function ExistentialFloor))))
 
 ;; A new member answer changes the value of every fold over its node; a group
 ;; fold additionally gains the answer's group as one of its own answers. An
@@ -1129,8 +973,6 @@
    (let $hash (sk-node-hash $node)
       (not (== (collapse (once (match &sk_roots ($hash $root) (if (=alpha $root $node) true (empty))))) ()))))
 
-
-
 ;; Work left over by an earlier query waits with its node and resumes when a
 ;; later walk reaches that node, so it never spends an unrelated query's
 ;; budget: parked deliveries are queued again, and while rows are allowed,
@@ -1189,218 +1031,8 @@
 
 ;; --- Expansion --------------------------------------------------------------
 
-(: sk-context-search? (-[det]-> SkFact Bool))
-(= (sk-context-search? ($_type ($kbid $ctx $_vars) $_proof $_tv))
-   (if (== $ctx MAIN) (context-searching? $kbid) true))
-
-;; A statement consumer selects rule applications, then binds their merged
-;; proof as a value. Its selector is not a literal constraint on that value.
-(: sk-rule-goal (-[det]-> SkPattern SkPattern))
-(= (sk-rule-goal $pattern)
-   (case $pattern (
-      ((CPU $_fun $_args $_result) $pattern)
-      (($type $ctx $proof $tv)
-         (if (head-is? $proof derived-implication)
-            (assemble-stored-runtime-fact $type $ctx (brand Proof (by $rule $premise)) $tv)
-            $pattern)))))
-
-(= (sk-rule-match $pattern)
-   (let $goal (the SkFact (sk-rule-goal $pattern))
-   (superpose (
-      (let $lookup-goal (copy_term $goal)
-         (if (rule-lookup-needs-occurs-check $lookup-goal)
-            (let* (($matches (ccls-index-occurs-matches $lookup-goal))
-                   (($matched-goal $rule-id $args) (superpose $matches)))
-               (if (= $matched-goal $goal)
-                  (sk-match $rule-id (contextualize-rule-args $goal $args) $goal)
-                  (empty)))
-            (match ccls_index ($lookup-goal $rule-id $args)
-               (if (= $lookup-goal $goal)
-                  (sk-match $rule-id (contextualize-rule-args $goal $args) $goal)
-                  (empty)))))
-      (sk-judgment-main-rule-match $goal)))))
-
-;; A compound's node row: a part's message or update from the compound, or a
-;; joint of its parts, under any negations.
-(: sk-node-row? (-[det]-> Atom Bool))
-(= (sk-node-row? $proof)
-   (case (proof-semantic (brand Proof $proof)) (
-      ((message $_source $_likelihood $_index $_parts) true)
-      ((joint $_source $_parts $_spec) true)
-      ((kinematic-update $_source $_prediction $_conditionals $_index $_parts) true)
-      ((negated $inner) (sk-node-row? $inner))
-      ($_other false))))
-
-;; Fixed source-fact node rows are compiled in MAIN. Reuse their logic in
-;; the judgment, with contextual premises, rather than importing a MAIN view
-;; that might depend on the overridden assumption. Polymorphic rules already
-;; match the private goal normally and must not be started a second time.
-(: sk-judgment-main-rule-match (-[nondet]-> SkFact SkeletonMatch))
-(= (sk-judgment-main-rule-match ($type ($kbid $ctx $vars) $proof $tv))
-   (if (judgment-world-premise? $type (make-kb-context (brand KB $kbid) $ctx $vars))
-      (let $lookup (copy_term (data $type (data $kbid MAIN Nil) $proof $tv))
-         (match ccls_index ($lookup $id $args)
-            (match rules (runtime-rule-row $id ($_type ($_kb $stored-ctx $_vars) $_prf $_tv) $_args)
-               (if (if (== $stored-ctx MAIN) (sk-node-row? $_prf) false)
-                  (if (= $lookup (data $type (data $kbid MAIN Nil) $proof $tv))
-                     (let* (($scope (make-kb-context (brand KB $kbid) $ctx $vars))
-                            ($goal (assemble-stored-runtime-fact $type $scope $proof $tv))
-                            ($scoped (map-flat (sk-judgment-main-premise $scope) $args)))
-                        ;; Matching a fixed node row may specialize an open
-                        ;; reader to the target; do not import that instance.
-                        (if (judgment-consequent? true $type $scope) (empty)
-                           (sk-match $id (contextualize-rule-args $goal $scoped) $goal)))
-                     (empty))
-                  (empty)))))
-      (empty)))
-
-(: sk-judgment-main-premise (-[det]-> KBContext SkPattern SkPattern))
-(= (sk-judgment-main-premise ($kbid $ctx $vars) $premise)
-   (case $premise (
-      (($type ($kbid MAIN Nil) $proof $tv)
-         (let $scope (make-kb-context (brand KB $kbid) $ctx $vars)
-            (assemble-stored-runtime-fact $type $scope $proof $tv)))
-      ($_other $premise))))
-
-;; Both arguments come from destructuring a premise and its erased KBContext,
-;; so they arrive as raw terms: a statement and Nil or a variable list.
-(: context-vars-in-type? (-[det]-> Atom Atom Bool))
-(= (context-vars-in-type? $type $vars)
-   (if (== $vars Nil) false
-      (let $type-vars (extract-vars $type)
-         (any-flat? (|-> ($var) (stored-list-member? $var $type-vars))
-            (the (List Variable) $vars)))))
-
-;; MAIN's observation of B is not evidence of B under the assumed A. Match
-;; query-local target metadata on copies, retaining the original reader shape:
-;; a target's instances are excluded without hiding unrelated open bindings.
-(: judgment-consequent? (-[det]-> Bool Atom KBContext Bool))
-(= (judgment-consequent? $instances? $type ($kbid $ctx $vars))
-   (let* ((($base $_negated) (canon (brand Statement $type)))
-          ($scope (make-kb-context (brand KB (judgment-consequent $kbid)) $ctx $target-vars))
-          ($targets (kb-facts $base $scope)))
-      (not (== (collapse (once
-         (let ($target ($_metadata-kb $_metadata-ctx $stored-vars) $_proof $_tv) (superpose $targets)
-            (if (if $instances? (=alpha $base $target)
-                    (=alpha (data $base $vars) (data $target $stored-vars))) true (empty))))) ()))))
-
-;; A query's prototype variables must stay variables. A rule lookup may have
-;; specialized a copy of its goal; that must not license world observations of
-;; the specialized prototype. Auxiliary variables do not belong to this list.
-(: judgment-world-premise? (-[det]-> Statement KBContext Bool))
-(= (judgment-world-premise? $type ($kbid $ctx $vars))
-   (if (== $ctx MAIN) false
-      (if (judgment-consequent? true $type (make-kb-context (brand KB $kbid) $ctx $vars)) false
-      (if (== $vars Nil) true
-         (if (== (extract-vars $vars) $vars) (not (context-vars-in-type? $type $vars)) false)))))
-
-;; Compare the whole key without binding its hypothetical individual to an
-;; unrelated fixed world individual. Use the fact prefix index; type and
-;; context must retain the same variable-sharing shape.
-(: judgment-assumed-key? (-[det]-> Atom KBContext Bool))
-(= (judgment-assumed-key? $type $kbctx)
-   (if (judgment-assumption-fact? $type $kbctx) true
-      (judgment-assumption-fact? (JudgmentPrior $type) $kbctx)))
-
-(: judgment-assumption-fact? (-[det]-> Atom KBContext Bool))
-(= (judgment-assumption-fact? $type $kbctx)
-   (let* ((($probe-type $probe-ctx) (copy_term (data $type $kbctx)))
-          ($facts (let ($lookup-type $lookup-ctx) (copy_term (data $probe-type $probe-ctx))
-             (kb-facts (brand Statement $lookup-type) (brand KBContext $lookup-ctx)))))
-      (not (== (collapse (once (let ($assumed $assumed-ctx $proof $_tv) (superpose $facts)
-         (if (assumption-proof? (brand Proof $proof))
-            (if (=alpha (data $probe-type $probe-ctx) (data $assumed $assumed-ctx)) true
-               ;; An open reader can consume a ground assumption. Match a
-               ;; copy so this test cannot bind the rule's premise variables;
-               ;; non-ground hypothetical keys still require alpha identity.
-               (if (== (extract-vars $assumed) ())
-                  ;; Indexed unification can ground a hypothetical variable.
-                  ;; Its context must still have the original sharing shape.
-                  (if (=alpha $probe-ctx $assumed-ctx)
-                     (if (= (copy_term $probe-type) $assumed) true (empty))
-                     (empty))
-                  (empty)))
-            (empty))))) ()))))
-
-;; Logical implication judgments keep their hypothetical individuals and exact
-;; assumed keys private. Assuming queries use canonical MAIN keys throughout.
-(: contextualize-rule-premise (-[det]-> SkFact SkPattern SkPattern))
-(= (contextualize-rule-premise ($_goal-type ($kbid $ctx $vars) $_goal-prf $_goal-tv) $premise)
-   (once
-      (case $premise (
-         (($type ($kbid $prem-ctx $prem-vars) $prf $tv)
-            (let* (($fact-kb
-                       (if (if (== $prem-ctx MAIN)
-                              (if (== $ctx MAIN) false
-                                 (if (context-vars-in-type? $type $vars) true
-                                    (let $scope (make-kb-context (brand KB $kbid) $ctx $vars)
-                                       (if (judgment-assumed-key? $type $scope) true
-                                          (judgment-consequent? false $type $scope)))))
-                              false)
-                          (make-kb-context (brand KB $kbid) $ctx $vars)
-                          (make-kb-context (brand KB $kbid) $prem-ctx $prem-vars))))
-               (assemble-stored-runtime-fact $type $fact-kb $prf $tv)))
-         ;; Private implication judgments scope witness folds to their own
-         ;; hypothetical individuals. Assuming uses MAIN identities and overlays
-         ;; their values, so its folds keep their original MAIN scope.
-         ((CPU $fun $args $res)
-            (if (if (sk-existential-fold? $premise)
-                   (let $pattern (car-atom (cdr-atom $args))
-                      (if (== $ctx MAIN) false
-                         ;; Ground judgments have no hypothetical individual
-                         ;; to protect. Open ones must preserve its sharing.
-                         (if (== $vars Nil) true
-                            (if (context-vars-in-type? $pattern $vars) true
-                               (case $pattern (
-                                  ((ExistentialAlternatives $claim $_channel)
-                                     (judgment-assumed-key? $claim
-                                        (make-kb-context (brand KB $kbid) $ctx $vars)))
-                                  ($_other-pattern false)))))))
-                   false)
-               (CPU $fun (cons-atom (make-kb-context (brand KB $kbid) $ctx $vars) (cdr-atom $args)) $res)
-               (CPU $fun $args $res)))
-         ;; A premise from another KB keeps its explicit context.
-         ($_other-kb $premise)))))
-
-(: contextualize-rule-args (-[semidet]-> SkFact (List SkPattern) (List SkPattern)))
-(= (contextualize-rule-args $goal $args) (map-semidet (contextualize-rule-premise $goal) $args))
-
-;; Only reject ground computations that cannot succeed. A missing fact is
-;; pending input, so its join must wait for later additions.
-(: prefilter-premise-blocks? (-[det]-> SkPattern Bool))
-(= (prefilter-premise-blocks? $premise)
-   (once
-      (case $premise (
-         ((CPU $fun $args $res)
-            (if (if (contextual-cpu? $fun) true (aggregate-fold-function? $fun)) false
-               (if (if (is-var $fun) false (== (extract-vars $args) ()))
-                  (case (collapse (cpu-call 0 $fun $args)) (
-                     (() true)
-                     ((cons $result $_rest) (if (= $res $result) false true))))
-                  false)))
-         ;; Missing facts can arrive after this node has been expanded. Keep
-         ;; their ordinary join subscriptions instead of caching an empty search.
-         ($_fact false)))))
-
-;; A rule applied forward, `(by rule premises)`, negated or not: one of the
-;; ways its conclusion becomes true, unlike inversions, completions and
-;; projections, which are evidence.
-(: rule-application-proof? (-[det]-> Atom Bool))
-(= (rule-application-proof? $proof)
-   (case (proof-semantic (brand Proof $proof)) (
-      ((application $_name $_premises) true)
-      ((negated $inner) (rule-application-proof? $inner))
-      ($_other false))))
-
-;; The ways a statement becomes true: its rule applications and, for a
-;; connective, its producers, which read its parts (`compound-readings`).
-(: derivation-proof? (-[det]-> Atom Atom Bool))
-(= (derivation-proof? $type $proof)
-   (if (rule-application-proof? $proof) true
-      (if (compound-source? (brand Statement $type))
-         (if (head-is-member? $proof (conjunction settled)) true
-            (let* (($connective (car-atom $type)) ($any (atom_concat $connective introduction))) (head-is? $proof $any)))
-         false)))
+;; runtime/application_discovery supplies the application plans used here,
+;; by forward triggers and by late-rule activation.
 
 ;; A rule applies to a node when its conclusion fits the whole node pattern;
 ;; its row is built from the statement and context alone, since a row belongs
@@ -1811,23 +1443,6 @@
    (fold-semidet (sk-activate-rule-row $id) ()
       (collapse (match rules (runtime-rule-row $id $ccls $args) (sk-rule-def $ccls $args)))))
 
-;; nth0/4 removes the indexed element while unifying it with its third
-;; argument. Its relational modes can branch, but every result preserves the
-;; element type of the input list.
-!(import_prolog_function nth0)
-(: nth0 (-[nondet]-> $index (List $item) $item (List $item)))
-
-;; The rules with a premise a ground key matches, that premise bound to it.
-(: sk-premise-rules-step (-[det]-> Statement KBContext Number (List SkeletonMatch) (List SkeletonMatch)))
-(= (sk-premise-rules-step $type $kbctx $prefix $found)
-   (append-flat
-      (collapse
-         (let* ((($_pattern $id $idx) (match &prem_prefix ($prefix $pattern $id $idx) ($pattern $id $idx)))
-                ((runtime-rule-row $id $ccls $prems) (match rules (runtime-rule-row $id $ccls $prems) (runtime-rule-row $id $ccls $prems)))
-                ($_rest (nth0 $idx $prems (assemble-stored-runtime-fact $type $kbctx $_proof $_tv))))
-            (sk-match $id $prems $ccls)))
-      $found))
-
 (: sk-absorb-step (-[semidet]-> Atom SkeletonMatch Atom))
 (= (sk-absorb-step $_acc (sk-match $id $prems $ccls))
    (let* ((($type $kbctx $_proof $_tv) $ccls) ($key (sk-key $type $kbctx)))
@@ -1922,16 +1537,8 @@
 
 (: sk-activate-rule-on (-[semidet]-> Number SkFact (List SkPattern) Atom SkPattern Atom))
 (= (sk-activate-rule-on $id $ccls $args $_acc $node)
-   (let* (((sk-rule-def $conclusion $premises) (copy_term (sk-rule-def $ccls $args))))
-      (if (case (copy_term $node) (
-             ((CPU $_fun $_args $_res) false)
-             (($type $kbctx $_proof $_tv)
-                (= $conclusion (assemble-stored-runtime-fact $type $kbctx $_rule-proof $_rule-tv)))))
-         (if (chainer-acyclic-term? $conclusion)
-            (sk-start-rule-step $node ()
-               (sk-match $id (contextualize-rule-args $conclusion $premises) $conclusion))
-            ())
-         ())))
+   (let $matches (collapse (discover-application $id $ccls $args $node))
+      (fold-semidet (sk-start-rule-step $node) () $matches)))
 
 (: sk-activate-fact-on (-[semidet]-> SkeletonKey Atom SkPattern Atom))
 (= (sk-activate-fact-on $key $_acc $node)

@@ -469,3 +469,45 @@
       (((cons $a $as) (cons $b $bs))
          (if (if (== $a $b) true (settled-within? $a $b)) (settled-args-within? $as $bs) false))
       ($_other false))))
+
+
+(: sk-node-row? (-[det]-> Atom Bool))
+(= (sk-node-row? $proof)
+   (case (proof-semantic (brand Proof $proof)) (
+      ((message $_source $_likelihood $_index $_parts) true)
+      ((joint $_source $_parts $_spec) true)
+      ((kinematic-update $_source $_prediction $_conditionals $_index $_parts) true)
+      ((negated $inner) (sk-node-row? $inner))
+      ($_other false))))
+(: rule-application-proof? (-[det]-> Atom Bool))
+(= (rule-application-proof? $proof)
+   (case (proof-semantic (brand Proof $proof)) (
+      ((application $_name $_premises) true)
+      ((negated $inner) (rule-application-proof? $inner))
+      ($_other false))))
+(: derivation-proof? (-[det]-> Atom Atom Bool))
+(= (derivation-proof? $type $proof)
+   (if (rule-application-proof? $proof) true
+      (if (compound-source? (brand Statement $type))
+         (if (head-is-member? $proof (conjunction settled)) true
+            (let* (($connective (car-atom $type)) ($any (atom_concat $connective introduction))) (head-is? $proof $any)))
+         false)))
+
+
+;; Compiler-marked joins whose premises intentionally share source evidence.
+(: shared-evidence-frontier-proof? (-[det]-> Proof Bool))
+(= (shared-evidence-frontier-proof? $proof)
+   (if (is-var $proof) false
+      (if (is-expr $proof)
+         (let $head (car-atom $proof)
+            (if (is-var $head) false
+               (== $head total-implication-frontier)))
+         false)))
+
+;; Read this policy after the premises bind their transported result proof.
+(: proof-input-entanglement? (-[det]-> ApplicationEntanglement Bool))
+(= (proof-input-entanglement? $policy)
+   (case $policy (
+      (no-input-entanglement false)
+      ((result-input-entanglement $proof)
+         (if (rule-application-proof? $proof) true (head-is? $proof conjunction))))))

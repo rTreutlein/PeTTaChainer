@@ -1,0 +1,17 @@
+{
+  "largest_scc": 20,
+  "owner_upward_paths": {
+    "pettachainer/metta/core/vocabulary.metta": [],
+    "pettachainer/metta/prolog/source_catalog.pl": [],
+    "pettachainer/metta/runtime/proofs.metta": [],
+    "pettachainer/metta/prolog/proof_semantics.pl": [],
+    "pettachainer/metta/runtime/backward/value_store.metta": [],
+    "pettachainer/metta/runtime/kb_publication.metta": [],
+    "pettachainer/metta/runtime/statistical_ledger.metta": [],
+    "pettachainer/metta/prolog/statistical_ledger.pl": [],
+    "pettachainer/metta/runtime/execution.metta": [],
+    "pettachainer/metta/prolog/execution.pl": [],
+    "pettachainer/metta/runtime/application_policy.metta": []
+  }
+}
+{"numerical_kernel_direct_publications_or_queue_writes": []}

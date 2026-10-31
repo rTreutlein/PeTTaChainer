@@ -211,3 +211,6 @@
 
 (datatype QueryExecutionPlan
    (query-execution-plan (List (Number Statement AnnotatedStatement CompiledQueryGoal)) (List RuntimeAddition)))
+
+;; A transported premise proof acquires its role while the row is read.
+(datatype ApplicationEntanglement no-input-entanglement (result-input-entanglement Proof))

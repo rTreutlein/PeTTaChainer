@@ -1,31 +1,4 @@
-;; The &prem_prefix keys of a statement's prefixes in a KB, its head alone first.
-(: statement-prefix-keys (-[det]-> Atom Statement (List Number)))
-(= (statement-prefix-keys $kbid $type)
-   (map-flat (prefix-key $kbid)
-      (cons (index-hash (if (is-expr $type) (car-atom $type) $type)) (statement-prefix-hashes $type))))
-
-(: prefix-key (-[det]-> Atom Number Number))
-(= (prefix-key $kbid $hash) (index-hash (quote ($kbid $hash))))
-
-;; Fold sources wake forward rules without becoming extra evidential premises.
-;; Slots are opened on a fresh local binder: matching a witness binds only the
-;; outer variables shared with the fold and its rule conclusion.
-(: existential-fold-source (-[nondet]-> Atom SkPattern))
-(= (existential-fold-source $premise)
-   (case $premise (
-      ((CPU $fun $args $_res)
-         (if (if (== $fun FoldAllCompiled) true (== $fun GroupedFoldAllCompiled))
-            (let $pattern (car-atom (cdr-atom $args))
-               (if (head-is? $pattern ExistentialAlternatives)
-                  (let* (((ExistentialAlternatives $claim $_channel) $pattern)
-                         ($scope (car-atom $args))
-                         ((Exists $_binder $body) (existential-source $claim))
-                         ($sources (cons $claim (implication-side-conjuncts (brand Statement $body))))
-                         ($source (superpose $sources)))
-                     (assemble-stored-runtime-fact $source $scope $_proof $_tv))
-                  (empty)))
-            (empty)))
-      ($_other (empty)))))
+;; Compiled knowledge installation and ingestion policy.
 
 (: kb-add-prem (-[det]-> KbBackend Number Number (| Goal (Statement KBContext Proof TV)) Number))
 (= (kb-add-prem $backend $id $idx $prem)
@@ -160,10 +133,6 @@
                      ((forward-derived $merged $_ev) (forward-maintain-aggregates! aggregate-update $merged))
                      (no-forward-output-candidate ())))))
             (kb-publish-fact! $backend $role $fact))))))
-
-(: contextual-cpu? (-[det]-> $formula Bool))
-(= (contextual-cpu? $fun)
-   (stored-list-member? $fun (ContextRule ReadRate ReadLikelihoodContext CompoundEvidence)))
 
 (: kb-add-rule! (-[nondet]-> KbBackend Atom Atom Atom Number))
 (= (kb-add-rule! $backend $info $args $ccls)

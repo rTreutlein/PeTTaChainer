@@ -1,4 +1,4 @@
-"""Differential test of the pending-work index (runtime_helpers.pl, "Pending
+"""Differential test of the pending-work index (runtime_state.pl, "Pending
 work"): random child links, cycles included (their components merge), and work
 added and taken, each node's pending state compared with a search of the links
 for work."""
@@ -9,7 +9,7 @@ import textwrap
 import unittest
 from pathlib import Path
 
-HELPERS = Path(__file__).resolve().parents[1] / "pettachainer" / "metta" / "prolog" / "runtime_helpers.pl"
+HELPERS = Path(__file__).resolve().parents[1] / "pettachainer" / "metta" / "prolog" / "runtime_state.pl"
 
 SCRIPT = textwrap.dedent(
     """

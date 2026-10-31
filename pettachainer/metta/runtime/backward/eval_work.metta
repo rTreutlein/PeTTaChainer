@@ -353,18 +353,6 @@
 (= (sk-near-root-reserve-take! (sk-fold-check $hash $fold))
    (if (<= (sk-need-depth $hash $fold) (sk-evaluation-free-depth)) (sk-take! sk_near_reserve 1) false))
 
-;; How near a root a key must be for its rows to draw on the reserve and its
-;; stale rows to be brought current. A forward run's need stops at the readers
-;; of the keys it takes, and every row it computes costs one of its units.
-(: sk-evaluation-free-depth (-[det]-> Number))
-(= (sk-evaluation-free-depth) (if (== (search-id-value sk_forward_run) 1) 0 2))
-
-;; Computations each row or fold within two steps of a root adds to a query's
-;; reserve: SupplyNet's evaluations take up to about four, cycles through
-;; inverted rules (ONA relationalnetwork) about two.
-(: sk-evaluation-near-root-reserve (-[det]-> Number))
-(= (sk-evaluation-near-root-reserve) 8)
-
 ;; Keys changed outside evaluation: a fold or group key recomputes when next
 ;; read, and every changed key's readers are scheduled. A stored fact may make
 ;; a stale reader determined: it rejoins the key's readers, so it is computed.
