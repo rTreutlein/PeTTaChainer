@@ -323,11 +323,3 @@ source_head(Statement, Head, Arity) :-
     source_atom(Statement, Atom),
     ( atom(Atom) -> Head = Atom, Arity = 0 ; Atom = [Head|Args], length(Args, Arity) ).
 
-% Declarations name a class itself (D5): after #96 and step C no statement has
-% the head Member or Inheritance, so a declaration on one would silently apply
-% to nothing.
-'declared-head!'(Head, true) :-
-    (   memberchk(Head, ['Member', 'Inheritance'])
-    ->  throw(error(domain_error(predicate_head, Head),
-                    context(declaration/2, 'Member and Inheritance are no predicates: declare each class as a head')))
-    ;   true ).

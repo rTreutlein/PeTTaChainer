@@ -4,7 +4,12 @@
 :- use_module(library(assoc)).
 :- use_module(library(nb_set)).
 :- use_module(library(yall)).
+:- ensure_loaded(term_index).
 :- ensure_loaded(context_overlay).
+:- ensure_loaded(space_store).
+:- ensure_loaded(functional_store).
+:- ensure_loaded(proof_terms).
+:- ensure_loaded(search_state).
 :- ensure_loaded(ingestion).
 :- ensure_loaded(sorts).
 :- use_module(event_node).

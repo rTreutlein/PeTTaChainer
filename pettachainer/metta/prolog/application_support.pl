@@ -99,14 +99,6 @@ argument_shape(Arg, Shape) :-
     ;   Raw = 1.0 ),
     Factor is max(Raw, 0.01).
 
-% A link is recorded once, by a 60-bit digest of the link term (SHA-1 of the
-% term up to variable renaming): a record stays one integer however large the
-% link, and two different links share a digest with probability about
-% n^2 / 2^61.
-'link-digest'(Link, Digest) :-
-    copy_term_nat(Link, Copy), variant_sha1(Copy, Hex),
-    sub_atom(Hex, 0, 15, _, Prefix), atom_concat('0x', Prefix, Number), atom_number(Number, Digest).
-
 % A rule is dormant when one of its statement premises can be proved, apart
 % from a stored fact, only through the rule's own conclusion with the same
 % arguments: self-support exclusion would drop whatever it derives
@@ -237,7 +229,7 @@ statement_head(T, H) :-
 % Functional input relations are immutable value tables. Ground certain-true
 % facts assign a key; no other fact or rule may define that relation.
 % This is stronger than merely knowing an uncertain most likely value.
-:- dynamic functional_predicate/4, functional_value/3, '&kb'/4, '&sk_answer'/3, rules/4.
+:- dynamic '&kb'/4, '&sk_answer'/3, rules/4.
 'set-functional-predicate'(Kb, Head, Arity, Positions, true) :-
     'declared-head!'(Head, true),
     ( atom(Head), integer(Arity), Arity > 1, is_list(Positions),
@@ -297,11 +289,6 @@ functional_check_addition(Add, Before, After) :-
       ( var(Type) ; Type = [Candidate|_], (var(Candidate) ; Candidate == Head) )
     -> throw(error(permission_error(derive, functional_predicate, Head), _))
     ; true ).
-
-'sk-functional-conflict?'([Type,Context|_], Conflict) :-
-    ( functional_key(Type, Context, Key), term_hash(Key, Hash),
-      functional_value(Hash, Key, Stored), \+ unifiable(Type, Stored, _)
-    -> Conflict = true ; Conflict = false ).
 
 % A producer must cover the entire query, without specializing either term.
 'term-covers?'(General, Specific, Result) :-
