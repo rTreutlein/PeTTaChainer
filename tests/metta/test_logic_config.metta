@@ -28,7 +28,7 @@
 !(compileadd plnProjectionNeedsEvidenceKb (: ab (And (A) (B)) (STV 1.0 0.9)))
 
 !(test
-   (posterior-tv-near? 0.9997223764575236 0.13535810664666598 (let (: $_proof (B) $tv) (query 20 plnProjectionNeedsEvidenceKb (: $prf (B) $tv)) $tv))
+   (posterior-tv-near? 0.9997223764575236 0.0 (let (: $_proof (B) $tv) (query 20 plnProjectionNeedsEvidenceKb (: $prf (B) $tv)) $tv))
    true)
 
 ;; With A certain too, the message is lambda1 = m, lambda0 = 1 - m: B = m.
@@ -36,7 +36,7 @@
 !(compileadd plnProjectionKb (: a (A) (STV 1.0 1.0)))
 
 !(test
-   (posterior-tv-near? 0.9998611496806441 0.3947855706242057 (let (: $_proof (B) $tv) (query 20 plnProjectionKb (: $prf (B) $tv)) $tv))
+   (posterior-tv-near? 0.9998611496806441 0.000624869674253918 (let (: $_proof (B) $tv) (query 20 plnProjectionKb (: $prf (B) $tv)) $tv))
    true)
 
 !(compileadd plnOrProjectionKb (: ab (Or (A) (B)) (STV 1.0 0.9)))

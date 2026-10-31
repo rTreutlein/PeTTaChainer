@@ -39,8 +39,8 @@
 !(compileadd plainKb (: aq (Alarm q) (STV 1 1)))
 
 !(test
-   (let (: (node (conjunction aq (by sensor cpu) (population-prior (Leak $_0)))) (Leak q) (STV $posterior-s $posterior-c)) (query 400 smoothKb (: $p (Leak q) $tv)) (posterior-tv-near? 0.5779816513761467 0.8127525165795743 (STV $posterior-s $posterior-c)))
+   (let (: (node (conjunction aq (by sensor cpu) (population-prior (Leak $_0)))) (Leak q) (STV $posterior-s $posterior-c)) (query 400 smoothKb (: $p (Leak q) $tv)) (posterior-tv-near? 0.5779816513761467 0.6461336828309306 (STV $posterior-s $posterior-c)))
    true)
 !(test
-   (let (: (node (conjunction aq (by sensor cpu) (population-prior (Leak $_0)))) (Leak q) (STV $posterior-s $posterior-c)) (query 400 plainKb (: $p (Leak q) $tv)) (posterior-tv-near? 0.47368421052631565 0.7757318147185712 (STV $posterior-s $posterior-c)))
+   (let (: (node (conjunction aq (by sensor cpu) (population-prior (Leak $_0)))) (Leak q) (STV $posterior-s $posterior-c)) (query 400 plainKb (: $p (Leak q) $tv)) (posterior-tv-near? 0.47368421052631565 0.5773644637910565 (STV $posterior-s $posterior-c)))
    true)

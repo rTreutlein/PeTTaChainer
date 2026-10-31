@@ -131,7 +131,7 @@
 !(compileadd f2known (: obs-A-b (A b) (STV 0 1)))
 !(compileadd f2known (: obs-C-b (C b) (STV 1 1)))
 !(test
-   (let (: (node (conjunction obs-A-b obs-C-b (by rC cpu) (population-prior (B $_0)))) (B b) (STV $posterior-s $posterior-c)) (query 2000 f2known (: $prf (B b) $tv)) (posterior-tv-near? 0.023051591657519223 0.949452306332817 (STV $posterior-s $posterior-c)))
+   (let (: (node (conjunction obs-A-b obs-C-b (by rC cpu) (population-prior (B $_0)))) (B b) (STV $posterior-s $posterior-c)) (query 2000 f2known (: $prf (B b) $tv)) (posterior-tv-near? 0.023051591657519223 0.6671844436773675 (STV $posterior-s $posterior-c)))
    true)
 
 ;; F3. An observation of C informs the conjuncts of (And A B) -> C; the

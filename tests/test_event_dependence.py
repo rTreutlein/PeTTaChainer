@@ -5,7 +5,7 @@ import janus_swi as janus
 
 from pettachainer import PeTTaChainer
 from tests.test_tv_calibration import kb_atoms
-from tests.tv_calibration_oracles import SETTINGS, event_oracle, probes, variance_ratio
+from tests.tv_calibration_oracles import SETTINGS, event_oracle, probes
 
 
 class EventDependenceTests(unittest.TestCase):
@@ -16,14 +16,14 @@ class EventDependenceTests(unittest.TestCase):
         return h
 
     def calibrated(self, h, model):
-        expected = event_oracle(model)
+        expected = event_oracle(model, ratio_bound=True)
         values = []
         for goal in model['goals']:
             rows = h.query_many_refs([f'(: $p {goal} $tv)'], steps=1000)[0]
             self.assertEqual(len(rows), 1)
             tv = rows[0].tv
             self.assertAlmostEqual(tv[1], expected[goal]['s'], delta=1e-12)
-            self.assertTrue(.5 <= variance_ratio(*tv[1:], expected[goal]) <= 2, (tv, expected[goal]))
+            self.assertAlmostEqual(tv[2], expected[goal]['bound_c'], delta=1e-7)
             values.append(tv)
         return values
 

@@ -97,7 +97,7 @@
 !(set-base-rate ctvCompletionKb B (STV 0.3 0.9))
 
 !(test
-   (let (: (node (conjunction a c (by ab_c cpu) (population-prior B))) B (STV $posterior-s $posterior-c)) (query 2000 ctvCompletionKb (: $proof B $tv)) (posterior-tv-near? 0.5624663732621054 0.8848264468765935 (STV $posterior-s $posterior-c)))
+   (let (: (node (conjunction a c (by ab_c cpu) (population-prior B))) B (STV $posterior-s $posterior-c)) (query 2000 ctvCompletionKb (: $proof B $tv)) (posterior-tv-near? 0.5624663732621054 0.8276403501035767 (STV $posterior-s $posterior-c)))
    true)
 
 ;; A base rate of 1 stated with confidence 0.9 is read as the prior of one
@@ -113,7 +113,7 @@
 !(set-base-rate saturatedKb B (STV 1.0 0.9))
 
 !(test
-   (let (: (node (conjunction a c (by ab_c cpu) (population-prior B))) B (STV $posterior-s $posterior-c)) (query 2000 saturatedKb (: $proof B $tv)) (posterior-tv-near? 0.9999536937064663 0.9642719007058969 (STV $posterior-s $posterior-c)))
+   (let (: (node (conjunction a c (by ab_c cpu) (population-prior B))) B (STV $posterior-s $posterior-c)) (query 2000 saturatedKb (: $proof B $tv)) (posterior-tv-near? 0.9999536937064663 0.8758368140834801 (STV $posterior-s $posterior-c)))
    true)
 
 !(set-positive-only-predicate positiveKb B)
@@ -126,7 +126,7 @@
 !(set-base-rate positiveKb B (STV 1.0 0.9))
 
 !(test
-   (let (: (node (conjunction a c (by ab_c cpu) (population-prior B))) B (STV $posterior-s $posterior-c)) (query 2000 positiveKb (: $proof B $tv)) (posterior-tv-near? 0.9999536937064663 0.9642719007058969 (STV $posterior-s $posterior-c)))
+   (let (: (node (conjunction a c (by ab_c cpu) (population-prior B))) B (STV $posterior-s $posterior-c)) (query 2000 positiveKb (: $proof B $tv)) (posterior-tv-near? 0.9999536937064663 0.8758368140834801 (STV $posterior-s $posterior-c)))
    true)
 
 ;; An uncertain other conjunct enters C's likelihood given B: P(C|B) =
@@ -143,7 +143,7 @@
 !(set-base-rate uncertainOtherKb B (STV 0.3 0.9))
 
 !(test
-   (let (: (node (conjunction a c (by ab_c cpu) (population-prior B))) B (STV $posterior-s $posterior-c)) (query 2000 uncertainOtherKb (: $proof B $tv)) (posterior-tv-near? 0.4615466780602436 0.8784730745954683 (STV $posterior-s $posterior-c)))
+   (let (: (node (conjunction a c (by ab_c cpu) (population-prior B))) B (STV $posterior-s $posterior-c)) (query 2000 uncertainOtherKb (: $proof B $tv)) (posterior-tv-near? 0.4615466780602436 0.8369869032375173 (STV $posterior-s $posterior-c)))
    true)
 
 ;; A three-child conjunction completes the middle child from the other
@@ -159,7 +159,7 @@
 !(set-base-rate ternaryCompletionKb Mid (STV 0.3 0.9))
 
 !(test
-   (let (: (node (conjunction a c d (by abd_c cpu) (population-prior Mid))) Mid (STV $posterior-s $posterior-c)) (query 2000 ternaryCompletionKb (: $proof Mid $tv)) (posterior-tv-near? 0.46152655013275323 0.8838276042026711 (STV $posterior-s $posterior-c)))
+   (let (: (node (conjunction a c d (by abd_c cpu) (population-prior Mid))) Mid (STV $posterior-s $posterior-c)) (query 2000 ternaryCompletionKb (: $proof Mid $tv)) (posterior-tv-near? 0.46152655013275323 0.849294580857932 (STV $posterior-s $posterior-c)))
    true)
 
 ;; Source computations in the antecedent block every child completion.
@@ -220,7 +220,7 @@
 !(compileadd rainKb (: wet-d (Wet d) (STV 1 1)))
 !(compileadd rainKb (: clouds-d (Clouds d) (STV 1 1)))
 !(test
-   (let (: (node (conjunction clouds-d outdoor-d wet-d (by clouds cpu) (by wet cpu) (population-prior (Rain $_0)))) (Rain d) (STV $posterior-s $posterior-c)) (query 2000 rainKb (: $proof (Rain d) $tv)) (posterior-tv-near? 0.8605895009319845 0.9403166306602331 (STV $posterior-s $posterior-c)))
+   (let (: (node (conjunction clouds-d outdoor-d wet-d (by clouds cpu) (by wet cpu) (population-prior (Rain $_0)))) (Rain d) (STV $posterior-s $posterior-c)) (query 2000 rainKb (: $proof (Rain d) $tv)) (posterior-tv-near? 0.8605895009319845 0.7583386828839901 (STV $posterior-s $posterior-c)))
    true)
 
 ;; A rule reading rain off the wet ground directly inverts the same
@@ -303,7 +303,7 @@
 !(compileadd softKb (: plant-maybe (Producing plant t5) (STV 0.8 1)))
 !(compileadd softKb (: reported (Reported mine t5) (STV 1 1)))
 !(test
-   (let (: (node (conjunction plant-maybe reported (by runs-mine cpu) (by report cpu) (population-prior (Degraded mine $_0)))) (Degraded mine t5) (STV $posterior-s $posterior-c)) (query 2000 softKb (: $prf (Degraded mine t5) $tv)) (posterior-tv-near? 0.08067261520819895 0.957915290831156 (STV $posterior-s $posterior-c)))
+   (let (: (node (conjunction plant-maybe reported (by runs-mine cpu) (by report cpu) (population-prior (Degraded mine $_0)))) (Degraded mine t5) (STV $posterior-s $posterior-c)) (query 2000 softKb (: $prf (Degraded mine t5) $tv)) (posterior-tv-near? 0.08067261520819895 0.8801455591446746 (STV $posterior-s $posterior-c)))
    true)
 
 ;; The degradation persists with 0.75 and starts with 0.1. Inspected sound in

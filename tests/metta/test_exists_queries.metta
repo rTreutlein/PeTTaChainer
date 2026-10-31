@@ -1046,8 +1046,8 @@
 !(compileadd residualEmpty (: direct (ExistentialClaim (Cat (exists-slot 0))) (STV 0.9 0.9)))
 !(compileadd residualEmpty (: residual (Implication (ExistentialResidual ($x) (Cat $x)) (Other)) (CTV (STV 1 1) (STV 0 1))))
 !(compileadd residualEmpty (: known (Implication (KnownExistential ($x) (Cat $x)) (Known)) (CTV (STV 1 1) (STV 0 1))))
-!(test (exists-answer-matches (Other) 0.8998889197445155 0.0046785124518373385 true (query 100 residualEmpty (: $p (Other) $tv))) true)
-!(test (exists-answer-matches (Other) 0.8998889197445155 0.0046785124518373385 true (query 0 residualEmpty (: $p (Other) $tv))) true)
+!(test (exists-answer-matches (Other) 0.8998889197445155 0.0008328962009328018 true (query 100 residualEmpty (: $p (Other) $tv))) true)
+!(test (exists-answer-matches (Other) 0.8998889197445155 0.0008328962009328018 true (query 0 residualEmpty (: $p (Other) $tv))) true)
 !(test (collapse (query 100 residualEmpty (: $p (Known) $tv))) ())
 !(compileadd residualEmpty (: cat (Cat felix) (STV 0.3 0.9)))
 !(test (exists-answer-matches (Other) 0.7257558790593506 -1 true (query 100 residualEmpty (: $p (Other) $tv))) true)
@@ -1059,10 +1059,10 @@
 !(compileadd residualGroups (: db (ExistentialClaim (GeneratedBy b (exists-slot 0))) (STV 0.9 0.9)))
 !(compileadd residualGroups (: residual (Implication (ExistentialResidual ($y) (GeneratedBy $s $y)) (Other $s)) (CTV (STV 1 1) (STV 0 1))))
 !(test (list-count (collapse (query 100 residualGroups (: $p (Other $s) $tv)))) 2)
-!(test (exists-answer-matches (Other a) 0.8998889197445155 0.0046785124518373385 true (query 100 residualGroups (: $p (Other a) $tv))) true)
+!(test (exists-answer-matches (Other a) 0.8998889197445155 0.0008328962009328018 true (query 100 residualGroups (: $p (Other a) $tv))) true)
 !(compileadd residualGroups (: ga (GeneratedBy a one) (STV 0.3 0.9)))
 !(test (exists-answer-matches (Other a) 0.7257558790593506 -1 true (query 100 residualGroups (: $p (Other a) $tv))) true)
-!(test (exists-answer-matches (Other b) 0.8998889197445155 0.0046785124518373385 true (query 100 residualGroups (: $p (Other b) $tv))) true)
+!(test (exists-answer-matches (Other b) 0.8998889197445155 0.0008328962009328018 true (query 100 residualGroups (: $p (Other b) $tv))) true)
 
 ;; Exact strength ties use evidence confidence, in either ingestion order,
 ;; including a warm claim-only query and equal strengths written as 1/1.0.

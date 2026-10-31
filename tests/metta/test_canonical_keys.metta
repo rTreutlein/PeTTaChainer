@@ -45,7 +45,7 @@
 ;; are A and B, so the message reaches B's statement directly.
 !(compileadd projKb (: both (And (A a) (Not (B a))) (STV 0.6 1)))
 !(test
-   (posterior-tv-near? 0.4444444444444445 0.0024922760534972026 (let (: $_proof (B a) $tv) (query 100 projKb (: $p (B a) $tv)) $tv))
+   (posterior-tv-near? 0.4444444444444445 0.0018959138091212229 (let (: $_proof (B a) $tv) (query 100 projKb (: $p (B a) $tv)) $tv))
    true)
 
 ;; A negated root reads its statement's stored value at budget zero, and its

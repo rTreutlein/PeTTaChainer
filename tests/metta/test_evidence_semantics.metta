@@ -68,5 +68,5 @@
 ; uncertain bImpliesD is applied exactly once to the revised premise instead
 ; of double-counting its uncertainty across two conclusions.
 !(test
-   (let (: (node (conjunction bm cm (by cImpliesB cpu) (by bImpliesD cpu))) (D m) (STV $posterior-s $posterior-c)) (query 60 sharedKb (: $prf (D m) $tv)) (posterior-tv-near? 0.49998262081025846 0.9000312488859047 (STV $posterior-s $posterior-c)))
+   (let (: (node (conjunction bm cm (by cImpliesB cpu) (by bImpliesD cpu))) (D m) (STV $posterior-s $posterior-c)) (query 60 sharedKb (: $prf (D m) $tv)) (posterior-tv-near? 0.49998262081025846 0.8571556229033463 (STV $posterior-s $posterior-c)))
    true)

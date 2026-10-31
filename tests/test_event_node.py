@@ -1,6 +1,6 @@
-"""The event moment node's numerics (pettachainer/metta/prolog/event_node.pl) against the D0 oracles
+"""The event moment node's polynomial moments (pettachainer/metta/prolog/event_node.pl) against the D0 oracles
 and the acceptance cases of bench/results/fresh-design/event-moment-node.md, section 2b: the mean is
-exact, the variance is the oracle's within [1/2, 2] or a bound that never claims less, the coupling
+exact, constant-Z variance is exact and varying-Z variance is conservative, the coupling
 interval holds the truth, and a widened answer holds its interval within 2 sd."""
 import itertools
 import math
@@ -168,35 +168,28 @@ def or_node(b):
 
 
 class EventNodeTests(unittest.TestCase):
-    def test_gauss_jacobi_rules_match_the_oracles(self):
-        for a, b, n in ((5041.0, 2161.0, 9), (1.0, 1.0, 9), (1.0, 1.0, 17), (0.5, 0.5, 9), (2.0, 3.0, 33),
-                        (45.4, 45.4, 17), (1.0, 801.0, 9), (7201.0, 1.0, 17)):
-            with self.subTest(a=a, b=b, n=n):
-                got = janus.query_once('event_node:gauss_jacobi(A, B, N, Xs, Ws)', {'A': a, 'B': b, 'N': n})
-                x, w = gauss_jacobi(a, b, n)
-                np.testing.assert_allclose(got['Xs'], x, rtol=0, atol=1e-12)
-                np.testing.assert_allclose(got['Ws'], w, rtol=0, atol=1e-10)
-                m1 = a / (a + b)
-                self.assertAlmostEqual(sum(xi * wi for xi, wi in zip(got['Xs'], got['Ws'])), m1, delta=1e-12)
+    def test_concentrated_stationary_xor_has_exact_interaction_variance(self):
+        terms = [(1., [('x', x), ('y', y)], [1] if x != y else [])
+                 for x, y in itertools.product((0, 1), repeat=2)]
+        for a in (1, 100, 1000, 3601):
+            with self.subTest(a=a):
+                (s, v, kind), = moments([('x', f'beta({a},{a})'), ('y', f'beta({a},{a})')], terms, 1)
+                self.assertEqual(kind, 'exact')
+                self.assertEqual(s, .5)
+                self.assertAlmostEqual(v/(1/(4*(2*a+1)**2)), 1, delta=1e-12)
 
-    def test_eight_concentrated_betas_compare_different_tensor_grids(self):
-        # Review counterexample: all eight axes are exactly Beta(3601,3601).
-        # Record the grids actually integrated during a full moment read.
-        janus.query_once("use_module(library(prolog_wrap)),nb_setval(e3_grids,[]),"
-                         "wrap_predicate(event_node:tensor_moments(_N,_Limit,_F,_T,_G,_M,_Size,_E),e3_grids,_Wrapped,"
-                         " (call(_Wrapped),nb_getval(e3_grids,_Old),nb_setval(e3_grids,[[_N,_Size]|_Old])))")
-        try:
-            variables = [(f'x{i}', 'beta(3601,3601)') for i in range(8)]
-            every = [(f'x{i}', 1) for i in range(8)]
-            (s, v, how), = moments(variables, [(1.0, [], []), (1.0, every, [1])], 1)
-            grids = janus.query_once('nb_getval(e3_grids,G)')['G']
-            # 2^8 and 3^8, rather than two nominal passes both using 2^8.
-            self.assertIn([7, 256], grids)
-            self.assertIn([9, 6561], grids)
-            self.assertEqual(how, 'exact')
-            self.assertAlmostEqual(s, 1 / 257, delta=1e-15)
-        finally:
-            janus.query_once("unwrap_predicate(event_node:tensor_moments(_,_,_,_,_,_,_,_),e3_grids)")
+    def test_eight_concentrated_betas_use_the_closed_ratio_bound(self):
+        variables = [(f'x{i}', 'beta(3601,3601)') for i in range(8)]
+        every = [(f'x{i}', 1) for i in range(8)]
+        (s, v, kind), = moments(variables, [(1., [], []), (1., every, [1])], 1)
+        mean = .5**8
+        variance = (3602/(2*7203))**8-mean**2
+        # N=P, Z=1+P, D=(P-E[P])/(1+E[P]).
+        q = variance/(1+mean)**2
+        expected = (q+(1-s)*math.sqrt(variance*q))/(1+mean)**2
+        self.assertEqual(kind, 'conservative')
+        self.assertAlmostEqual(s, 1/257, delta=1e-15)
+        self.assertAlmostEqual(v/expected, 1, delta=1e-10)
 
     def test_parameter_distributions(self):
         # A view keeps its moments: at c = 0 the variance s(1 - s) is Bernoulli(s)'s, and a
@@ -215,8 +208,7 @@ class EventNodeTests(unittest.TestCase):
                 self.assertEqual(got['H'], head)
                 np.testing.assert_allclose(got['As'], args, rtol=1e-9)
 
-    def test_d0_probes_mean_exact_variance_within_half_and_double_or_a_bound_above(self):
-        bound = []
+    def test_d0_probes_mean_exact_variance_exact_or_conservative(self):
         for setting, cfg in SETTINGS.items():
             for name, m in probes(*cfg).items():
                 variables, terms, goals = probe_node(m)
@@ -225,11 +217,9 @@ class EventNodeTests(unittest.TestCase):
                     with self.subTest(probe=name, setting=setting, goal=g):
                         self.assertAlmostEqual(s, oracle[g]['s'], delta=1e-9)
                         if how == 'exact':
-                            self.assertTrue(0.5 <= v / oracle[g]['var'] <= 2.0, (v, oracle[g]['var']))
+                            self.assertAlmostEqual(v / oracle[g]['var'], 1, delta=1e-7)
                         else:
-                            bound.append((name, setting, g))
-                            self.assertGreaterEqual(v, oracle[g]['var'])
-        self.assertFalse([b for b in bound if b[1] in ('H', 'L', 'X')], bound)
+                            self.assertGreaterEqual(v, (1-1e-7)*oracle[g]['var'])
 
     def test_wide_products_have_constant_z(self):
         for setting, cfg in SETTINGS.items():
@@ -287,9 +277,9 @@ class EventNodeTests(unittest.TestCase):
         mean = 2*prior/(1+prior)
         variance = prior**2 * (-math.log(prior)/(1-prior))/((1+prior)/2) - mean**2
         (s, v, kind), = moments(variables, terms, 1)
-        self.assertEqual(kind, 'exact')
+        self.assertEqual(kind, 'conservative')
         self.assertAlmostEqual(s, mean, delta=1e-15)
-        self.assertAlmostEqual(v/variance, 1, delta=1e-5)
+        self.assertGreaterEqual(v, variance)
 
     def test_tiny_complement_keeps_its_positive_variance(self):
         epsilon = 1e-9
@@ -299,9 +289,11 @@ class EventNodeTests(unittest.TestCase):
         terms = [(1.0, [('p', 1)], [1]), (epsilon, [('p', 0)], [2])]
         actual = moments([('p', 'beta(1.0, 1.0)')], terms, 2)
         for s, variance, kind in actual:
-            self.assertEqual(kind, 'exact')
-            self.assertGreater(variance, 0)
-            self.assertAlmostEqual(variance / expected, 1, delta=1e-7)
+            self.assertEqual(kind, 'conservative')
+            self.assertGreaterEqual(variance, expected)
+            # Q=epsilon^2 Var(p)/E[Z]^2; the closed bound simplifies to this.
+            bound = 2*epsilon*(1-epsilon)/(3*(1+epsilon)**3)
+            self.assertAlmostEqual(variance / bound, 1, delta=1e-7)
         self.assertAlmostEqual(actual[0][0], 1 / (1 + epsilon), delta=1e-15)
         self.assertAlmostEqual(actual[1][0], epsilon / (1 + epsilon), delta=1e-20)
 

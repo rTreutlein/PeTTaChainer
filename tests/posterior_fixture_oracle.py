@@ -140,13 +140,13 @@ def source_model(sources, goal, rates=(), k=800, smoothing=False):
                 comps=comps, goals={render(goal): lambda w: holds(goal,w)})
 
 
-def source_oracle(sources, goal, rates=(), k=800, smoothing=False, nodes=None):
+def source_oracle(sources, goal, rates=(), k=800, smoothing=False, nodes=None, ratio_bound=False):
     model = source_model(sources, goal, rates, k, smoothing)
     if nodes is None:
         dimensions = sum(c < 1 for _, c in oracle.params(model).values())
         nodes = 33 if dimensions <= 3 else 9
     with evidence_k(k), np.errstate(divide='ignore', invalid='ignore'):
-        result = oracle.event_oracle(model, nodes=nodes)[next(iter(model['goals']))]
+        result = oracle.event_oracle(model, nodes=nodes, ratio_bound=ratio_bound)[next(iter(model['goals']))]
         if all(c >= 1 for _, c in oracle.params(model).values()):
             result['var'], result['c'] = 0., .9999
         return result

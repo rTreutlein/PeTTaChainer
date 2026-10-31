@@ -155,7 +155,7 @@ literal_factor([likelihood, [C|Ls], I, M, _, Dists], f(W, L1, L0)) :-
 literal_dist(Dists, I, D) :- integer(I), !, nth0(I, Dists, D).
 literal_dist(Dists, ['Not', I], D) :- nth0(I, Dists, D0), complement_dist(D0, D).
 
-% Integrate point parameters into the coefficient before quadrature. Worlds
+% Fold point parameters into the coefficient before polynomial moments. Worlds
 % with the same remaining monomial and goal can then be summed exactly.
 node_fixed_literal(Vars, Id-B, W0-L0, W-L) :-
     memberchk(Id-Dist, Vars),

@@ -3,7 +3,7 @@ import unittest
 
 import janus_swi as janus
 from pettachainer import PeTTaChainer
-from tests.tv_calibration_oracles import predictive, event_oracle, variance_ratio
+from tests.tv_calibration_oracles import predictive, event_oracle
 
 
 def posterior(prior, strength, confidence, k=5):
@@ -30,11 +30,11 @@ class SoftReportTests(unittest.TestCase):
                     confidence = .8 if reports == 1 else .5
                     h.add_atoms_no_check([f'(: report{reports} (P a) (STV {strength} {confidence}))'])
                     model['comps'].append(('P', lambda w: w['P'], strength, confidence))
-                    expected = event_oracle(model)['small']
+                    expected = event_oracle(model, ratio_bound=True)['small']
                     answer, = h.query_many_refs(['(: $p (P a) $tv)'], steps=3000)[0]
                     small = 1 - answer.tv[1] if strength else answer.tv[1]
                     self.assertAlmostEqual(small, expected['s'], delta=1e-12)
-                    self.assertTrue(.5 <= variance_ratio(small, answer.tv[2], expected) <= 2)
+                    self.assertAlmostEqual(answer.tv[2], expected['bound_c'], delta=1e-7)
 
     def test_endpoint_update_keeps_prediction_evidence_and_dependencies(self):
         for strength in (0, 1):

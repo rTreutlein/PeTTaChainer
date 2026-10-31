@@ -96,41 +96,52 @@ are:
 - s = E_prior[N_g]/E_prior[Z], exact by evaluation at the parameter means;
 - V = E_prior[N_g^2/Z]/E_prior[Z] - s^2.
 
-The full tensor rule compares nominal 9- and 17-node passes when the fine grid
-fits 5,000 points, otherwise 7 and 9. With more than three free dimensions,
-concentrated Betas (both shapes above ten and their sum above 1,000) use
-1+floor((N+7)/8) nodes on an N-node pass. Thus passes 7, 9, 17, 33, ... use
-2, 3, 4, 6, ... nodes on these axes: every comparison refines every Beta axis.
-Disagreement refines to `2*N-1`, bounded by 257 nominal nodes and 70,000 points;
-unresolved refinement claims the bound. Bernoulli axes are already exact.
-Agreement is within one percent of the variance contribution, plus 1e-12 of
-the value at the means. A failed or unresolved rule claims the variance bound.
-Bernoulli endpoints with Z=0 contribute zero to N_g^2/Z because N_g <= Z.
+The production kernel computes only closed-form polynomial moments. Literal
+terms are expanded into positive multilinear monomials, equal monomials are
+combined, and point parameters are folded into their coefficients. For each
+independent parameter, the first two moments are analytic: Beta(a,b) has
+mu=a/(a+b), m2=a(a+1)/((a+b)(a+b+1)); Bernoulli(p) has mu=m2=p.
+A pair of monomials contributes m2 for each shared parameter and mu for each
+parameter occurring in only one. Rational arithmetic over the supplied numeric
+inputs preserves polynomial cancellations and tiny endpoint variances; only
+the final square root and returned variance are floating point.
 
-When full integration cannot fit, cut-HDMR integrates up to three wide variables
-jointly, with first-order contributions from narrow variables. Wide means main
-effect relative variance above .05. Uncaptured interaction mass above ten percent,
-a nonconverging axis, or more than three wide variables produces the bound.
-Exact polynomial second moments supply the constant-Z result. Otherwise a
-second-order ratio expansion must agree with HDMR within a factor of two, and
-the larger estimate must exceed its estimated next-order error.
+Let e=E[Z], s=E[N]/e, D=N-sZ, Q=E[D^2], T=Var(Z), and b=max(s,1-s), with
+expectations under the independent prior. The claimed variance is
 
-Separable fallback messages retain their product-moment parameter model and
-compile its affine likelihoods into the shared integrator's monomials. There is
-one quadrature implementation. A single broad Beta (shapes at least one, sum at
-most ten) uses endpoint panels graded to 1e-12, starting with sixteen Gauss-Legendre
-points per panel and comparing independently refined passes. Forced goals have
-exact zero variance. Other goals integrate their smaller event or complement,
-avoiding cancellation between near-one second moments. If a positive-coefficient tensor exhausts its
-refinement, weak nuisance axes can be integrated out algebraically. Endpoint
-coefficient ratios bound the omitted conditional variance on every assignment;
-total variance adds these bounds. The reduced result is accepted only when
-that addition is at most 1e-6 of every resolved goal variance. Means remain
-exact. Signed terms and unresolved reduced integrals retain the bound. The original atom cap
-also applies to separable fallback messages; over-cap messages retain their
-analytic mean and claim the variance bound. Deterministic siblings are folded
-exactly before the cap: a single remaining target parameter can still be
-integrated, including when opposing likelihoods cancel.
+    min(s(1-s), (Q + b sqrt(T Q))/e^2).
+
+It is **exact when Z is constant** (T=0), including stationary interactions
+and long products. Otherwise it is a conservative upper bound, tagged
+`conservative`; that tag carries its numeric variance through the existing
+confidence conversion. It is not the `bound` sentinel, which forces confidence
+zero. Forced and parameter-independent goals retain exact zero variance.
+
+Proof: since 0<=N<=Z, |D/Z|<=b where Z>0. At zero-Z points D=0 and their
+contribution is defined as zero. Therefore
+
+    e^2 Var_post(N/Z) = Q - E[(Z-e) D (D/Z)]
+                     <= Q + b sqrt(T Q)
+
+by Cauchy-Schwarz. The Bernoulli variance is also an upper bound, so taking
+the smaller preserves conservativeness. This includes signed literal
+representations of valid event polynomials; it requires the event invariant
+0<=N<=Z, not nonnegative individual coefficients. It makes no independence
+assumption about the tilted posterior parameters.
+
+Separable messages retain their existing product-moment Beta parameter model
+and compile their affine likelihoods into this same polynomial kernel. Their
+atom cap remains unchanged; over-cap models retain their analytic strength
+and claim the Bernoulli variance bound. Deterministic siblings fold before
+that cap. There is no quadrature, numerical refinement, dimension-dependent
+integration fallback, or numerical-rule cache.
+
+The bound trades tightness for a simple guarantee. Round 2's 1,713-goal trial
+has no overconfident converted confidence; median variance factors are 1.58
+on D0 and 2.56 on authored posterior fixtures. Thin endpoint boundary layers
+can widen by tens of millions, reducing useful confidence. The full inputs,
+reference error labels and distributions are in `experiments/confvar/` and
+`CONFVAR_REPORT.md`; numerical references alone are not certified exactness.
 
 ## Output and unknown dependence
 

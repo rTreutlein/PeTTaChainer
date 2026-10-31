@@ -13,7 +13,7 @@
       (CTV (STV 0.4 0.9) (STV 0.0 1.0))))
 
 !(test
-   (let (: (node (conjunction qFact directScore (by qToScore cpu))) (Score a 1) (STV $posterior-s $posterior-c)) (query 100 foldMergedKb (: $prf (Score a 1) $tv)) (posterior-tv-near? 0.7263226058748102 0.9157521344935795 (STV $posterior-s $posterior-c)))
+   (let (: (node (conjunction qFact directScore (by qToScore cpu))) (Score a 1) (STV $posterior-s $posterior-c)) (query 100 foldMergedKb (: $prf (Score a 1) $tv)) (posterior-tv-near? 0.7263226058748102 0.8321481456356352 (STV $posterior-s $posterior-c)))
    true)
 
 !(test

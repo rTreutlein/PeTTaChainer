@@ -1,4 +1,4 @@
-;; Moment integration can reassociate the last floating bits. Keep numerical
+;; Polynomial moment arithmetic can reassociate the last floating bits. Keep numerical
 ;; references at 1e-12 while the caller matches the complete proof and statement.
 (: posterior-tv-near? (-[det]-> Number Number TV Bool))
 (= (posterior-tv-near? $expected-s $expected-c $tv)

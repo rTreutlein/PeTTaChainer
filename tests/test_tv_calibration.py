@@ -9,7 +9,10 @@ tv_calibration_oracles.SETTINGS: H, L, X and the weak-evidence K0, K1, F0, F1, F
 Each probe's facts, rules and compounds are stored in a fresh KB and each goal is queried. The
 answer is calibrated against the event oracle (tv_calibration_oracles.py; the user's reading of
 ground compounds) when its strength lies within 2 of the sd its confidence claims of the oracle's
-strength, and the variance it claims lies within [0.5, 2] of the oracle's: a strength test alone
+strength, and the variance it claims lies between 0.5 times the oracle's variance
+and the larger of twice that variance and the closed-form Cauchy ratio bound.
+The independent oracle computes that bound from polynomial moments; confidence
+zero cannot pass when the bound is informative. A strength test alone
 passes any answer that claims almost no confidence. The same
 probe is queried again as Assuming, its facts and rules assumed and its compounds stored, since
 master rejects a weighted compound as an assumption: the answer must equal MAIN's exactly. A
@@ -92,7 +95,7 @@ ORACLES = {}
 
 def oracle(probe, setting, goal):
     if (probe, setting) not in ORACLES:
-        ORACLES[probe, setting] = event_oracle(probes(*SETTINGS[setting])[probe])
+        ORACLES[probe, setting] = event_oracle(probes(*SETTINGS[setting])[probe], ratio_bound=True)
     return ORACLES[probe, setting][goal]
 
 
@@ -117,7 +120,8 @@ class CalibrationTests(unittest.TestCase):
         _, s, c = main[0]
         o = oracle(probe, setting, goal)
         z, ratio = z_score(s, c, o), variance_ratio(s, c, o)
-        self.assertTrue(z <= 2.0 and 0.5 <= ratio <= 2.0,
+        upper = max(2.0, o['ratio_bound']/o['var'])
+        self.assertTrue(z <= 2.0 and 0.5 <= ratio <= upper*(1+1e-7),
                         f'{main[0]} against s* {o["s"]:.4f}: z {z:.2f}, variance ratio {ratio:.3g}')
 
     def check_assuming(self, probe, setting, goal):

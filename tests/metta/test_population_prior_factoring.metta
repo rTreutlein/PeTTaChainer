@@ -12,7 +12,7 @@
 !(set-base-rate oneKb (Storm $reg) (STV 0.3 0.9))
 !(compileadd oneKb (: o1 (Blocked r1 north) (STV 1.0 1.0)))
 !(test
-   (posterior-tv-near? 0.9195298311793262 0.9402892159691107 (case (query 100 oneKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))))
+   (posterior-tv-near? 0.9195298311793262 0.688997980090257 (case (query 100 oneKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))))
    true)
 
 ;; One route blocked and the other open: Bayes' rule gives 0.702, where
@@ -24,7 +24,7 @@
 !(compileadd mixedKb (: o1 (Blocked r1 north) (STV 1.0 1.0)))
 !(compileadd mixedKb (: o2 (Blocked r2 north) (STV 0.0 1.0)))
 !(test
-   (let (: (node (conjunction o1 o2 (by block1 cpu) (by block2 cpu) (population-prior (Storm $_0)))) (Storm north) (STV $posterior-s $posterior-c)) (query 100 mixedKb (: $p (Storm north) $tv)) (posterior-tv-near? 0.7020433926337697 0.8417622371195731 (STV $posterior-s $posterior-c)))
+   (let (: (node (conjunction o1 o2 (by block1 cpu) (by block2 cpu) (population-prior (Storm $_0)))) (Storm north) (STV $posterior-s $posterior-c)) (query 100 mixedKb (: $p (Storm north) $tv)) (posterior-tv-near? 0.7020433926337697 0.6977029631309438 (STV $posterior-s $posterior-c)))
    true)
 
 ;; Both routes blocked: Bayes' rule gives 0.9967.
@@ -34,7 +34,7 @@
 !(compileadd bothKb (: o1 (Blocked r1 north) (STV 1.0 1.0)))
 !(compileadd bothKb (: o2 (Blocked r2 north) (STV 1.0 1.0)))
 !(test
-   (posterior-tv-near? 0.9967277025256688 0.9961412800750794 (case (query 100 bothKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))))
+   (posterior-tv-near? 0.9967277025256688 0.6411204420413348 (case (query 100 bothKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))))
    true)
 
 ;; Gusts are as likely with a storm as without: observing one leaves the
@@ -45,7 +45,7 @@
 !(compileadd gustKb (: o1 (Blocked r1 north) (STV 1.0 1.0)))
 !(compileadd gustKb (: g1 (Gust north) (STV 1.0 1.0)))
 !(test
-   (posterior-tv-near? 0.9195298311793263 0.9383094569023933 (case (query 100 gustKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))))
+   (posterior-tv-near? 0.9195298311793263 0.6790956542814797 (case (query 100 gustKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))))
    true)
 
 ;; Two levels: a blocked route delays its shipment with 0.9, an open one with
@@ -65,10 +65,10 @@
 !(compileadd routeKb (: o1 (Blocked r1 north) (STV 1.0 1.0)))
 !(compileadd routeKb (: l2 (Late s2 north) (STV 1.0 1.0)))
 !(test
-   (let (: (node (conjunction o1 l2 (by block1 cpu) (by block2 cpu) (by late2 cpu) (population-prior (Storm $_0)))) (Blocked r2 north) (STV $posterior-s $posterior-c)) (query 100 routeKb (: $p (Blocked r2 north) $tv)) (posterior-tv-near? 0.9806571090511099 0.9942636244655746 (STV $posterior-s $posterior-c)))
+   (let (: (node (conjunction o1 l2 (by block1 cpu) (by block2 cpu) (by late2 cpu) (population-prior (Storm $_0)))) (Blocked r2 north) (STV $posterior-s $posterior-c)) (query 100 routeKb (: $p (Blocked r2 north) $tv)) (posterior-tv-near? 0.9806571090511099 0.7808070767909777 (STV $posterior-s $posterior-c)))
    true)
 !(test
-   (posterior-tv-near? 0.9910276560550808 0.9914124106210676 (case (query 100 routeKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))))
+   (posterior-tv-near? 0.9910276560550808 0.6640326831301038 (case (query 100 routeKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))))
    true)
 
 ;; When the storm is also read off the late shipment, the forward view of r2

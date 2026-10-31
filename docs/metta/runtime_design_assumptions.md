@@ -713,9 +713,9 @@ A key's value merges its stored facts and one view per row:
   keys and distributions) act together on the key's merged value, or its
   prior where it has none (`sk-messages-on`, `pearl-moments`): messages over
   distinct literals that share no atom multiply as independent factors (mean
-  by plug-in, variance by a tensor Gauss-Jacobi rule over the prior and each
-  uncertain atoms' product, two moments, log space, refined until two rules
-  agree or else the bound, s(1 - s) taken unrounded), and messages that share
+  by plug-in, variance from closed-form polynomial second moments of the prior
+  and each uncertain atoms' product model, with the conservative Cauchy ratio
+  bound in `event_node_contract.md`, s(1 - s) taken unrounded), and messages that share
   an atom are one node over the union of their atoms (`event_node_moments`,
   its conservative policies). The prior is the key's cavity rate
   (`sk-part-prior`: the population's source facts, materialized rows and

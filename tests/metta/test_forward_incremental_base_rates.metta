@@ -51,7 +51,7 @@
 !(clear-base-rate forwardBackwardDedupKb (Q $x))
 
 !(test
-   (let (: (node (conjunction qa (by pToQ cpu) (population-prior (P $_0)))) (P alice) (STV $posterior-s $posterior-c)) (query 200 forwardBackwardDedupKb (: $proof (P alice) $tv)) (posterior-tv-near? 0.8377216255922403 0.005314296401577442 (STV $posterior-s $posterior-c)))
+   (let (: (node (conjunction qa (by pToQ cpu) (population-prior (P $_0)))) (P alice) (STV $posterior-s $posterior-c)) (query 200 forwardBackwardDedupKb (: $proof (P alice) $tv)) (posterior-tv-near? 0.8377216255922403 0.001904354383499667 (STV $posterior-s $posterior-c)))
    true)
 
 ;; Revising an input changes its key's value, so a later run that takes it
@@ -177,7 +177,7 @@
 ;; A query's fold updates the same estimate. The forward run's inverted
 ;; P(alice) was derived through the P base rate, which does not count it.
 !(test
-   (let (: (node (conjunction qa (by pToQ cpu) (population-prior (P $_0)))) (P alice) (STV $posterior-s $posterior-c)) (query 200 forwardBaseRateKb (: $proof (P alice) $tv)) (posterior-tv-near? 0.8377216255922403 0.005314296401577442 (STV $posterior-s $posterior-c)))
+   (let (: (node (conjunction qa (by pToQ cpu) (population-prior (P $_0)))) (P alice) (STV $posterior-s $posterior-c)) (query 200 forwardBaseRateKb (: $proof (P alice) $tv)) (posterior-tv-near? 0.8377216255922403 0.001904354383499667 (STV $posterior-s $posterior-c)))
    true)
 
 !(test
@@ -267,7 +267,7 @@
 !(compileadd computedForwardBaseRateKb (: pb (P bob) (STV 0.7 0.8)))
 
 !(test
-   (let (: (node (conjunction qa (by pToQ cpu) (population-prior (P $_0)))) (P alice) (STV $posterior-s $posterior-c)) (query 200 computedForwardBaseRateKb (: $proof (P alice) $tv)) (posterior-tv-near? 0.8377216255922403 0.005314296401577442 (STV $posterior-s $posterior-c)))
+   (let (: (node (conjunction qa (by pToQ cpu) (population-prior (P $_0)))) (P alice) (STV $posterior-s $posterior-c)) (query 200 computedForwardBaseRateKb (: $proof (P alice) $tv)) (posterior-tv-near? 0.8377216255922403 0.001904354383499667 (STV $posterior-s $posterior-c)))
    true)
 
 !(test

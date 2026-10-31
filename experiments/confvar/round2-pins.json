@@ -1,0 +1,576 @@
+[
+  {
+    "file": "tests/metta/test_antecedent_completion.metta",
+    "line": 100,
+    "old": "0.8848264468765935",
+    "new": "0.8276403501035767",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_antecedent_completion.metta",
+    "line": 116,
+    "old": "0.9642719007058969",
+    "new": "0.8758368140834801",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_antecedent_completion.metta",
+    "line": 129,
+    "old": "0.9642719007058969",
+    "new": "0.8758368140834801",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_antecedent_completion.metta",
+    "line": 146,
+    "old": "0.8784730745954683",
+    "new": "0.8369869032375173",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_antecedent_completion.metta",
+    "line": 162,
+    "old": "0.8838276042026711",
+    "new": "0.849294580857932",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_antecedent_completion.metta",
+    "line": 223,
+    "old": "0.9403166306602331",
+    "new": "0.7583386828839901",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_antecedent_completion.metta",
+    "line": 306,
+    "old": "0.957915290831156",
+    "new": "0.8801455591446746",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_base_rate_cache.metta",
+    "line": 19,
+    "old": "0.005314296401577442",
+    "new": "0.001904354383499667",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_base_rate_cache.metta",
+    "line": 31,
+    "old": "0.005314296401577442",
+    "new": "0.001904354383499667",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_base_rate_cache.metta",
+    "line": 43,
+    "old": "0.006210815399461902",
+    "new": "0.002318882706019336",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_base_rate_cache.metta",
+    "line": 56,
+    "old": "0.601122168834573",
+    "new": "0.3711428437146867",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_base_rate_cache.metta",
+    "line": 121,
+    "old": "0.005314296401577442",
+    "new": "0.001904354383499667",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_base_rate_smoothing.metta",
+    "line": 42,
+    "old": "0.8127525165795743",
+    "new": "0.6461336828309306",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_base_rate_smoothing.metta",
+    "line": 45,
+    "old": "0.7757318147185712",
+    "new": "0.5773644637910565",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_canonical_keys.metta",
+    "line": 48,
+    "old": "0.0024922760534972026",
+    "new": "0.0018959138091212229",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_compound_key_reads.metta",
+    "line": 108,
+    "old": "0.6441674789749815",
+    "new": "0.41289069125729083",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_compound_key_reads.metta",
+    "line": 120,
+    "old": "0.9716743561550458",
+    "new": "0.8286414873667223",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_compound_key_reads.metta",
+    "line": 123,
+    "old": "0.6441674789749815",
+    "new": "0.41289069125729083",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_dormant_rules.metta",
+    "line": 24,
+    "old": "> 0.9",
+    "new": "0.8852647097239573",
+    "reason": "replace invalid confidence-monotonicity assumption by the exact awakened proof and posterior"
+  },
+  {
+    "file": "tests/metta/test_double_negation_evidence.metta",
+    "line": 72,
+    "old": "0.8177594758263098",
+    "new": "0.817759475826309",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_double_negation_evidence.metta",
+    "line": 77,
+    "old": "0.8177594758263098",
+    "new": "0.817759475826309",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_e2_review.metta",
+    "line": 15,
+    "old": "0.09497509861321828",
+    "new": "0.000626947514199894",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_e2_review.metta",
+    "line": 29,
+    "old": "0.018103233391136595",
+    "new": "0.0006477854325506413",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_e2_review.metta",
+    "line": 36,
+    "old": "0.018103233391136595",
+    "new": "0.0006477854325506413",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_e2_review.metta",
+    "line": 47,
+    "old": "0.5394407432441399",
+    "new": "0.3832524998016349",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_e2_review.metta",
+    "line": 96,
+    "old": "0.2366826641505106",
+    "new": "0.14919732113904566",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_e2_review.metta",
+    "line": 99,
+    "old": "0.2366826641505106",
+    "new": "0.14919732113904566",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_e2_review.metta",
+    "line": 107,
+    "old": "0.03740954158120962",
+    "new": "0.02080511773903594",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_e2_review.metta",
+    "line": 120,
+    "old": "0.0",
+    "new": "0.0006184187895021472",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_e2_review.metta",
+    "line": 131,
+    "old": "0.13535810664671122",
+    "new": "0.0",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_e2_review.metta",
+    "line": 134,
+    "old": "0.13535810664671122",
+    "new": "0.0",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_e2_review.metta",
+    "line": 144,
+    "old": "0.0043849664310933005",
+    "new": "0.0007868745546970322",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_e2_review.metta",
+    "line": 156,
+    "old": "0.9963732804835199",
+    "new": "0.9821452875091857",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_e2_review.metta",
+    "line": 166,
+    "old": "0.9900002499933779",
+    "new": "0.9900002178660449",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_e2_review.metta",
+    "line": 309,
+    "old": "0.9327469934863087",
+    "new": "0.8475288093413195",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_e2_review.metta",
+    "line": 312,
+    "old": "0.9005244246969157",
+    "new": "0.8510264324080095",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_e2_review.metta",
+    "line": 315,
+    "old": "0.8961652412342394",
+    "new": "0.8540993689943807",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_e2_review.metta",
+    "line": 425,
+    "old": "0.01783579105080321",
+    "new": "0.008068530748583989",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_e2_review.metta",
+    "line": 443,
+    "old": "0.990635962167288",
+    "new": "0.00249377304868248",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_e2_review.metta",
+    "line": 508,
+    "old": "0.002482796838492276",
+    "new": "0.0003136464033718647",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_evidence_semantics.metta",
+    "line": 71,
+    "old": "0.9000312488859047",
+    "new": "0.8571556229033463",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_exists_queries.metta",
+    "line": 1049,
+    "old": "0.0046785124518373385",
+    "new": "0.0008328962009328018",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_exists_queries.metta",
+    "line": 1050,
+    "old": "0.0046785124518373385",
+    "new": "0.0008328962009328018",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_exists_queries.metta",
+    "line": 1062,
+    "old": "0.0046785124518373385",
+    "new": "0.0008328962009328018",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_exists_queries.metta",
+    "line": 1065,
+    "old": "0.0046785124518373385",
+    "new": "0.0008328962009328018",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_explicit_exists.metta",
+    "line": 281,
+    "old": "0.04096823867399197",
+    "new": "0.04096823867399199",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_fact_absorption.metta",
+    "line": 33,
+    "old": "0.695952316239105",
+    "new": "0.37282530478545584",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_fact_absorption.metta",
+    "line": 39,
+    "old": "0.7782723605026735",
+    "new": "0.350377682390757",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_fact_absorption.metta",
+    "line": 50,
+    "old": "0.9024793221355061",
+    "new": "0.5898285722031854",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_foldall_merged_outputs.metta",
+    "line": 16,
+    "old": "0.9157521344935795",
+    "new": "0.8321481456356352",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_forall_rules.metta",
+    "line": 33,
+    "old": "0.01120920246771997",
+    "new": "0.004075945312161419",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_forall_rules.metta",
+    "line": 36,
+    "old": "0.007292928897821183",
+    "new": "0.002951085759576529",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_forall_rules.metta",
+    "line": 61,
+    "old": "0.014852330918539098",
+    "new": "0.006037200700960572",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_forall_rules.metta",
+    "line": 64,
+    "old": "0.014852330918539098",
+    "new": "0.006037200700960572",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_forward_incremental_base_rates.metta",
+    "line": 54,
+    "old": "0.005314296401577442",
+    "new": "0.001904354383499667",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_forward_incremental_base_rates.metta",
+    "line": 180,
+    "old": "0.005314296401577442",
+    "new": "0.001904354383499667",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_forward_incremental_base_rates.metta",
+    "line": 270,
+    "old": "0.005314296401577442",
+    "new": "0.001904354383499667",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_implication_inversion.metta",
+    "line": 17,
+    "old": "0.005314296401577442",
+    "new": "0.001904354383499667",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_implication_inversion.metta",
+    "line": 31,
+    "old": "0.880278809263728",
+    "new": "0.6571823212282056",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_implication_inversion.metta",
+    "line": 49,
+    "old": "0.9235006438119177",
+    "new": "0.7702295732572509",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_implication_projection.metta",
+    "line": 16,
+    "old": "0.2366826641505106",
+    "new": "0.14919732113904566",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_implication_projection.metta",
+    "line": 24,
+    "old": "0.2366826641505106",
+    "new": "0.14919732113904566",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_implication_projection.metta",
+    "line": 32,
+    "old": "0.2366826641505106",
+    "new": "0.14919732113904566",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_implication_projection.metta",
+    "line": 37,
+    "old": "0.2366826641505106",
+    "new": "0.14919732113904566",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_implication_projection.metta",
+    "line": 41,
+    "old": "0.2366826641505106",
+    "new": "0.14919732113904566",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_implication_projection.metta",
+    "line": 51,
+    "old": "0.23668266416564468",
+    "new": "0.14919732114575335",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_implication_projection.metta",
+    "line": 55,
+    "old": "0.23668266416564468",
+    "new": "0.14919732114575335",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_implication_projection.metta",
+    "line": 66,
+    "old": "0.2366826641505106",
+    "new": "0.14919732113904566",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_implication_projection.metta",
+    "line": 70,
+    "old": "0.2366826641505106",
+    "new": "0.14919732113904566",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_implication_projection.metta",
+    "line": 83,
+    "old": "0.04861111111111113",
+    "new": "0.04861111111111111",
+    "reason": "closed-form constant-Z conditional variance in the proof; last-bit rounding only; not an output confidence"
+  },
+  {
+    "file": "tests/metta/test_implication_projection.metta",
+    "line": 87,
+    "old": "0.2366826641505106",
+    "new": "0.14919732113904566",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_lifting_merge.metta",
+    "line": 58,
+    "old": "0.9000312488859047",
+    "new": "0.8571556229033463",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_logic_config.metta",
+    "line": 31,
+    "old": "0.13535810664666598",
+    "new": "0.0",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_logic_config.metta",
+    "line": 39,
+    "old": "0.3947855706242057",
+    "new": "0.000624869674253918",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_population_prior_factoring.metta",
+    "line": 15,
+    "old": "0.9402892159691107",
+    "new": "0.688997980090257",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_population_prior_factoring.metta",
+    "line": 27,
+    "old": "0.8417622371195731",
+    "new": "0.6977029631309438",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_population_prior_factoring.metta",
+    "line": 37,
+    "old": "0.9961412800750794",
+    "new": "0.6411204420413348",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_population_prior_factoring.metta",
+    "line": 48,
+    "old": "0.9383094569023933",
+    "new": "0.6790956542814797",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_population_prior_factoring.metta",
+    "line": 68,
+    "old": "0.9942636244655746",
+    "new": "0.7808070767909777",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_population_prior_factoring.metta",
+    "line": 71,
+    "old": "0.9914124106210676",
+    "new": "0.6640326831301038",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/metta/test_problog_fuzz_regressions.metta",
+    "line": 134,
+    "old": "0.949452306332817",
+    "new": "0.6671844436773675",
+    "reason": "closed polynomial/Cauchy variance; strength and proof retained"
+  },
+  {
+    "file": "tests/test_ke_query_order.py",
+    "line": 29,
+    "old": ".9984709741264072",
+    "new": ".9984709284253547",
+    "reason": "closed polynomial variance propagates through the same KE proof"
+  }
+]

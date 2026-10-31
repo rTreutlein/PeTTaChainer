@@ -24,7 +24,7 @@ class TestPeTTaChainer(unittest.TestCase):
             + ["(: aq (Alarm q) (STV 1 1))"]
         )
         handler.add_atoms_no_check(sources)
-        expected = source_oracle(sources, '(Leak q)', k=1, smoothing=True)
+        expected = source_oracle(sources, '(Leak q)', k=1, smoothing=True, ratio_bound=True)
         live = None
         for timeout_sec in (0, 30):
             with self.subTest(timeout_sec=timeout_sec):
@@ -32,7 +32,7 @@ class TestPeTTaChainer(unittest.TestCase):
                 self.assertEqual(len(result), 1)
                 tv = parse_term(result[0])[3]
                 self.assertAlmostEqual(float(tv[1]), expected['s'], delta=1e-12)
-                self.assertAlmostEqual(float(tv[2]), expected['c'], delta=1e-7)
+                self.assertAlmostEqual(float(tv[2]), expected['bound_c'], delta=1e-7)
                 if live is None:
                     live = result
                 self.assertEqual(result, live)

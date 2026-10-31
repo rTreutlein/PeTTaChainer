@@ -26,7 +26,7 @@ class KEQueryOrderTests(unittest.TestCase):
                 tv = re.search(r"\(STV ([^ ]+) ([^)]+)\)\)$", proofs[0])
                 self.assertIsNotNone(tv, proofs)
                 self.assertEqual(float(tv[1]), 1.)
-                self.assertAlmostEqual(float(tv[2]), .9984709741264072, delta=1e-12)
+                self.assertAlmostEqual(float(tv[2]), .9984709284253547, delta=1e-12)
                 self.assertEqual(set(re.findall(r"src_[0-9a-f]+", proofs[0])), {
                     "src_d2acc8331d260378be524a14", "src_acb3faeae7e53c5cf8a75bc7",
                     "src_6c4b43ffc9cfdd9f6cc82137",

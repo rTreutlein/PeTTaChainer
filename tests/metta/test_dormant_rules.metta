@@ -18,7 +18,10 @@
 ;; A fact for C1 gives the inverted rule independent support: it wakes, and
 ;; the observation moves A.
 !(compileadd chainKb (: c1fact (C1 x) (STV 1.0 1.0)))
-!(test (case (query 100 chainKb (: $p (A x) $tv)) (((: $p (A x) (STV $s $c)) (> $c 0.9)))) True)
+;; Confidence need not increase after observing C1. Check the awakened
+;; application's source proof and its conservative posterior explicitly.
+!(test (query 100 chainKb (: $p (A x) $tv))
+   (: (node (conjunction a1 c1fact (by ac1 cpu))) (A x) (STV 0.9333009326760628 0.8852647097239573)))
 
 ;; Recursion through the same predicate at another instance stays active.
 !(compileadd pathKb (: e12 (Edge n1 n2) (STV 1.0 1.0)))

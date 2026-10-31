@@ -42,11 +42,11 @@ class PriorDefinitionTests(unittest.TestCase):
         for strength in (0, .000001, .001, .5, .999999, 1):
             with self.subTest(strength=strength):
                 self.diagnostic(strength)
-                expected = source_oracle(self.sources, '(Cause now)')
+                expected = source_oracle(self.sources, '(Cause now)', ratio_bound=True)
                 for _ in range(2):
                     a = self.answer('(Cause now)')
                     self.assertAlmostEqual(float(a.tv[1]), expected['s'], places=8)
-                    self.assertAlmostEqual(float(a.tv[2]), expected['c'], places=7)
+                    self.assertAlmostEqual(float(a.tv[2]), expected['bound_c'], places=7)
 
     def test_certain_endpoint_facts_remain_exact_under_likelihoods(self):
         for strength in (0, 1):

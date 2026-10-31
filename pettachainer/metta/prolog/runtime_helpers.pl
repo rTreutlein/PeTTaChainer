@@ -19,7 +19,6 @@
 :- ensure_loaded(application_support).
 
 'sk-force-reset!'([]) :-
-    retractall(event_node:jacobi_rule(_, _, _, _, _)),
     event_graph_reset,
     ( context_active(C) -> true ; C=main ),
     forall(retract(sk_forced_seen(C,Trie)),trie_destroy(Trie)).

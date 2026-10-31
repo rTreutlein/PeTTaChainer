@@ -326,7 +326,7 @@ def gauss_jacobi(a, b, n):
     return (1 + x) / 2, v[0] ** 2
 
 
-def event_oracle(m, nodes=9):
+def event_oracle(m, nodes=9, ratio_bound=False):
     ps = params(m)
     axes = [(np.array([point_value(s, c)]), np.ones(1)) if point_value(s, c) is not None
             else gauss_jacobi(*beta_ab(s, c), nodes) for s, c in ps.values()]
@@ -341,6 +341,14 @@ def event_oracle(m, nodes=9):
         mu = float(np.sum(wgrid * N[g]) / EZ)
         var = max(float(np.sum(wgrid * N[g] ** 2 / Z) / EZ) - mu * mu, 0.0)
         out[g] = {'s': mu, 'var': var, 'c': conf_from_var(mu, var)}
+        if ratio_bound:
+            # These integrands are degree two in each parameter, so their
+            # polynomial moments are exact already with two nodes per Beta.
+            q = float(np.sum(wgrid * (N[g]-mu*Z)**2))
+            t = float(np.sum(wgrid * (Z-EZ)**2))
+            out[g]['ratio_bound'] = min(mu*(1-mu), (q+max(mu, 1-mu)*math.sqrt(t*q))/EZ**2)
+            out[g]['bound_c'] = (0. if out[g]['ratio_bound'] >= mu*(1-mu)
+                                 else conf_from_var(mu, out[g]['ratio_bound']))
     return out
 
 

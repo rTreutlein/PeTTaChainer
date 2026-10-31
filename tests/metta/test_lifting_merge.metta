@@ -55,7 +55,7 @@
 ;; the two (B m) proofs merge at the subgoal, so bImpliesD is applied once to the
 ;; revised premise -- not pooled across two conclusions sharing bImpliesD.
 !(test
-   (let (: (node (conjunction bm cm (by cImpliesB cpu) (by bImpliesD cpu))) (D m) (STV $posterior-s $posterior-c)) (query 60 sharedRuleKb (: $prf (D m) $tv)) (posterior-tv-near? 0.49998262081025846 0.9000312488859047 (STV $posterior-s $posterior-c)))
+   (let (: (node (conjunction bm cm (by cImpliesB cpu) (by bImpliesD cpu))) (D m) (STV $posterior-s $posterior-c)) (query 60 sharedRuleKb (: $prf (D m) $tv)) (posterior-tv-near? 0.49998262081025846 0.8571556229033463 (STV $posterior-s $posterior-c)))
    true)
 
 ;; --- Multi-leaf: two rules A,B->C share BOTH a and b. Their conjunction is

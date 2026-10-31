@@ -7,7 +7,7 @@ from pathlib import Path
 import janus_swi as janus
 from pettachainer import PeTTaChainer
 from tests.test_tv_calibration import main_answer, assuming_answer
-from tests.tv_calibration_oracles import SETTINGS, event_oracle, probes, variance_ratio
+from tests.tv_calibration_oracles import SETTINGS, event_oracle, probes
 
 
 class AtomicPosteriorTests(unittest.TestCase):
@@ -15,11 +15,14 @@ class AtomicPosteriorTests(unittest.TestCase):
         for setting, config in SETTINGS.items():
             with self.subTest(setting=setting):
                 model = probes(*config)['P16']
-                expected = event_oracle(model)['(A a)']
+                expected = event_oracle(model, ratio_bound=True)['(A a)']
                 main = main_answer(model, '(A a)')
                 self.assertEqual(len(main), 1)
                 self.assertAlmostEqual(main[0][1], expected['s'], delta=1e-12)
-                self.assertTrue(.5 <= variance_ratio(*main[0][1:], expected) <= 2)
+                if config[1] == 0:
+                    self.assertEqual(main[0][2], config[0])  # no observation: keep source counts
+                else:
+                    self.assertAlmostEqual(main[0][2], expected['bound_c'], delta=1e-7)
                 self.assertEqual(assuming_answer(model, '(A a)'), main)
                 if 0 in config[:2]:
                     omitted = dict(model, comps=[] if config[1] == 0 else model['comps'],
@@ -70,7 +73,7 @@ class AtomicPosteriorTests(unittest.TestCase):
                                  rules={'C': (holds, (.9, confidence), (.1, confidence))},
                                  comps=[('(C a)', lambda w: w['C'], .8, .9)],
                                  goals={'(B a)': lambda w: w['B']})
-                    expected = event_oracle(model)['(B a)']
+                    expected = event_oracle(model, ratio_bound=True)['(B a)']
                     h = PeTTaChainer()
                     h.add_atoms_no_check([
                         '(: a (A a) (STV 0.4 0.9))', '(: b (B a) (STV 0.3 0.9))',
@@ -79,7 +82,7 @@ class AtomicPosteriorTests(unittest.TestCase):
                     ])
                     row, = h.query_many_refs(['(: $p (B a) $tv)'], steps=1000)[0]
                     self.assertAlmostEqual(row.tv[1], expected['s'], delta=1e-12)
-                    self.assertTrue(.5 <= variance_ratio(*row.tv[1:], expected) <= 2)
+                    self.assertAlmostEqual(row.tv[2], expected['bound_c'], delta=1e-7)
 
     def test_fractional_certain_and_finite_endpoint_reports_are_pearl(self):
         for prior, strength, confidence in ((.3, .8, 1), (.5, 1, .5), (.5, 0, .5)):

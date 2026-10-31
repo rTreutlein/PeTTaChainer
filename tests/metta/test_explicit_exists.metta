@@ -278,7 +278,7 @@
 !(test
    (query 300 existentialResidualKb
       (: $proof (OtherWitnessEstimate fido) $tv))
-   (: (by exposeOtherWitness (conjunction (by dogChasesCat fidoDog) (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna)))) (OtherWitnessEstimate fido) (STV 0.9051491256731928 0.04096823867399197)))
+   (: (by exposeOtherWitness (conjunction (by dogChasesCat fidoDog) (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna)))) (OtherWitnessEstimate fido) (STV 0.9051491256731928 0.04096823867399199)))
 
 ;; Adding a stronger known witness leaves the direct existential proof intact,
 ;; increases D, and refines the residual estimate downward.

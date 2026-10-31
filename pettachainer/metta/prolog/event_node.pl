@@ -1,11 +1,12 @@
 % Event-node semantics and numerical contracts: docs/metta/event_node_contract.md.
-:- module(event_node, [event_node_dist/5, event_node_moments/4, event_node_coupling/5, event_node_widen/6, dist_rule/3, dist_mean/2]).
+:- module(event_node, [event_node_dist/5, event_node_moments/4, event_node_coupling/5, event_node_widen/6, dist_mean/2]).
 :- autoload(library(simplex)).
 :- use_module(library(yall)).
 :- use_module(library(apply)).
 :- use_module(library(lists)).
 :- use_module(library(pairs)).
 :- use_module(library(assoc)).
+:- use_module(library(ordsets)).
 
 event_node_dist(_, S, C, _, point(S)) :- C >= 1.0, !.
 event_node_dist(stored, _, C, _, beta(1.0, 1.0)) :- C =< 0.0, !.
@@ -14,315 +15,100 @@ event_node_dist(view, S, C, _, bernoulli(S)) :- C =< 0.0, !.
 event_node_dist(view, S, C, K, beta(A, B)) :-
     N is K * C / (1 - C), A is max(1.0e-12, N * S), B is max(1.0e-12, N * (1 - S)).
 
-% Integrate the smaller side of each event to avoid subtracting two
-% near-one second moments when its complement has tiny but nonzero mass.
+% Strength uses the existing multilinear evaluation. Confidence uses only
+% closed polynomial moments; the ratio bound is derived in the contract.
 event_node_moments(Vars, Terms0, Goals, Answers) :-
     foldl([t(C, _, _), M0, M]>>(M is max(M0, abs(C))), Terms0, 0.0, Scale),
     (   Scale =:= 0.0
     ->  Answers = inconsistent
     ;   maplist(scaled_term(Scale), Terms0, Terms),
-        pairs_keys_values(Vars, Ids, Dists),
-        maplist(dist_mean, Dists, Means),
+        pairs_keys_values(Vars, Ids, Dists), maplist(dist_mean, Dists, Means),
         pairs_keys_values(MuPairs, Ids, Means), list_to_assoc(MuPairs, Mu),
-        forms(Terms, Goals, Mu, Z0, RawN),
+        forms(Terms, Goals, Mu, Z0, Ns),
         (   Z0 =< 0.0
         ->  Answers = inconsistent
         ;   maplist(constant_goal(Terms), Goals, Answers) -> true
-        ;   maplist(ratio(Z0), RawN, OriginalMeans),
-            findall(G, (nth1(I, Goals, G), nth1(I, OriginalMeans, S), S > 0.5), Complemented),
-            maplist({Goals, Complemented}/[t(C, L, H), t(C, L, H1)]>>
-                    findall(G, (member(G, Goals),
-                                (memberchk(G, Complemented) -> \+ memberchk(G, H) ; memberchk(G, H))), H1),
-                    Terms, StableTerms),
-            forms(StableTerms, Goals, Mu, Z0, N0),
-            maplist(ratio(Z0), N0, Ss),
-            maplist(square_ratio(Z0), N0, H0),
-            exclude([_-D]>>(D = point(_)), Vars, Free),
-            (   Free == []
-            ->  maplist([S, a(S, 0.0, exact)]>>true, Ss, StableAnswers)
-            ;   exact_second_moments(Free, StableTerms, Goals, Mu, H0, Exact)
-            ->  (   Exact == bound
-                ->  ( reduced_moments(Vars, StableTerms, Goals, StableAnswers) -> true
-                    ; maplist(bound_answer, Ss, StableAnswers) )
-                ;   maplist(exact_answer(Z0), Ss, Exact, StableAnswers) )
-            ;   maplist(one_dimension(StableTerms, Goals, Mu, Z0, N0, H0), Free, Dims),
-                first_order(Dims, StableTerms, Goals, Mu, H0, Hdmr),
-                polynomial_moments(Free, StableTerms, Goals, Mu, Poly),
-                length(Goals, G), numlist(1, G, Is),
-                maplist(goal_answer(Z0, Ss, Hdmr, Poly), Is, StableAnswers) ),
-            maplist([S, a(_, V, Kind), a(S, V, Kind)]>>true, OriginalMeans, StableAnswers, Answers) ) ).
+        ;   maplist(parameter_moments, Vars, Moments), list_to_assoc(Moments, Stats),
+            polynomial(Stats, Terms, Z),
+            polynomial_product(Stats, Z, [[]-1], EZ),
+            polynomial_product(Stats, Z, Z, EZ2),
+            ZVar is EZ2 - EZ * EZ,
+            maplist(polynomial_answer(Stats, Terms, Z, EZ, EZ2, ZVar, Z0), Goals, Ns, Answers) ) ).
 
-% Integrating an axis out of N and Z preserves the exact mean. For positive
-% terms, endpoint coefficient ratios bound its effect on every remaining
-% assignment. Total variance splits into the reduced variance and a conditional
-% variance no greater than Delta^2. Use this only after tensor exhaustion and
-% only when the added error is negligible against every resolved goal variance.
-reduced_moments(Vars, Terms, Goals, Answers) :-
-    foldl(reduce_axis, Vars, Terms-[]-0.0, Reduced-Reversed-Error),
-    reverse(Reversed, Kept), \+ same_length(Vars, Kept),
-    event_node_moments(Kept, Reduced, Goals, Values), Values \== inconsistent,
-    maplist({Error}/[a(S, V, exact), a(S, Bound, exact)]>>
-            ( Error =< 1.0e-6 * V, Bound is V + Error ), Values, Answers).
+scaled_term(Scale, t(C0, Lits, Gs), t(C, Lits, Gs)) :- C is C0 / Scale.
+dist_mean(point(X), X).
+dist_mean(bernoulli(M), M).
+dist_mean(beta(A, B), M) :- M is A / (A + B).
 
-reduce_axis(Id-Dist, Terms0-K0-E0, Terms-K-E) :-
-    ( Dist \= point(_), dist_mean(Dist, Mean),
-      findall((Rest-Hits)-(Bit-C),
-              ( member(t(C, Lits, Hits), Terms0), C >= 0,
-                ( selectchk(Id-B, Lits, Rest) -> Bit = B ; Rest = Lits, Bit = both ) ), Pairs),
-      same_length(Pairs, Terms0), keysort(Pairs, Sorted), group_pairs_by_key(Sorted, Groups),
-      maplist(reduced_term(Mean), Groups, Candidate, Ratios), max_list(Ratios, R), R < 1.0e-9
-    -> Terms = Candidate, K = K0, Delta is 2 * R / (1 - R), E is E0 + Delta * Delta
-    ; Terms = Terms0, K = [Id-Dist|K0], E = E0 ).
+% Rational arithmetic keeps polynomial cancellation exact, including small
+% endpoint complements and concentrated stationary interactions.
+parameter_moments(Id-D, Id-m(M, M2)) :-
+    ( D = beta(A0, B0)
+    -> A is rational(A0), B is rational(B0), T is A + B,
+       M is A rdiv T, M2 is (A * (A + 1)) rdiv (T * (T + 1))
+    ; D = bernoulli(P) -> M is rational(P), M2 = M
+    ; D = point(P), M is rational(P), M2 is M * M ).
 
-reduced_term(Mean, (Lits-Hits)-Coefficients, t(C, Lits, Hits), R) :-
-    foldl([Bit-W, A0-B0, A-B]>>
-          ( ( Bit == 1 -> A = A0 ; A is A0 + W ),
-            ( Bit == 0 -> B = B0 ; B is B0 + W ) ), Coefficients, 0.0-0.0, C0-C1),
-    C is (1 - Mean) * C0 + Mean * C1,
-    ( C =:= 0 -> R = 0.0 ; R is max(abs(C0 / C - 1), abs(C1 / C - 1)) ).
+% Expand negative literals, fold points, and collect equal positive monomials.
+polynomial(Stats, Terms, Poly) :-
+    findall(Key-C,
+            ( member(t(C0, Lits, _), Terms), R is rational(C0),
+              foldl(expand_literal(Stats), Lits, [[]-R], Expanded),
+              member(Ids-C, Expanded), msort(Ids, Key) ), Pairs),
+    keysort(Pairs, Sorted), group_pairs_by_key(Sorted, Groups),
+    findall(Key-C, (member(Key-Cs, Groups), sum_list(Cs, C), C =\= 0), Poly).
+
+expand_literal(Stats, Id-Bit, P0, P) :-
+    get_assoc(Id, Stats, m(M, M2)),
+    (   M2 =:= M * M
+    ->  ( Bit =:= 1 -> X = M ; X is 1 - M ),
+        maplist({X}/[K-C0, K-C]>>(C is C0 * X), P0, P)
+    ;   Bit =:= 1
+    ->  maplist({Id}/[K-C, [Id|K]-C]>>true, P0, P)
+    ;   maplist({Id}/[K-C0, [Id|K]-C]>>(C is -C0), P0, Negative), append(P0, Negative, P) ).
+
+% E[fg]: a shared parameter contributes its second moment; all other
+% parameters contribute their means. This is exact for multilinear f and g.
+polynomial_product(Stats, A, B, E) :-
+    foldl({Stats, B}/[Ka-Ca, E0, E1]>>
+          foldl({Stats, Ka, Ca}/[Kb-Cb, V0, V]>>
+                ( Product is Ca * Cb, ord_union(Ka, Kb, Union), ord_intersection(Ka, Kb, Shared),
+                  foldl({Stats, Shared}/[Id, W0, W]>>
+                        ( get_assoc(Id, Stats, m(M, M2)),
+                          ( memberchk(Id, Shared) -> W is W0 * M2 ; W is W0 * M ) ),
+                        Union, Product, Weight),
+                  V is V0 + Weight ), B, E0, E1), A, 0, E).
+
+polynomial_answer(Stats, Terms, Z, EZ, EZ2, ZVar, Z0, Goal, N0, a(S, V, Kind)) :-
+    S is N0 / Z0,
+    include({Goal}/[t(_, _, Hits)]>>memberchk(Goal, Hits), Terms, GoalTerms),
+    polynomial(Stats, GoalTerms, N),
+    polynomial_product(Stats, N, [[]-1], EN),
+    polynomial_product(Stats, N, N, EN2), polynomial_product(Stats, N, Z, ENZ),
+    Center is EN rdiv EZ,
+    Q is EN2 - 2 * Center * ENZ + Center * Center * EZ2,
+    Bound is (Q + max(Center, 1 - Center) * sqrt(ZVar * Q)) / (EZ * EZ),
+    V is float(min(Center * (1 - Center), Bound)),
+    ( (ZVar =:= 0 ; Q =:= 0) -> Kind = exact ; Kind = conservative ).
 
 % A goal forced by every surviving term is independent of all parameters.
 constant_goal(Terms, Goal, a(S, 0.0, exact)) :-
     ( forall(member(t(C, _, Hits), Terms), (C =:= 0 ; memberchk(Goal, Hits))) -> S = 1.0
     ; forall(member(t(C, _, Hits), Terms), (C =:= 0 ; \+ memberchk(Goal, Hits))), S = 0.0 ).
 
-exact_answer(Z0, S, E, a(S, V, exact)) :- V is max(0.0, E / Z0 - S * S).
-
-exact_second_moments(Free, Terms, Goals, Mu, H0, Exact) :-
-    tensor_moments(17, 5000, Free, Terms, Goals, Mu, Size17, E17),
-    ( Size17 =< 5000
-    -> tensor_moments(9, 70000, Free, Terms, Goals, Mu, _, E9),
-       refined_moments(17, E9, E17, Free, Terms, Goals, Mu, H0, Exact)
-    ; tensor_moments(9, 70000, Free, Terms, Goals, Mu, Size9, E9), Size9 =< 70000,
-      tensor_moments(7, 70000, Free, Terms, Goals, Mu, _, E7),
-      refined_moments(9, E7, E9, Free, Terms, Goals, Mu, H0, Exact) ).
-
-refined_moments(N, Ecoarse, Efine, Free, Terms, Goals, Mu, H0, Exact) :-
-    (   agree_moments(H0, Ecoarse, Efine) -> Exact = Efine
-    ;   N1 is 2 * N - 1, N1 =< 257,
-        catch(tensor_moments(N1, 70000, Free, Terms, Goals, Mu, Size, E1), error(evaluation_error(_), _), fail),
-        Size =< 70000
-    ->  refined_moments(N1, Efine, E1, Free, Terms, Goals, Mu, H0, Exact)
-    ;   Exact = bound ).
-
-tensor_moments(N, Limit, Free, Terms, Goals, Mu, Size, E) :-
-    length(Free, Count), maplist(axis_rule(N, Count), Free, Axes),
-    foldl([_-rule(Xs, _), P0, P]>>(length(Xs, L), P is P0 * L), Axes, 1, Size),
-    (   Size =< Limit
-    ->  zeros(Goals, Zero), tensor(Axes, Mu, 1.0, Terms, Goals, h, Zero, E)
-    ;   E = none ).
-
-axis_rule(N, Count, Id-D, Id-Rule) :-
-    ( Count =:= 1, D = beta(A, B), A >= 1, B >= 1, A + B =< 10
-    -> Nodes is max(16, N), graded_rule(D, Nodes, Rule)
-    ; ( Count > 3, D = beta(A, B), min(A, B) > 10, A + B > 1000 -> Nodes is 1 + (N + 7) // 8 ; Nodes = N ),
-      dist_rule(D, Nodes, Rule) ).
-
-% Geometric endpoint panels resolve thin likelihood boundary layers. Each
-% refinement uses a different rule on every panel of the same Beta density.
-graded_rule(beta(A, B), N, rule(Xs, Ws)) :-
-    numlist(1, 12, Ks), maplist([K, X]>>(X is 10.0 ** (-K)), Ks, Lows0), reverse(Lows0, Lows),
-    maplist([X, Y]>>(Y is 1 - X), Lows0, Highs),
-    append([[0.0], Lows, [0.5], Highs, [1.0]], Breaks),
-    dist_rule(beta(1.0, 1.0), N, rule(Us, Weights)),
-    LogBeta is lgamma(A) + lgamma(B) - lgamma(A + B),
-    findall(X-W,
-            ( nextto(Lo, Hi, Breaks), nth1(I, Us, U), nth1(I, Weights, Wu),
-              X is Lo + (Hi - Lo) * U,
-              W is Wu * (Hi - Lo) * exp((A - 1) * log(X) + (B - 1) * log(1 - X) - LogBeta) ), Pairs),
-    pairs_keys_values(Pairs, Xs, Ws).
-
-agree_moments(H0, Ea, Eb) :-
-    maplist([E, H, C]>>(C is E - H), Ea, H0, Ca),
-    maplist([E, H, C]>>(C is E - H), Eb, H0, Cb),
-    agree(H0, Ca, Cb).
-
-scaled_term(Scale, t(C0, Lits, Gs), t(C, Lits, Gs)) :- C is C0 / Scale.
-ratio(Z, N, S) :- S is N / Z.
-square_ratio(Z, N, H) :- H is N * N / Z.
-
-dist_mean(point(X), X).
-dist_mean(bernoulli(M), M).
-dist_mean(beta(A, B), M) :- M is A / (A + B).
-
-% A distribution's n-point rule (Bernoulli's two points are exact for any n).
-dist_rule(beta(A, B), N, rule(Xs, Ws)) :- gauss_jacobi(A, B, N, Xs, Ws).
-dist_rule(bernoulli(M), _, rule([0.0, 1.0], [W0, M])) :- W0 is 1 - M.
-
 % Z and each goal's N at the parameters Theta (an assoc).
 forms(Terms, Goals, Theta, Z, Ns) :-
-    zeros(Goals, Zero),
+    maplist([_, 0.0]>>true, Goals, Zero),
     foldl(add_term(Goals, Theta), Terms, 0.0-Zero, Z-Ns).
-
-zeros(List, Zeros) :- maplist([_, 0.0]>>true, List, Zeros).
 
 add_term(Goals, Theta, t(Coef, Lits, Gs), Z0-N0, Z-N) :-
     foldl(lit_value(Theta), Lits, Coef, W),
     Z is Z0 + W,
-    maplist(add_goal(Gs, W), Goals, N0, N).
-
-add_goal(Gs, W, Goal, N0, N) :- ( memberchk(Goal, Gs) -> N is N0 + W ; N = N0 ).
+    maplist({Gs, W}/[Goal, A, B]>>( memberchk(Goal, Gs) -> B is A + W ; B = A ), Goals, N0, N).
 
 lit_value(Theta, Id-Bit, P0, P) :-
     get_assoc(Id, Theta, X),
     ( Bit =:= 1 -> P is P0 * X ; P is P0 * (1 - X) ).
-
-goal_answer(Z0, Ss, Hdmr, Poly, I, Answer) :-
-    nth1(I, Ss, S),
-    (   Poly = m(EZ2, EN2s, EN2Zs), ZVar is EZ2 - Z0 * Z0, nth1(I, EN2s, EN2), nth1(I, EN2Zs, EN2Z)
-    ->  (   ZVar =< 1.0e-12 * Z0 * Z0
-        ->  V is max(0.0, EN2 / (Z0 * Z0) - S * S), Answer = a(S, V, exact)
-        ;   Hdmr \== bound,
-            nth1(I, Hdmr, EH),
-            ER is EN2 / Z0 - (EN2Z - EN2 * Z0) / Z0 ** 2 + EN2 * ZVar / Z0 ** 3,
-            VH is max(0.0, EH / Z0 - S * S), VR is max(0.0, ER / Z0 - S * S),
-            Hi is max(VH, VR), Lo is min(VH, VR),
-            Hi =< 2 * Lo + 1.0e-15,
-            Hi > (abs(EN2Z - EN2 * Z0) / Z0 ** 2 + EN2 * ZVar / Z0 ** 3) / Z0 * sqrt(ZVar) / Z0
-        ->  Answer = a(S, Hi, exact)
-        ;   bound_answer(S, Answer) )
-    ;   bound_answer(S, Answer) ).
-
-bound_answer(S, a(S, V, bound)) :- V is S * (1 - S).
-
-one_dimension(Terms, Goals, Mu, Z0, N0, H0, Id-Dist, dim(Id, Rule, Contrib, R, Resolved)) :-
-    rule_contributions(9, Dist, Id, Terms, Goals, Mu, Z0, N0, H0, d(_, C9, _)),
-    rule_contributions(17, Dist, Id, Terms, Goals, Mu, Z0, N0, H0, d(R17, C17, Rel17)),
-    (   agree(H0, C9, C17) -> Rule = R17, Contrib = C17, R = Rel17, Resolved = true
-    ;   rule_contributions(33, Dist, Id, Terms, Goals, Mu, Z0, N0, H0, d(Rule, Contrib, R)),
-        ( agree(H0, C17, Contrib) -> Resolved = true ; Resolved = false ) ).
-
-rule_contributions(N, Dist, Id, Terms, Goals, Mu, Z0, N0, H0, d(Rule, Contrib, R)) :-
-    dist_rule(Dist, N, Rule), Rule = rule(Xs, Ws),
-    zeros(Goals, Zero),
-    foldl(rule_point(Id, Mu, Terms, Goals), Xs, Ws, Zero-[0.0|Zero], EH-Squares),
-    maplist([E, H, Cg]>>(Cg is E - H), EH, H0, Contrib),
-    foldl([F0, Sq, R0, R1]>>( F0 =:= 0.0 -> R1 = R0 ; R1 is max(R0, Sq / F0 ** 2 - 1) ), [Z0|N0], Squares, 0.0, R).
-
-rule_point(Id, Mu, Terms, Goals, X, W, E0-Q0, E-Q) :-
-    put_assoc(Id, Mu, X, Theta), forms(Terms, Goals, Theta, Z, Ns),
-    maplist(add_weighted_square_ratio(W, Z), Ns, E0, E),
-    maplist(add_weighted_square(W), [Z|Ns], Q0, Q).
-
-% A point with Z = 0 (Bernoulli parameters at an endpoint) adds nothing: N =< Z there.
-add_weighted_square_ratio(W, Z, N, E0, E) :- ( Z > 0.0 -> E is E0 + W * N * N / Z ; E = E0 ).
-add_weighted_square(W, F, Q0, Q) :- Q is Q0 + W * F * F.
-add_weighted_square_times(W, Z, N, Q0, Q) :- Q is Q0 + W * N * N * Z.
-
-% Two rules agree on a contribution within 1 %, or within 1e-12 of h_g(mu) itself
-% (a parameter that barely moves the goal leaves only rounding).
-agree(H0, C1, C2) :- maplist([H, A, B]>>(abs(A - B) =< 0.01 * abs(B) + 1.0e-12 * abs(H)), H0, C1, C2).
-
-first_order(Dims, Terms, Goals, Mu, H0, Hdmr) :-
-    partition([dim(_, _, _, R, _)]>>(R > 0.05), Dims, Wide, Narrow),
-    foldl([dim(_, rule(Xs, _), _, _, _), P0, P]>>(length(Xs, L), P is P0 * L), Wide, 1, Evaluations),
-    foldl([dim(_, _, _, R, _), P0, P]>>(P is P0 * (1 + R)), Dims, 1.0, All),
-    foldl([dim(_, _, _, R, _), P0, P]>>(P is P0 * (1 + R)), Wide, 1.0, WideAll),
-    foldl([dim(_, _, _, R, _), S0, S]>>(S is S0 + R), Narrow, 0.0, NarrowSum),
-    Captured is NarrowSum + WideAll - 1,
-    (   memberchk(dim(_, _, _, _, false), Dims) -> Hdmr = bound
-    ;   length(Wide, NW), NW > 3 -> Hdmr = bound
-    ;   Evaluations > 5000 -> Hdmr = bound
-    ;   Captured > 0.0, (All - 1) / Captured > 1.1 -> Hdmr = bound
-    ;   (   Wide == [] -> Block = H0
-        ;   maplist([dim(Id, Rule, _, _, _), Id-Rule]>>true, Wide, Axes),
-            zeros(Goals, Zero), tensor(Axes, Mu, 1.0, Terms, Goals, h, Zero, Block) ),
-        foldl([dim(_, _, C, _, _), E0, E]>>maplist([Ei0, Ci, Ei]>>(Ei is Ei0 + Ci), E0, C, E), Narrow, Block, Hdmr) ).
-
-polynomial_moments(Free, Terms, Goals, Mu, Poly) :-
-    (   length(Free, K), K > 12
-    ->  Poly = none
-    ;   maplist([Id-D, Id-Rule]>>dist_rule(D, 2, Rule), Free, Axes),
-        zeros(Goals, Zero),
-        tensor(Axes, Mu, 1.0, Terms, Goals, poly, m(0.0, Zero, Zero), Poly) ).
-
-% A tensor rule over Axes (Id-rule pairs), the other parameters at Theta,
-% accumulating h (E[N_g^2/Z]) or poly (the moments above) at each point.
-tensor([], Theta, W, Terms, Goals, Kind, A0, A) :-
-    forms(Terms, Goals, Theta, Z, Ns),
-    accumulate(Kind, W, Z, Ns, A0, A).
-tensor([Id-rule(Xs, Ws)|Axes], Theta, W0, Terms, Goals, Kind, A0, A) :-
-    foldl(tensor_node(Id, Theta, W0, Axes, Terms, Goals, Kind), Xs, Ws, A0, A).
-
-tensor_node(Id, Theta, W0, Axes, Terms, Goals, Kind, X, Wx, A0, A) :-
-    put_assoc(Id, Theta, X, Th), W is W0 * Wx,
-    tensor(Axes, Th, W, Terms, Goals, Kind, A0, A).
-
-accumulate(h, W, Z, Ns, E0, E) :- maplist(add_weighted_square_ratio(W, Z), Ns, E0, E).
-accumulate(poly, W, Z, Ns, m(Z2a, N2a, N2Za), m(Z2, N2, N2Z)) :-
-    Z2 is Z2a + W * Z * Z,
-    maplist(add_weighted_square(W), Ns, N2a, N2),
-    maplist(add_weighted_square_times(W, Z), Ns, N2Za, N2Z).
-
-% A rule is pure numeric data. The evaluator owns this cache and clears it
-% with its other numerical workspace at the next evaluation.
-:- dynamic jacobi_rule/5.
-gauss_jacobi(A, B, N, Xs, Ws) :-
-    ( jacobi_rule(A, B, N, Xs, Ws) -> true
-    ;
-    AB is A + B,
-    D0 is (A - B) / AB,
-    Last is N - 1,
-    ( Last >= 1 -> numlist(1, Last, Ks) ; Ks = [] ),
-    maplist(jacobi_diagonal(A, B), Ks, Ds),
-    O0 is 4 * A * B / (AB ** 2 * (AB + 1)),
-    ( Ks = [_|Ks2] -> true ; Ks2 = [] ),
-    maplist(jacobi_off_diagonal(A, B), Ks2, Os),
-    Diag = [D0|Ds],
-    ( N > 1 -> maplist([O, E]>>(E is sqrt(O)), [O0|Os], Off) ; Off = [] ),
-    gershgorin(Diag, Off, Lo, Hi),
-    numlist(1, N, Js),
-    maplist(eigenvalue(Diag, Off, Lo, Hi), Js, Ys),
-    maplist(christoffel(Diag, Off), Ys, Ws0),
-    sum_list(Ws0, WSum),
-    maplist(ratio(WSum), Ws0, Ws),
-    maplist([Y, X]>>(X is (1 + Y) / 2), Ys, Xs),
-      assertz(jacobi_rule(A, B, N, Xs, Ws)) ).
-
-% The recurrence coefficients of Beta(a, b) in a and b (alpha = b - 1, beta = a - 1).
-jacobi_diagonal(A, B, K, D) :- AB is A + B, S2 is 2 * K - 2 + AB, D is (A - B) * (AB - 2) / (S2 * (S2 + 2)).
-jacobi_off_diagonal(A, B, K, O) :-
-    AB is A + B, T is 2 * K - 2 + AB,
-    O is 4 * K * (K - 1 + B) * (K - 1 + A) * (K - 2 + AB) / (T ** 2 * (T + 1) * (T - 1)).
-
-gershgorin(Diag, Off, Lo, Hi) :-
-    append([0.0], Off, Left), append(Off, [0.0], Right),
-    foldl([D, L, R, Lo0-Hi0, Lo1-Hi1]>>(Lo1 is min(Lo0, D - abs(L) - abs(R)), Hi1 is max(Hi0, D + abs(L) + abs(R))),
-          Diag, Left, Right, 1.0e300-(-1.0e300), Lo-Hi).
-
-% The J-th smallest eigenvalue: the least x with at least J eigenvalues below it.
-eigenvalue(Diag, Off, Lo, Hi, J, X) :-
-    Mid is (Lo + Hi) / 2,
-    (   ( Mid =< Lo ; Mid >= Hi ) -> X = Mid
-    ;   below(Diag, Off, Mid, Count),
-        ( Count >= J -> eigenvalue(Diag, Off, Lo, Mid, J, X) ; eigenvalue(Diag, Off, Mid, Hi, J, X) ) ).
-
-% The number of eigenvalues below X: the negative pivots of the LDL' of J - X.
-below([D0|Ds], Off, X, Count) :-
-    P0 is D0 - X,
-    foldl(pivot(X), Ds, Off, P0-0, PN-C0),
-    ( PN < 0 -> Count is C0 + 1 ; Count = C0 ).
-
-% A pivot too close to 0 is moved to +-1e-280, so that e^2 / pivot stays finite.
-pivot(X, D, E, P1-C1, P2-C2) :-
-    ( abs(P1) >= 1.0e-280 -> Q = P1 ; P1 < 0 -> Q = -1.0e-280 ; Q = 1.0e-280 ),
-    P2 is D - X - E * E / Q,
-    ( P1 < 0 -> C2 is C1 + 1 ; C2 = C1 ).
-
-christoffel([D0|Ds], Off, X, W) :-
-    (   Off == []
-    ->  W = 1.0
-    ;   Off = [E0|_],
-        Q1 is (X - D0) / E0,
-        christoffel_sum(Ds, Off, X, 1.0, Q1, 1.0, S),
-        W is 1 / S ).
-
-% sum of q_0^2..q_{n-1}^2 with q_{k+1} = ((x - d_k) q_k - e_{k-1} q_{k-1}) / e_k.
-christoffel_sum([D|Ds], [Eprev, E|Es], X, Qprev, Q, S0, S) :- !,
-    Qnext is ((X - D) * Q - Eprev * Qprev) / E,
-    S1 is S0 + Q * Q,
-    christoffel_sum(Ds, [E|Es], X, Q, Qnext, S1, S).
-christoffel_sum([_], _, _, _, Q, S0, S) :- S is S0 + Q * Q.
 
 event_node_coupling(Ps, _, _, _, interval(0.0, 1.0)) :- length(Ps, J), J > 4, !.
 event_node_coupling(Ps, Pairs, Lambdas0, Goal, Result) :-

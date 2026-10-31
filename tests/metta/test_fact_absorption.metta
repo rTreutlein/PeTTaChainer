@@ -30,13 +30,13 @@
 ;; rule it is a premise of, so a query without steps takes it in.
 !(compileadd absorbKb (: s1-t1 (Late s1 t1) (STV 1 1)))
 !(test
-   (let ((: (node (conjunction s1-t1 (by blocked-k1 cpu) (by delayed-d1 cpu) (by late-s1 cpu) (population-prior (Storm g1 $_0)))) (Blocked k1 t1) (STV $posterior-s $posterior-c))) (collapse (query 0 absorbKb (: $proof (Blocked k1 t1) $tv))) (posterior-tv-near? 0.8555844675740594 0.695952316239105 (STV $posterior-s $posterior-c)))
+   (let ((: (node (conjunction s1-t1 (by blocked-k1 cpu) (by delayed-d1 cpu) (by late-s1 cpu) (population-prior (Storm g1 $_0)))) (Blocked k1 t1) (STV $posterior-s $posterior-c))) (collapse (query 0 absorbKb (: $proof (Blocked k1 t1) $tv))) (posterior-tv-near? 0.8555844675740594 0.37282530478545584 (STV $posterior-s $posterior-c)))
    true)
 
 ;; So is the second, through its own rule.
 !(compileadd absorbKb (: s2-t1 (Late s2 t1) (STV 1 1)))
 !(test
-   (let ((: (node (conjunction s1-t1 s2-t1 (by blocked-k1 cpu) (by delayed-d1 cpu) (by late-s1 cpu) (by late-s2 cpu) (population-prior (Storm g1 $_0)))) (Blocked k1 t1) (STV $posterior-s $posterior-c))) (collapse (query 0 absorbKb (: $proof (Blocked k1 t1) $tv))) (posterior-tv-near? 0.9193418069557667 0.7782723605026735 (STV $posterior-s $posterior-c)))
+   (let ((: (node (conjunction s1-t1 s2-t1 (by blocked-k1 cpu) (by delayed-d1 cpu) (by late-s1 cpu) (by late-s2 cpu) (population-prior (Storm g1 $_0)))) (Blocked k1 t1) (STV $posterior-s $posterior-c))) (collapse (query 0 absorbKb (: $proof (Blocked k1 t1) $tv))) (posterior-tv-near? 0.9193418069557667 0.350377682390757 (STV $posterior-s $posterior-c)))
    true)
 
 ;; An expanded node's join waiting on a ground premise reads the premise's
@@ -47,5 +47,5 @@
    ((: (population-prior (Delayed d1 $_t)) (Delayed d1 t2) (STV 0.5 0.2857142857142857))))
 !(compileadd absorbKb (: s1-t2 (Late s1 t2) (STV 0 1)))
 !(test
-   (let ((: (node (conjunction s1-t2 (by blocked-k1 cpu) (by delayed-d1 cpu) (by late-s1 cpu) (population-prior (Storm g1 $_0)))) (Delayed d1 t2) (STV $posterior-s $posterior-c))) (collapse (query 0 absorbKb (: $proof (Delayed d1 t2) $tv))) (posterior-tv-near? 0.06109067647529186 0.9024793221355061 (STV $posterior-s $posterior-c)))
+   (let ((: (node (conjunction s1-t2 (by blocked-k1 cpu) (by delayed-d1 cpu) (by late-s1 cpu) (population-prior (Storm g1 $_0)))) (Delayed d1 t2) (STV $posterior-s $posterior-c))) (collapse (query 0 absorbKb (: $proof (Delayed d1 t2) $tv))) (posterior-tv-near? 0.06109067647529186 0.5898285722031854 (STV $posterior-s $posterior-c)))
    true)

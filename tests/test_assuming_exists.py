@@ -6,7 +6,6 @@ import unittest
 import janus_swi as janus
 from pettachainer import PeTTaChainer
 from tests.posterior_fixture_oracle import source_oracle
-from tests.tv_calibration_oracles import variance_ratio
 
 
 SOURCES = [
@@ -106,9 +105,9 @@ class TestAssumingExists(unittest.TestCase):
                     # the independent R parameter is complemented once.
                     expected = source_oracle([
                         '(: bundle (And (P x) (Q x)) (STV 0.9 0.8))',
-                        '(: r (R x) (STV 0.3 0.9))'], expression)
+                        '(: r (R x) (STV 0.3 0.9))'], expression, ratio_bound=True)
                     self.assertAlmostEqual(rows[0].tv[1], expected['s'], delta=1e-12)
-                    self.assertTrue(.5 <= variance_ratio(*rows[0].tv[1:], expected) <= 2)
+                    self.assertAlmostEqual(rows[0].tv[2], expected['bound_c'], delta=1e-7)
 
     def test_pooling_source_names_are_scoped_to_their_kb(self):
         other = PeTTaChainer()
@@ -119,9 +118,9 @@ class TestAssumingExists(unittest.TestCase):
             with self.subTest(repeat=repeat):
                 rows = h.query_many_refs(['(: $p (And (Q x) (P x)) $tv)'], steps=300)[0]
                 self.assertEqual(len(rows), 1, rows)
-                expected = source_oracle(['(: reused (And (P x) (Q x)) (STV 0.9 0.8))'], '(And (Q x) (P x))')
+                expected = source_oracle(['(: reused (And (P x) (Q x)) (STV 0.9 0.8))'], '(And (Q x) (P x))', ratio_bound=True)
                 self.assertAlmostEqual(rows[0].tv[1], expected['s'], delta=1e-12)
-                self.assertTrue(.5 <= variance_ratio(*rows[0].tv[1:], expected) <= 2)
+                self.assertAlmostEqual(rows[0].tv[2], expected['bound_c'], delta=1e-7)
 
     def test_unrelated_world_support_answers_assuming(self):
         h = PeTTaChainer()

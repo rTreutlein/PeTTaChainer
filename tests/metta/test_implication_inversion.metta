@@ -14,7 +14,7 @@
 ; (0.2 * 0.7 + 0.9 * 0.3) = 0.341. The inverted CTV is then applied to the
 ; witness qa via modus ponens: 0.9 * 0.949 + 0.1 * 0.341 = 0.888.
 !(test
-   (let (: (node (conjunction qa (by r cpu) (population-prior (P $_0)))) (P alice) (STV $posterior-s $posterior-c)) (query 200 invKb (: $prf (P alice) $tv)) (posterior-tv-near? 0.8377216255922403 0.005314296401577442 (STV $posterior-s $posterior-c)))
+   (let (: (node (conjunction qa (by r cpu) (population-prior (P $_0)))) (P alice) (STV $posterior-s $posterior-c)) (query 200 invKb (: $prf (P alice) $tv)) (posterior-tv-near? 0.8377216255922403 0.001904354383499667 (STV $posterior-s $posterior-c)))
    true)
 
 ; The consequent's own base rate is not read: here P(Late) = 0.1 contradicts
@@ -28,7 +28,7 @@
 !(set-base-rate lateKb (Late $r) (STV 0.1 0.9))
 !(compileadd lateKb (: l1 (Late r1) (STV 1.0 1.0)))
 !(test
-   (let (: (node (conjunction l1 (by late cpu) (population-prior (Blocked $_0)))) (Blocked r1) (STV $posterior-s $posterior-c)) (query 100 lateKb (: $prf (Blocked r1) $tv)) (posterior-tv-near? 0.7827220391759295 0.880278809263728 (STV $posterior-s $posterior-c)))
+   (let (: (node (conjunction l1 (by late cpu) (population-prior (Blocked $_0)))) (Blocked r1) (STV $posterior-s $posterior-c)) (query 100 lateKb (: $prf (Blocked r1) $tv)) (posterior-tv-near? 0.7827220391759295 0.6571823212282056 (STV $posterior-s $posterior-c)))
    true)
 
 ; A soft observation is read as a likelihood ratio over the base rate it was
@@ -46,7 +46,7 @@
 !(set-base-rate softKb (Blocked $r) (STV 0.2 0.9))
 !(compileadd softKb (: l1 (Late r1) (STV 1.0 1.0)))
 !(test
-   (let (: (node (conjunction l1 (by block cpu) (by late cpu) (population-prior (Storm $_0)))) (Storm r1) (STV $posterior-s $posterior-c)) (query 100 softKb (: $prf (Storm r1) $tv)) (posterior-tv-near? 0.8056327339590849 0.9235006438119177 (STV $posterior-s $posterior-c)))
+   (let (: (node (conjunction l1 (by block cpu) (by late cpu) (population-prior (Storm $_0)))) (Storm r1) (STV $posterior-s $posterior-c)) (query 100 softKb (: $prf (Storm r1) $tv)) (posterior-tv-near? 0.8056327339590849 0.7702295732572509 (STV $posterior-s $posterior-c)))
    true)
 
 ; A knowledge base storing only true instances has base rate 1 for every
