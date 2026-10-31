@@ -5,7 +5,7 @@ Status: rejected by its go/no-go measurement, October 2026. Not built.
 ## Problem
 
 A base rate is one estimate per pattern, kept as each member's contribution
-(`sk-fold-view`, `runtime/forward/aggregates.metta`). A member's contribution
+(`sk-fold-view`, `runtime/statistics/aggregates.metta`). A member's contribution
 is updated when the member's value changes during an evaluation
 (`sk-fold-changed` records it in `&sk_rate_dirty`) and the rate is next needed
 (`sk-need-below!` takes the dirty members).

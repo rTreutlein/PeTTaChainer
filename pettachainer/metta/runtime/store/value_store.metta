@@ -366,3 +366,19 @@
          (let $_left (context-remove! &sk_representative ($hash $key $rhash $given $exclude sk-none))
             (if (if (== $value sk-none) (== (search-id-value sk_representative_budget) 0) false) ()
                (context-add! &sk_representative ($hash $key $rhash $given $exclude $value))))))))
+
+
+;; The dependency sets the stores hold; every other node can go.
+(: sk-deps-roots (-[det]-> (List Number)))
+(= (sk-deps-roots)
+   (append-flat (collapse (match &ctx_sk_latest ($_h $_k (sk-version $_s $_r $view)) (sk-view-deps-step 0 $view)))
+   (append-flat (collapse (match &ctx_sk_summary_reference ($_rh $_rk $_rr $_pins $_cuts $_filter $ref) (sk-view-deps-step 0 $ref)))
+   (append-flat (collapse (match &ctx_sk_representative ($_rh $_rk $_rr $_rep-given $_rep-exclude $rep) (sk-view-deps-step 0 $rep)))
+   (append-flat (collapse (match &ctx_sk_view ($_vh $_vk $_vr $old) (sk-view-deps-step 0 $old)))
+   (append-flat (collapse (match &ctx_sk_merged ($_mh $_mk $mdeps $_mv $_mroot) $mdeps))
+   (append-flat (collapse (match &ctx_sk_merged ($_nh $_nk $_nd $value $_nroot) (sk-view-deps-step 0 $value)))
+   (append-flat (collapse (match &ctx_sk_branch ($_slot2 $_bk2 $_br2 $_cuts $_fresh2 $branch) (sk-view-deps-step 0 $branch)))
+   (append-flat (collapse (match &ctx_sk_support ($_sh $_sr $support) $support))
+   (append-flat (collapse (match &sk_forward_stored ($_fh $_fk $_ff $_fe $fdeps) $fdeps))
+   (append-flat (collapse (match &sk_forward_taken ($_th $_tk $taken) (sk-view-deps-step 0 $taken)))
+      (collapse (match &sk_summary ($_yh $_yk $_yf $_ye $ydeps) $ydeps)))))))))))))

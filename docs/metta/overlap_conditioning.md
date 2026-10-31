@@ -4,7 +4,7 @@ Status: built, October 2026; budgeted cutset conditioning, entangled
 premises, completions read under their part and sample twins added October
 11-12; actual-work payment (#74), October 17. Code: `sk-merge-facts`,
 `sk-merge-key`, `sk-shared-statements`, `sk-entangle`, `sk-conditioned`,
-`sk-deepen`, `sk-sample-twins?` in `runtime/backward/evaluation.metta`.
+`sk-deepen`, `sk-sample-twins?` in `runtime/evaluator/evaluation.metta`.
 Tests: `tests/metta/test_overlap_conditioning.metta`,
 `test_nested_conditioning.metta`, `test_problog_fuzz_regressions.metta`
 (F7), `test_hypothesis_rules.metta` (gap 5). Row conditioning, which this

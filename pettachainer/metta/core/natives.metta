@@ -327,7 +327,7 @@
    (context-with-scope Atom (-[semidet]-> Atom $result) $result)))
 
 ;; Executor contracts for the mutually recursive evaluator. Implementations
-;; are MeTTa in runtime/execution, loaded after the computation modules.
+;; are MeTTa in runtime/store/allowances, loaded after the computation modules.
 !(execution-declare! -[det]-> (
    (sk-take! CounterKey Number Bool)
    (sk-reserve-near! Number Atom)
@@ -351,3 +351,9 @@
    (present-query-plan-results Bool (List (Number Statement AnnotatedStatement CompiledQueryGoal)) (List (List RuntimeResult)) (List (Number AnnotatedStatement)))
    (execute-backward Number (List ExecutionGoal) Bool (List (List RuntimeResult)))
    (run-query-execution-plan Number QueryExecutionPlan Bool Bool (List (Number AnnotatedStatement)))))
+
+;; Two views of one statement merged (backward/evaluation.metta); stored facts
+;; merge by it too (forward/schema.metta).
+(: sk-merge-facts
+   (-[semidet]-> Bool (List Number) SkFact EvidenceSet Number SkFact EvidenceSet Number
+       SkeletonPairing))

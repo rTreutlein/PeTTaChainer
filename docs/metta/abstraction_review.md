@@ -46,7 +46,7 @@ The estimates below are engineering estimates, not measured reductions. Confiden
 
 | Rank | Operation | Estimated net saving | Confidence | Score | Files and decision |
 | --- | --- | ---: | ---: | ---: | --- |
-| 1 | Polymorphic reverse and short-circuit list existence | 300 | .95 | 285 | `compiler/source_lowering`, `runtime/evidence`, `runtime/base_rates`, `runtime/backward/skeleton`; implemented |
+| 1 | Polymorphic reverse and short-circuit list existence | 300 | .95 | 285 | `compiler/source_lowering`, `runtime/evidence`, `runtime/statistics/base_rates`, `runtime/backward/skeleton`; implemented |
 | 2 | Inert MeTTa parsing and rendering | 200 | .99 | 198 | `pln_validator.py`, `query_diagnostics.py`, `pettachainer.py`; implemented |
 | 3 | Remaining typed reverse and append walkers | 180 | .80 | 144 | Four remaining walkers in `source_lowering` are used by reserved `rules`/`query_lowering`; defer coordinated deletion and migration |
 | 4 | Exact row existence, preserving the row as data | 100 | .95 | 95 | `source_lowering`, `skeleton_journal`, `base_rates`, `skeleton`; generic support extracted, eleven additional probes migrated |
@@ -96,7 +96,7 @@ All alpha-wrapper definitions, migrations and their temporary tests were reverte
 | `compiler/rules.metta` | 10 expanded existence probes, 4 alpha alternatives, 6 recursive list walkers. Collection assembly uses `append-flat` and `reverse-onto`; keep source-compute and trigger traversal semantics. |
 | `compiler/query_lowering.metta` | 2 hash constructions and 2 TV-dispatch cases. Collection assembly uses `append-flat` and `reverse-onto`; check temporary assumption/rule ownership. |
 | `runtime/scheduling.metta` | 1 recursive list walker. Review against the short-circuit/fold contract; no scheduler policy or budgets changed in this round. |
-| `runtime/backward/evaluation.metta` | 75 alpha alternatives, 7 expanded existence probes, 17 optional-first cases, 11 TV cases, 4 recursive walkers, 69 hash constructions. Exact-existence probes can be considered individually; leave cache misses lazy, preserve conditioned-read exclusions, and do not reintroduce the rejected alpha wrapper. |
+| `runtime/evaluator/evaluation.metta` | 75 alpha alternatives, 7 expanded existence probes, 17 optional-first cases, 11 TV cases, 4 recursive walkers, 69 hash constructions. Exact-existence probes can be considered individually; leave cache misses lazy, preserve conditioned-read exclusions, and do not reintroduce the rejected alpha wrapper. |
 | `prolog/runtime_helpers.pl` | Largest native concentration of collection, indexed identity and proof/TV plumbing. Any native extraction must preserve ordered evidence, dependency DAGs, exact clause references, cleanup ownership and native hot-path performance. |
 | `prolog/event_node.pl` | Numerical TV/node operations are not an alternative implementation of generic list collection; defer changes to E3. |
 

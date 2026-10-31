@@ -19,7 +19,7 @@ the implementation contract:
    identities, materialization marks, a statement's merged stored facts) and
    the incremental aggregate subscriptions. Forward chaining itself runs over
    the skeleton, in `runtime/backward/upward.metta`.
-7. `runtime/knowledge_store.metta` owns KB fact, rule, and index insertion;
+7. `runtime/installation.metta` owns KB fact, rule, and index insertion;
    `runtime/ingest.metta` coordinates the public compilation/add transaction.
 8. `runtime/backward/` loads durable proof storage, proof merging, the recursive
    demand/frontier search component, rule matching, aggregate execution, and the
@@ -36,7 +36,7 @@ MeTTa suite, and relevant performance benchmarks.
 - The vendored lowering library owns generic source-to-runtime translation.
   The local compiler owns PLN rule lowering, query lowering, and compiler
   specialization metadata. Neither owns KB insertion or search.
-- `runtime/knowledge_store.metta` owns stored facts, rules, and their indexes.
+- `runtime/installation.metta` owns stored facts, rules, and their indexes.
   `runtime/ingest.metta` is the transaction boundary that combines compilation,
   metadata recording, and insertion.
 - Forward aggregate subscriptions keep one observation per statement: its

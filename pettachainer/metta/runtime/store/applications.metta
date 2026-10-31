@@ -194,3 +194,13 @@
                   (empty)))
             (empty)))
       ($_other (empty)))))
+
+(: sk-prior-folds (-[semidet]-> Statement (List SkeletonMatch) (List SkeletonPriorFold)))
+(= (sk-prior-folds $type $matches)
+   (collapse
+      (let* (((sk-match $rule $premises $_goal) (superpose $matches))
+             ((CPU FoldAllCompiled $args $_result) (superpose $premises))
+             ((base-rate-aggregate-key-value $kbid $pattern $_mode) (base-rate-aggregate-key $args)))
+         (if (if (positive-only-pattern? $kbid $pattern) (user-base-rate? $kbid $pattern) true)
+            (if (= (copy_term $pattern) (copy_term $type)) (sk-prior-fold $rule $args) (empty))
+            (empty)))))

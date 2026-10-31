@@ -1,7 +1,7 @@
 # Forward Chaining as a Mode of the Skeleton
 
 Design note, 2026-09-30. Status: implemented (`runtime/backward/upward.metta`,
-the base-rate fold view in `runtime/backward/evaluation.metta`); the forward
+the base-rate fold view in `runtime/evaluator/evaluation.metta`); the forward
 engine and canonical store are gone.
 
 ## Why

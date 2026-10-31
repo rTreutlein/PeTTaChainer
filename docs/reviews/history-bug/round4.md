@@ -16,7 +16,7 @@ passes through the closed read of `FuelArrived t5`, then into the rebuilt
 result; `sk-branch-values` correctly refuses to serve it forever.
 
 There are two source paths, both in
-`pettachainer/metta/runtime/backward/evaluation.metta`:
+`pettachainer/metta/runtime/evaluator/evaluation.metta`:
 
 * `sk-leaf-step` (line 130): the direct-fact fast path returned the leaf before
   testing the enclosing rebuild's exclusions. Direct observations now pass

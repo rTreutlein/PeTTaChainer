@@ -8,7 +8,7 @@ its historical results, including behavior superseded here.
 
 ## Mechanism
 
-In `pettachainer/metta/runtime/backward/evaluation.metta`, `sk-admits?`
+In `pettachainer/metta/runtime/evaluator/evaluation.metta`, `sk-admits?`
 (line 1365) rejects a view whose dependencies meet the reader's exclusions.
 `sk-value` (line 2354) selects exclusion-filtered views, and `sk-admit-step`
 (line 1386) tries `sk-rebuild-view` (line 1407) before the older-compatible-view

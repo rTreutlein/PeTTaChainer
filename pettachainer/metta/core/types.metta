@@ -207,8 +207,6 @@
 
 (datatype RetiredStore (retired-store Atom Number SkeletonKey))
 
-(: sk-retire-store! (-[det]-> RetiredStore Atom))
-
 (datatype QueryExecutionPlan
    (query-execution-plan (List (Number Statement AnnotatedStatement CompiledQueryGoal)) (List RuntimeAddition)))
 

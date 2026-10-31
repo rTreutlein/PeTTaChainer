@@ -6,7 +6,7 @@ master `22bd1a09`. The earlier [cache report](cache-followup.md) records round
 
 ## Correctness
 
-In `pettachainer/metta/runtime/backward/evaluation.metta`, `sk-admits?` (line 1371) is the
+In `pettachainer/metta/runtime/evaluator/evaluation.metta`, `sk-admits?` (line 1371) is the
 exclusion-aware admission test; `sk-value` (line 2399) selects the readable
 views. `sk-admit-step` (line 1394) tries a compatible branch and then falls
 back to `sk-admit-older` (line 1380). The old failure was that the rejected

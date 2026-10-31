@@ -78,11 +78,6 @@
 ;; view, kept when the merge is not conditioned
 ;; (docs/metta/overlap_conditioning.md)
 (datatype SkeletonPairing (sk-paired SkeletonValue) (sk-overlap (List SkeletonKey) Number SkeletonValue))
-;; Two views of one statement merged (backward/evaluation.metta); stored facts
-;; merge by it too (forward/schema.metta).
-(: sk-merge-facts
-   (-[semidet]-> Bool (List Number) SkFact EvidenceSet Number SkFact EvidenceSet Number
-       SkeletonPairing))
 ;; Public output only; never an ordinary view or a materializable proof.
 (datatype SkeletonWaitingAnswer (sk-waiting SkeletonValue))
 (datatype SkeletonVersion
@@ -247,3 +242,7 @@
    (case $pattern (
       ((CPU $_fun $args $_res) (index-hash $args))
       (($type $kbctx $_proof $_tv) (index-hash (sk-key $type $kbctx))))))
+
+(datatype SkeletonNodeAt (sk-node-at Number SkPattern))
+
+(datatype SkeletonPriorFold (sk-prior-fold Number Atom))

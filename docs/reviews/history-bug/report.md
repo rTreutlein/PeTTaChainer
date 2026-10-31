@@ -9,7 +9,7 @@ overlay, compiler, or public API.
 
 ## Diagnosis and change
 
-In `pettachainer/metta/runtime/backward/evaluation.metta`, `sk-admits?`
+In `pettachainer/metta/runtime/evaluator/evaluation.metta`, `sk-admits?`
 (line 1357) rejects views whose transitive dependencies intersect the consumer's exclusion
 set. `sk-value` (line 2259) selects exclusion-filtered versions when the cached open
 merge's dependencies intersect that set. Previously `sk-admit-step` then

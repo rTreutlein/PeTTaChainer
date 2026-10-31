@@ -93,21 +93,6 @@
                (remove-variant-row! &sk_frozen (quote ($hash $key)))))
          ($_fold ())))))
 
-;; The dependency sets the stores hold; every other node can go.
-(: sk-deps-roots (-[det]-> (List Number)))
-(= (sk-deps-roots)
-   (append-flat (collapse (match &ctx_sk_latest ($_h $_k (sk-version $_s $_r $view)) (sk-view-deps-step 0 $view)))
-   (append-flat (collapse (match &ctx_sk_summary_reference ($_rh $_rk $_rr $_pins $_cuts $_filter $ref) (sk-view-deps-step 0 $ref)))
-   (append-flat (collapse (match &ctx_sk_representative ($_rh $_rk $_rr $_rep-given $_rep-exclude $rep) (sk-view-deps-step 0 $rep)))
-   (append-flat (collapse (match &ctx_sk_view ($_vh $_vk $_vr $old) (sk-view-deps-step 0 $old)))
-   (append-flat (collapse (match &ctx_sk_merged ($_mh $_mk $mdeps $_mv $_mroot) $mdeps))
-   (append-flat (collapse (match &ctx_sk_merged ($_nh $_nk $_nd $value $_nroot) (sk-view-deps-step 0 $value)))
-   (append-flat (collapse (match &ctx_sk_branch ($_slot2 $_bk2 $_br2 $_cuts $_fresh2 $branch) (sk-view-deps-step 0 $branch)))
-   (append-flat (collapse (match &ctx_sk_support ($_sh $_sr $support) $support))
-   (append-flat (collapse (match &sk_forward_stored ($_fh $_fk $_ff $_fe $fdeps) $fdeps))
-   (append-flat (collapse (match &sk_forward_taken ($_th $_tk $taken) (sk-view-deps-step 0 $taken)))
-      (collapse (match &sk_summary ($_yh $_yk $_yf $_ye $ydeps) $ydeps)))))))))))))
-
 ;; Aggregate rows and the incidental keys feeding their population search
 ;; are reconstructible cache entries, not historical observations. A key
 ;; with its own expanded node retains ordinary historical freezing unless
@@ -201,19 +186,3 @@
             (kb-publish-summary! $hash $key $epoch
                (sk-val (assemble-runtime-fact $type $kbctx $proof (sk-decayed-tv $tv)) $ev $deps)))
          ($_none ()))))))
-
-;; Retirement visits only physical copies registered for a withdrawn identity.
-;; A dead summary cannot preserve only its live contributors: thaw the key and
-;; queue its live rules for reconstruction on the next search.
-(= (sk-retire-store! (retired-store $kind $hash $key))
-   (let* (($_removed (kb-retire-copy! $kind $hash $key))
-          ($_thawed
-             (if (== $kind summary)
-                (let* (($key-digest (link-digest $key))
-                       ($_joins (remove-data-rows! &sk_join_link (quote ($key-digest $_digest))))
-                       ($_frozen (remove-variant-row! &sk_frozen (quote ($hash $key))))
-                       ($_queued (add-atom &sk_thawed ($hash $key))))
-                   ())
-                ()))
-          ($_merged (sk-drop-merged! $key)))
-      (case $key (((sk-key $type $kbctx) (sk-note-fact! $type $kbctx)) ($_fold ())))))

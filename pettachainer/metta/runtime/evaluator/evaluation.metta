@@ -8,13 +8,6 @@
       ((sk-prior-update $_source (prior $read) ()) (the TV $read))
       ($_updated $tv))))
 
-(: set-rule-change-hazard (-[det]-> KB Number Bool))
-(= (set-rule-change-hazard $kb $hazard)
-   (let* (($_old (remove-data-rows! &rule_change_hazard (quote ($kb $_stored))))
-          ($_new (add-atom &rule_change_hazard ($kb $hazard)))
-          ($_changed (hazards-changed!)))
-      (> $hazard 0.0)))
-
 ;; The owner of a cold merge controls all maintenance performed by the read.
 ;; Independent reads in C execute this operation in MAIN; dependent reads keep
 ;; the overlay active, including conditioning and aggregate maintenance.
@@ -44,30 +37,6 @@
          ((sk-val ($_type $_kbctx $_proof $tv) $_ev $_deps) (sk-set-truth-factor! $hash (rule-truth-factor $tv)))
          ($_none ())))
       ()))
-
-;; --- Base-rate API ----------------------------------------------------------
-
-;; Setting or clearing a user base rate changes the folds over its pattern,
-;; which recompute with their readers at the next evaluation, and adds or
-;; withdraws the positive-only rows reading it. A rate is set on its
-;; pattern's canonical key: one on (Not X) is the complement's on X.
-(: set-base-rate (-[det]-> KB Statement TV (List $none)))
-(= (set-base-rate $kbid $statement $rate)
-   (let* ((($pattern $odd) (canon (brand Statement (member-canon $statement))))
-          ($_valid (validate-base-rate! $statement (conjunct-parts (rate-children $pattern)) $rate))
-          ($tv (case (data $odd $rate) (((true (STV $s $c)) (STV (- 1.0 $s) $c)) ($_even $rate))))
-          ($_input (sk-input-changed! $kbid))
-          ($_new (ledger-set-base-rate! $kbid $pattern $tv))
-          ($_gated (prior-gated-rate-changed! $kbid $pattern)))
-      (base-rate-readers-changed! $kbid $pattern)))
-
-(: clear-base-rate (-[det]-> KB Statement (List $none)))
-(= (clear-base-rate $kbid $statement)
-   (let* ((($pattern $_odd) (canon (brand Statement (member-canon $statement))))
-          ($_old (base-rate-cache-remove! $kbid $pattern))
-          ($_input (sk-input-changed! $kbid))
-          ($_gated (prior-gated-rate-changed! $kbid $pattern)))
-      (base-rate-readers-changed! $kbid $pattern)))
 
 ;; --- Materialization --------------------------------------------------------
 
@@ -296,17 +265,3 @@
                 ()))
           ($answers (fold-semidet sk-cons-step () (fold-semidet sk-result-step () $values))))
       (prune_answer_instances $answers)))
-
-;; A root's producers are part of its scaffold and installed even when the
-;; budget expands nothing.
-(: sk-root-score-step (-[semidet]-> Atom SkPattern Atom))
-(= (sk-root-score-step $_acc $goal)
-   (let* (($hash (sk-node-hash $goal))
-          ($_root (add-atom &sk_roots ($hash $goal)))
-          ($_indexed (sk-index-node! $goal))
-          ($_member
-             (case (copy_term $goal) (
-                ((CPU $_fun $_args $_res) ())
-                (($type $kbctx $_proof $_tv)
-                   (let $_producers (install-producers! temp $type $kbctx) (install-class-link-rules! $type $kbctx)))))))
-      (sk-raise-score! $hash $goal 1.0)))

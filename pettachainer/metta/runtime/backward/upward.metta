@@ -38,30 +38,6 @@
                   (if (== $head $wildcard) (cons $head ()) (cons $head (cons $wildcard ()))))))))
       ($_fold ()))))
 
-;; --- Change -----------------------------------------------------------------
-
-;; A value read as a Beta distribution over its strength, from its n
-;; observations; no value is Beta(1, 1).
-(: sk-value-beta (-[det]-> SkeletonValue (Number Number)))
-(= (sk-value-beta $value)
-   (case $value (
-      ((sk-val ($_type $_kbctx $_proof $tv) $_ev $_deps)
-         (case $tv (
-            ((STV $s $c) (sk-beta-of $s $c))
-            ((CTV (STV $s $c) $_negative) (sk-beta-of $s $c))
-            ($_other (data 1.0 1.0)))))
-      ($_none (data 1.0 1.0)))))
-
-(: sk-beta-of (-[det]-> Number Number (Number Number)))
-(= (sk-beta-of $s $c)
-   (let $n (confidence-to-count $c) (data (+ (* $s $n) 1.0) (+ (* (- 1.0 $s) $n) 1.0))))
-
-;; How far a value moved: the KL divergence of its new Beta from its old one.
-(: sk-change (-[det]-> SkeletonValue SkeletonValue Number))
-(= (sk-change $new $old)
-   (let* ((($a1 $b1) (sk-value-beta $new)) (($a2 $b2) (sk-value-beta $old)))
-      (beta_kl $a1 $b1 $a2 $b2)))
-
 ;; A key whose value rests on less than the minimum evidence is not built on.
 ;; An implication's value is read by its positive branch, as its Beta is.
 (: sk-forward-weak? (-[semidet]-> SkeletonKey Bool))
