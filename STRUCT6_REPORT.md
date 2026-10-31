@@ -2,7 +2,11 @@
 
 Worktree: `/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.claude/worktrees/struct6`.
 Branch: `struct6`; base: **84496c3e**. Implementation/report checkpoint:
-**f64172b7**. This follow-up fixes interrupted-frame cleanup and qualifies
+**5393b9f4**; cleanup/probe correction **dc4d82d3**. The original labels were
+f64172b7 and 0fcba2f1. Message-only rewording joined the two required trailers
+into one Git footer; both trees, authors and original dates are unchanged.
+The benchmark labels retain the original immutable 0fcba2f1 identity.
+The correction fixes interrupted-frame cleanup and qualifies
 physical test-probe lookups; it is committed before final verification.
 Acceptance runs are still in progress; a report-only follow-up will record
 completed results.
@@ -68,7 +72,10 @@ Only allowance code changes in `eval_work.metta`; no ledger section is edited.
 
 Consequently, evaluation-budget writers currently fall **6 -> 2**, rather than
 the requested one. The remaining writer is explicitly visible in the audit;
-it is not hidden behind a compatibility wrapper. The other four requested
+it is not hidden behind a compatibility wrapper. The exact proposed one-line
+change is retained in `scratch/remaining_budget.patch`, checked with
+`git apply --check` but not applied. Its existing `>= 1` guard makes the
+executor's one-unit charge equivalent to the direct decrement. The other four requested
 settings each have one writer. This is an outstanding scope constraint, not
 an achieved target or an accepted exception.
 
@@ -119,9 +126,9 @@ size grow; no global cycle-size reduction is claimed.
 
 | Scope | Before | After | Delta |
 |---|---:|---:|---:|
-| Core | 327,377 | 329,635 | **+2,258** |
+| Core | 327,377 | 329,640 | **+2,263** |
 | Third party | 17,685 | 17,685 | 0 |
-| Total | 345,062 | 347,320 | **+2,258** |
+| Total | 345,062 | 347,325 | **+2,263** |
 
 The owner, explicit contracts, typed scope/snapshot/slice boundaries and finally
 support add code. This exceeds the rough sizing estimate; separation is the
@@ -184,23 +191,47 @@ was read to copy it, never modified. No push, merge or GitHub write is made.
   Report `/nexus/Dev/OpenCog/bench/results/compare/84496c3e_vs_84496c3e-dd01c84b9_full/report.md`;
   log `scratch/compare-full.log`. This is exploratory evidence for the earlier
   runtime tree, superseded by the new full comparison after the cleanup fix.
-- Master budget curves: the outdated queued run was stopped (exit 143)
-  before execution; the corrected tree will run `scratch/compare-curves-final.log`. The
-  runner makes `--full` and `--curves` mutually exclusive, so these are two
-  prescribed comparisons rather than an invalid combined command.
-- The first anchor canary is completing against the pre-fix tree
-  (`scratch/compare-canary.log`). The corrected tree will receive fresh paired
-  timing. Flagged full cases will receive the additional dev-server retime
-  required by the brief.
-- The initially queued final verification was stopped before starting (exit
-  143) when the Python suite exposed the cleanup error. Final
-  `capped --slots 16 env PETTA_JOBS=16 scripts/verify.sh` will run after this
-  corrective report checkpoint is committed (`scratch/verify-accepted.log`).
+- Corrected-tree curves: **eight workloads / 40 paired budget points**, all
+  measured errors exactly equal, no missing or unsupported points, **642 seconds
+  wall**. Ladders include scale m/l through 32 steps per query, ordinary and
+  soft SupplyNet, the ten-region workload, conflict and replay. Report:
+  `/nexus/Dev/OpenCog/bench/results/compare/84496c3e_vs_0fcba2f1_curves/curves.md`;
+  adjacent `curves.json`; log `scratch/compare-curves-final.log`. Local timings
+  span changing machine loads and are not claimed as speedups.
+- Corrected-tree anchor canary: **PASS**, six cases, all **12 accuracy records
+  exit 0**, no unsupported marker, **12 fresh paired dev-server timing records
+  at load 1**, **316 seconds wall**. Four cases differ from the historical
+  anchor; the nine historical anchor deficits are also present on master.
+  The embedded comparison against actual base 84496c3e has no answer movement.
+  Report `/nexus/Dev/OpenCog/bench/results/compare/anchor-b4065459_vs_0fcba2f1_canary-retime-20261031T013334/report.md`;
+  adjacent `compare.json`; log `scratch/compare-canary-final.log`.
+- Corrected-tree final verification: **PASS, all six gates**, **291 seconds
+  wall**, verification key **5750b590669e**. Strict MeTTa: **162 files**, zero
+  failures. Python: **1,033 tests / 71 files / 598 units**, the existing
+  **24 expected failures and one skip**, **4,548 query metric rows and zero
+  aborts**. Import scaling: **0.998** late/early median ratio, chunks
+  **2.694, 2.649, 2.660, 2.672 seconds**. Judgment scaling: three query rows,
+  zero aborts. ConceptNet: exactly two query results. Log:
+  `scratch/verify-accepted.log`. The earlier queued verification was stopped
+  before starting when the first Python suite found the frame-clear defect.
+- Corrected-tree full profile: **still queued** behind a landing-priority
+  full comparison (`scratch/compare-full-accepted.log`). The first concurrent
+  full launch failed in benchmark freeze-directory creation before running a
+  case (`scratch/compare-full-final.log`); curves created the same immutable
+  candidate successfully, and the queued retry uses that existing build.
+  Required full-case timing retimes will follow any flags.
+
+The accepted corrected runtime tree is **c2e1668e2f12** (code commit
+**dc4d82d3**, benchmark identity **0fcba2f1**); base runtime tree **2d5bbdf13cd0**; PeTTa runtime
+**eec735bf4d1d3e31**. Earlier quick/full exploration used runtime tree
+**9d482010d97c** before the quoted-wildcard fix. No source or test changes
+follow the corrected implementation checkpoint.
 
 ## Limits and hand-back status
 
 This checkpoint is not final acceptance. The reserved evaluation-budget writer
-is outstanding, and full/Python/curves/canary/final verification must finish.
+is outstanding, and the corrected-tree full comparison must finish. All
+other corrected-tree gates are complete and passing.
 The numerical approximations, conditioning policies, search/evaluation order,
 per-world allowances, public proof presentation and retained-cache behavior
 remain. No native controller implementation or dead helper is retained for
