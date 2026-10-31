@@ -6,6 +6,7 @@
 :- use_module(library(yall)).
 :- ensure_loaded(term_index).
 :- ensure_loaded(context_overlay).
+:- ensure_loaded(pending_store).
 :- ensure_loaded(space_store).
 :- ensure_loaded(functional_store).
 :- ensure_loaded(proof_terms).

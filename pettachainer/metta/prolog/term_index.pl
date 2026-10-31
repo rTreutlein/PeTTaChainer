@@ -97,3 +97,11 @@ statement_index_hashes(PrefixFunction, Statement, Hashes) :-
     ->  throw(error(domain_error(predicate_head, Head),
                     context(declaration/2, 'Member and Inheritance are no predicates: declare each class as a head')))
     ;   true ).
+
+sk_search_key([Type, Context|Rest], Hash, [Type, Context]) :-
+    % Query adapters read a statement and reconstruct its proof; they are
+    % exempt from the known-row rule in sk-complete-row! too.
+    ( Rest = [Proof|_], nonvar(Proof), Proof = [Head|_], var(Head) -> fail ; true ),
+    nonvar(Context), Context = [_, _, _], ground(Type-Context),
+    term_hash([Type, Context], Hash).
+

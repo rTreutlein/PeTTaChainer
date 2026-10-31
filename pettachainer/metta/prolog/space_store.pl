@@ -61,3 +61,14 @@ sk_wait_ref(H, N, Waiter, Ref) :-
     clause(sk_wait_payload(H, Stored, TemplateId, B), true, Ref),
     attribute_free_variant(Stored-B, N-Bindings), !.
 
+
+% The node hash is already available at expansion/context cleanup. Only its
+% few compact subscriptions need alpha comparison; no digest is computed.
+sk_unwatch_fact(H, N) :-
+    forall(clause('&sk_fact_watch'(H, _, Stored), true, Ref),
+           ( attribute_free_variant(Stored, N) -> erase(Ref) ; true )).
+
+% The typed native boundary exposes records whose schema is supplied here,
+% rather than by a MeTTa add-atom specialization.
+'sk-fact-watches'(H, Nodes) :- findall(N, '&sk_fact_watch'(H, _, N), Nodes).
+
