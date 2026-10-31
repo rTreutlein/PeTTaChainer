@@ -142,12 +142,6 @@
 ;; The declaration describes biased samples, never an explicit user estimate.
 ;; Read the setting at evaluation so setting or clearing a rate also updates
 ;; rows compiled before it. Keep the fold as a premise to track those changes.
-(: user-base-rate? (-[det]-> KB Statement Bool))
-(= (user-base-rate? $kb $pattern)
-   (let $hash (index-hash (quote ($kb $pattern)))
-      (not (== (collapse (once (match &ctx_base_rate_cache
-         ($hash (base-rate $kb $stored $_tv user any))
-         (if (=alpha $stored $pattern) true (empty))))) ()))))
 (: explicit-antecedent-rate-tv (-[det]-> KB Statement TV TV))
 (= (explicit-antecedent-rate-tv $kb $pattern $rate)
    (if (user-base-rate? $kb $pattern) $rate no-evidence))

@@ -9,7 +9,7 @@
 :- ensure_loaded(space_store).
 :- ensure_loaded(functional_store).
 :- ensure_loaded(proof_terms).
-:- ensure_loaded(search_state).
+:- ensure_loaded('application_support/search_state').
 :- ensure_loaded(ingestion).
 :- ensure_loaded(sorts).
 :- use_module(event_node).

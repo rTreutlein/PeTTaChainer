@@ -1,3 +1,83 @@
+(: sk-new-support? (-[semidet]-> Number Number SkeletonValue Bool))
+(= (sk-new-support? $hash $rhash $new)
+   (if (deps-within? (sk-view-deps-step 0 $new) (sk-row-support $hash $rhash)) false true))
+
+;; Confidence can weaken when a filtered premise loses a view even though
+;; it adds no logical dependency. Retain that correction just as new support;
+;; its strength, evidence and dependency support must be identical.
+(: sk-weaker-view? (-[det]-> SkeletonValue SkeletonValue Bool))
+(= (sk-weaker-view? $new $old)
+   (case (data $new $old) (
+      (((sk-val ($type $scope $proof (STV $s $c)) $ev $deps)
+        (sk-val ($old-type $old-scope $old-proof (STV $old-s $old-c)) $old-ev $old-deps))
+         (if (< $c $old-c)
+            (let* (($sources (proof-unsettled-sources $proof))
+                   ($old-sources (proof-unsettled-sources $old-proof)))
+               (if (hash-subset? $sources $old-sources) false
+                  (=alpha (data $type $scope $s $ev $deps) (data $old-type $old-scope $old-s $old-ev $old-deps)))) false))
+      ($_other false))))
+
+;; A fold's provenance counts as a change: a complete fold may replace a cached
+;; estimate of the same truth value.
+(: sk-view-step-proof (-[det]-> SkeletonValue Proof))
+(= (sk-view-step-proof $view)
+   (case $view (
+      ((sk-goal-val $_goal $proof $_ev $_deps) (sk-step-proof $proof))
+      ((sk-val ($_type $_scope $proof $_tv) $_ev $_deps) (sk-step-proof $proof))
+      (sk-none (brand Proof none)))))
+
+;; Commit evaluation results without scheduling readers or reading recursively.
+;; Preserve outside causes. A merge refresh carries the old cache snapshot so
+;; the scheduler can distinguish a value change from provenance-only refresh.
+(: sk-commit-result! (-[semidet]-> Number SkeletonKey Number Number (List Number) SkeletonValue SkeletonCommit))
+(= (sk-commit-result! $hash $key $seq $rhash $causes $new)
+   (let $forced (not (== $causes ()))
+      (case $new (
+         ;; A row forced by an outside change that no longer derives anything
+         ;; (a premise fact was removed) drops its views, and its key changed;
+         ;; one waiting for conditioning keeps them.
+         ;; A row that derived nothing records empty support: it was computed,
+         ;; so a fold over its key does not wait for it (sk-member-pending?).
+         (sk-none
+            (if (if $forced
+                   (if (== (sk-latest-view $hash $key $rhash) sk-none) false
+                      (not (space-row-present? &ctx_sk_given_pending ($hash $rhash $_waits))))
+                   false)
+               (let* (($_views (sk-drop-row-views! $hash $key $rhash))
+                      ($_merged (sk-drop-merged! $key))
+                      ($_derived-nothing (context-add! &sk_support ($hash $rhash 0))))
+                  (sk-committed (sk-outside-change $causes 0)))
+               ;; A closed reader of a complete key evaluates its rows again,
+               ;; so a new row that derives nothing, or a forced one, still
+               ;; changes the key for it.
+               (let* (($first (not (space-row-present? &ctx_sk_support ($hash $rhash $_had))))
+                      ($_nothing (if $first (context-add! &sk_support ($hash $rhash 0)) true)))
+                  (if (if (if $first true $forced)
+                         (case $key (((sk-key $type $kbctx) (complete-statement? $type $kbctx)) ($_fold false)))
+                         false)
+                     (sk-committed (if $forced (sk-outside-change $causes 0) (sk-view-change 0 ())))
+                     sk-uncommitted))))
+         ($_view
+            (let $latest (sk-latest-view $hash $key $rhash)
+            (if (if (sk-same-view? $new $latest)
+                   (if $forced (== (sk-view-step-proof $new) (sk-view-step-proof $latest)) true)
+                   (if $forced false
+                      (if (== $latest sk-none) false
+                         (if (if (sk-new-support? $hash $rhash $new) true (sk-weaker-view? $new $latest)) false
+                            (let $_unsupported (query_metric_increment views-without-support) true)))))
+               sk-uncommitted
+               (let* (($before
+                         (collapse (once (match &ctx_sk_merged ($hash $stored $deps $value $cached-root)
+                            (if (=alpha $stored $key) (if (sk-live-view? $value) (sk-merged $hash $stored $deps $value) (empty)) (empty))))))
+                      ($_stored (sk-store-view! $hash $key $seq $rhash $new))
+                      ($_stored-count (query_metric_increment views-stored))
+                      ($_merged (sk-drop-merged! $key))
+                      ($deps (sk-view-deps-step 0 $new)))
+                  (if (if $forced (not (sk-same-view? $new $latest)) false)
+                     (sk-committed (sk-outside-change $causes $deps))
+                     (sk-merge-refresh $deps $causes $before))))))))))
+
+
 ;; Version selection, fold tallies and recursive merged-value reads.
 ;; Depends on eval_values; recursive reads live in eval_core.
 

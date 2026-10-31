@@ -168,26 +168,6 @@ sk_search_owned(H, Key, Space, Ref) :-
 % the contextualized join share it; it never binds the join being encoded.
 % Templates are shared, immutable, and leave with their last subscription.
 :- use_module(library(terms), [term_subsumer/3]).
-:- dynamic sk_wait_payload/4, sk_wait_template/5, sk_wait_key/2.
-% The read-only relation exposes the existing transient delivery shape. The
-% only owned clauses are compact payloads, indexed by the awaited node hash.
-% sk_wait_key(Hash, Ref) finds one payload by the variant hash of its node,
-% template and bindings: a node can hold many payloads of one template.
-'&sk_wait'(H, N, Waiter) :-
-    sk_wait_payload(H, N, TemplateId, Bindings),
-    sk_wait_template(_, _, TemplateId, Waiter, Bindings).
-
-% Select by continuation, then by the variant hash of node and bindings
-% (variant_hash ignores attributes, as attribute_free_variant does); the alpha
-% comparison rejects hash collisions.
-sk_wait_ref(H, N, Waiter, Ref) :-
-    Waiter = ['sk-partial',_,Id,_,Done,_,_], length(Done, Pos),
-    sk_wait_template(Id, Pos, TemplateId, Template, Bindings),
-    subsumes_term(Template, Waiter), Template = Waiter,
-    variant_hash([N, TemplateId|Bindings], WaitHash), sk_wait_key(WaitHash, Ref),
-    clause(sk_wait_payload(H, Stored, TemplateId, B), true, Ref),
-    attribute_free_variant(Stored-B, N-Bindings), !.
-
 sk_retire_wait_ref(Ref) :-
     setup_call_cleanup(nb_setval(sk_retiring, true), erase(Ref), nb_delete(sk_retiring)).
 

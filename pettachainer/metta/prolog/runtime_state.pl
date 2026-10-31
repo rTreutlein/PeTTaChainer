@@ -18,25 +18,6 @@
         -> 'context-add!'('&sk_forced',[Key,Row,Cause],true)
         ; true )).
 
-% Erase the one stored row that is a variant of Row. A removal by unification
-% could also take a different row with the same coarse hash; a variant cannot.
-'remove-variant-row!'(Space, Row, true) :-
-    context_store(Space,_,_), context_active(C), !,
-    ( Row=[Hash|_], ground(Hash) -> Lookup=Hash ; true ),
-    forall((clause(context_entry(Lookup,C,Space,Stored,_),true,Ref), Stored =@= Row), erase(Ref)),
-    ( ground(Lookup) -> Index=Lookup ; Index=all ),
-    assertz(context_hidden(Index,C,Space,Row,variant)).
-'remove-variant-row!'('&sk_wait', [H, N, W], true) :- !,
-    ( sk_wait_ref(H, N, W, Ref) -> erase(Ref) ; true ).
-% Find candidates through the caller's bound indexes, but inspect the
-% original stored head before erasing: lookup unification can instantiate
-% an open stored row and must not turn it into a false variant match.
-'remove-variant-row!'(Space, Row, true) :-
-    Head =.. [Space|Row],
-    copy_term_nat(Head,Lookup),
-    ( clause(Lookup,true,Ref), clause(Stored,true,Ref), Stored =@= Head
-    -> erase(Ref) ; true ).
-
 % PeTTa arrows have one result position. Package SWI's three relational
 % get_from_heap/4 outputs into one positional product.
 heap_pop(Heap, [Priority, Value, Rest]) :-
@@ -1339,3 +1320,15 @@ ev_complete_entry(Id) :-
     ev_entry(Id, _, ['fact-ev', [Kb, 'MAIN', _], _, Type]), ground(Type),
     ( Type = [Head|_] -> true ; Head = Type ),
     catch('&complete_predicates'(Kb, Head), error(existence_error(procedure, _), _), fail).
+
+% What applying a refined rule can add, from its truth: its confidence, and
+% for a CTV how far the consequent's probability moves with the antecedent
+% (docs/metta/hypothesis_rules.md). An STV does not say, so it counts fully.
+% Never 0: a rule that adds nothing is still reached with budget to spare.
+'rule-truth-factor'(Tv, Factor) :-
+    (   Tv = ['CTV', ['STV', S1, C1], ['STV', S0, _]], number(S1), number(C1), number(S0)
+    ->  Raw is C1 * abs(S1 - S0)
+    ;   Tv = ['STV', _, C], number(C) -> Raw = C
+    ;   Raw = 1.0 ),
+    Factor is max(Raw, 0.01).
+

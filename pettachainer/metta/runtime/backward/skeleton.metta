@@ -732,7 +732,7 @@
 
 ;; --- Expansion --------------------------------------------------------------
 
-;; runtime/store/applications supplies the application plans used here,
+;; runtime/application_discovery/plans supplies the application plans used here,
 ;; by forward triggers and by late-rule activation.
 
 ;; A rule applies to a node when its conclusion fits the whole node pattern;

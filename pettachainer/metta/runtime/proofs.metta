@@ -61,11 +61,6 @@
 (: proof-term-negated? (-[det]-> Proof Bool))
 (= (proof-term-negated? $prf) (if (is-expr $prf) (== (car-atom $prf) negated) false))
 
-;; A context assumption, or a statement a conditioned read takes as known.
-(: assumption-proof? (-[det]-> Proof Bool))
-(= (assumption-proof? $prf)
-   (if (is-expr $prf) (let $head (car-atom $prf) (if (== $head ctx) true (== $head given))) false))
-
 ;; A typing boundary: a direct brand conflicts with the Evidence uses below.
 (: proof-from-atom (-[det]-> Expression Proof))
 (= (proof-from-atom $proof) (brand Proof $proof))
@@ -141,14 +136,6 @@
                         (evidence-set (cons (brand Evidence $prf) ()))
                         (proof-term-evidence-children $mode $children)))))))))))
 
-;; A certain fact, strength 0 or 1 at confidence 1, joins the same whether its
-;; evidence is shared or not: P(K and X) is P(X) or 0 either way. Evidence read
-;; off a proof term names the fact by its proof alone, negated under a Not.
-(: certain-tvs? (-[det]-> (List TV) Bool))
-(= (certain-tvs? $tvs)
-   (case $tvs (
-      ((cons (STV $s $c) $_rest) (if (>= $c 1.0) (if (>= $s 1.0) true (<= $s 0.0)) false))
-      ($_other false))))
 (: stored-proof-tvs (-[det]-> Atom (List TV)))
 (= (stored-proof-tvs $name) (collapse (once (match &kb ($type $kbctx $name $tv) $tv))))
 (: certain-fact-evidence? (-[det]-> Evidence Bool))

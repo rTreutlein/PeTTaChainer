@@ -88,17 +88,6 @@ argument_shape(Arg, Shape) :-
 'scope-context'(Scope, Ctx) :-
     (   nonvar(Scope), Scope = [_, C|_], nonvar(C) -> Ctx = C ; Ctx = 'MAIN' ).
 
-% What applying a refined rule can add, from its truth: its confidence, and
-% for a CTV how far the consequent's probability moves with the antecedent
-% (docs/metta/hypothesis_rules.md). An STV does not say, so it counts fully.
-% Never 0: a rule that adds nothing is still reached with budget to spare.
-'rule-truth-factor'(Tv, Factor) :-
-    (   Tv = ['CTV', ['STV', S1, C1], ['STV', S0, _]], number(S1), number(C1), number(S0)
-    ->  Raw is C1 * abs(S1 - S0)
-    ;   Tv = ['STV', _, C], number(C) -> Raw = C
-    ;   Raw = 1.0 ),
-    Factor is max(Raw, 0.01).
-
 % A rule is dormant when one of its statement premises can be proved, apart
 % from a stored fact, only through the rule's own conclusion with the same
 % arguments: self-support exclusion would drop whatever it derives

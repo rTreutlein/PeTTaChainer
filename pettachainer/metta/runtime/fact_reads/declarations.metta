@@ -7,9 +7,6 @@
          (let $_row (add-atom &positive_only_predicates ($kb $head)) true)
          true)))
 
-(: complete-predicate? (-[det]-> KB Atom Bool))
-(= (complete-predicate? $kb $head)
-   (not (== (collapse (once (match &complete_predicates ($kb $head) true))) ())))
 (: set-complete-predicate (-[det]-> KB Atom Bool))
 (= (set-complete-predicate $kb $head)
    (let $_declared (declared-head! $head)
@@ -22,16 +19,6 @@
 (= (unknown-branch-centre $kb $b)
    (let $head (if (is-expr $b) (car-atom $b) $b)
       (if (complete-predicate? $kb $head) 0.0 0.5)))
-
-(: positive-only-pattern? (-[det]-> KB Statement Bool))
-(= (positive-only-pattern? $kb $pattern)
-   (fold-flat (positive-only-conjunct? $kb) false (implication-side-conjuncts $pattern)))
-(: positive-only-conjunct? (-[det]-> KB Bool Atom Bool))
-(= (positive-only-conjunct? $kb $seen $conjunct)
-   (if $seen true
-      (let* ((($statement $_odd) (canon (brand Statement $conjunct)))
-             ($head (if (is-expr $statement) (car-atom $statement) $statement)))
-         (not (== (collapse (once (match &positive_only_predicates ($kb $head) true))) ())))))
 
 ;; An implication is also estimated from its instances: one sample per
 ;; antecedent binding whose consequent is provable, both sides resolved through

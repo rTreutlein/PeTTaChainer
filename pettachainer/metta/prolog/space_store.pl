@@ -21,3 +21,43 @@
 % A counter's value (change-state!), 0 before it is set.
 'search-id-value'(Key, Value) :- ( nb_current(Key, Stored) -> Value = Stored ; Value = 0 ).
 
+% Erase the one stored row that is a variant of Row. A removal by unification
+% could also take a different row with the same coarse hash; a variant cannot.
+'remove-variant-row!'(Space, Row, true) :-
+    context_store(Space,_,_), context_active(C), !,
+    ( Row=[Hash|_], ground(Hash) -> Lookup=Hash ; true ),
+    forall((clause(context_entry(Lookup,C,Space,Stored,_),true,Ref), Stored =@= Row), erase(Ref)),
+    ( ground(Lookup) -> Index=Lookup ; Index=all ),
+    assertz(context_hidden(Index,C,Space,Row,variant)).
+'remove-variant-row!'('&sk_wait', [H, N, W], true) :- !,
+    ( sk_wait_ref(H, N, W, Ref) -> erase(Ref) ; true ).
+% Find candidates through the caller's bound indexes, but inspect the
+% original stored head before erasing: lookup unification can instantiate
+% an open stored row and must not turn it into a false variant match.
+'remove-variant-row!'(Space, Row, true) :-
+    Head =.. [Space|Row],
+    copy_term_nat(Head,Lookup),
+    ( clause(Lookup,true,Ref), clause(Stored,true,Ref), Stored =@= Head
+    -> erase(Ref) ; true ).
+
+
+:- dynamic sk_wait_payload/4, sk_wait_template/5, sk_wait_key/2.
+% The read-only relation exposes the existing transient delivery shape. The
+% only owned clauses are compact payloads, indexed by the awaited node hash.
+% sk_wait_key(Hash, Ref) finds one payload by the variant hash of its node,
+% template and bindings: a node can hold many payloads of one template.
+'&sk_wait'(H, N, Waiter) :-
+    sk_wait_payload(H, N, TemplateId, Bindings),
+    sk_wait_template(_, _, TemplateId, Waiter, Bindings).
+
+% Select by continuation, then by the variant hash of node and bindings
+% (variant_hash ignores attributes, as attribute_free_variant does); the alpha
+% comparison rejects hash collisions.
+sk_wait_ref(H, N, Waiter, Ref) :-
+    Waiter = ['sk-partial',_,Id,_,Done,_,_], length(Done, Pos),
+    sk_wait_template(Id, Pos, TemplateId, Template, Bindings),
+    subsumes_term(Template, Waiter), Template = Waiter,
+    variant_hash([N, TemplateId|Bindings], WaitHash), sk_wait_key(WaitHash, Ref),
+    clause(sk_wait_payload(H, Stored, TemplateId, B), true, Ref),
+    attribute_free_variant(Stored-B, N-Bindings), !.
+

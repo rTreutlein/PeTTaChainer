@@ -1,5 +1,5 @@
 ;; Input selection, proof/TV filtering and MAIN borrowing live in
-;; runtime/store/fact_reads. Construction consumes those indexed facts.
+;; runtime/fact_reads/selection. Construction consumes those indexed facts.
 
 (: sk-fact-key (-[det]-> SkFact SkeletonKey))
 (= (sk-fact-key ($type $kbctx $_proof $_tv)) (sk-key $type $kbctx))
