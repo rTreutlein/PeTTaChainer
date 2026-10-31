@@ -1,8 +1,54 @@
-# First-order confidence measurement
+# Confidence replacement measurements
 
 The confvar round stops before replacement. The production runtime and its
 contract remain unchanged. `CONFVAR_REPORT.md` at the worktree root records the
 decision and acceptance gates.
+
+The statement above describes round 1. Round 2 measures a different candidate
+in `round2.py`, preserving the round-1 inputs and references. It runs the same
+command as `measure.py` with `round2.py` and output `round2-measurements.jsonl`;
+then run `round2_summary.py`. No integration runs in the round-2 measurement.
+
+### Round 2 formula and proof
+
+All moments in the implementation are under the independent **prior**. Let
+`e = E[Z]`, `s = E[N]/e`, `D = N-sZ`, `Q = E[D^2] = Var(D)`,
+`T = Var(Z)`, and `b = max(s,1-s)`. Since `0 <= N <= Z`,
+`|D/Z| <= b` wherever Z is positive. Zero-Z points contribute zero. Then
+
+    e^2 Var_post(N/Z) = e E[D^2/Z]
+                      = Q - E[(Z-e) D (D/Z)]
+                     <= Q + b sqrt(T Q).
+
+The last step is Cauchy-Schwarz. Therefore the candidate is
+
+    min(s(1-s), (Q + b sqrt(T Q))/e^2).
+
+There is no posterior-independence assumption, derivative approximation,
+integration order or empirical multiplier. If Z is constant, T=0 and this is
+the exact polynomial variance, including XOR and arbitrary products. Expanding
+literal terms into ordinary multilinear monomials combines cancellations in Z
+before second moments. The pair-monomial covariance uses the exact independent
+Beta/Bernoulli first two moments and a product-difference recurrence, avoiding
+subtraction of near-one raw second moments. Points are folded algebraically.
+
+The candidate is conservative on all 1,713 measured goals, using the round-1
+1e-9 relative variance comparison. Seven old numerical references below 1e-28
+are explicitly separated in the summary (five give a raw zero/nonzero
+comparison); all seven are at the squared-roundoff scale. No confidence after
+conversion exceeds its reference, including these seven. Unresolved numerical
+references keep their original refinement labels: the proof, rather than
+numerical agreement, establishes the mathematical bound. Exact polynomial
+rows agree to floating-point accuracy (worst relative deviation about 3.2e-12).
+
+The bound can be loose: the uniform OR endpoint at fixed sibling 1e-9 gives
+17.8 million times the exact variance; the worst captured endpoint gives
+44.3 million. Median factors are 1.577 (D0), 2.561 (authored fixtures), and
+1.837 (units). Only 3/64 fixture and 51/1,386 unit goals saturate to confidence
+zero; no D0 or analytic goal does. The nine captured benchmark goals still
+have point parameters and zero variance. Round 2 therefore admits replacement
+with an explicitly conservative bound rather than claiming exact rational
+posterior variance for varying Z.
 
 `measurements.jsonl` contains 1,713 goal measurements: 240 D0 goals (including
 the P13/P14 wide diagnostics), 64 authored posterior fixture models, 14 analytic
