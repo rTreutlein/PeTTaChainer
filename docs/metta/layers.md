@@ -1,16 +1,13 @@
 # Runtime layers
 
-The fixed 19-group partition in `scripts/coupling.py` measures these boundaries.
-Rows follow the intended upper-to-lower call order. Bootstrap/ABI composes the
-layers and supplies declarations; it is not an inference layer. Ownership and
-specialization order are described in [module_dependencies.md](module_dependencies.md).
-Public signatures in [API.md](API.md) remain binding.
+Rows follow the intended upper-to-lower call order in the unchanged 19-group
+`scripts/coupling.py` partition. Bootstrap/ABI composes the layers.
+[API.md](API.md) defines public signatures;
+[module_dependencies.md](module_dependencies.md) describes ownership.
 
-Each row lists every uniquely owned name referenced outside its group at the
-struct10 code checkpoint. Names used only within their owner are internal.
-The inventory includes instruction symbols, callbacks, native predicate names
-and diagnostic labels, so it is broader than a callable API. Reproduce it with
-`python3 scripts/coupling.py --json`; the group map is unchanged.
+Every uniquely owned name used outside its group is listed; other definitions
+are internal. This lexical inventory includes instruction symbols and diagnostic
+labels. Reproduce it with `python3 scripts/coupling.py --json`.
 
 | Layer | Entry points |
 | --- | --- |
@@ -33,13 +30,6 @@ and diagnostic labels, so it is broader than a callable API. Reproduce it with
 | Native stores (26) | `beta_kl`, `context_active`, `ev_union`, `functional_key`, `heap_pop`, `holds_work`, `particle_merge_resample`, `proof_dag_expand`, `proof_ref_id`, `proof_template_erase`, `prune_answer_instances`, `pw_find`, `pw_known`, `pw_pending_rep`, `pw_unlink`, `query_metric_increment`, `query_metric_set`, `query_metric_value`, `query_metrics_enabled`, `query_metrics_set_enabled`, `refs_gc_touch_set`, `sk_search_key`, `sk_unwatch_fact`, `sk_wait_ref`, `statement_index_hashes`, `stored_proof` |
 | Core types (28) | `any-flat?`, `append-flat`, `bidirectional-implication-form?`, `canon`, `compound-connective?`, `compound-source?`, `conjunct-leaves`, `contextual-cpu?`, `extract-vars`, `fold-semidet`, `foreach-flat`, `head-is-member?`, `head-is?`, `implication-side-conjuncts`, `implication-type?`, `kbctx`, `logic-rule?`, `make-kb-context`, `map-semidet`, `reverse-onto`, `seq2expr`, `sk-cons-step`, `sk-node-hash`, `source-computation-head?`, `space-row-present?`, `statement-children`, `stored-list-member?`, `vars-covered?` |
 | Bootstrap/ABI (0) | Composition and ABI declarations only. |
-
-Fact selection/publication, statistical contribution transactions, and indexed
-search state are separate interfaces. Pure key/TV adapters belong to Runtime
-terms; compiled fold classifiers belong to Compiler plans. Compiler-only
-admission and proof-search-only selectors stay with their callers. The two
-compound-mode readers retain their named compiler boundary because direct
-inlining changed compiled behavior.
 
 The remaining reciprocal pairs are Evaluator/Posterior and Native stores/Posterior.
 Native stores still names `compileadd` and `query` in error contexts, without

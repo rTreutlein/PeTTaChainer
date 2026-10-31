@@ -1,18 +1,9 @@
 # Runtime ownership and internal interfaces
 
-The public API is [API.md](API.md). The internal entry points below are the
-names currently consumed outside their subsystem. Other internal definitions
-belong to that owner; this inventory does not narrow the public API.
-`scripts/coupling.py --json` reproduces this inventory.
-It counts lexical references, including emitted instruction names, ABI tables
-and error context labels; it does not claim to resolve dynamic calls.
-
-The intended dependency direction is API → invocation controller → search →
-evaluator → statistics and knowledge storage → shared terms and physical
-stores. The compiler translates source into plans beside that hierarchy.
-`bootstrap.metta` is the composition root and the authoritative specialization
-order, rather than a runtime dependency layer. A declaration required before
-its implementation belongs to that ABI, rather than to a search journal.
+[API.md](API.md) defines public signatures; [layers.md](layers.md) inventories
+internal entry points in layer order. `bootstrap.metta` is the composition root
+and authoritative specialization order. Declarations needed before their
+implementations belong to its ABI.
 
 ## Ownership
 
