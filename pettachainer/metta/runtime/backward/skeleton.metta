@@ -1129,10 +1129,7 @@
    (let $hash (sk-node-hash $node)
       (not (== (collapse (once (match &sk_roots ($hash $root) (if (=alpha $root $node) true (empty))))) ()))))
 
-(: sk-take! (-[det]-> CounterKey Number Bool))
-(= (sk-take! $counter $cost)
-   (let $left (search-id-value $counter)
-      (if (<= $left 0) false (progn (change-state! $counter (- $left $cost)) true))))
+
 
 ;; Work left over by an earlier query waits with its node and resumes when a
 ;; later walk reaches that node, so it never spends an unrelated query's

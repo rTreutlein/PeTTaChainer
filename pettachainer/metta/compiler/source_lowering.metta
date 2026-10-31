@@ -15,7 +15,7 @@
    (Alias (Goal TV Proof)))
 (: CompiledPremises
    (Alias ((List Goal) (List Proof) TV)))
-(datatype CompilationPlan (compilation-plan Goal (List CompiledAddition)))
+(datatype CompilationPlan (compilation-plan (| Goal QueryScope) (List CompiledAddition)))
 
 ;; Completion positions count statement reads and contextual instructions,
 ;; which survive construction's ground CPU removal. Rule registration consumes

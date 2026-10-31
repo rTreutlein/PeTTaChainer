@@ -127,13 +127,8 @@
 ;; an Assuming world keeps only its own requests until that world ends.
 (datatype SkeletonBranchRequest (sk-wanted Number Number SkeletonKey Number (List Number)))
 
-!(change-state! sk_branch_budget 0)
-!(change-state! sk_root_claim_budget 0)
-!(change-state! sk_root_claim_cap 0)
 !(change-state! sk_branch_unpaid 0)
-!(change-state! sk_representative_budget 0)
 
-!(change-state! sk_branch_at 0)
 
 ;; a key's merged value for an open pattern and no exclusion, with the
 ;; dependencies of the versions it merged

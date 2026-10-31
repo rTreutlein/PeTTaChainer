@@ -69,15 +69,24 @@
    (source-catalog-clear-temp! Bool)
    (source-catalog-changed! KB Bool)
    (source-catalog-priors Statement KBContext Atom)
+   (terms-unifiable? Atom Atom Bool)
+   (context-current Atom)
+   (context-prepare! KBContext Statement Proof TV Bool)
+   (context-seeds Atom (List SkFact))
+   (context-rule-rows Atom (List (Atom Number SkFact (List SkPattern))))
+   (context-answer-keys SkPattern (List SkeletonKey))
+   (context-key-local? Atom Number SkeletonKey Bool)
+   (context-reuse-threshold Number)
+   (context-propagated SkeletonKey ContextSnapshot)
+   (context-store-propagated! SkeletonKey SkeletonValue (List (Number SkeletonValue)) Bool)
+   (context-views SkeletonKey (List (Number SkeletonValue)))
+   (context-view-changes (List (Number SkeletonValue)) (List (Number SkeletonValue)) (List (SkeletonValue SkeletonValue)))
    (context-add! Atom $row Bool)
    (context-remove! Atom $row Bool)
    (set-context-reuse-threshold Number Bool)
    (context-searching? Atom Bool)
    (context-rule-visible? Number Bool)
    (context-rule-enabled? Atom Bool)
-   (context-search-goal SkPattern SkPattern)
-   (context-start! Bool)
-   (context-answer-seeds! SkPattern Bool)
    (context-seeded? Statement KBContext Bool)
    (context-addition RuntimeAddition RuntimeAddition)
    (context-note-rule! Number SkFact Bool)
@@ -301,9 +310,6 @@
    (jeffrey-posterior Number Number Number TV Expression STVType)
    (pearl-moments Number Atom Atom Expression STVType)
    (event-node-joint Atom Expression Number Expression Expression Expression Expression Expression)
-   (context-cold-merged Number SkeletonKey SkeletonFilter SkeletonMerged)
-   (context-finish! Number Number (List SkPattern) (List (List RuntimeResult)) (List (List RuntimeResult)))
-   (context-propagate? SkeletonKey Bool)
    (heap_pop (Heap $item) (Number $item (Heap $item)))
    ;; Keep selection as an output across the FFI: nth0/4 types its third
    ;; position as an input under strict checking.
@@ -314,3 +320,34 @@
    (sk-active-reader (Number SkeletonKey Number))
    (evidence-proof-fact EvidenceSet Proof Evidence)
 ))
+
+;; Higher-order brackets keep native storage independent of runtime policy.
+!(declare-natives! -[semidet]-> (
+   (execution-finally (-[nondet]-> Atom $result) (-[nondet]-> Atom Atom) $result)
+   (context-with-scope Atom (-[semidet]-> Atom $result) $result)))
+
+;; Executor contracts for the mutually recursive evaluator. Implementations
+;; are MeTTa in runtime/execution, loaded after the computation modules.
+!(execution-declare! -[det]-> (
+   (sk-take! CounterKey Number Bool)
+   (sk-reserve-near! Number Atom)
+   (sk-evaluation-per-step Number)
+   (sk-root-claim-share Number)
+   (sk-root-claim-limit Number)
+   (sk-branch-share Number)
+   (sk-walk-per-step Number)
+   (execution-open-slice! Number EvaluationSlice)
+   (execution-close-slice! EvaluationSlice EvaluationTier Number)
+   (execution-open-frame! (List Number) (Number Number))
+   (retain-query-proof! (Number AnnotatedStatement) Bool)))
+!(execution-declare! -[semidet]-> (
+   (execution-close-frame! Number Number (List Number) (List Number))
+   (context-cold-merged Number SkeletonKey SkeletonFilter SkeletonMerged)
+   (context-answer-seeds! SkPattern Atom)
+   (context-propagate? SkeletonKey Bool)
+   (query-plan-runtime-goal (Number Statement AnnotatedStatement CompiledQueryGoal) ExecutionGoal)
+))
+!(execution-declare! -[nondet]-> (
+   (present-query-plan-results Bool (List (Number Statement AnnotatedStatement CompiledQueryGoal)) (List (List RuntimeResult)) (List (Number AnnotatedStatement)))
+   (execute-backward Number (List ExecutionGoal) Bool (List (List RuntimeResult)))
+   (run-query-execution-plan Number QueryExecutionPlan Bool Bool (List (Number AnnotatedStatement)))))

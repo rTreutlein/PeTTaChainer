@@ -42,7 +42,7 @@
       (if (== $runtime-helper $parent-runtime-helper)
          $runtime-helper
          (superpose ($runtime-helper $parent-runtime-helper)))
-      (declare-natives!)))
+      (quote (declare-natives! execution-declare!))))
 
 !(import! &self core/natives)
 !(declare-stores!)
@@ -81,6 +81,7 @@
 !(import! &self runtime/backward/evaluation)
 !(import! &self runtime/backward/upward)
 !(import! &self runtime/backward/forgetting)
+!(import! &self runtime/execution)
 !(import! &self runtime/query)
 !(import! &self runtime/hypothesis_review)
 !(import! &self runtime/backward/diagnostics)

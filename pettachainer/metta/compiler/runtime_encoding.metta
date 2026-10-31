@@ -2,7 +2,7 @@
 ;; is `(: kb proof type tv)`. Convert recursively because these atoms may appear
 ;; inside generated rules and query additions, not only at the top level.
 (: internalize-proof-structure
-   (-[semidet]-> Goal
+   (-[semidet]-> (| Goal QueryScope)
        (Statement KBContext Proof TV)))
 (= (internalize-proof-structure (: $kb $proof $statement $truth-value))
    (quote ($statement $kb $proof $truth-value)))

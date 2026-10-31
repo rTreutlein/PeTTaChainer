@@ -17,8 +17,7 @@
 ;; the written statement and its canonical form (`member-canon`),
 ;; compiler-alternative order, and duplicates; additions
 ;; are already in their final installation order for that group.
-(datatype QueryExecutionPlan
-   (query-execution-plan (List (Number Statement AnnotatedStatement CompiledQueryGoal)) (List RuntimeAddition)))
+
 
 (: merge-query-execution-plans (-[det]-> QueryExecutionPlan QueryExecutionPlan QueryExecutionPlan))
 (= (merge-query-execution-plans
@@ -182,31 +181,12 @@
       (present-query-plan-results $expand? $roots $rest-results)))
 
 (: query-plan-runtime-goal
-   (-[nondet]-> (Number Statement AnnotatedStatement CompiledQueryGoal) (| Goal (Statement KBContext Proof TV))))
-(= (query-plan-runtime-goal ($_key $_written $_canonical $goal)) (typed-runtime-premise $goal))
-
-;; Temporary additions and Assuming contexts stay installed through proof
-;; externalization and pretty printing. Direct chainer entrypoints
-;; intentionally do not own this bracket.
-(: run-query-execution-plan
-   (-[nondet]-> Number QueryExecutionPlan Bool Bool (List (Number AnnotatedStatement))))
-(= (run-query-execution-plan $steps (query-execution-plan $roots $adds) $materialize? $expand?)
-   (let*
-      (($_clear-temp-before (clear-temp-query-adds))
-       ($_inject (collapse (once (inject-compiled-adds (map-flat context-addition $adds)))))
-       ($goals (map-flat query-plan-runtime-goal $roots))
-       ($runtime-results
-          (if $materialize? (chainer-many-materialize $steps $goals) (chainer-many $steps $goals)))
-       ($rows (present-query-plan-results $expand? $roots $runtime-results))
-       ($_old-proofs (remove-data-rows! &query_proofs (quote ($_proof))))
-       ($_answer-proofs (if $expand? () (map-flat retain-query-proof! $rows)))
-       ($_clear-overlay (context-clear!))
-       ($_clear-temp-after (clear-temp-query-adds))
-       ($_retired (sk-retire-searches!))
-       ;; What the contexts' rows interned and stored is reached by nothing now.
-       ($_collected (if (deps-gc-due?) (deps-gc! (sk-deps-roots)) true))
-       ($_refs (stored-refs-gc-step!)))
-      $rows))
+   (-[semidet]-> (Number Statement AnnotatedStatement CompiledQueryGoal) ExecutionGoal))
+(= (query-plan-runtime-goal ($_key $_written $_canonical $goal))
+   (if (head-is? $goal query-scope)
+      (let (query-scope $scope $facts $inner $proof $tv) $goal
+         (query-scope (the KBContext $scope) (the Statement $facts) $inner (the Proof $proof) (the TV $tv)))
+      (typed-runtime-premise $goal)))
 
 (: query-mode (-[nondet]-> Number KB AnnotatedStatement Bool AnnotatedStatement))
 (= (query-mode $steps $kb $statement $materialize?)

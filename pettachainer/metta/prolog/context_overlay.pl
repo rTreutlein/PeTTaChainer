@@ -1,3 +1,4 @@
+:- ensure_loaded(execution).
 % Assuming overlays share logical keys and search rows with MAIN. Only mutable
 % evaluation entries live here; overlay writes never copy or mutate borrowed
 % MAIN clauses. Independent cold reads perform ordinary MAIN maintenance.
@@ -69,41 +70,6 @@ context_removed(C, Space, Row) :-
               compile_predicates([Read/Arity]) ) )).
 :- compile_predicates([context_store/3]).
 
-% A cold read of an unchanged key is ordinary MAIN work. Test only actual
-% local values of this key or its direct inputs; this is not reachability from
-% an assumed head or a key. The indexed producer rows and fold member nodes
-% are the same ones evaluation reads.
-'context-cold-merged'(H,Key,Filter,Merged) :-
-    ( context_active(C), \+ (context_key_local(C,H,Key); context_inputs_local(C,H,Key))
-    -> setup_call_cleanup(nb_setval(context_overlay,main),
-                          once('sk-merge-open!'(H,Key,Filter,Merged)),
-                          nb_setval(context_overlay,C))
-    ; 'sk-merge-open!'(H,Key,Filter,Merged) ).
-
-context_inputs_local(C,H,Key) :-
-    '&sk_row'(H,Stored,_,['sk-row',_,_,Premises,_]), Stored =@= Key,
-    member(Premise,Premises), 'sk-direct-key-step'([],Premise,Keys),
-    context_local_member(C,Keys), !.
-context_inputs_local(C,_,['sk-fold',Args]) :-
-    'sk-fold-node-member'(['CPU','FoldAllCompiled',Args,_],Nodes),
-    member(Node,Nodes), 'sk-answers'(Node,Keys), context_local_member(C,Keys), !.
-context_inputs_local(C,_,Key) :-
-    Key=['sk-group',Args],
-    'sk-group-members'(Key,Args,['sk-group-found',_,Keys]), context_local_member(C,Keys).
-% A compound's prior is local when a key it reads is, or has local inputs.
-context_inputs_local(C,_,['sk-prior',Args]) :-
-    'compound-rate-goals'(Args,false,_,Goals), 'sk-prior-inputs'(Goals,Keys),
-    member(Key,Keys), 'index-hash'(Key,H),
-    ( context_key_local(C,H,Key) ; context_inputs_local(C,H,Key) ), !.
-
-% A connective's own evidence is local when its key is, or has local inputs.
-context_inputs_local(C,_,['sk-evidence',[_,Type,_,Scope]]) :-
-    Key=['sk-key',Type,Scope], 'index-hash'(Key,H),
-    ( context_key_local(C,H,Key) ; context_inputs_local(C,H,Key) ), !.
-
-context_local_member(C,Keys) :-
-    member(Key,Keys), 'index-hash'(Key,H), context_key_local(C,H,Key), !.
-
 'context-searching?'(Kb, Result) :-
     ( context_root(_, Kb, _, _) -> Result=true ; Result=false ).
 
@@ -114,35 +80,32 @@ context_local_member(C,Keys) :-
     ( context_rule(Rule,C) -> ( context_active(C) -> Result=true ; Result=false )
     ; Result=true ).
 
-% A query marker holds its ordinary compiled goal, retaining all of that
-% goal's adapters. Its assumptions are still installed only in their private
-% KB context. Search sees the canonical MAIN key, never an assumption TV.
-'context-search-goal'(['CPU','ContextQuery',[Scope,Facts,Goal,Proof,TV],_], Main) :- !,
-    'inference-clock'(Started),
-    Scope=[Kb,C|_],
-    assertz(context_root(C,Kb,Facts,[Proof,TV])), Main=Goal,
-    forall((catch('&kb'(Type,[Kb,C,Vars],P,T),error(existence_error(procedure,_),_),fail),
-            \+ (nonvar(P),P=['rule-axiom'|_])),
+% Scope declarations are installed by the executor before additions. Preparing
+% a search records canonical seed identities, without activating or evaluating.
+'context-prepare!'([Kb,C|_], Facts, Proof, TV, true) :-
+    assertz(context_root(C,Kb,Facts,[Proof,TV])),
+    forall(('&kb'(Type,[Kb,C,Vars],P,T), \+ (nonvar(P),P=['rule-axiom'|_])),
            (Key=['sk-key',Type,[Kb,'MAIN',Vars]], 'index-hash'(Key,H),
-            assertz(context_seed(H,C,[Type,[Kb,'MAIN',Vars],P,T])),
-            'sk-register-key!'(Key,_))),
-    forall((context_rule(Id,C), catch(rules('runtime-rule-row',Id,Concl,Ps),error(existence_error(procedure,_),_),fail)),
-           ( 'sk-activate-rule-row'(Id,[],['sk-rule-def',Concl,Ps],_) )),
-    'inference-add!'(Started,_).
-'context-search-goal'(Goal,Goal).
+            assertz(context_seed(H,C,[Type,[Kb,'MAIN',Vars],P,T])))).
 
-% An assumption can enable a dormant producer of an already-expanded MAIN
-% node. Start those existing indexed templates structurally; no TV is supplied.
-'context-start!'(true) :-
-    forall(context_seed(_,_,[Type,Scope,_,_]),
-           once('sk-forward-start!'(['sk-key',Type,Scope],_))).
+'context-current'(C) :- (context_active(Active) -> C=Active ; C=main).
+'context-with-scope'(C, Work, Result) :-
+    'context-current'(Previous),
+    setup_call_cleanup(nb_setval(context_overlay,C), once(apply_fn1(Work,[],Result)),
+                       nb_setval(context_overlay,Previous)).
 
-'context-answer-seeds!'(Node, true) :-
-    Node=[Type,[Kb,'MAIN',Vars],_,_], !,
-    forall((context_seed(_,_,[Seed,[Kb,'MAIN',Vars],_,_]), \+ \+ (Type=Seed)),
-           (copy_term_nat([Type,Seed], [T,S]), T=S,
-            'sk-add-answer!'(Node,['sk-key',S,[Kb,'MAIN',Vars]],_))).
-'context-answer-seeds!'(_,true).
+'context-seeds'(C, Seeds) :- findall(Seed,context_seed(_,C,Seed),Seeds).
+'context-rule-rows'(C, Rows) :-
+    findall(['sk-rule-def',Id,Concl,Ps],
+            (context_rule(Id,C),rules('runtime-rule-row',Id,Concl,Ps)),Rows).
+'context-answer-keys'(Node, Keys) :-
+    ( Node=[Type,[Kb,'MAIN',Vars],_,_]
+    -> findall(['sk-key',S,[Kb,'MAIN',Vars]],
+               (context_seed(_,_,[Seed,[Kb,'MAIN',Vars],_,_]),
+                copy_term_nat([Type,Seed],[T,S]), T=S),Keys)
+    ; Keys=[] ).
+'context-key-local?'(C,H,Key,Result) :-
+    (context_key_local(C,H,Key) -> Result=true ; Result=false).
 
 'context-seeded?'(Type, Scope, Result) :-
     ( context_seed(_,_,[Seed,S,_,_]), \+ \+ (Type=Seed,Scope=S) -> Result=true ; Result=false ).
@@ -184,76 +147,24 @@ context_canonical(Term, Main) :-
        findall([Type,Scope,P,T], (context_seed(H,C,[S,K,P,T]), [S,K]=@=[Type,Scope]), Leaves)
     ; Leaves=[] ).
 
-'context-finish!'(Allowance, Reserve, Goals, MainResults, Results) :-
-    context_finish(Goals,MainResults,Allowance,Reserve,Results).
-context_finish([],[],_,_,[]).
-context_finish([Goal|Goals],[Base|Bases],Allowance,Reserve,[Result|Results]) :-
-    ( Goal=['CPU','ContextQuery',[[Kb,C,_],Facts,Inner,WantProof,WantTV],_]
-    -> setup_call_cleanup(nb_setval(context_overlay,C),
-           once(('change-state!'(sk_eval_budget,Allowance,_),
-                 'sk-branch-share'(BranchShare), BranchBudget is Allowance * BranchShare,
-                 'change-state!'(sk_branch_budget,BranchBudget,_),
-                 'sk-root-claim-share'(RootShare), 'sk-root-claim-limit'(RootLimit),
-                 RootBudget is min(RootLimit,floor(Allowance*RootShare)),
-                 'change-state!'(sk_root_claim_budget,RootBudget,_),
-                 'change-state!'(sk_root_claim_cap,RootBudget,_),
-                 'change-state!'(sk_near_reserve,Reserve,_),
-                 context_evaluate(C,Inner,Kb,Facts,WantProof,WantTV,Result))),
-           nb_setval(context_overlay,main))
-    ; Result=Base ),
-    context_finish(Goals,Bases,Allowance,Reserve,Results).
-
-context_evaluate(C,Goal,Kb,Facts,WantProof,WantTV,Results) :-
-    'inference-clock'(Started),
-    'change-state!'(sk_holding,1,_),
-    'sk-refresh-near!'(_),
-    forall(context_seed(_,C,[Type,Scope,_,_]),
-           (Key=['sk-key',Type,Scope], 'sk-drop-merged!'(Key,_), 'sk-dirty!'(Key,_))),
-    % Search and needed closure are shared. Each context evaluates a different
-    % input world with its own allowance; preceding contexts cannot spend it.
-    'sk-evaluate!'(_),
-    'inference-add!'(Started,_),
-    'sk-root-results'(false,Goal,Answers),
-    findall([['Assuming',Facts,Type],[Kb,'MAIN','Nil'],[assuming,P],TV],
-            ( member([Type,_,P,TV],Answers), \+ \+ (WantProof=[assuming,P], WantTV=TV) ), Results),
-    'sk-stale-held!'(_).
-
-% Keep the evaluator's reader-specific compatibility checks at threshold zero.
-% At positive thresholds compare row views as well as the open merge: a view
-% dominated in the open merge can be the only admissible input to a reader
-% excluding that merge's self-support. Non-STV values have no scalar Beta.
-'context-propagate?'(Key, Result) :-
-    ( context_active(C), Key=['sk-key',_,_]
-    -> context_threshold(T),
-       ( T =:= 0 -> Result=true
-       ; 'index-hash'(Key,H),
-       ( context_propagated(H,C,Stored,state(Old,OldViews)), Stored =@= Key -> true
-       ; setup_call_cleanup(nb_setval(context_overlay,main),
-                            once('sk-value'(Key,'sk-any-filter',[],Old)),
-                            nb_setval(context_overlay,C)),
-         findall([R,V],('&sk_latest'(H,K,['sk-version',_,R,V]),K =@= Key),OldViews) ),
-       'sk-value'(Key,'sk-any-filter',[],New),
-       findall([R,V],(context_overlay_rows(C,'&sk_latest',[H,K,['sk-version',_,R,V]]),K =@= Key),NewViews),
-       ( ( context_numerical_change(T,Old,New)
-         ; member([R,V],NewViews),
-           (memberchk([R,Previous],OldViews) -> true ; Previous='sk-none'),
-           context_numerical_change(T,Previous,V)
-         ; member([R,V],OldViews), \+ memberchk([R,_],NewViews),
-           context_numerical_change(T,V,'sk-none') )
-       -> Result=true,
-         forall((clause(context_propagated(H,C,K,_),true,Ref), K =@= Key), erase(Ref)),
-         assertz(context_propagated(H,C,Key,state(New,NewViews)))
-       ; Result=false ) )
-    ; Result=true ).
-context_numerical_change(T,Old,New) :-
-    ( T > 0,
-      ( Old == 'sk-none'
-      -> New=['sk-val',[_,_,_,['STV',_,_]],_,_]
-      ; Old=['sk-val',[Type,Scope,_,['STV',_,_]],_,_],
-        ( New == 'sk-none' -> true
-        ; New=['sk-val',[NewType,NewScope,_,['STV',_,_]],_,_], [Type,Scope]=@=[NewType,NewScope] ) )
-    -> 'sk-change'(New,Old,Divergence), Divergence > T
-    ; 'sk-same-view?'(New,Old,false) ).
+% Propagation snapshots are physical overlay data. The executor decides
+% whether the values differ and whether to publish a new snapshot.
+'context-reuse-threshold'(T) :- context_threshold(T).
+'context-propagated'(Key, Snapshot) :-
+    context_active(C), 'index-hash'(Key,H),
+    (context_propagated(H,C,Stored,state(Old,Views)),Stored =@= Key
+    -> Snapshot=['context-snapshot',Old,Views] ; Snapshot='context-unread').
+'context-store-propagated!'(Key,Value,Views,true) :-
+    context_active(C), 'index-hash'(Key,H),
+    forall((clause(context_propagated(H,C,K,_),true,Ref),K =@= Key),erase(Ref)),
+    assertz(context_propagated(H,C,Key,state(Value,Views))).
+'context-views'(Key,Views) :-
+    'index-hash'(Key,H),
+    findall([R,V],('&ctx_sk_latest'(H,K,['sk-version',_,R,V]),K =@= Key),Views).
+'context-view-changes'(Old,New,Changes) :-
+    findall([Before,After],
+       (member([R,After],New), (memberchk([R,Before],Old) -> true ; Before='sk-none')
+       ;member([R,Before],Old), \+ memberchk([R,_],New), After='sk-none'), Changes).
 
 'context-clear!'(true) :-
     forall(( member(Store, ['&rule_evidence_names','&given_rules','&deterministic_rules']),

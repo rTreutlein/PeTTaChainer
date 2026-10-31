@@ -140,16 +140,10 @@
                                            (if (space-row-present? &ctx_sk_branch_dirty ($slot))
                                               (query_metric_increment branch-cache-refreshes) 0) 0))
                                      ($unpaid (search-id-value sk_branch_unpaid))
-                                     ($parent (search-id-value sk_branch_at))
-                                     ($frame (+ 1 (next-search-id sk_branch_frame)))
-                                     ($_cuts (add-atom &sk_branch_cuts ($frame $exclude ())))
-                                     ($_enter (change-state! sk_branch_at $frame))
+                                     (($parent $frame) (execution-open-frame! $exclude))
                                      ($view (sk-row-view () $exclude $hash $key $rhash
                                         (sk-row (sk-ident $rule $keys $result) $concl $premises $seq)))
-                                     ((cons $found $_rest) (collapse (once (match &sk_branch_cuts ($frame $_exclude $recorded) $recorded))))
-                                     ($cuts (hash-intersection (the (List Number) $found) $exclude))
-                                     ($_leave (change-state! sk_branch_at $parent))
-                                     ($_frame (remove-data-rows! &sk_branch_cuts (quote ($frame $_exclude $_found))))
+                                     ($cuts (execution-close-frame! $parent $frame $exclude))
                                      ($_parent (sk-note-cuts! $cuts)))
                                  (if (== $unpaid (search-id-value sk_branch_unpaid))
                                     (sk-cache-branch! $slot $hash $key $rhash $inputs $cuts true $view)
@@ -710,14 +704,11 @@
                                ;; weight work spends this same slice, never the reserve.
                                ($before (search-id-value sk_eval_budget))
                                ($room (if $root (min $before (search-id-value sk_root_claim_budget)) $before))
-                               ($_slice (change-state! sk_eval_budget $room))
+                               ($slice (execution-open-slice! $room))
                                ($_opened (sk-open-claim!))
                                ($deepest (sk-deepen $given $target $wexclude $keys (== $approx sk-none) (if (== $approx sk-none) 64 1) ()))
                                ($exhausted (sk-close-claim!))
-                               ($spent (- $room (search-id-value sk_eval_budget)))
-                               ($_restore (change-state! sk_eval_budget (- $before $spent)))
-                               ($_root-spent (if $root
-                                  (change-state! sk_root_claim_budget (- (search-id-value sk_root_claim_budget) $spent)) ()))
+                               ($spent (execution-close-slice! $slice (if $root root-slice ordinary-slice)))
                                ($key-spent (if $root
                                   (let* (($root-was (chainer-first-or 0
                                             (collapse (once (match &ctx_sk_root_spent ($khash $spent-owner $root-units)

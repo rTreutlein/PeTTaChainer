@@ -143,6 +143,8 @@
 
 ;; Executable goals are either CPU computations or fact goals. Fact KB,
 ;; proof, and statement fields retain their original runtime shapes.
+(: ExecutionGoal (Alias (| Goal QueryScope (Statement KBContext Proof TV))))
+(datatype QueryScope (query-scope KBContext Statement $goal Proof TV))
 (datatype Goal (CPU $formula $arguments $result) (: KBContext Proof Statement TV))
 
 ;; Public source statements and query answers omit the runtime KB/context.
@@ -206,3 +208,6 @@
 (datatype RetiredStore (retired-store Atom Number SkeletonKey))
 
 (: sk-retire-store! (-[det]-> RetiredStore Atom))
+
+(datatype QueryExecutionPlan
+   (query-execution-plan (List (Number Statement AnnotatedStatement CompiledQueryGoal)) (List RuntimeAddition)))

@@ -351,6 +351,16 @@ it releases them. No context scan or additional evaluation reserve is needed.
 
 ### Assuming shares MAIN structure and overlays dependent values
 
+The compiler returns an inert `query-scope` declaration for Assuming. The
+MeTTa execution owner installs it before temporary additions, prepares shared
+search, grants each world its allowances, evaluates and presents the results,
+then removes temporary state. Native scope brackets restore the previous
+physical overlay on success, failure and exceptions; they receive callbacks
+and select no evaluator operation. The public query bracket keeps contexts
+alive through proof externalization and answer-proof retention. Direct chainer
+calls keep their existing caller-owned additions, while their executor always
+retires temporary search rows and closes unfinished branch/claim frames.
+
 An Assuming query builds rows and keys in MAIN, with MAIN premise identities.
 Assumptions may enable a dormant producer, but structural discovery supplies no
 assumed truth value to MAIN evaluation. Independent MAIN search, views and
@@ -379,7 +389,7 @@ drops C without retracting independent MAIN work.
 
 Existential assumptions lower to canonical claim keys, never categorical
 witnesses. Freshen binders before the Assuming plan shares variables with its
-goal. MAIN-scoped existential compilation is intentional inside ContextQuery:
+goal. MAIN-scoped existential compilation is intentional inside a query-scope declaration:
 scalar and grouped folds keep MAIN member identities and read C-local values.
 The direct-claim and witness channels follow the existing dependency edges;
 no affected-head analysis is needed. Empty existential-fold subscription reads

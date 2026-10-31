@@ -187,3 +187,11 @@
 (datatype SkeletonModeReader (sk-mode-reader (-[semidet]-> KB Statement Atom)))
 (datatype SkeletonRowReader (sk-row-reader (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey Number SkeletonRow SkeletonValue)))
 (datatype SkeletonPremiseReader (sk-premise-reader (-[semidet]-> (List SkeletonGiven) (List SkeletonGiven) (List Number) Bool Bool SkeletonReadPolicy SkeletonRowState SkPattern SkeletonRowState)))
+
+;; Physical overlay snapshots retain the value roles across the native boundary.
+(datatype ContextSnapshot context-unread
+   (context-snapshot SkeletonValue (List (Number SkeletonValue))))
+
+;; The executor alone opens and returns these evaluation slices.
+(datatype EvaluationSlice (evaluation-slice Number Number))
+(datatype EvaluationTier root-slice branch-slice ordinary-slice)

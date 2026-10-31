@@ -261,17 +261,14 @@
                   (sk-wanted $slot $hash $key $rhash $exclude)))) (
             (() false)
             ((cons (sk-wanted $slot $hash $key $rhash $exclude) $_rest)
-               (let* (($before (search-id-value sk_eval_budget))
-                      ($incumbent (chainer-first-or
+               (let* (($incumbent (chainer-first-or
                                     (chainer-first-or sk-none (sk-branch-values $slot $key $rhash $exclude false))
                                     (sk-branch-values $slot $key $rhash $exclude true)))
-                      ($_slice (change-state! sk_eval_budget $room))
+                      ($slice (execution-open-slice! $room))
                       ($built (sk-rebuild-view true $hash $key $rhash $exclude))
-                      ($spent (- $room (search-id-value sk_eval_budget)))
-                      ($_restore (change-state! sk_eval_budget (- $before $spent)))
+                      ($_spent (execution-close-slice! $slice branch-slice))
                       ;; Even a cache hit or a structurally impossible read
                       ;; consumes one tier unit, bounding queue bookkeeping.
-                      ($_share (change-state! sk_branch_budget (- (search-id-value sk_branch_budget) (max 1 $spent))))
                       ($_request (sk-finish-branch-request! $slot $hash $key $rhash $exclude))
                       ($_ready
                          (if (not (sk-same-view? $built $incumbent))
@@ -367,27 +364,6 @@
 ;; inverted rules (ONA relationalnetwork) about two.
 (: sk-evaluation-near-root-reserve (-[det]-> Number))
 (= (sk-evaluation-near-root-reserve) 8)
-
-;; Row computations a query may spend per step of its budget beyond the reserve.
-(: sk-evaluation-per-step (-[det]-> Number))
-(= (sk-evaluation-per-step) 2)
-
-;; A request cannot crowd out ordinary evaluation, restales or conditioning.
-;; This is a ceiling within the existing allowance, not an extra allowance.
-;; Root refinement gets one eighth of evaluation, at most 256 units
-;; (512 conditioned rows). The fixed ceiling retains cheap 2p/4p cuts without
-;; making long-history root retries consume the whole query. All roots share it.
-(: sk-root-claim-share (-[det]-> Number))
-(= (sk-root-claim-share) 0.125)
-(: sk-root-claim-limit (-[det]-> Number))
-(= (sk-root-claim-limit) 256)
-
-(: sk-branch-share (-[det]-> Number))
-(= (sk-branch-share) 0.125)
-
-;; Expanded nodes a query's walk may pass through per step of its budget.
-(: sk-walk-per-step (-[det]-> Number))
-(= (sk-walk-per-step) 1)
 
 ;; Keys changed outside evaluation: a fold or group key recomputes when next
 ;; read, and every changed key's readers are scheduled. A stored fact may make
@@ -622,14 +598,6 @@
             (case (sk-group-members $key $group-args) (
                ((sk-group-found $_member $found) (sk-need-next (fold-semidet sk-cons-step $next $found) $members))
                (sk-group-missing (sk-need-next $next $members)))))))))
-
-;; A row or fold within two steps of a root adds to a query's reserve (see
-;; sk-near-root-reserve-take!); a forward run has none.
-(: sk-reserve-near! (-[det]-> Number Atom))
-(= (sk-reserve-near! $depth)
-   (if (if (== (search-id-value sk_forward_run) 1) false (<= $depth (sk-evaluation-free-depth)))
-      (let $_added (change-state! sk_near_reserve (+ (search-id-value sk_near_reserve) (sk-evaluation-near-root-reserve))) ())
-      ()))
 
 (: sk-root-keys-step (-[semidet]-> (List SkeletonKey) SkPattern (List SkeletonKey)))
 (= (sk-root-keys-step $keys $goal) (append-flat $keys (sk-root-keys $goal)))

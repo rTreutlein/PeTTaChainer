@@ -293,11 +293,10 @@
                 ($execs (reverse-onto
                    (fold-flat (assuming-premises-step $kb $ctx) () $premises) ()))
                 ($assumed (query-context-premise-adds $kb $ctx Nil $execs))
-                ($_world (context-create! $scope))
                 ((compilation-plan $inner $adapters)
                    (compileQuery $kb (: $inner-proof $scoped-goal $inner-tv))))
             (compilation-plan
-               (CPU ContextQuery (quote ($scope $scoped-facts $inner $prf $tv)) $result)
+               (query-scope $scope $scoped-facts $inner $prf $tv)
                (append-flat $assumed $adapters)))
       (if (source-exists? $Type)
          (compile-existential-query $kb (: $prf $Type $tv))

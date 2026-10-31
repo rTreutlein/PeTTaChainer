@@ -12,10 +12,12 @@ overlay_probe_install(Mode) :-
       % relations explicitly, and inject faults into those same relations.
       forall(context_store(Space,Arity,_),
         prolog_listen(user:Space/Arity,user:overlay_probe_physical_write(Space))),
-      wrap_predicate('context-finish!'(_Allowance,_Reserve,Goals,Bases,Results), overlay_probe, Wrapped,
-        ((overlay_probe_mutation(shared_budget)
-          -> overlay_probe_shared_budget(Goals,Bases,Results) ; call(Wrapped)),
-         overlay_probe_capture(Goals))),
+      wrap_predicate('context-clear!'(_Done), overlay_probe, Wrapped,
+        (findall(['query-scope',[Kb,C,'Nil'],Facts,_Inner,Proof,TV],
+                 context_root(C,Kb,Facts,[Proof,TV]),Goals),
+         overlay_probe_capture(Goals),call(Wrapped))),
+      wrap_predicate('execution-allowances!'(_Units,_Backward,Done), overlay_probe, Allowance,
+        ((overlay_probe_mutation(shared_budget),context_active(_)) -> Done=[] ; call(Allowance))),
       wrap_predicate('context-propagate?'(_Key,Result), overlay_probe, Propagate,
         ( (overlay_probe_mutation(never_propagate),context_active(_)) -> Result=false ; call(Propagate) )),
       wrap_predicate('context-add!'(Space,Row,Added), overlay_probe, Add,
@@ -43,25 +45,15 @@ overlay_probe_physical_write(Space,Action,Ref) :-
        assertz(overlay_probe_write(Kb,Text))
     ; true ).
 
-% Negative control: the former loop spent the preceding world's remainder.
-overlay_probe_shared_budget([],[],[]).
-overlay_probe_shared_budget([Goal|Goals],[Base|Bases],[Result|Results]) :-
-    ( Goal=['CPU','ContextQuery',[[Kb,C,_],Facts,Inner,WantProof,WantTV],_]
-    -> setup_call_cleanup(nb_setval(context_overlay,C),
-         once(context_evaluate(C,Inner,Kb,Facts,WantProof,WantTV,Result)),
-         nb_setval(context_overlay,main))
-    ; Result=Base ),
-    overlay_probe_shared_budget(Goals,Bases,Results).
-
 overlay_probe_text(Term,Text) :-
     copy_term_nat(Term,Copy),numbervars(Copy,0,_),term_string(Copy,Text,[quoted(true)]).
 
 overlay_probe_capture(Goals) :-
-    ( member(['CPU','ContextQuery',_,_],Goals) -> overlay_probe_capture_context(Goals) ; true ).
+    ( member(['query-scope'|_],Goals) -> overlay_probe_capture_context(Goals) ; true ).
 
 overlay_probe_capture_context(Goals) :-
     ( overlay_probe_mutation(copy_history),
-      member(['CPU','ContextQuery',[[Kb,C,_]|_],_],Goals),
+      member(['query-scope',[Kb,C,_]|_],Goals),
       '&sk_latest'(CopyHash,['sk-key',['History'|Args],[Kb,'MAIN','Nil']],Version)
     -> assertz(context_entry(CopyHash,C,'&sk_latest',[CopyHash,['sk-key',['History'|Args],[Kb,'MAIN','Nil']],Version],added))
     ; true ),

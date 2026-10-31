@@ -18,7 +18,8 @@
            (compileQuery $kb (: $prf $type (if (head-is? $type And) (statement-query-tv $requested-tv) $requested-tv)))
          (compiled-query
             (brand CompiledQueryGoal
-               (if (head-is? $goal CPU)
-                  (internalize-proof-structure-any $goal)
-                  (internalize-proof-structure $goal)))
+               (case $goal (
+                  ((: $scope $proof $statement $value)
+                     (internalize-proof-structure (: $scope $proof $statement $value)))
+                  ($_other (internalize-proof-structure-any $goal)))))
             (map-flat mm2stmt $adds)))))
