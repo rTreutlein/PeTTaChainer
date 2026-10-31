@@ -1,0 +1,17 @@
+
+(: existential-fold-source (-[nondet]-> Atom SkPattern))
+(= (existential-fold-source $premise)
+   (case $premise (
+      ((CPU $fun $args $_res)
+         (if (if (== $fun FoldAllCompiled) true (== $fun GroupedFoldAllCompiled))
+            (let $pattern (car-atom (cdr-atom $args))
+               (if (head-is? $pattern ExistentialAlternatives)
+                  (let* (((ExistentialAlternatives $claim $_channel) $pattern)
+                         ($scope (car-atom $args))
+                         ((Exists $_binder $body) (existential-source $claim))
+                         ($sources (cons $claim (implication-side-conjuncts (brand Statement $body))))
+                         ($source (superpose $sources)))
+                     (assemble-stored-runtime-fact $source $scope $_proof $_tv))
+                  (empty)))
+            (empty)))
+      ($_other (empty)))))

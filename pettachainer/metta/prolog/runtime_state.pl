@@ -1,3 +1,4 @@
+:- ensure_loaded('../core/runtime_terms').
 % Physical inference state: indexed rows, identities, proof/evidence lifetime,
 % pending-search ownership and scalar instrumentation. No search expansion or evaluator.
 % Rank claims by depth, cost and age, then their pending enumeration sequence.
@@ -856,20 +857,6 @@ rule_set_ancestor([Set|Rest], Seen, Ancestor) :-
          rule_set_ancestor(Next, Seen, Ancestor) )
     ; rule_set_ancestor(Rest, Seen, Ancestor) ).
 
-
-% confusing hash collisions. Destroy query-local storage even on an exception.
-alpha_unique_keys(Keys, Unique) :-
-    setup_call_cleanup(trie_new(Seen), alpha_unique_keys(Keys, Seen, Unique),
-                       trie_destroy(Seen)).
-
-alpha_unique_keys([], _, []).
-alpha_unique_keys([Key|Keys], Seen, Unique) :-
-    copy_term_nat(Key, Plain),
-    (   trie_insert(Seen, Plain)
-    ->  Unique = [Key|Rest]
-    ;   Unique = Rest
-    ),
-    alpha_unique_keys(Keys, Seen, Rest).
 
 % An answer is redundant when another answer with the same proof has a
 % strictly more general statement, or a variant statement earlier in the list:
