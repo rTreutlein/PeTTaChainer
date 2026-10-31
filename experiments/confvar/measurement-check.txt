@@ -1,0 +1,4 @@
+exact posterior marginal check PASS [0.6] [0.07333333]
+exact posterior marginal check PASS [0.27807487 0.75248281] [0.02472428 0.01360155]
+exact posterior marginal check PASS [0.5 0.5] [0.25       0.08333333]
+PASS: independent polynomial tensor checks

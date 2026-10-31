@@ -1,0 +1,50 @@
+{
+  "base_commit": "23d62195dc4be48676e3d5b35beef6a52e39bfaf",
+  "runtime_tree": "6ff8d0d26c24",
+  "petta_runtime": "eec735bf4d1d3e31",
+  "frozen_build_reused_by_standard_runner": "05c7a6ad",
+  "source_sha256": {
+    "pettachainer/metta/prolog/event_node.pl": "6e274e430594b095ba301b88c8e885bc8e4f245adb2f2965241b3beb7703b559",
+    "docs/metta/event_node_contract.md": "8391aa8323af9e7c5bf70054ada4532d4fc0b2cfe3e0617e99e5385b1f2812c2",
+    "tests/test_tv_calibration.py": "317df24edd21e88ee9197d7e7af756763012015b8284196a9e38d72a6f53d351",
+    "tests/tv_calibration_oracles.py": "f049e093fc7e50bc787cde3d32c69a17ee38921d2385db4502c8446c940498ce",
+    "tests/test_event_node.py": "938fc7cc2ecb6c95752f9693b78d1344ae634ce0d75603518dfd016b7da92e87",
+    "tests/fixtures/posterior1_oracle_audit.json": "68c4290f50d2958903693c9595c9adeed17b8d64e9cbab0ac5ef6fdd4fbafc6f"
+  },
+  "raw_inputs": {
+    "experiments/confvar/input/benchmark.877917.jsonl": {
+      "records": 4,
+      "sha256": "38923be474959376b319b1946fd39da828785c95325d135f2847e099ea33003f"
+    },
+    "experiments/confvar/input/benchmark.878188.jsonl": {
+      "records": 5,
+      "sha256": "62f799b51d61070117f7d975c2c9c15b9adcdb2e89dbf1dbf1de597d390801a4"
+    },
+    "experiments/confvar/input/unit.876110.jsonl": {
+      "records": 1194,
+      "sha256": "d7fa69386a349ca42170ba10dda88d4bfb7ea3d2a4fb44949d917d32274da7d4"
+    }
+  },
+  "unit_capture": {
+    "tests": 580,
+    "expected_failures": 21,
+    "wall_seconds": 481.389
+  },
+  "benchmark_capture": {
+    "standard_profile": "full",
+    "retime": true,
+    "cases": 23,
+    "executed_runs": 22,
+    "reused": 1,
+    "wall_seconds": 187,
+    "report": "/nexus/Dev/OpenCog/bench/results/compare/23d62195_vs_23d62195_full-retime-20261031T124912/report.md"
+  },
+  "verify": {
+    "key": "bed23d188b00",
+    "wall_seconds": 278,
+    "metta_files": 162,
+    "python_tests": 1040,
+    "python_expected_failures": 24,
+    "python_skips": 1
+  }
+}
