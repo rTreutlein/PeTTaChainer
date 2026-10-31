@@ -816,7 +816,7 @@
                (if (== (search-id-value sk_claim_state) 1)
                   (progn (change-state! sk_claim_state 0) true)
                   (if (>= (search-id-value sk_eval_budget) 1)
-                     (progn (change-state! sk_eval_budget (- (search-id-value sk_eval_budget) 1))
+                     (progn (sk-take! sk_eval_budget 1)
                             (change-state! sk_claim_state 1) true)
                      false))
             (if $paid
