@@ -88,8 +88,8 @@
 (: execution-reset-frames! (-[det]-> Atom))
 (= (execution-reset-frames!)
    (let* (($_claim (sk-close-claim!))
-          ($_frame (change-state! sk_branch_at 0))
-          ($_cuts (remove-data-rows! &sk_branch_cuts (quote ($_frame $_exclude $_cuts))))) ()))
+          ($_position (change-state! sk_branch_at 0))
+          ($_cuts (remove-data-rows! &sk_branch_cuts (quote ($_stored-frame $_stored-exclude $_stored-cuts))))) ()))
 
 (: execution-finish-backward! (-[semidet]-> Atom Atom))
 (= (execution-finish-backward! $_unit)

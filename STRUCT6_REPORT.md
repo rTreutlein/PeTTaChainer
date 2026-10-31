@@ -1,9 +1,11 @@
 # Structure step 6: one execution owner for scopes and allowances
 
 Worktree: `/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.claude/worktrees/struct6`.
-Branch: `struct6`; base: **84496c3e**. This implementation/report checkpoint is
-committed before final verification. Acceptance runs are still in progress;
-a report-only follow-up will record completed results.
+Branch: `struct6`; base: **84496c3e**. Implementation/report checkpoint:
+**f64172b7**. This follow-up fixes interrupted-frame cleanup and qualifies
+physical test-probe lookups; it is committed before final verification.
+Acceptance runs are still in progress; a report-only follow-up will record
+completed results.
 
 ## Diagnosis and design as built
 
@@ -168,16 +170,32 @@ was read to copy it, never modified. No push, merge or GitHub write is made.
   nine runs executed, ten of 19 results reused, **83 seconds wall**. Report:
   `/nexus/Dev/OpenCog/bench/results/compare/84496c3e_vs_84496c3e-d4590636f_quick/report.md`;
   log `scratch/compare-quick.log`.
-- Standalone Python suite: running (`scratch/python-first.log`).
-- Full master comparison: running (`scratch/compare-full.log`).
-- Master budget curves: queued/running (`scratch/compare-curves.log`). The
+- First standalone Python suite: **1,050 tests / 71 files / 598 units**, 24
+  existing expected failures and one skip. It exposed two failed units:
+  the overlay observer's module lookup (four errors) and the interrupted-frame
+  cleanup regression (one failure). The observer now qualifies its physical
+  lookup with `user:`; all 27 overlay tests pass (`scratch/overlay-finally.log`).
+  The cleanup helper had reused the result variable of `change-state!` in its
+  quoted wildcard. Distinct reset-result and stored-frame variables restore
+  full clearing. All **17 exclusion-state probes pass** in their isolated
+  test process (`scratch/exclusion-fixed.log`). No assertion was weakened.
+- Pre-cleanup-fix full master comparison: **PASS, accuracy changed in zero
+  cases**, 23 cases, 36 executed / nine reused records, **201 seconds wall**.
+  Report `/nexus/Dev/OpenCog/bench/results/compare/84496c3e_vs_84496c3e-dd01c84b9_full/report.md`;
+  log `scratch/compare-full.log`. This is exploratory evidence for the earlier
+  runtime tree, superseded by the new full comparison after the cleanup fix.
+- Master budget curves: the outdated queued run was stopped (exit 143)
+  before execution; the corrected tree will run `scratch/compare-curves-final.log`. The
   runner makes `--full` and `--curves` mutually exclusive, so these are two
   prescribed comparisons rather than an invalid combined command.
-- Anchor canary with fresh paired dev-server timing: running
-  (`scratch/compare-canary.log`). Flagged full cases will receive an additional
-  paired dev-server retime as required.
-- Final `capped --slots 16 env PETTA_JOBS=16 scripts/verify.sh`: to run after
-  this report checkpoint is committed.
+- The first anchor canary is completing against the pre-fix tree
+  (`scratch/compare-canary.log`). The corrected tree will receive fresh paired
+  timing. Flagged full cases will receive the additional dev-server retime
+  required by the brief.
+- The initially queued final verification was stopped before starting (exit
+  143) when the Python suite exposed the cleanup error. Final
+  `capped --slots 16 env PETTA_JOBS=16 scripts/verify.sh` will run after this
+  corrective report checkpoint is committed (`scratch/verify-accepted.log`).
 
 ## Limits and hand-back status
 
