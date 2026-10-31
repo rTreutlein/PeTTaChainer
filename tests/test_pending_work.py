@@ -1,4 +1,4 @@
-"""Differential test of the pending-work index (runtime_state.pl, "Pending
+"""Differential test of the pending-work index (pending_store.pl, "Pending
 work"): random child links, cycles included (their components merge), and work
 added and taken, each node's pending state compared with a search of the links
 for work."""
@@ -9,13 +9,15 @@ import textwrap
 import unittest
 from pathlib import Path
 
-HELPERS = Path(__file__).resolve().parents[1] / "pettachainer" / "metta" / "prolog" / "runtime_state.pl"
+HELPERS = Path(__file__).resolve().parents[1] / "pettachainer" / "metta" / "prolog" / "pending_store.pl"
 
 SCRIPT = textwrap.dedent(
     """
     import random, sys
+    from pathlib import Path
     import janus_swi as janus
     janus.consult("pw_stub", "attribute_free_variant(A, B) :- A =@= B.")
+    janus.consult(str(Path(sys.argv[1]).with_name("term_index.pl")))
     janus.consult(sys.argv[1])
     seed, nodes, steps = int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4])
     rng = random.Random(seed)
