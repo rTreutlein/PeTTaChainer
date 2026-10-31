@@ -248,7 +248,10 @@ and wake its fold through the ordinary indexed paths.
 
 ### The backward chainer keeps a durable skeleton
 
-The backward chainer keeps the structure of search across queries, in
+The backward chainer keeps the structure of search across queries. Its term
+schemas live in `core/search_terms.metta`, physical tables in
+`prolog/store_schema.pl`, ingestion notifications in
+`runtime/skeleton_journal.metta`, and raw change records in
 `runtime/store/journal.metta`. Nodes, answers, joins and permanent rows are
 append-only; truth values live only in views, which evaluation recomputes when
 something below them changes:
