@@ -84,10 +84,34 @@ class RoundMetrics(unittest.TestCase):
                          ("5", "5", "2"))
         self.assertEqual((row["core_tokens_before"], row["core_tokens_after"]), ("8", "18"))
         self.assertEqual(row["compare_reports"], "3")
+        self.assertEqual((row["two_way_pairs"], row["cross_functions"], row["widest_interface"]),
+                         ("0", "0", "0"))
         self.assertEqual((rows[1]["core_tokens_before"], rows[1]["core_tokens_after"]), ("", ""))
         elapsed = (datetime.fromisoformat(row["date"]) -
                    datetime(2026, 10, 29, 12, tzinfo=timezone.utc)).total_seconds() / 3600
         self.assertAlmostEqual(float(row["hours"]), elapsed, places=6)
+
+    def test_existing_header_extended_without_backfilling_and_landed_tree_measured(self):
+        self.results.mkdir()
+        path = self.results / "round-metrics.csv"
+        with path.open("w", newline="") as stream:
+            writer = csv.writer(stream)
+            writer.writerow(metrics.HEADER[:-3])
+            writer.writerow(["historical"] * len(metrics.HEADER[:-3]))
+        self.write("pettachainer/metta/compiler/compile.metta", "(= (compile) (read-one read-two))\n")
+        self.write("pettachainer/metta/runtime/forward/rules.metta",
+                   "(= (read-one) (compile))\n(= (read-two) True)\n")
+        landed = self.commit("coupled")
+        # HEAD and the working tree can differ from the landed tree being logged.
+        self.write("pettachainer/metta/compiler/compile.metta", "(= (compile) True)\n")
+        self.commit("uncoupled")
+        with patch.dict(sys.modules, tiktoken=None):
+            metrics.append(self.repo, "round-metrics", self.base, landed, self.results)
+        with path.open(newline="") as stream:
+            rows = list(csv.reader(stream))
+        self.assertEqual(rows[0], list(metrics.HEADER))
+        self.assertEqual(rows[1], ["historical"] * len(metrics.HEADER[:-3]))
+        self.assertEqual(rows[2][-3:], ["1", "3", "2"])
 
     def test_rename_uses_git_numstat_defaults(self):
         (self.repo / "pettachainer/core.py").rename(self.repo / "pettachainer/renamed\tfile\n.py")

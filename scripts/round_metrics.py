@@ -14,7 +14,8 @@ import tarfile
 RESULTS = Path("/nexus/Dev/OpenCog/bench/results")
 HEADER = ("date", "branch", "base_commit", "landed_commit", "branch_commits",
           "hours", "files_changed", "lines_added", "lines_removed",
-          "core_tokens_before", "core_tokens_after", "compare_reports")
+          "core_tokens_before", "core_tokens_after", "compare_reports",
+          "two_way_pairs", "cross_functions", "widest_interface")
 
 
 def git(repo, *args):
@@ -52,16 +53,27 @@ def append(repo, branch, base, landed, results=RESULTS):
         candidate = json.loads(report.read_text())["candidate"]
         label = candidate if isinstance(candidate, str) else candidate[1 if len(candidate) == 4 else 0]
         iterations += label.startswith(hashes)
+    coupling = json.loads(subprocess.check_output(
+        [sys.executable, str(Path(__file__).with_name("coupling.py")), landed, "--json"],
+        cwd=repo, stdin=subprocess.DEVNULL))
     row = (now.isoformat(), branch, base, landed, len(commits), round(hours, 6),
            len(changes), *(sum(int(entry[i]) for entry in changes if entry[i] != b"-")
-                           for i in (0, 1)), tokens(repo, base), tokens(repo, landed), iterations)
+                           for i in (0, 1)), tokens(repo, base), tokens(repo, landed), iterations,
+           *(coupling[name] for name in HEADER[-3:]))
     results.mkdir(parents=True, exist_ok=True)
-    with (results / "round-metrics.csv").open("a", newline="") as stream:
+    with (results / "round-metrics.csv").open("a+", newline="") as stream:
         fcntl.flock(stream, fcntl.LOCK_EX)
-        stream.seek(0, 2)
+        stream.seek(0)
+        header = next(csv.reader(stream), None)
         writer = csv.writer(stream)
-        if stream.tell() == 0:
+        if header != list(HEADER):
+            # Extend the header only; historical rows keep their original fields.
+            previous_rows = stream.read()
+            stream.seek(0)
+            stream.truncate()
             writer.writerow(HEADER)
+            stream.write(previous_rows)
+        stream.seek(0, 2)
         writer.writerow(row)
 
 
