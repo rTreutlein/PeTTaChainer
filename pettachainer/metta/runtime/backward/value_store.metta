@@ -335,9 +335,6 @@
                (empty))))
       ()))
 
-(: sk-cons-step (-[semidet]-> (List $item) $item (List $item)))
-(= (sk-cons-step $items $item) (cons $item $items))
-
 (: sk-cache-summary-reference!
    (-[semidet]-> Number SkeletonKey Number (List SkeletonGiven) (List Number) SkeletonFilter SkeletonValue Atom))
 (= (sk-cache-summary-reference! $hash $key $rhash $given $exclude $filter $value)
@@ -369,26 +366,3 @@
          (let $_left (context-remove! &sk_representative ($hash $key $rhash $given $exclude sk-none))
             (if (if (== $value sk-none) (== (search-id-value sk_representative_budget) 0) false) ()
                (context-add! &sk_representative ($hash $key $rhash $given $exclude $value))))))))
-
-;; --- Complete predicates (docs/metta/complete_predicates.md) ----------------
-
-;; Whether a statement, or a part of a compound one, has a complete predicate.
-(: complete-part? (-[det]-> KB Bool Atom Bool))
-(= (complete-part? $kb $found $part)
-   (if $found true
-      (let ($key $_odd) (canon (brand Statement $part))
-         (if (compound-source? $key)
-            (let $parts (the (List Atom) (cdr-atom $key)) (fold-flat (complete-part? $kb) false $parts))
-            (let $head (if (is-expr $key) (car-atom $key) $key) (complete-predicate? $kb $head))))))
-
-;; A ground statement of a complete predicate in the main context or in an
-;; Assuming query's context, which holds the world's facts and rules with its
-;; assumptions; an implication query's hypothetical contexts are not complete.
-;; A connective with a complete part is complete too: its producers derive it
-;; from its parts, so a closed read of it reads them as a rule reading the
-;; parts would (#142).
-(: complete-statement? (-[det]-> Atom Atom Bool))
-(= (complete-statement? $type ($kbid $ctx $_vars))
-   (if (== $ctx MAIN)
-      (if (== (extract-vars $type) ()) (complete-part? (brand KB $kbid) false $type) false)
-      false))

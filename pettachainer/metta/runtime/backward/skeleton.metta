@@ -223,31 +223,6 @@
                    ($count (confidence-to-count $confidence)))
                (* $join-score (- (count-confidence (+ $count 1.0)) $confidence))))))))
 
-;; Input selection, proof/TV filtering and MAIN borrowing live in
-;; runtime/fact_reads. Construction consumes those indexed facts.
-
-(: sk-fact-key (-[det]-> SkFact SkeletonKey))
-(= (sk-fact-key ($type $kbctx $_proof $_tv)) (sk-key $type $kbctx))
-
-;; A ground statement stored with confidence 1 is certain: no other proof
-;; could change its value. Borrowed world facts cannot retire private search:
-;; the judgment may find an assumption-dependent alternative to select instead.
-(: sk-certain-step (-[det]-> Bool SkFact Bool))
-(= (sk-certain-step $seen ($_type ($_kb $ctx $_vars) $proof $tv))
-   (if $seen true
-      (if (if (== $ctx MAIN) true (assumption-proof? $proof))
-         (case $tv (((STV $_s $c) (>= $c 1.0)) ($_other false))) false)))
-(: sk-certain? (-[det]-> Statement (List SkFact) Bool))
-(= (sk-certain? $type $facts)
-   (if (== (extract-vars $type) ()) (fold-flat sk-certain-step false $facts) false))
-
-;; A stored fact of strength 0 or 1 at confidence 1 makes its statement known:
-;; every reader, a conditioned one included, reads it as that fact.
-(: sk-known-leaf-step (-[det]-> Bool SkFact Bool))
-(= (sk-known-leaf-step $known ($_type ($_kb $ctx $_vars) $proof $tv))
-   (if $known true
-      (if (if (== $ctx MAIN) true (assumption-proof? $proof)) (certain-tvs? (cons $tv ())) false)))
-
 (: sk-leaf-answer-step (-[semidet]-> SkPattern Atom SkFact Atom))
 (= (sk-leaf-answer-step $node $_acc $fact) (sk-add-answer! $node (sk-fact-key $fact)))
 

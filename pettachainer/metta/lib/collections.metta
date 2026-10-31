@@ -31,3 +31,7 @@
 (= (any-flat? $_predicate ()) false)
 (= (any-flat? $predicate (cons $item $rest))
    (if ($predicate $item) true (any-flat? $predicate $rest)))
+
+
+(: sk-cons-step (-[semidet]-> (List $item) $item (List $item)))
+(= (sk-cons-step $items $item) (cons $item $items))

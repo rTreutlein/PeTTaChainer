@@ -81,6 +81,3 @@
    (-[det]-> (Statement KBContext Proof TV)
        (Statement KBContext Proof TV)
        (Statement KBContext Proof TV)))
-
-(: assemble-runtime-fact (-[det]-> Statement KBContext Proof TV (Statement KBContext Proof TV)))
-(= (assemble-runtime-fact $type $kb $proof $tv) (data $type $kb $proof $tv))

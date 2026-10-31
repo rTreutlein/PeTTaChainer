@@ -249,7 +249,7 @@ and wake its fold through the ordinary indexed paths.
 ### The backward chainer keeps a durable skeleton
 
 The backward chainer keeps the structure of search across queries, in
-`runtime/skeleton_journal.metta`. Nodes, answers, joins and permanent rows are
+`runtime/store/journal.metta`. Nodes, answers, joins and permanent rows are
 append-only; truth values live only in views, which evaluation recomputes when
 something below them changes:
 

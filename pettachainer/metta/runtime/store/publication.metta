@@ -40,7 +40,7 @@
       (rule-dormancy-forget-temp!)
       ()))
 
-;; The &kb_prefix and &kb_open rows of a fact (runtime/kb_index.metta).
+;; The &kb_prefix and &kb_open rows of a fact (runtime/store/fact_index.metta).
 (: kb-index-fact! (-[det]-> KbBackend Atom Atom Atom))
 (= (kb-index-fact! $backend $role ($type $kbctx $proof $tv))
    (let* (($fact (data $type $kbctx $proof $tv))
