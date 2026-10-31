@@ -26,20 +26,8 @@
             (if (=alpha $stored $fold) $hazard (empty))))) (
       ((cons $hazard $_rest)
          (if (== $hazard (instance-hazard (brand KB $kb) $fold)) ()
-            (let* (($members (the (List SkeletonKey) (alpha_unique_keys (collapse (match &ctx_sk_instance_read ($_fr $hash $_fmh $member) $member)))))
-                   ($pending (sk-rate-changed $hash $fold))
-                   ($_dirty (remove-data-rows! &sk_rate_dirty (quote ($hash $_dmh $_df $_dm))))
-                   ($_tally (remove-data-rows! &sk_instance_tally (quote ($hash $_tf $_ta))))
-                   ($_member (remove-data-rows! &sk_instance_member (quote ($_mmh $hash $_mm $_mp $_mn $_mc))))
-                   ($_regime (remove-data-rows! &sk_instance_regime (quote ($hash $_rs $_rt))))
-                   ($_digest (remove-data-rows! &sk_instance_digest (quote ($hash $_dd))))
-                   ($_sig (remove-data-rows! &sk_instance_sig (quote ($_smh $hash $_ss))))
-                   ($_read (remove-data-rows! &sk_instance_read (quote ($_rr $hash $_rmh $_rmm)))))
-               (fold-flat (sk-rate-dirty-step $fold) () (append-flat $members $pending)))))
+            (ledger-reset-regime! $hash $fold)))
       (() ()))))
-
-(: sk-rate-dirty-step (-[det]-> SkeletonKey Atom SkeletonKey Atom))
-(= (sk-rate-dirty-step $fold $_acc $member) (sk-rate-dirty! $fold $member))
 
 ;; An item's place in its pass. A query computes the rows within the free
 ;; depth first, by creation; then the rows that spend its allowance, nearest a
@@ -835,7 +823,7 @@
    (fold-semidet sk-instance-check-step ()
       (collapse (match &ctx_sk_instance_changed ($hash $fold)
          (if (space-row-present? &ctx_sk_instance_checked ($hash)) (empty)
-            (let* (($_taken (context-remove! &sk_instance_changed ($hash $fold)))
+            (let* (($_taken (ledger-take-change! $hash $fold))
                    ($_checked (context-add! &sk_instance_checked ($hash))))
                ($hash $fold)))))))
 

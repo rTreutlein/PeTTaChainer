@@ -85,7 +85,7 @@
                   ($left
                      (let ($kb $_pattern $_extractor $_init $_function $_finish $_mode) $args
                         (sk-instance-view $hash (the ScalarFoldSpec $args)
-                           (sk-tally-without $hash (sk-instance-tally $hash $key $kb) $left))))))
+                           (ledger-instance-read-excluding $hash (sk-instance-tally $hash $key $kb) $left))))))
                (sk-rate-without $hash $args $exclude)))
          ((sk-prior $rate-args) (if (sk-leaves-out? $hash $key $exclude) (sk-prior-view (sk-premise-reader sk-premise-step) $hash $rate-args $exclude) sk-none))
          ((sk-evidence $evidence-args) (if (== $exclude ()) sk-none (sk-evidence-view (sk-value-reader sk-value) $hash $evidence-args $exclude)))

@@ -1,7 +1,6 @@
 ;; Version selection, fold tallies and recursive merged-value reads.
 ;; Depends on eval_values; recursive reads live in eval_core.
 
-
 (: sk-admits? (-[det]-> SkeletonFilter (List Number) SkeletonValue Bool))
 (= (sk-admits? $filter $exclude $view)
    (case $view (
@@ -45,30 +44,6 @@
          (sk-goal-val $goal (record-proof! (next-search-id proof_id) $rule $goal-proof $gev $gdeps ()) $gev $gdeps))
       (sk-none sk-none))))
 
-;; The members of an implication instance fold that read one of the excluded
-;; keys directly, each once.
-(: sk-read-members-step (-[det]-> Number (List Number) Number (List Number)))
-(= (sk-read-members-step $hash $found $read)
-   (append-flat (collapse (match &ctx_sk_instance_read ($read $hash $mhash $_member) $mhash)) $found))
-
-(: sk-member-sample-step (-[det]-> Number (List InstanceSample) Number (List InstanceSample)))
-(= (sk-member-sample-step $hash $found $mhash)
-   (append-flat
-      (collapse (match &ctx_sk_instance_member ($mhash $hash $_member $pos-seg $neg-seg $contribution)
-         (case $contribution (
-            ((InstanceEvidence (BaseRateEvidence $_pw 0.0) (BaseRateEvidence $_nw 0.0)) (empty))
-            ($sample (instance-sample $pos-seg $neg-seg $sample))))))
-      $found))
-
-;; The samples an instance fold read without the excluded keys leaves out; a
-;; member that is no sample leaves nothing out. Sorted, as member hashes carry
-;; the process's KB id and subtraction order shows in the tally.
-(: sk-left-out (-[det]-> Number (List Number) (List InstanceSample)))
-(= (sk-left-out $hash $exclude)
-   (if (== $exclude ()) ()
-      (sort-atom (fold-flat (sk-member-sample-step $hash) ()
-         (list_to_set (fold-flat (sk-read-members-step $hash) () $exclude))))))
-
 ;; A population tally is shared; exclusions subtract indexed contributions
 ;; for this read only, without mutating its authoritative aggregate or cache.
 (: sk-rate-left-out (-[det]-> $spec (List Number) (List ForwardAggregateObservation)))
@@ -89,7 +64,7 @@
          (let* (((cons (fa-subscription $identity $descriptor $_triggers) ())
                    (fa-premise-subscriptions (CPU FoldAllCompiled $args $_result)))
                 ($id (fa-id $identity))
-                ($state (fold-flat fa-subtract-step (fa-state $id) $left))
+                ($state (ledger-read-excluding $id $left))
                 ($tv (fa-result $descriptor $state)))
             (sk-goal-val (CPU FoldAllCompiled $args $tv) (brand Proof cpu) (ev-set 0) (deps-key $hash))))))
 
@@ -130,17 +105,6 @@
                   (collapse (match &sk_row ($hash $stored $_rhash (sk-row $_ident $_concl $premises $_seq))
                      (if (=alpha $stored $key) $premises (empty)))))
                false))))))
-
-;; A tally less a sample, as if it had no value.
-(: sk-leave-out-step (-[det]-> Number InstanceRegimeState InstanceSample InstanceRegimeState))
-(= (sk-leave-out-step $hash (instance-regimes $hazard $next $pos $neg) (instance-sample $pos-seg $neg-seg (InstanceEvidence $old-pos $old-neg)))
-   (let* ((($pos-segs $_pos-at) (regime-take! $hash $hazard 0 $pos $pos-seg $old-pos (BaseRateEvidence 0.0 0.0)))
-          (($neg-segs $_neg-at) (regime-take! $hash $hazard 0 $neg $neg-seg $old-neg (BaseRateEvidence 0.0 0.0))))
-      (instance-regimes $hazard $next (the (List RegimeSegment) $pos-segs) (the (List RegimeSegment) $neg-segs))))
-
-;; The determinism checker proves a fold over a parameter list.
-(: sk-tally-without (-[det]-> Number InstanceRegimeState (List InstanceSample) InstanceRegimeState))
-(= (sk-tally-without $hash $tally $left) (fold-flat (sk-leave-out-step $hash) $tally $left))
 
 ;; A population prior, `(population-prior pattern)` (sk-start-prior!), is the
 ;; population's value, not the statement's: a key reads it only while nothing
@@ -260,22 +224,6 @@
       (sk-goal-val (CPU FoldAllCompiled $args (finish-aggregate (brand KB $kb) $finish (InstanceEvidence $pos-evidence $neg-evidence)))
          (brand Proof cpu) (ev-set 0) (deps-key $hash))))
 
-;; A member's contribution is its sample alone, read without the fold; the
-;; first take of a member records the statements its sample reads.
-(: sk-instance-read! (-[det]-> Number Number SkeletonKey KBContext Atom Atom Atom))
-(= (sk-instance-read! $hash $mhash $member $kbctx $_acc $statement)
-   (let* (($read (index-hash (sk-key $statement $kbctx)))
-          ($_row (context-add! &sk_instance_read ($read $hash $mhash $member))))
-      ()))
-
-(: sk-instance-reads! (-[det]-> Number Number SkeletonKey Atom))
-(= (sk-instance-reads! $hash $mhash $member)
-   (case $member (
-      ((sk-key (ImplicationInstanceSample $a $b $_atv $_btv) $kbctx)
-         (fold-flat (sk-instance-read! $hash $mhash $member $kbctx) ()
-            (cons $b (implication-side-conjuncts (the Statement $a)))))
-      ($_other ()))))
-
 ;; A class-link sample of its two sides' stored values, when both have one: a
 ;; side's stored facts, merged, or a forward run's copy of its value. A copy
 ;; derived through a rule the sample leaves out (sk-sample-exclusions) holds
@@ -316,84 +264,13 @@
 (: sk-instance-take-value! (-[semidet]-> Number SkeletonKey ScalarFoldSpec SkeletonKey SkeletonValue Atom))
 (= (sk-instance-take-value! $hash $fold $args $member $value)
    (let* ((($kb $_pattern $extractor $start $function $_finish $_mode) $args)
-          ($mhash (index-hash $member))
-          ($_clean (remove-variant-row! &sk_rate_dirty (quote ($hash $mhash $fold $member))))
           ($new
              (fa-instance-acc
                 (case $value (
                    ((sk-val $fact $_ev $_deps) (sk-accumulate $extractor $function $start $fact))
                    ($_none $start)))))
-          ($found
-             (collapse (once (match &ctx_sk_instance_member ($mhash $hash $stored $pos-seg $neg-seg $contribution)
-                (if (=alpha $stored $member) (instance-sample $pos-seg $neg-seg $contribution) (empty))))))
-          ($_digest (sk-instance-digest! $hash $mhash $fold $member $value $new)))
-      (sk-instance-store! $hash $fold $mhash $member (sk-instance-tally $hash $fold $kb) $new
-         (case $found (
-            ((cons (instance-sample $was-pos $was-neg $old) $_others)
-               (let $_replaced (remove-variant-row! &sk_instance_member (quote ($mhash $hash $member $was-pos $was-neg $old)))
-                  (instance-sample $was-pos $was-neg $old)))
-            (() (let $_reads (sk-instance-reads! $hash $mhash $member) (instance-sample 0 0 (fa-instance-acc $start)))))))))
-(: sk-instance-digest! (-[det]-> Number Number SkeletonKey SkeletonKey SkeletonValue InstanceEvidenceState Atom))
-(= (sk-instance-digest! $hash $mhash $fold $member $value (InstanceEvidence (BaseRateEvidence $_pw $pm) (BaseRateEvidence $_nw $nm)))
-   (case $member (
-      ((sk-key (ImplicationInstanceSample $a $_b $_atv $_btv) $kbctx)
-         (let* (($sample-evidence
-                  (case $value (
-                     ;; A sample's signature is what it observes, whatever role a
-                     ;; derived premise read a fact in.
-                     ((sk-val $_fact $ev $_deps)
-                        (let $kept
-                              (evidence-subtraction (evidence-inherited $ev)
-                                 (evidence-set (foldr-flat (sk-antecedent-fact-entries $kbctx) () (implication-side-conjuncts (the Statement $a)))))
-                           (evidence-set (evidence-shared-facts $kept $kept))))
-                     ($_none (ev-set 0)))))
-                ($observed (fold-flat sk-entry-hash-step 0 (evidence-entries $sample-evidence)))
-                ($_support (update-likelihood-support! $fold $member (observation-sources $sample-evidence)
-                              (if (> $pm 0) 1 0) (if (> $nm 0) 1 0)))
-                ($mass (+ $pm $nm))
-                ($sig (if (> $mass 0.0) (index-hash (sk-sample-sig $observed (round-math (* 1000000 (/ $pm $mass))))) 0))
-                ($was (chainer-first-or 0 (collapse (once (match &ctx_sk_instance_digest ($hash $stored) $stored)))))
-                ($taken (chainer-first-or 0 (collapse (once (match &ctx_sk_instance_sig ($mhash $hash $stored-sig) $stored-sig)))))
-                ($digest (+ (- $was $taken) $sig))
-                ($_old (remove-data-rows! &sk_instance_digest (quote ($hash $_d))))
-                ($_new (context-add! &sk_instance_digest ($hash $digest)))
-                ($_old-sig (remove-data-rows! &sk_instance_sig (quote ($mhash $hash $_s))))
-                ($_new-sig (context-add! &sk_instance_sig ($mhash $hash $sig))))
-            ()))
-      ($_other ()))))
-
-(: sk-antecedent-fact-entries (-[det]-> KBContext Atom (List Evidence) (List Evidence)))
-(= (sk-antecedent-fact-entries $kbctx $conjunct $entries)
-   (foldr-flat sk-fact-entry-step $entries (kb-facts (the Statement $conjunct) $kbctx)))
-
-(: sk-fact-entry-step (-[det]-> (Statement KBContext Proof TV) (List Evidence) (List Evidence)))
-(= (sk-fact-entry-step ($type $kbctx $proof $_tv) $entries) (cons (fact-evidence-entry $kbctx $proof $type) $entries))
-
-;; A set of entries as the sum of their hashes, whatever their order.
-(: sk-entry-hash-step (-[det]-> Number Evidence Number))
-(= (sk-entry-hash-step $sum $entry) (+ $sum (index-hash $entry)))
-
-;; A member's sample taken into each branch of the tally: one new to a branch
-;; is a segment of its own there, numbered by the tally's sample counter
-;; (negated in the negative branch), a known one is replaced in its segment.
-(: sk-instance-store!
-   (-[det]-> Number SkeletonKey Number SkeletonKey InstanceRegimeState InstanceEvidenceState InstanceSample Atom))
-(= (sk-instance-store! $hash $fold $mhash $member (instance-regimes $hazard $next $pos $neg) (InstanceEvidence $new-pos $new-neg)
-      (instance-sample $pos-seg $neg-seg (InstanceEvidence $old-pos $old-neg)))
-   (let* ((($pos-segs $pos-at) (regime-take! $hash $hazard $next $pos $pos-seg $old-pos $new-pos))
-          (($neg-segs $neg-at) (regime-take! $hash $hazard (- 0 $next) $neg $neg-seg $old-neg $new-neg))
-          ($counted (+ $next 1))
-          ($taken (instance-regimes $hazard $counted (the (List RegimeSegment) $pos-segs) (the (List RegimeSegment) $neg-segs)))
-          ($_untallied (remove-variant-row! &sk_instance_tally (quote ($hash $fold (instance-regimes $hazard $next $pos $neg)))))
-          ($_tallied (context-add! &sk_instance_tally ($hash $fold $taken)))
-          ($new (InstanceEvidence $new-pos $new-neg))
-          ($_member (context-add! &sk_instance_member ($mhash $hash $member $pos-at $neg-at $new))))
-      ()))
-
-;; The members of a tally fold that joined or changed since it last took them.
-(: sk-rate-changed (-[det]-> Number SkeletonKey (List SkeletonKey)))
-(= (sk-rate-changed $hash $fold)
-   (collapse (match &ctx_sk_rate_dirty ($hash $_mhash $stored $member) (if (=alpha $stored $fold) $member (empty)))))
+          ($tally (sk-instance-tally $hash $fold $kb)))
+      (ledger-replace-instance! $hash $fold $member $tally $new $value (fa-instance-acc $start))))
 
 ;; --- Coverage of exact folds (docs/metta/partial_folds.md) -------------------
 

@@ -21,7 +21,7 @@
             (() sk-none))))))
 
 ;; Re-evaluating the selected general reads its learned fold under the
-;; specific's sample exclusions (sk-tally-without). A missing read is the only
+;; specific's sample exclusions (ledger-instance-read-excluding). A missing read is the only
 ;; reason to omit it; the already-selected frontier never promotes ancestors.
 (: sk-class-without (-[semidet]-> SkeletonRowReader SkFact EvidenceSet SkeletonValue SkeletonValue))
 (= (sk-class-without $rows $specific $specific-ev $general)

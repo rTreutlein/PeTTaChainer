@@ -64,29 +64,6 @@
 (= (base-rate-cache-entries-for-mode $kbid $pattern $mode)
    (base-rate-cache-mode-rows (base-rate-cache-hash $kbid $pattern) $kbid $pattern $mode))
 
-(: base-rate-cache-remove-derived-entry! (-[det]-> BaseRateEntry (List $none)))
-(= (base-rate-cache-remove-derived-entry! (base-rate $kbid $stored $tv $source $mode))
-   (if (== $source user) ()
-      (let* (($hash (base-rate-cache-hash $kbid $stored))
-             ;; Exactly this row: an open pattern would also remove another
-             ;; pattern's entry that unifies with it.
-             ($_removed
-                (remove-variant-row! &base_rate_cache
-                   (quote ($hash (base-rate $kbid $stored $tv computed $mode))))))
-         ())))
-
-(: base-rate-cache-remove! (-[det]-> KB Statement (List $none)))
-(= (base-rate-cache-remove! $kbid $pattern)
-   (let* (($hash (base-rate-cache-hash $kbid $pattern))
-          ($_
-             (collapse
-                (match &ctx_base_rate_cache ($hash (base-rate $kbid $stored $tv $source $mode))
-                   (if (=alpha $stored $pattern)
-                      (context-remove! &base_rate_cache
-                         (quote ($hash (base-rate $kbid $stored $tv $source $mode))))
-                      (empty))))))
-      ()))
-
 (: base-rate-entry-tv (-[det]-> BaseRateEntry TV))
 (= (base-rate-entry-tv (base-rate $_kbid $_stored $tv $_source $_mode)) $tv)
 
@@ -105,27 +82,4 @@
 (= (base-rate-readers-changed! $kbid $pattern)
    (let* (($hash (base-rate-cache-hash $kbid $pattern))
           ($_dirty (collapse (match &ctx_sk_rate_readers ($hash $key) (sk-dirty! $key)))))
-      ()))
-
-(: store-produced-base-rate! (-[det]-> KB Statement TV $mode (List $none)))
-(= (store-produced-base-rate! $kbid $pattern $tv $mode)
-   (if (== $tv no-evidence) ()
-      (let $entries (base-rate-cache-entries-for-mode $kbid $pattern $mode)
-         (if (any-flat? base-rate-entry-user? $entries)
-            ()
-            (let* (($stored (copy_term $pattern))
-                   ($hash (base-rate-cache-hash $kbid $pattern))
-                   ($_old (foreach-flat base-rate-cache-remove-derived-entry! $entries))
-                   ($_new
-                      (context-add! &base_rate_cache
-                         ($hash (base-rate $kbid $stored $tv computed $mode))))
-                   ($_readers (base-rate-readers-changed! $kbid $pattern)))
-               ())))))
-
-(: remove-produced-base-rate! (-[det]-> KB Statement $mode (List $none)))
-(= (remove-produced-base-rate! $kbid $pattern $mode)
-   (let* (($_old
-             (foreach-flat base-rate-cache-remove-derived-entry!
-                (base-rate-cache-entries-for-mode $kbid $pattern $mode)))
-          ($_readers (base-rate-readers-changed! $kbid $pattern)))
       ()))

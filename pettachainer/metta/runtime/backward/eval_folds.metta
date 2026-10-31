@@ -12,7 +12,7 @@
                    ($id (fa-id $identity))
                    ($group (quote (aggregate-support $id))))
                (if (likelihood-support-admissible? $group $sources)
-                  (let* (($state (fold-flat fa-subtract-step (fa-state $id) (fa-left-out $id $left-out)))
+                  (let* (($state (ledger-read-excluding $id (fa-left-out $id $left-out)))
                          ((forward-aggregate-state $_id $_sum $_mass $members) $state))
                      (if (> $members 0)
                         (let (STV $g $gc) (fa-result $descriptor $state) (STV $g $gc))
@@ -198,7 +198,7 @@
       (if (== $value sk-none)
          (case (if (sk-member-pending? $member) (sk-waiting sk-none) (sk-stored-sample $member)) (
             ((sk-waiting $_none)
-               (if (space-row-present? &ctx_sk_instance_changed ($hash $_stored)) () (context-add! &sk_instance_changed ($hash $fold))))
+               (ledger-instance-changed! $hash $fold))
             ($stored (sk-instance-take-value! $hash $fold $args $member (the SkeletonValue $stored)))))
          (sk-instance-take-value! $hash $fold $args $member $value))))
 ;; Take only members that joined or changed, preserving their arrival order.
@@ -218,7 +218,7 @@
    (let* (((sk-value-reader $read-fn) $reader)
           ($read (the (-[semidet]-> SkeletonKey SkeletonFilter (List Number) SkeletonValue) $read-fn))
           ($mhash (index-hash $member))
-          ($_clean (remove-variant-row! &sk_rate_dirty (quote ($hash $mhash $fold $member))))
+          ($_clean (ledger-member-current! $hash $mhash $fold $member))
           ($readers (sk-push-reader! ($hash $fold 0)))
           ($value (sk-premise-value false ($read $member sk-any-filter (cons $hash ()))))
           ($_read (sk-restore-readers! $readers)))

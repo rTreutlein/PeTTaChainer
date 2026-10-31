@@ -57,10 +57,7 @@
           ($_valid (validate-base-rate! $statement (conjunct-parts (rate-children $pattern)) $rate))
           ($tv (case (data $odd $rate) (((true (STV $s $c)) (STV (- 1.0 $s) $c)) ($_even $rate))))
           ($_input (sk-input-changed! $kbid))
-          ($stored (copy_term $pattern))
-          ($hash (base-rate-cache-hash $kbid $pattern))
-          ($_old (base-rate-cache-remove! $kbid $pattern))
-          ($_new (context-add! &base_rate_cache ($hash (base-rate $kbid $stored $tv user any))))
+          ($_new (ledger-set-base-rate! $kbid $pattern $tv))
           ($_gated (prior-gated-rate-changed! $kbid $pattern)))
       (base-rate-readers-changed! $kbid $pattern)))
 

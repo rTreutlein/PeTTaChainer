@@ -8,32 +8,6 @@
 ;; Computed cache entries keep that source while forward deltas update statistics.
 ;; Removal rejoins the surviving class facts before publishing the cache.
 ;; An added class fact updates only its subscribed joins.
-(: fa-id (-[semidet]-> ForwardAggregateIdentityKey Number))
-(= (fa-id $a)(let $b (index-hash $a)(once (match &ctx_forward_aggregate_identity ($b (forward-aggregate-identity-row $c $d))(if (=alpha $c $a) $d (empty))))))
-;; A typed callback keeps interest insertion from changing the sharing of
-;; the descriptor copied by fa-register! during fold specialization.
-(: fa-add-interest! (-[det]-> Number ForwardAggregateDescriptor Atom ForwardTriggerKey Atom))
-(= (fa-add-interest! $id $descriptor $_acc $trigger)
-   (let* (($hash (term_hash $trigger))
-          ($_interest (once (context-add! &forward_aggregate_interest_by_trigger
-             ($hash (forward-aggregate-interest $trigger $id $descriptor))))))
-      (if (space-row-present? &ctx_forward_aggregate_triggers ($hash $trigger)) ()
-         (let $_added (once (context-add! &forward_aggregate_triggers ($hash $trigger))) ()))))
-;; Identity and descriptor are copied together, so they keep sharing variables.
-(: fa-register! (-[det]-> ForwardAggregateIdentityKey ForwardAggregateDescriptor (List ForwardTriggerKey) (List $a)))
-(= (fa-register! $identity $descriptor $triggers)
-   (if (== (collapse (once (fa-id $identity))) ())
-      (let* (($hash (index-hash $identity))
-             ($id (next-search-id fwd_aggregate_id))
-             (($i $d) (copy_term (quote ($identity $descriptor))))
-             ($stored-identity (the ForwardAggregateIdentityKey $i))
-             ($stored-descriptor (the ForwardAggregateDescriptor $d))
-             ($_identity (once (context-add! &forward_aggregate_identity
-                ($hash (forward-aggregate-identity-row $stored-identity $id)))))
-             ($_state (once (context-add! &forward_aggregate_state ($id 0.0 0.0 0))))
-             ($_interests (fold-flat (fa-add-interest! $id $stored-descriptor) () (the (List ForwardTriggerKey) $triggers))))
-         ())
-      ()))
 
 ;; What a fold premise asks the forward chainer to maintain: its aggregate
 ;; identity and descriptor, and the trigger keys whose facts update it, in
@@ -88,62 +62,18 @@
 
 (: fa-positive-ev (-[det]-> TV BaseRateEvidenceState))
 (= (fa-positive-ev $a)(case $a ( ((STV $b $c)(BaseRateEvidence (* $b $c) $c))((CTV $d $e)(fa-positive-ev $d))($f (BaseRateEvidence 0.0 0.0)))))
-(: fa-state (-[semidet]-> Number ForwardAggregateState))
-(= (fa-state $id)
-   (once (match &ctx_forward_aggregate_state ($id $sum $mass $members)
-      (forward-aggregate-state $id $sum $mass $members))))
-(: fa-obs (-[det]-> ForwardAggregateObservationKey (List ForwardAggregateObservation)))
-(= (fa-obs $a)(let $h (index-hash $a)(collapse (match &ctx_forward_aggregate_observation ($h $a $b $c $d $_sources)(forward-aggregate-observation $a $b $c $d)))))
+
 (: fa-physical-sources (-[semidet]-> SkFact SourceList))
 (= (fa-physical-sources ($type $ctx $proof $_tv))
    (if (is-expr $proof)
       (observation-sources (proof-term-evidence proof-walk-in-kb $proof))
       (observation-sources (fact-evidence-entry $ctx $proof $type))))
 
-(: fa-read-step (-[det]-> Number (List ForwardAggregateObservationKey) Number (List ForwardAggregateObservationKey)))
-(= (fa-read-step $id $keys $read) (append-flat (aggregate-readers $id $read) $keys))
-
-;; In the standard order of their keys, never the exclusion's hash order: the
-;; hashes include the process's KB id, and subtraction order shows in the sum.
-(: fa-left-out (-[det]-> Number (List Number) (List ForwardAggregateObservation)))
-(= (fa-left-out $id $exclude)
-   (fold-flat append-flat () (map-flat fa-obs
-      (sort-atom (list_to_set (fold-flat (fa-read-step $id) () $exclude))))))
-
 (: fa-result (-[semidet]-> ForwardAggregateDescriptor ForwardAggregateState TV))
 (= (fa-result (forward-base-rate-descriptor $kb $_pattern)
       (forward-aggregate-state $_id $sum $mass $_members))
    (let $tv (BaseRateTv (BaseRateEvidence $sum $mass))
       (the TV (smoothed-base-rate-tv $kb $tv))))
-
-(: fa-subtract-step (-[det]-> ForwardAggregateState ForwardAggregateObservation ForwardAggregateState))
-(= (fa-subtract-step (forward-aggregate-state $id $sum $mass $members)
-      (forward-aggregate-observation $_key $_value $s $m))
-   (let $remaining (- $members (if (> $m 0) 1 0))
-      (if (<= $remaining 0) (forward-aggregate-state $id 0.0 0.0 0)
-         (forward-aggregate-state $id (- $sum $s) (max 0.0 (- $mass $m)) $remaining))))
-
-(: fa-swap! (-[semidet]-> Number (List ForwardAggregateObservation) ForwardAggregateObservation Bool SourceList ForwardAggregateState))
-(= (fa-swap! $id $previous (forward-aggregate-observation $key $value $sum $mass) $keep $sources)
-   (let* ((($old-sum $old-mass)
-             (case $previous (
-                (() (data 0.0 0.0))
-                ((cons (forward-aggregate-observation $_key $_value $s $m) $_rest) (data $s $m)))))
-          ((forward-aggregate-state $_id $total $weight $members) (fa-state $id))
-          ($new-count (+ $members (- (if (if $keep (> $mass 0) false) 1 0) (if (> $old-mass 0) 1 0))))
-          ($new-sum (if (<= $new-count 0) 0.0 (+ $total (- $sum $old-sum))))
-          ($new-mass (if (<= $new-count 0) 0.0 (+ $weight (- $mass $old-mass))))
-          ($_old-state (once (context-remove! &forward_aggregate_state ($id $total $weight $members))))
-          ($_new-state (once (context-add! &forward_aggregate_state ($id $new-sum $new-mass $new-count))))
-          ($hash (index-hash $key))
-          ($old-sources (chainer-first-or (source-list ()) (collapse (once
-             (match &ctx_forward_aggregate_observation ($hash $key $_old-v $_old-s $_old-m $reads) $reads)))))
-          ($_sources (update-aggregate-sources! $id $key $old-sources (if (> $old-mass 0) 1 0)
-                         $sources (if (if $keep (> $mass 0) false) 1 0)))
-          ($_old (context-remove! &forward_aggregate_observation ($hash $key $_value $_sum $_mass $_reads)))
-          ($_new (if $keep
-                    (once (context-add! &forward_aggregate_observation ($hash $key $value $sum $mass $sources))) ())))
-      (forward-aggregate-state $id $new-sum $new-mass $new-count)))
 
 (: fa-dist-acc (-[det]-> $a DistributionSumCount))
 (= (fa-dist-acc $a)(the DistributionSumCount $a))
@@ -169,7 +99,7 @@
           ($member (forward-fact-key $fact))
           ($key (brand ForwardAggregateObservationKey (quote ($id $member))))
           ($sources (if (> $mass 0) (fa-physical-sources $fact) (source-list ())))
-          ($state (fa-swap! $id (fa-obs $key)
+          ($state (ledger-replace-member! $id (fa-obs $key)
              (forward-aggregate-observation $key (forward-base-rate-observation-value $fact) $sum $mass) true $sources)))
       (fa-publish-cache! $kb $pattern (fa-result (forward-base-rate-descriptor $kb $pattern) $state) base-rate)))
 
@@ -179,8 +109,7 @@
           ($key (brand ForwardAggregateObservationKey (quote ($id $member))))
           ($previous (fa-obs $key)))
       (if (== $previous ()) ()
-         (let* (($state (fa-swap! $id $previous
-                   (forward-aggregate-observation $key no-forward-aggregate-observation-value 0.0 0.0) false (source-list ())))
+         (let* (($state (ledger-remove-member! $id $key $previous))
                 ((forward-aggregate-state $_id $_sum $mass $_members) $state))
             (if (<= $mass 0.0) (remove-produced-base-rate! $kb $pattern base-rate)
                (fa-publish-cache! $kb $pattern (fa-result (forward-base-rate-descriptor $kb $pattern) $state) base-rate))))))
@@ -204,43 +133,6 @@
                      (aggregate-remove (fa-remove! $fact $id $rate)))))))
             (empty)))
          (empty))))
-
-;; Base rates and implication instance folds follow their members
-;; incrementally, as a tally of each member's contribution (see sk-fold-view).
-(: sk-instance-fold? (-[det]-> Atom Bool))
-(= (sk-instance-fold? ($_kb $_pattern $_extractor $_init $_function $finish $_mode))
-   (== $finish implication-instance-ctv))
-
-(: sk-instance-fold-key? (-[det]-> SkeletonKey Bool))
-(= (sk-instance-fold-key? $key)
-   (case $key (((sk-fold $args) (sk-instance-fold? $args)) ($_other false))))
-
-(: sk-rate-fold? (-[det]-> SkeletonKey Bool))
-(= (sk-rate-fold? $key)
-   (if (sk-instance-fold-key? $key) true
-      (case $key (
-         ((sk-fold ($_kb $_pattern $_extractor $_init $_function $finish $_mode)) (base-rate-finish? $finish))
-         ($_other false)))))
-
-;; A member that joined a tally fold, or whose value changed, is taken into it
-;; when a query next needs the fold or it is next read; an implication
-;; instance fold is also brought current by the evaluation (see
-;; sk-instance-checks!).
-(: sk-rate-dirty! (-[det]-> SkeletonKey SkeletonKey Atom))
-(= (sk-rate-dirty! $fold $member)
-   (if (sk-rate-fold? $fold)
-      (let* (($hash (index-hash $fold)) ($mhash (index-hash $member)))
-         (if (== (collapse (once (match &ctx_sk_rate_dirty ($hash $mhash $stored-fold $stored)
-                    (if (=alpha $stored $member) (if (=alpha $stored-fold $fold) true (empty)) (empty)))))
-                 ())
-            (let* (($_row (context-add! &sk_rate_dirty ($hash $mhash $fold $member)))
-                   ($_changed
-                      (if (if (sk-instance-fold-key? $fold) (not (space-row-present? &ctx_sk_instance_changed ($hash $_stored))) false)
-                         (context-add! &sk_instance_changed ($hash $fold))
-                         ())))
-               ())
-            ()))
-      ()))
 
 ;; A class fact (C x) changes the sample of x in each class link over C: it
 ;; marks that sample changed, and the link's instance fold takes it when next
