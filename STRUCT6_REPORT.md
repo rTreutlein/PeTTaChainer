@@ -8,8 +8,10 @@ into one Git footer; both trees, authors and original dates are unchanged.
 The benchmark labels retain the original immutable 0fcba2f1 identity.
 The correction fixes interrupted-frame cleanup and qualifies
 physical test-probe lookups; it is committed before final verification.
-Acceptance runs are still in progress; a report-only follow-up will record
-completed results.
+All required acceptance gates are complete and passing on the corrected
+runtime tree. This report-only follow-up records the final full comparison.
+Report checkpoint **f476652f** preserved verification/curves/canary evidence
+while the machine-wide full-size queue was occupied.
 
 ## Diagnosis and design as built
 
@@ -214,12 +216,17 @@ was read to copy it, never modified. No push, merge or GitHub write is made.
   zero aborts. ConceptNet: exactly two query results. Log:
   `scratch/verify-accepted.log`. The earlier queued verification was stopped
   before starting when the first Python suite found the frame-clear defect.
-- Corrected-tree full profile: **still queued** behind a landing-priority
-  full comparison (`scratch/compare-full-accepted.log`). The first concurrent
-  full launch failed in benchmark freeze-directory creation before running a
-  case (`scratch/compare-full-final.log`); curves created the same immutable
-  candidate successfully, and the queued retry uses that existing build.
-  Required full-case timing retimes will follow any flags.
+- Corrected-tree full profile: **PASS, accuracy changed in zero cases**.
+  All 22 accuracy comparisons are identical, plus the reference/fuzzer gate:
+  **23 cases**, **40 runs executed / five of 45 records reused**, **2,243 seconds
+  wall including the shared full-size queue**. All **45 accuracy records exit
+  0**, no unsupported marker; both regression and false-flag lists are empty.
+  No additional flagged-case retime is required. Report:
+  `/nexus/Dev/OpenCog/bench/results/compare/84496c3e_vs_0fcba2f1_full/report.md`;
+  adjacent `compare.json`; log `scratch/compare-full-accepted.log`. The first
+  concurrent full launch failed in freeze-directory creation before running
+  any case (`scratch/compare-full-final.log`); the successful retry used the
+  runner-created immutable build. No benchmark tooling or seed was changed.
 
 The accepted corrected runtime tree is **c2e1668e2f12** (code commit
 **dc4d82d3**, benchmark identity **0fcba2f1**); base runtime tree **2d5bbdf13cd0**; PeTTa runtime
@@ -229,10 +236,33 @@ follow the corrected implementation checkpoint.
 
 ## Limits and hand-back status
 
-This checkpoint is not final acceptance. The reserved evaluation-budget writer
-is outstanding, and the corrected-tree full comparison must finish. All
-other corrected-tree gates are complete and passing.
-The numerical approximations, conditioning policies, search/evaluation order,
-per-world allowances, public proof presentation and retained-cache behavior
-remain. No native controller implementation or dead helper is retained for
-compatibility. The measured support growth and larger SCC are stated above.
+All required tests, the full comparison, fresh paired canary and budget curves
+are complete and passing. No expected value or EXPECTED_FAILURES entry moves.
+No timing or memory regression is flagged; local timing variation is not
+claimed as a speedup. All processes started for this task have finished.
+
+The **only unmet structural target is the reserved evaluation-budget charge**:
+six writer files become two, while the other four requested settings each have
+one owner. The exact checked patch is committed in
+`scratch/remaining_budget.patch`; it remains **unapplied** because the brief
+reserves that whole file for step 5 and permission was not received. Applying
+it after that reservation is lifted would complete the five-setting target.
+The patch has static equivalence justification above; it is not part of the
+validated runtime tree and no test result is claimed for its application.
+
+Core support grows by **2,263 tokens**, total file edges by **12**, and the
+largest SCC by **five files**. The native controller's **23 runtime callees /
+nine file edges are removed**, and reciprocal pairs fall by two. This is an
+ownership separation, not a numerical-policy deletion or global SCC reduction.
+Representative/need-walk local counters outside the five-setting brief retain
+their existing evaluator-local policies. Public entry-point signatures,
+conditioning approximations, search order, per-world allowances, explanation
+presentation and retained-cache behavior remain.
+
+Code commits are **5393b9f4** and **dc4d82d3**; report checkpoint **f476652f**.
+The original f64172b7 / 0fcba2f1 messages were reworded only to place both
+requested trailers in one Git footer. Their source trees are unchanged, and
+the benchmark identity 0fcba2f1 maps exactly to corrected commit dc4d82d3.
+Every struct6 commit carries both required trailers. No push, merge, GitHub
+write, main-checkout code edit or other-worktree edit was made. The prescribed
+runner outputs and authorized verification-cache writes are the shared artifacts.
