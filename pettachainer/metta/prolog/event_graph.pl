@@ -45,7 +45,7 @@ graph_plan(Key, Plan) :-
       retractall(event_graph_input(_, Frame-_, ['sk-key', _, [KB|_]], _)),
       retractall(event_graph_memo(_, _, _)) ),
     term_hash(Key, Hash),
-    ( event_graph_plan(Hash, Frame, Generation, Key, Cached) -> true
+    ( event_graph_plan(Hash, PF, PG, PK, Cached), PF-PG-PK=Frame-Generation-Key -> true
     ; Key = ['sk-key', Goal, Scope],
       graph_observations([Goal], Scope, Goal, Frame-Generation, [], [], Discovery),
       ( Discovery = observed(Observed, Watched), graph_model(Key, Observed, Watched, Frame-Generation, Model)
@@ -88,7 +88,7 @@ graph_fixed(T, Models, B) :-
 % or overlay. They contain raw sources and templates, not derived summaries.
 graph_input(Type, Scope, Stamp, Input) :-
     Key = ['sk-key', Type, Scope], term_hash(Key, H),
-    ( event_graph_input(H, Stamp, Key, Cached) -> Input = Cached
+    ( event_graph_input(H, IS, IK, Cached), IS-IK=Stamp-Key -> Input = Cached
     ; ( source_catalog_template(Type, Scope, Model),
         \+ ( Type = [Head|_], connective_head(Head), Model \== root ),
         source_catalog_sources(Type, Scope, Facts)
@@ -135,7 +135,7 @@ graph_parameter(_, _, _, model(Type, conditional(_, _, ['STV', S1, C1], ['STV', 
 :- dynamic event_graph_memo/3.
 graph_answer(Models, Factors, Goal, Vars, TV) :-
     Input = Models-Factors-Goal-Vars, term_hash(Input, Hash),
-    ( event_graph_memo(Hash, Input, TV) -> true
+    ( event_graph_memo(Hash, Stored, TV), Stored=Input -> true
     ; ( graph_moments(Models, Factors, Goal, Vars, TV) -> true
       ; TV = inconsistent, format(user_error, 'event-evidence-impossible: ~q~n', [Goal]) ),
       assertz(event_graph_memo(Hash, Input, TV)) ).
