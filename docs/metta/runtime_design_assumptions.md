@@ -427,6 +427,14 @@ inversion revision confidence overcount.
 
 ### Application discovery preserves binding phases
 
+Compiler binding guards run during application construction, after matching
+the reader's statement. `vars-covered?` inspects the bindings even while its
+arguments contain variables. Prune failing guards before ordinary joins start;
+no rejected settling row reaches numerical evaluation. Deferring the guard
+would spend finite query allowance on
+settling readings that cannot apply. Ordinary numerical CPU goals retain their
+existing ground-input construction and deferred truth-value phases.
+
 Backward expansion, forward triggers and late activation exchange typed
 application plans. Discovery owns contextual matching and input routing;
 numerical reads consume the resulting policy without recovering that route

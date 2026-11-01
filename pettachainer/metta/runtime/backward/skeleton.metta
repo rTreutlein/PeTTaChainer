@@ -42,12 +42,14 @@
       $found))
 
 (: prefilter-premise-blocks? (-[det]-> SkPattern Bool))
+;; Binding guards inspect the variables still open after application matching;
+;; they must run now, rather than leave a rejected settling row for evaluation.
 (= (prefilter-premise-blocks? $premise)
    (once
       (case $premise (
          ((CPU $fun $args $res)
             (if (if (contextual-cpu? $fun) true (aggregate-fold-function? $fun)) false
-               (if (if (is-var $fun) false (== (extract-vars $args) ()))
+               (if (if (is-var $fun) false (if (== $fun vars-covered?) true (== (extract-vars $args) ())))
                   (case (collapse (cpu-call 0 $fun $args)) (
                      (() true)
                      ((cons $result $_rest) (if (= $res $result) false true))))
@@ -396,7 +398,7 @@
                      (let $_fold (if (== (search-id-value sk_forward_run) 1) (sk-forward-note-fold! $premise) ())
                         (sk-wait-on! $owner $rule $premise
                            (sk-partial $owner $rule $concl $done $remaining $keys)))
-                     (if (if (contextual-cpu? $fun) false (== (extract-vars $args) ()))
+                     (if (if (contextual-cpu? $fun) false (if (== $fun vars-covered?) true (== (extract-vars $args) ())))
                         (fold-semidet
                            (sk-cpu-step (sk-partial $owner $rule $concl $done $remaining $keys))
                            ()
@@ -800,8 +802,8 @@
 ;; Assumptions can enable producers MAIN skipped as dormant. Assuming shares
 ;; structural rows without supplying assumed values; private implication
 ;; judgments start their own contextual rows, regardless of MAIN's verdict.
-;; Missing fact premises keep their join subscriptions. Only failing ground
-;; CPU premises trigger the prefilter.
+;; Missing fact premises keep their join subscriptions. Failing ground CPU
+;; premises and structural binding guards trigger the prefilter.
 (= (sk-start-rule-step $owner $_acc (sk-match $rule $premises $goal))
    (if (if (if (sk-context-search? $goal) false (rule-dormant? $rule)) false (= (copy_term $goal) (sk-rule-goal (copy_term $owner))))
       (if (if (case $goal (

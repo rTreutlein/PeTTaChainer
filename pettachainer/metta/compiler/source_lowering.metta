@@ -595,21 +595,24 @@
 ;; parts, so a part with no proof does not block it. The settled reading reads
 ;; the part alone, checks its value (SettlesFormula), and carries the settling
 ;; value. A part that already carries a value settles only with that value.
-;; Only a part binding all the compound's variables settles it: one leaving a
-;; variable open would decide a single instance of a variable the other parts
-;; range over.
-(: settled-reading (-[det]-> Statement Statement PremiseBundle (List PremiseBundle)))
-(= (settled-reading $compound $part (premise-bundle $goals $tv $proof))
+;; Variables absent from the settling part must be bound by its reader. Check
+;; them at execution, after the enclosing join supplies its bindings, rather
+;; than discarding that reading while the compound is still a pattern.
+(: settled-reading (-[det]-> Bool Statement Statement PremiseBundle (List PremiseBundle)))
+(= (settled-reading $reader-binds? $compound $part (premise-bundle $goals $tv $proof))
    (case (let $head (car-atom $compound) (collapse (match &logic_config (compound-settling $head $setting) $setting))) (
       ((cons $value $_none)
-         (if (vars-covered? $compound (list_to_set (extract-vars $part)))
-            (if (is-var $tv)
-               (cons (premise-bundle
-                        (append-flat $goals ((CPU SettlesFormula (quote ($tv $value)) $value)))
-                        $value (settled $proof))
-                  ())
-               (if (== $tv $value) (cons (premise-bundle $goals $value (settled $proof)) ()) ()))
-            ()))
+         (let $missing (\== (list_to_set (extract-vars $compound)) (list_to_set (extract-vars $part)))
+            (if (if $reader-binds? true (== $missing ()))
+               (let $bound-goals (if (== $missing ()) $goals
+                       (append-flat $goals ((CPU vars-covered? (quote ($missing ())) true))))
+                  (if (is-var $tv)
+                     (cons (premise-bundle
+                              (append-flat $bound-goals ((CPU SettlesFormula (quote ($tv $value)) $value)))
+                              $value (settled $proof))
+                        ())
+                     (if (== $tv $value) (cons (premise-bundle $bound-goals $value (settled $proof)) ()) ())))
+               ())))
       (() ()))))
 
 ;; The settling readings of a compound's parts read by `$read`, in source
@@ -617,18 +620,18 @@
 ;; `append` only onto a constructed list, and a semidet fold's type-variable
 ;; result would leave a runtime type check.
 (: settlings
-   (-[semidet]-> (-[semidet]-> KBContext Statement PremiseBundle) KBContext Statement
+   (-[semidet]-> (-[semidet]-> KBContext Statement PremiseBundle) KBContext Bool Statement
        (List Statement) (List PremiseBundle)))
-(= (settlings $_read $_kc $_compound ()) ())
-(= (settlings $read $kc $compound (cons $part $rest))
-   (append (settled-reading $compound $part ($read $kc $part)) (settlings $read $kc $compound $rest)))
+(= (settlings $_read $_kc $_reader-binds? $_compound ()) ())
+(= (settlings $read $kc $reader-binds? $compound (cons $part $rest))
+   (append (settled-reading $reader-binds? $compound $part ($read $kc $part)) (settlings $read $kc $reader-binds? $compound $rest)))
 
-;; A conjunctive antecedent's settlings. The And test stays in a function
-;; body: as an argument, an `if` with an empty-list branch leaves a runtime
-;; type check.
+;; A shortcut over a whole antecedent has no enclosing join to bind omitted
+;; variables. Its part must still bind them all; the conclusion alone cannot
+;; select the skipped relation's premise tuple (e.g. a temporal predecessor).
 (: antecedent-settlings (-[semidet]-> KBContext Statement (List Statement) (List PremiseBundle)))
 (= (antecedent-settlings $kc $antecedent $conjuncts)
-   (if (head-is? $antecedent And) (settlings lower $kc $antecedent $conjuncts) ()))
+   (if (head-is? $antecedent And) (settlings lower $kc false $antecedent $conjuncts) ()))
 
 ;; An Any-mode compound is introduced by any one of its parts.
 (: any-reading (-[semidet]-> KBContext Atom Statement PremiseBundle))
@@ -643,7 +646,7 @@
    (let* (($head (car-atom $compound)) ($parts (statement-children (cdr-atom $compound))))
       (if (== (configured-compound-premise-mode $head) Any)
          (map-semidet (any-reading $kc $head) $parts)
-         (cons (lower-all lower-part $kc $head $parts) (settlings lower-part $kc $compound $parts)))))
+         (cons (lower-all lower-part $kc $head $parts) (settlings lower-part $kc true $compound $parts)))))
 
 ;; The rules that give a compound key its value: one per reading, concluding
 ;; the compound in the reader's context, and those of every compound key the

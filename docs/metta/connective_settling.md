@@ -46,8 +46,18 @@ rule variant that reads only the settling part:
   lowering. Inversion, completion and outputs use the complete antecedent
   only; `complete-lowering` reads a completion's siblings and consequence
   inline, a compound one through its complete reading.
-- A part settles only when it binds every variable of the compound, so a
-  settled row is as ground as the complete join's.
+- Variables absent from a settling part must be bound by its reader. The
+  compiler retains those variables in a `vars-covered?` CPU guard, checked
+  after the enclosing join or query has supplied its bindings. Rejecting the
+  reading at compile time lost valid ground instances and existential joins
+  (#154); fold abstraction of fixed arguments exposed the same bug (#151).
+  An open reader still cannot enumerate an unconstrained variable's domain.
+  A shortcut over a whole conjunctive rule antecedent still requires its part
+  to bind every antecedent variable: it has no enclosing premise join to
+  select the skipped relation's tuple, such as a temporal predecessor.
+  The structural guard runs during application construction even on open
+  arguments. Ordinary joins reject it before starting, and no failed guard
+  produces a row that consumes numerical evaluation allowance.
 - A part whose bundle already carries a ground value settles only with that
   value; so an `Or` settled inside an `And` does not yield dead rules.
 

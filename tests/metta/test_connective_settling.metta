@@ -39,11 +39,26 @@
 !(test (query 50 unsettledKb (: $p (C t) $tv)) ())
 !(test (query 50 unsettledKb (: $p (C u) $tv)) ())
 
-;; A part that leaves a variable of the compound open does not settle it.
+;; A reader can bind variables absent from the settling part. An open reader
+;; still cannot enumerate the other part's unconstrained domain.
 !(compileadd openKb (: r (Implication (Or (A $t) (B $t $u)) (C $t $u)) (CTV (STV 1 1) (STV 0 1))))
 !(compileadd openKb (: a (A t) (STV 1 1)))
 
-!(test (query 50 openKb (: $p (C t v) $tv)) ())
+!(test (query 50 openKb (: $p (C t v) $tv))
+   (: (by r (settled a)) (C t v) (STV 1.0 0.9998000399670116)))
+!(test (query 50 openKb (: $p (C t $u) $tv)) ())
+!(test (query 50 openKb (: $p (Or (A t) (B t $u)) $tv)) ())
+
+;; The same binding rule applies to And's certain-false settling value.
+!(compileadd falseKb (: r (Implication (Not (And (A $t) (B $t $u))) (C $t $u)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd falseKb (: a (A t) (STV 0 1)))
+!(test (let (: $_p $_q (STV $s $_c)) (query 50 falseKb (: $p (C t v) $tv)) $s) 1.0)
+!(test (query 50 falseKb (: $p (C t $u) $tv)) ())
+
+;; A computation's bundle carries its TV already, without SettlesFormula.
+!(compileadd computeKb (: r (Implication (Or (Compute + (1 2) -> $v) (Missing $u)) (Result $v $u)) (CTV (STV 1 1) (STV 0 1))))
+!(test (let (: $_p $_q (STV $s $_c)) (query 50 computeKb (: $p (Result 3 bound) $tv)) $s) 1.0)
+!(test (query 50 computeKb (: $p (Result 3 $u) $tv)) ())
 
 ;; The untimed SupplyNet cycle: the plant runs when fuelled and not degraded,
 ;; fuelled by stock or by the mine's fuel arriving, and the mine runs on the
