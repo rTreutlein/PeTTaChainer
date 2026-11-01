@@ -86,6 +86,7 @@ class RoundMetrics(unittest.TestCase):
         self.assertEqual(row["compare_reports"], "3")
         self.assertEqual((row["two_way_pairs"], row["cross_functions"], row["widest_interface"]),
                          ("0", "0", "0"))
+        self.assertEqual((row["largest_function_scc"], row["functions_in_cycles"]), ("0", "0"))
         self.assertEqual((rows[1]["core_tokens_before"], rows[1]["core_tokens_after"]), ("", ""))
         elapsed = (datetime.fromisoformat(row["date"]) -
                    datetime(2026, 10, 29, 12, tzinfo=timezone.utc)).total_seconds() / 3600
@@ -96,8 +97,8 @@ class RoundMetrics(unittest.TestCase):
         path = self.results / "round-metrics.csv"
         with path.open("w", newline="") as stream:
             writer = csv.writer(stream)
-            writer.writerow(metrics.HEADER[:-3])
-            writer.writerow(["historical"] * len(metrics.HEADER[:-3]))
+            writer.writerow(metrics.HEADER[:-2])
+            writer.writerow(["historical"] * len(metrics.HEADER[:-2]))
         self.write("pettachainer/metta/compiler/compile.metta", "(= (compile) (read-one read-two))\n")
         self.write("pettachainer/metta/runtime/forward/rules.metta",
                    "(= (read-one) (compile))\n(= (read-two) True)\n")
@@ -110,8 +111,8 @@ class RoundMetrics(unittest.TestCase):
         with path.open(newline="") as stream:
             rows = list(csv.reader(stream))
         self.assertEqual(rows[0], list(metrics.HEADER))
-        self.assertEqual(rows[1], ["historical"] * len(metrics.HEADER[:-3]))
-        self.assertEqual(rows[2][-3:], ["1", "3", "2"])
+        self.assertEqual(rows[1], ["historical"] * len(metrics.HEADER[:-2]))
+        self.assertEqual(rows[2][-5:], ["1", "3", "2", "2", "2"])
 
     def test_rename_uses_git_numstat_defaults(self):
         (self.repo / "pettachainer/core.py").rename(self.repo / "pettachainer/renamed\tfile\n.py")

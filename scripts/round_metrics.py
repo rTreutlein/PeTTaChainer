@@ -15,7 +15,8 @@ RESULTS = Path("/nexus/Dev/OpenCog/bench/results")
 HEADER = ("date", "branch", "base_commit", "landed_commit", "branch_commits",
           "hours", "files_changed", "lines_added", "lines_removed",
           "core_tokens_before", "core_tokens_after", "compare_reports",
-          "two_way_pairs", "cross_functions", "widest_interface")
+          "two_way_pairs", "cross_functions", "widest_interface",
+          "largest_function_scc", "functions_in_cycles")
 
 
 def git(repo, *args):
@@ -59,7 +60,7 @@ def append(repo, branch, base, landed, results=RESULTS):
     row = (now.isoformat(), branch, base, landed, len(commits), round(hours, 6),
            len(changes), *(sum(int(entry[i]) for entry in changes if entry[i] != b"-")
                            for i in (0, 1)), tokens(repo, base), tokens(repo, landed), iterations,
-           *(coupling[name] for name in HEADER[-3:]))
+           *(coupling[name] for name in HEADER[12:]))
     results.mkdir(parents=True, exist_ok=True)
     with (results / "round-metrics.csv").open("a+", newline="") as stream:
         fcntl.flock(stream, fcntl.LOCK_EX)
