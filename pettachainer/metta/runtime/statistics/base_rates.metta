@@ -9,9 +9,7 @@
 ;; Opt-in per KB, set before adding knowledge; user base rates are kept as set.
 (: set-base-rate-smoothing (-[det]-> KB Bool Bool))
 (= (set-base-rate-smoothing $kb $enabled)
-   (let* (($_old
-             (collapse (match &base_rate_smoothing ($kb $stored)
-                (remove-atom &base_rate_smoothing ($kb $stored)))))
+   (let* (($_old (remove-data-rows! &base_rate_smoothing (quote ($kb $_stored))))
           ($_new (add-atom &base_rate_smoothing ($kb $enabled))))
       $enabled))
 

@@ -166,13 +166,16 @@
          (if (== $head $wildcard) (fa-trigger-folds $type $head)
             (append-flat (fa-trigger-folds $type $head) (fa-trigger-folds $type $wildcard))))))
 
-(: forward-maintain-member-aggregates! (-[det]-> ForwardAggregateMaintenance (Statement KBContext Proof TV)(List $a)))
-(= (forward-maintain-member-aggregates! $maintenance $fact)
-   (case $fact (
-      (($type ($kb MAIN Nil) $_proof $_tv)
-         (case $type (
-            (($concept $_obj) (collapse (fa-maintain-key! $maintenance $fact (fwd_member (brand KB $kb) (brand Term $concept)))))
-            ($_other ()))))
-      ($_other ()))))
-(: forward-maintain-aggregates! (-[det]-> ForwardAggregateMaintenance (Statement KBContext Proof TV)(List $a)))
-(= (forward-maintain-aggregates! $a $b)(let* ((($c $d)(forward-premise-keys $b))($e (collapse (fa-maintain-key! $a $b $c)))($f (if (== $c $d)()(collapse (fa-maintain-key! $a $b $d))))($g (forward-maintain-member-aggregates! $a $b)))()))
+(: forward-maintain-aggregates! (-[det]-> ForwardAggregateMaintenance (Statement KBContext Proof TV) (List $a)))
+(= (forward-maintain-aggregates! $action $fact)
+   (let* ((($head $wildcard) (forward-premise-keys $fact))
+          ($_head (collapse (fa-maintain-key! $action $fact $head)))
+          ($_wildcard (if (== $head $wildcard) () (collapse (fa-maintain-key! $action $fact $wildcard))))
+          ($_member
+             (case $fact (
+                (($type ($kb MAIN Nil) $_proof $_tv)
+                   (case $type (
+                      (($concept $_obj) (collapse (fa-maintain-key! $action $fact (fwd_member (brand KB $kb) (brand Term $concept)))))
+                      ($_other ()))))
+                ($_other ())))))
+      ()))

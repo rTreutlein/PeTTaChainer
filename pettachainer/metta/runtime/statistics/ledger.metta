@@ -49,8 +49,8 @@
 (= (fa-id $a)(let $b (index-hash $a)(once (match &ctx_forward_aggregate_identity ($b (forward-aggregate-identity-row $c $d))(if (=alpha $c $a) $d (empty))))))
 
 ;; Keep the typed callback: fold specialization must preserve descriptor sharing.
-(: fa-add-interest! (-[det]-> Number ForwardAggregateDescriptor Atom ForwardTriggerKey Atom))
-(= (fa-add-interest! $id $descriptor $_acc $trigger)
+(: fa-add-interest! (-[det]-> Number ForwardAggregateDescriptor ForwardTriggerKey Atom))
+(= (fa-add-interest! $id $descriptor $trigger)
    (let* (($hash (term_hash $trigger))
           ($_interest (once (context-add! &forward_aggregate_interest_by_trigger
              ($hash (forward-aggregate-interest $trigger $id $descriptor))))))
@@ -69,7 +69,7 @@
              ($_identity (once (context-add! &forward_aggregate_identity
                 ($hash (forward-aggregate-identity-row $stored-identity $id)))))
              ($_state (once (context-add! &forward_aggregate_state ($id 0.0 0.0 0))))
-             ($_interests (fold-flat (fa-add-interest! $id $stored-descriptor) () (the (List ForwardTriggerKey) $triggers))))
+             ($_interests (foreach-flat (fa-add-interest! $id $stored-descriptor) (the (List ForwardTriggerKey) $triggers))))
          ())
       ()))
 
@@ -100,7 +100,9 @@
                 (() (data 0.0 0.0))
                 ((cons (forward-aggregate-observation $_key $_value $s $m) $_rest) (data $s $m)))))
           ((forward-aggregate-state $_id $total $weight $members) (fa-state $id))
-          ($new-count (+ $members (- (if (if $keep (> $mass 0) false) 1 0) (if (> $old-mass 0) 1 0))))
+          ($was-counted (if (> $old-mass 0) 1 0))
+          ($counted (if (if $keep (> $mass 0) false) 1 0))
+          ($new-count (+ $members (- $counted $was-counted)))
           ($new-sum (if (<= $new-count 0) 0.0 (+ $total (- $sum $old-sum))))
           ($new-mass (if (<= $new-count 0) 0.0 (+ $weight (- $mass $old-mass))))
           ($_old-state (once (context-remove! &forward_aggregate_state ($id $total $weight $members))))
@@ -108,8 +110,7 @@
           ($hash (index-hash $key))
           ($old-sources (chainer-first-or (source-list ()) (collapse (once
              (match &ctx_forward_aggregate_observation ($hash $key $_old-v $_old-s $_old-m $reads) $reads)))))
-          ($_sources (update-aggregate-sources! $id $key $old-sources (if (> $old-mass 0) 1 0)
-                         $sources (if (if $keep (> $mass 0) false) 1 0)))
+          ($_sources (update-aggregate-sources! $id $key $old-sources $was-counted $sources $counted))
           ($_old (context-remove! &forward_aggregate_observation ($hash $key $_value $_sum $_mass $_reads)))
           ($_new (if $keep
                     (once (context-add! &forward_aggregate_observation ($hash $key $value $sum $mass $sources))) ())))
