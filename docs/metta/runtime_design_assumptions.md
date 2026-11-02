@@ -5,9 +5,6 @@ PeTTa chainer. Read it before changing compilation, proof storage, caching, or
 either chainer. A locally convenient optimization is incorrect when it violates
 one of these assumptions.
 
-Potential performance ports from the sibling native implementation are tracked
-in [mm2_followup_candidates.md](mm2_followup_candidates.md).
-
 ## Logical model
 
 ### Knowledge addition is monotonic
@@ -2004,8 +2001,7 @@ for free variables does not make internal open keys or rule patterns ground.
 - Per-cause forcing can accumulate many temporary records. Evaluation resets
   bulk-remove these data rows; consuming a row's pending causes preserves their
   order and retains its used causes until the next evaluation. Stale propagation
-  and creating the cause records still cost work; see the
-  [cleanup measurements](skeleton_bookkeeping_2026-09-25.md).
+  and creating the cause records still cost work.
 - The support test unions dependencies over a row's retained views, so its cost
   grows with that history. Older views serve compatibility-filtered consumers
   and cannot simply be dropped.

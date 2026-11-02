@@ -51,8 +51,9 @@ after each diagnosis batch. This does not freeze either checkout; record their
 commits and dirty state, or use archived sources, for a reproducible comparison.
 
 Committed result files in this directory are compact summaries. Raw evidence
-larger than about 150 KB is not kept in the tree: the reports under
-`docs/metta/` name the commit that introduced each removed file, and
+larger than about 150 KB is not kept in the tree: the removed September
+reports (indexed in `docs/history/rounds.md`) name the commit that introduced
+each removed file, and
 `git show <commit>:benchmarks/stationops/<file>` retrieves it.
 
 For future changes, compare against both the preceding validated revision and
@@ -61,20 +62,25 @@ a fixed baseline. This expensive application benchmark is separate from
 performance. The historical runner is independent of benchmark files in the
 tested revisions, so the same instrumentation executes on both sides.
 
-The [refinement trace and depth ablation report](../../docs/metta/stationops_refinement_trace_2026-09-08.md)
+These four reports were removed from `docs/metta/`; read them with
+`git show 39e41c5e:docs/metta/<file>`.
+
+The refinement trace and depth ablation report
+(`stationops_refinement_trace_2026-09-08.md`)
 records elapsed-time quality comparisons, additional seeds, and the existing
 MeTTa suite results for the isolated scheduling experiment. Its compact evidence
 includes the probe patches and drivers; these are diagnostic experiments, not
 new benchmark acceptance defaults.
 
-The [reuse and refinement screening report](../../docs/metta/stationops_reuse_refinement_2026-09-08.md)
+The reuse and refinement screening report
+(`stationops_reuse_refinement_2026-09-08.md`)
 compares a 0–1 refinement allowance on three seeds and generic evidence updates.
 It preserves depth and remains an isolated prototype, with no new default.
 
-The [proof derivation follow-up](../../docs/metta/stationops_reuse_derivation_2026-09-08.md)
+The proof derivation follow-up (`stationops_reuse_derivation_2026-09-08.md`)
 identifies the alarm-based answer and uses crossed per-shift settings to isolate
 the retained-proof-history effect from second-shift refinement.
 
-The [late shorter-path experiment](../../docs/metta/stationops_shorter_paths_2026-09-09.md)
+The late shorter-path experiment (`stationops_shorter_paths_2026-09-09.md`)
 reaches the missing upstream alarm but exposes a consumer-specific proof-delivery
 blockage. It is slower, loses coverage on another seed, and remains isolated.

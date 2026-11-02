@@ -8,11 +8,11 @@ the report's final version). Live design lives in `docs/metta/`.
 | --- | --- | --- | --- |
 | ABSTRACTION | 9102bd1c | 2026-10-29 | Extracted generic collection operations and one shared MeTTa syntax module; -536 tokens. |
 | BOUNDED | dbf0bbbb | 2026-10-29 | Compiler list walkers replaced by shared collection operations, declarations moved to `datatype`, specialization keeps the full normalized rule. |
-| CLEANUP | 2ad70bdf | 2026-10-29 | Evaluator contract and deletion inventory (`docs/metta/cleanup_inventory.md`); three helpers removed. |
+| CLEANUP | 2ad70bdf | 2026-10-29 | Evaluator contract and deletion inventory (`docs/metta/cleanup_inventory.md`, see below); three helpers removed. |
 | E3 | a6783416 | 2026-10-29 | Event-node dependence modelled through shared conditional parents in `event_graph.pl`. |
 | MERGE1 | 39c1af64 | 2026-10-29 | Partial: separate raw-STV source namespace removed; the one-lowering goal was not reached. |
 | MERGE1B | f1ca759f | 2026-10-29 | Implication judgment reads unified and the positive namespace deleted; master's 0.99 open-proof discount kept. |
-| MERGE2 | d1ee51a7 | 2026-10-29 | Stopped, documentation only: compound-output audit in `docs/metta/node_outputs.md`. |
+| MERGE2 | d1ee51a7 | 2026-10-29 | Stopped, documentation only: compound-output audit in `docs/metta/node_outputs.md` (see below). |
 | SCC | 80ea5628 | 2026-10-29 | Evaluator split into merge, fold and sampling units with typed reader capabilities to shrink the call cycle. |
 | SIMPLIFY_FORWARD | c2f342a7 | 2026-10-29 | Forward base-rate tally made direct; the generic forward sampling framework removed. |
 | BOILERPLATE2 | 2b6c42a8 | 2026-10-30 | 86 type groups converted to `datatype`; native entry points declared in one table (`core/natives.metta`). |
@@ -33,3 +33,51 @@ the report's final version). Live design lives in `docs/metta/`.
 | STRUCT9 | c1a4bb99 | 2026-10-31 | Raw stores layered below readers and installation policy; largest store SCC split. |
 | STRUCT10 | 4f639adf | 2026-10-31 | Generic terms and configuration moved out of stores; two-way subsystem pairs 5 -> 2. |
 | FIX154 | 6fd4fc88 | 2026-11-01 | Compound settling preserves reader bindings (#154, #151). |
+
+## Removed documents
+
+Dated measurement reports, round write-ups and superseded one-off notes that
+used to live under `docs/`. Each is at commit `39e41c5e`; read one with
+`git show 39e41c5e:<path>`.
+
+The piPLN research material (`piPLN_riposte_draft_v6.pdf`, `research/piPLN/`)
+is kept at tag `pipln-archive`.
+
+| Path | Subject |
+| --- | --- |
+| `docs/metta/core_reduction_2026-09-05.md` | Core MeTTa reduction |
+| `docs/metta/performance_review_2026-09-05.md` | Runtime and benchmark review |
+| `docs/metta/stationops_regression_2026-09-08.md` | StationOps second-shift regression investigation |
+| `docs/metta/stationops_fold_startup_2026-09-08.md` | Cached fold startup experiment |
+| `docs/metta/stationops_no_success_prior_2026-09-08.md` | Rule priority without a base-rate success prior |
+| `docs/metta/stationops_cost_models_2026-09-08.md` | Cost-model screening after the success prior's removal |
+| `docs/metta/stationops_refinement_trace_2026-09-08.md` | Refinement tracing, elapsed-time comparison, depth ablation |
+| `docs/metta/stationops_reuse_refinement_2026-09-08.md` | Reuse-first search with a 0-1 refinement budget |
+| `docs/metta/stationops_reuse_derivation_2026-09-08.md` | Which derivation gives reuse-only its lower error |
+| `docs/metta/stationops_shorter_paths_2026-09-09.md` | Late shorter paths: scheduler experiment |
+| `docs/metta/stationops_consumer_views_2026-09-09.md` | Consumer-specific proof selection and continuation validity |
+| `docs/metta/stationops_consumer_delivery_2026-09-09.md` | Consumer-specific live proof delivery experiment |
+| `docs/metta/stationops_quality_gate_2026-09-09.md` | Original-reference diagnosis quality check |
+| `docs/metta/compact_demand_2026-09-09.md` | Compact demand projection experiment |
+| `docs/metta/indexed_proof_checks_2026-09-09.md` | Indexed proof checks: combined validation |
+| `docs/metta/proof_dependency_cache_2026-09-09.md` | Recursive proof dependency memoization |
+| `docs/metta/proof_descriptor_index_2026-09-09.md` | Exact derivation descriptors: behavior and cost |
+| `docs/metta/proof_eligibility_cache_2026-09-09.md` | Query-local proof eligibility cache review |
+| `docs/metta/waiter_demand_index_2026-09-09.md` | Waiter demand index: behavior and cost |
+| `docs/metta/verified_optimizations_2026-09-10.md` | Verified search optimizations |
+| `docs/metta/skeleton_answer_index_2026-09-25.{md,json}` | Proof-indexed root answers and session measurements |
+| `docs/metta/skeleton_bookkeeping_2026-09-25.{md,json}` | Skeleton evaluation bookkeeping (per-cause forcing cleanup) |
+| `docs/metta/skeleton_core_optimization_2026-09-25.{md,json}` | Skeleton-core size, complexity and performance review |
+| `docs/metta/memory_census_2026-10-09.md` | Where SupplyNet scale memory goes |
+| `docs/metta/typechecker_soundness_followup.md` | PeTTa typechecker repro follow-up (August) |
+| `docs/metta/mm2_followup_candidates.md` | mm2-chainer optimization ideas as of 2026-08-06 |
+| `docs/metta/scale_l_evidence_paths.md` | Late evidence on SupplyNet scale l, analysis only |
+| `docs/metta/equation_dispatch_audit.md` | Repeated equation-head audit |
+| `docs/metta/cleanup_inventory.md` | CLEANUP round: core cleanup inventory |
+| `docs/metta/implication_lowering.md` | MERGE1B round: one implication lowering |
+| `docs/metta/node_outputs.md` | MERGE2 round: compound-output audit |
+| `docs/metta/abstraction_review.md` | ABSTRACTION round: abstraction review at d1ee51a7 |
+| `docs/metta/forward_learning_design.md` | Forward chaining and learning: smallest retained mechanisms |
+| `docs/reviews/history-bug/{report,cache-followup,round3,round4,round5}.md` | Issue 54 exclusion-filtered branch rebuilding, rounds 1-5 |
+| `docs/reviews/numeric_retirement_performance_2026-10-15.md` | Numeric retirement performance regression (#23) |
+| `docs/demos/lazy_proof_scheduler.html` | August multi-root lazy proof scheduler demo |

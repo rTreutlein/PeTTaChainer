@@ -140,5 +140,6 @@ Both modes record query time, Prolog inferences, skeleton/view counts, and peak
 process RSS. Inspection runs outside query timing. Use `--repository` for
 paired comparisons; `--rounds` and `--repeats` control session length.
 
-The [2026-09-25 answer-index report](../../docs/metta/skeleton_answer_index_2026-09-25.md)
-includes broad-query scaling, session measurements, and the StationOps comparison.
+The 2026-09-25 answer-index report
+(`git show 39e41c5e:docs/metta/skeleton_answer_index_2026-09-25.md`) includes
+broad-query scaling, session measurements, and the StationOps comparison.
