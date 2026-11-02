@@ -1,13 +1,15 @@
-% Register the table's direct native calls and feed its signatures through the
-% ordinary PeTTa loader, preserving type checks and load-cache ownership.
+% Feed the table's signatures through the ordinary PeTTa loader, preserving
+% type checks and load-cache ownership, then register its direct native calls:
+% an import recompiles earlier callers, which must see the signature.
 'declare-natives!'(Mode, Entries, true) :-
     findall(Source,
             ( member(Entry, Entries),
-              ( Entry = [Name|Types] -> swrite([:, Name, [Mode|Types]], Source)
-              ; Name = Entry, Source = "" ),
-              import_prolog_function(Name, true) ), Sources),
+              ( Entry = [Name|Types] -> swrite([:, Name, [Mode|Types]], Source) ; Source = "" ) ),
+            Sources),
     atomics_to_string(Sources, "\n", Source),
-    process_metta_string(Source, _, '&self').
+    process_metta_string(Source, _, '&self'),
+    forall(member(Entry, Entries),
+           ( Entry = [Name|_] -> import_prolog_function(Name, true) ; import_prolog_function(Entry, true) )).
 
 % Declare MeTTa functions defined later, so mutually recursive modules compile
 % calls to them. Native declarations alone do not register input arities.
