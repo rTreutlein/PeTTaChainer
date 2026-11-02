@@ -12,6 +12,7 @@ tp = 0
 for p in list(root.glob("third_party/pln_formulas/**/*")) + list(root.glob("third_party/metta_lowering/**/*")):
     if p.suffix in (".metta", ".pl"):
         tp += len(enc.encode(p.read_text(errors="replace")))
-core = sum(groups.values())
-print(f"core {core}  third_party {tp}  total {core+tp}")
+lib = sum(n for k, n in groups.items() if k.parts[:3] == ("pettachainer", "metta", "lib"))
+core = sum(groups.values()) - lib
+print(f"core {core}  lib {lib}  third_party {tp}  total {core+lib+tp}")
 for k, v in sorted(groups.items(), key=lambda kv: -kv[1])[:8]: print(f"  {v:7d} {k}")
