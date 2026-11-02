@@ -83,3 +83,6 @@ is kept at tag `pipln-archive`.
 | `docs/demos/lazy_proof_scheduler.html` | August multi-root lazy proof scheduler demo |
 
 Removed Nov 2 2026 (unreferenced, user-approved): docs/metta/search_gain.md, docs/metta/shared_joins.md, docs/metta/hash_foldall_design_note.md, docs/metta/materialized_composed_rules.md, docs/metta/libpln_pettachainer_examples.txt — read with `git show d940bbfa:<path>`.
+
+- simplify-stats (Claude build, Nov 2 2026; A/B vs Codex): Statistics −873 tokens, no behaviour change — `git show fec48dbf:SIMPLIFY_REPORT.md`
+- simplify-store (Claude build, Nov 2 2026; A/B vs Codex): Proofs/Fact store/Runtime terms −189 tokens; known edge: empty internal proof values now return false instead of raising — `git show 2e83cfa3:SIMPLIFY_STORE_REPORT.md`
