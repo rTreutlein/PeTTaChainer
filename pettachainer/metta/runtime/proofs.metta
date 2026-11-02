@@ -71,9 +71,6 @@
 (= (proof-term-evidence-children $mode (cons $child $rest))
    (evidence-union (proof-term-evidence $mode $child) (proof-term-evidence-children $mode $rest)))
 
-(: proof-term-negated? (-[det]-> Proof Bool))
-(= (proof-term-negated? $prf) (if (is-expr $prf) (== (car-atom $prf) negated) false))
-
 ;; A typing boundary: a direct brand conflicts with the Evidence uses below.
 (: proof-from-atom (-[det]-> Expression Proof))
 (= (proof-from-atom $proof) (brand Proof $proof))
@@ -141,7 +138,7 @@
          (let $proof (proof-from-atom $prf)
             (if (is-var $prf) (ev-set 0)
             (if (assumption-proof? $proof) (ev-set 0)
-               (if (proof-term-negated? $proof)
+               (if (head-is? $proof negated)
                   (let $inner-proof (brand Proof (car-atom (cdr-atom $proof)))
                      (evidence-negated (proof-term-evidence $mode $inner-proof)))
                   (let $children (proof-term-children-mode $mode $proof)
@@ -184,7 +181,7 @@
 (: proof-term-contains-negated? (-[det]-> Proof Bool))
 (= (proof-term-contains-negated? $prf)
    (if (is-var $prf) false
-      (if (proof-term-negated? $prf) true
+      (if (head-is? $prf negated) true
          (if (is-expr $prf)
             (case $prf (
                ((proof-ref $pid) (proof-ref-negated? $pid))
@@ -222,7 +219,7 @@
 ;; and the rule identities their printed terms cannot reconstruct.
 (: proof-output-evidence (-[det]-> Proof EvidenceSet EvidenceSet))
 (= (proof-output-evidence $proof $ev)
-   (if (proof-term-negated? $proof)
+   (if (head-is? $proof negated)
       (evidence-negated (proof-output-evidence (brand Proof (car-atom (cdr-atom $proof))) $ev))
       $ev))
 
@@ -237,7 +234,7 @@
           ;; transformed the evidence below it; rewalking the printed proof
           ;; here loses the applied rule's evidence and revises it twice.
           (if (head-is-member? $prf (conditional-implication total-implication-frontier)) $ev
-             (if (proof-term-negated? $prf)
+             (if (head-is? $prf negated)
                 (proof-output-evidence $prf $ev)
                 (if (proof-term-contains-negated? $prf)
                    ;; Conditioned reads carry inline premise proofs rather
@@ -421,16 +418,6 @@
       (if (compound-source? (brand Statement $type))
          (if (head-is-member? $proof (conjunction settled)) true
             (let* (($connective (car-atom $type)) ($any (atom_concat $connective introduction))) (head-is? $proof $any)))
-         false)))
-
-;; Compiler-marked joins whose premises intentionally share source evidence.
-(: shared-evidence-frontier-proof? (-[det]-> Proof Bool))
-(= (shared-evidence-frontier-proof? $proof)
-   (if (is-var $proof) false
-      (if (is-expr $proof)
-         (let $head (car-atom $proof)
-            (if (is-var $head) false
-               (== $head total-implication-frontier)))
          false)))
 
 ;; Read this policy after the premises bind their transported result proof.

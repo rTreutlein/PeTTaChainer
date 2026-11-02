@@ -20,17 +20,11 @@
 
 (: set-context-polymorphic-facts (-[det]-> KB Bool Bool))
 (= (set-context-polymorphic-facts $kb $enabled)
-   (let $_old
-      (collapse
-         (match &context_polymorphic_facts
-            ($kb $stored)
-            (remove-atom &context_polymorphic_facts ($kb $stored))))
-      (let $_added
-         (collapse
-            (once
-               (add-atom &context_polymorphic_facts
-                  ($kb $enabled))))
-         $enabled)))
+   (let* (($_old
+             (collapse (match &context_polymorphic_facts ($kb $stored)
+                (remove-atom &context_polymorphic_facts ($kb $stored)))))
+          ($_new (collapse (once (add-atom &context_polymorphic_facts ($kb $enabled))))))
+      $enabled))
 
 ;; Rule refinement is opt-in per KB and set before its rules are added. A
 ;; refined rule's truth is the goal (RuleTruth (Implication a b)): the stored

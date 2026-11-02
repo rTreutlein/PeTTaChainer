@@ -1,12 +1,6 @@
 (: typed-runtime-fact (-[det]-> Atom (Statement KBContext Proof TV)))
-(= (typed-runtime-fact $fact)
-   (case $fact
-      ((($type $kb $proof $tv)
-         (assemble-runtime-fact
-            (brand Statement $type)
-            (brand KBContext $kb)
-            (brand Proof $proof)
-            (checked-stored-tv $tv))))))
+(= (typed-runtime-fact ($type $kb $proof $tv))
+   (assemble-runtime-fact (brand Statement $type) (brand KBContext $kb) (brand Proof $proof) (checked-stored-tv $tv)))
 
 (: typed-runtime-premise (-[semidet]-> Atom (| Goal (Statement KBContext Proof TV))))
 (= (typed-runtime-premise $premise)
