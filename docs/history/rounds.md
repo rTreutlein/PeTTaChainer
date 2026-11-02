@@ -81,3 +81,5 @@ is kept at tag `pipln-archive`.
 | `docs/reviews/history-bug/{report,cache-followup,round3,round4,round5}.md` | Issue 54 exclusion-filtered branch rebuilding, rounds 1-5 |
 | `docs/reviews/numeric_retirement_performance_2026-10-15.md` | Numeric retirement performance regression (#23) |
 | `docs/demos/lazy_proof_scheduler.html` | August multi-root lazy proof scheduler demo |
+
+Removed Nov 2 2026 (unreferenced, user-approved): docs/metta/search_gain.md, docs/metta/shared_joins.md, docs/metta/hash_foldall_design_note.md, docs/metta/materialized_composed_rules.md, docs/metta/libpln_pettachainer_examples.txt — read with `git show d940bbfa:<path>`.
