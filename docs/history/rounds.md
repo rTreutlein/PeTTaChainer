@@ -33,6 +33,7 @@ the report's final version). Live design lives in `docs/metta/`.
 | STRUCT9 | c1a4bb99 | 2026-10-31 | Raw stores layered below readers and installation policy; largest store SCC split. |
 | STRUCT10 | 4f639adf | 2026-10-31 | Generic terms and configuration moved out of stores; two-way subsystem pairs 5 -> 2. |
 | FIX154 | 6fd4fc88 | 2026-11-01 | Compound settling preserves reader bindings (#154, #151). |
+| SUPPORTLIB | 309d2f27 | 2026-11-02 | `terms-unifiable?` and `inference-clock` replaced by `=?` and `current-time`; generic natives moved to `lib/` (core -1,964 tokens). |
 
 ## Removed documents
 
