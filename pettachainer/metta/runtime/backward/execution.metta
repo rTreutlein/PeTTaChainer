@@ -207,7 +207,7 @@
           ($_inferred (inference-add! $started))
           ($answers (sk-root-results false (typed-runtime-premise $inner)))
           ($results (collapse (let ($type $_scope $proof $tv) (superpose $answers)
-             (if (terms-unifiable? ($want-proof $want-tv) ((assuming $proof) $tv))
+             (if (=? (data $want-proof $want-tv) ((assuming $proof) $tv))
                 (brand RuntimeResult (data (Assuming $facts $type) ($kb MAIN Nil) (assuming $proof) $tv))
                 (empty)))))
           ($_held (sk-stale-held!)))
