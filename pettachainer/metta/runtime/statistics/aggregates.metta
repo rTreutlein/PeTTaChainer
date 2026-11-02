@@ -41,24 +41,24 @@
 ;; A rule's fold premises register when the rule is stored. Query-local rules
 ;; register only class links, whose subjects are seeded from the stored facts
 ;; when they first register; their base rates wait for a reader.
-(: fa-register-subscription! (-[det]-> Bool (List $a) ForwardAggregateSubscription (List $a)))
-(= (fa-register-subscription! $live $acc (fa-subscription $identity $descriptor $triggers))
+;; A class link that registers marks the samples of the subjects its classes'
+;; stored facts name, as a base rate counts the facts already stored.
+(: fa-register-subscription! (-[det]-> Bool ForwardAggregateSubscription (List $a)))
+(= (fa-register-subscription! $live (fa-subscription $identity $descriptor $triggers))
    (case $descriptor (
       ((forward-class-link-descriptor $kb $sub $super $fold)
          (if (== (collapse (once (fa-id $identity))) ())
-            (let* (($_registered (fa-register! $identity $descriptor $triggers))
-                   ($_seeded (fold-flat (fa-seed-class-link! $kb $sub $super $fold) () (the (List ForwardTriggerKey) $triggers))))
-               $acc)
-            $acc))
-      ($_rate (if $live (fa-register! $identity $descriptor $triggers) $acc)))))
-
-(: fa-register-premise-step! (-[det]-> Bool (List $a) (| Goal (Statement KBContext Proof TV)) (List $a)))
-(= (fa-register-premise-step! $live $acc $premise)
-   (fold-flat (fa-register-subscription! $live) $acc (fa-premise-subscriptions $premise)))
+            (let $_registered (fa-register! $identity $descriptor $triggers)
+               (foreach-flat (fa-class-link-dirty! $kb $sub $super $fold)
+                  (list_to_set (collapse (let* (((fwd_member $_kb $class) (superpose $triggers))
+                                                ($member (brand Statement (cons $class (cons $_obj ())))))
+                                             (match &kb ($member ($kb MAIN Nil) $_proof $_tv) (brand Statement $member)))))))
+            ()))
+      ($_rate (if $live (fa-register! $identity $descriptor $triggers) ())))))
 
 (: register-forward-aggregate-premises! (-[det]-> Bool (List (| Goal (Statement KBContext Proof TV))) (List $a)))
 (= (register-forward-aggregate-premises! $live $premises)
-   (fold-flat (fa-register-premise-step! $live) () $premises))
+   (foreach-flat (fa-register-subscription! $live) (fold-flat append-flat () (map-flat fa-premise-subscriptions $premises))))
 
 (: fa-positive-ev (-[det]-> TV BaseRateEvidenceState))
 (= (fa-positive-ev $a)(case $a ( ((STV $b $c)(BaseRateEvidence (* $b $c) $c))((CTV $d $e)(fa-positive-ev $d))($f (BaseRateEvidence 0.0 0.0)))))
@@ -75,6 +75,7 @@
    (let $tv (BaseRateTv (BaseRateEvidence $sum $mass))
       (the TV (smoothed-base-rate-tv $kb $tv))))
 
+;; Typed barriers: one inline `the` per branch makes the checker unify both types.
 (: fa-dist-acc (-[det]-> $a DistributionSumCount))
 (= (fa-dist-acc $a)(the DistributionSumCount $a))
 (: fa-ev-acc (-[det]-> $a BaseRateEvidenceState))
@@ -83,11 +84,6 @@
 ;; `smoothed-base-rate-tv`).
 (: finish-aggregate (-[semidet]-> KB Expression Expression Atom))
 (= (finish-aggregate $kb $a $b)(let $tv (case $a ( (identity $b)(dist-average (the Distribution (once (reduce (reduce (DistAverageFromSumCount (fa-dist-acc $b)))))))(base-rate (BaseRateTv (fa-ev-acc $b)))(implication-instance-ctv (ImplicationInstanceTv (fa-instance-acc $b))))) (if (base-rate-finish? $a)(smoothed-base-rate-tv $kb $tv) $tv)))
-(: fa-publish-cache! (-[det]-> KB Statement TV $a (List $b)))
-(= (fa-publish-cache! $a $b $c $d)
-   (case (base-rate-cache-entries-for-mode $a $b $d) (
-      ((cons $entry $_rest) (if (== (base-rate-entry-tv $entry) $c) () (store-produced-base-rate! $a $b $c $d)))
-      (() (store-produced-base-rate! $a $b $c $d)))))
 (: fa-update! (-[semidet]-> (Statement KBContext Proof TV) Number ForwardAggregateDescriptor (List $a)))
 (= (fa-update! $fact $id (forward-base-rate-descriptor $kb $pattern))
    (let* ((($type $_ctx $_proof $tv) (copy_term $fact))
@@ -99,59 +95,56 @@
           ($sources (if (> $mass 0) (fa-physical-sources $fact) (source-list ())))
           ($state (ledger-replace-member! $id (fa-obs $key)
              (forward-aggregate-observation $key (forward-base-rate-observation-value $fact) $sum $mass) true $sources)))
-      (fa-publish-cache! $kb $pattern (fa-result (forward-base-rate-descriptor $kb $pattern) $state) base-rate)))
+      (store-produced-base-rate! $kb $pattern (fa-result (forward-base-rate-descriptor $kb $pattern) $state) base-rate)))
 
+;; Removing a member subtracts its contribution and physical support.
 (: fa-remove! (-[semidet]-> (Statement KBContext Proof TV) Number ForwardAggregateDescriptor (List $a)))
 (= (fa-remove! $fact $id (forward-base-rate-descriptor $kb $pattern))
    (let* (($member (forward-fact-key $fact))
           ($key (brand ForwardAggregateObservationKey (quote ($id $member))))
           ($previous (fa-obs $key)))
       (if (== $previous ()) ()
-         (let* (($state (ledger-remove-member! $id $key $previous))
+         (let* (($state (ledger-replace-member! $id $previous
+                   (forward-aggregate-observation $key no-forward-aggregate-observation-value 0.0 0.0) false (source-list ())))
                 ((forward-aggregate-state $_id $_sum $mass $_members) $state))
-            (if (<= $mass 0.0) (remove-produced-base-rate! $kb $pattern base-rate)
-               (fa-publish-cache! $kb $pattern (fa-result (forward-base-rate-descriptor $kb $pattern) $state) base-rate))))))
+            (if (<= $mass 0.0)
+               (let $_old (foreach-flat base-rate-cache-remove-derived-entry!
+                             (base-rate-cache-entries-for-mode $kb $pattern base-rate))
+                  (base-rate-readers-changed! $kb $pattern))
+               (store-produced-base-rate! $kb $pattern (fa-result (forward-base-rate-descriptor $kb $pattern) $state) base-rate))))))
 
 ;; The trigger directory answers a miss in one row. Reading the interests
 ;; directly is a scan once most of them share one trigger, as every rule's
 ;; antecedent base rate under one head does: bulk rule import then slows as
 ;; it grows (scripts/check_import_scaling.py ratio 1.9-2.1 against 1.0).
-(: fa-maintain-key! (-[nondet]-> ForwardAggregateMaintenance (Statement KBContext Proof TV) ForwardTriggerKey (List $a)))
-(= (fa-maintain-key! $action $fact $trigger)
+(: fa-interest (-[nondet]-> ForwardTriggerKey (Number ForwardAggregateDescriptor)))
+(= (fa-interest $trigger)
    (let $hash (term_hash $trigger)
       (if (space-row-present? &ctx_forward_aggregate_triggers ($hash $trigger))
          (match &ctx_forward_aggregate_interest_by_trigger ($hash (forward-aggregate-interest $stored $id $descriptor))
-         (if (== $stored $trigger)
-            (case (copy_term $descriptor) (
-               ((forward-class-link-descriptor $kb $sub $super $fold)
-                  (let $_marked (fa-class-link-dirty! $kb $sub $super $fold () (the Statement (car-atom $fact))) ()))
-               ($rate
-                  (case $action (
-                     (aggregate-update (fa-update! $fact $id $rate))
-                     (aggregate-remove (fa-remove! $fact $id $rate)))))))
-            (empty)))
+            (if (== $stored $trigger) ($id (copy_term $descriptor)) (empty)))
          (empty))))
+
+(: fa-maintain-key! (-[nondet]-> ForwardAggregateMaintenance (Statement KBContext Proof TV) ForwardTriggerKey (List $a)))
+(= (fa-maintain-key! $action $fact $trigger)
+   (let ($id $descriptor) (fa-interest $trigger)
+      (case $descriptor (
+         ((forward-class-link-descriptor $kb $sub $super $fold)
+            (let $_marked (fa-class-link-dirty! $kb $sub $super $fold (the Statement (car-atom $fact))) ()))
+         ($rate
+            (case $action (
+               (aggregate-update (fa-update! $fact $id $rate))
+               (aggregate-remove (fa-remove! $fact $id $rate)))))))))
 
 ;; A class fact (C x) changes the sample of x in each class link over C: it
 ;; marks that sample changed, and the link's instance fold takes it when next
 ;; read (sk-instance-take-step), so a fact costs one mark per link.
-(: fa-class-link-dirty! (-[det]-> KB Term Term SkeletonKey Atom Statement Atom))
-(= (fa-class-link-dirty! $kb $sub $super $fold $_acc $type)
+(: fa-class-link-dirty! (-[det]-> KB Term Term SkeletonKey Statement Atom))
+(= (fa-class-link-dirty! $kb $sub $super $fold $type)
    (let $obj (car-atom (cdr-atom $type))
       (sk-rate-dirty! $fold
          (sk-key (ImplicationInstanceSample (cons $sub (cons $obj ())) (cons $super (cons $obj ())) $atv $btv)
             (make-kb-context $kb MAIN Nil)))))
-
-;; A class link that registers marks the samples of the subjects its classes'
-;; stored facts name, as a base rate counts the facts already stored.
-(: fa-seed-class-link! (-[det]-> KB Term Term SkeletonKey Atom ForwardTriggerKey Atom))
-(= (fa-seed-class-link! $kb $sub $super $fold $acc $trigger)
-   (case $trigger (
-      ((fwd_member $_kb $class)
-         (fold-flat (fa-class-link-dirty! $kb $sub $super $fold) $acc
-            (let $member (brand Statement (cons $class (cons $_obj ())))
-               (list_to_set (collapse (match &kb ($member ($kb MAIN Nil) $_proof $_tv) (brand Statement $member)))))))
-      ($_other $acc))))
 
 ;; The base-rate folds a fact counts in: those of the aggregates interested in
 ;; its triggers whose pattern the fact's statement matches, as the aggregate's
@@ -160,14 +153,11 @@
 ;; intersection.
 (: fa-trigger-folds (-[det]-> Statement ForwardTriggerKey (List Number)))
 (= (fa-trigger-folds $statement $trigger)
-   (let $hash (term_hash $trigger)
-      (collapse (match &ctx_forward_aggregate_interest_by_trigger ($hash (forward-aggregate-interest $stored $id $descriptor))
-         (if (== $stored $trigger)
-            (case (copy_term $descriptor) (
-               ((forward-base-rate-descriptor $_kb $pattern)
-                  (if (= $pattern (copy_term $statement)) (match &ctx_forward_aggregate_fold ($id $fold) $fold) (empty)))
-               ($_other (match &ctx_forward_aggregate_fold ($id $fold) $fold))))
-            (empty))))))
+   (collapse (let ($id $descriptor) (fa-interest $trigger)
+      (case $descriptor (
+         ((forward-base-rate-descriptor $_kb $pattern)
+            (if (= $pattern (copy_term $statement)) (match &ctx_forward_aggregate_fold ($id $fold) $fold) (empty)))
+         ($_other (match &ctx_forward_aggregate_fold ($id $fold) $fold)))))))
 
 (: forward-rate-folds (-[det]-> (Statement KBContext Proof TV) (List Number)))
 (= (forward-rate-folds $fact)

@@ -17,7 +17,7 @@
    (observation-sources (| EvidenceSet Evidence) SourceList)
    (update-likelihood-support! Atom Atom SourceList Number Number Bool)
    (update-aggregate-sources! Number ForwardAggregateObservationKey SourceList Number SourceList Number Bool)
-   (aggregate-readers Number Number (List ForwardAggregateObservationKey))
+   (aggregate-readers Number (List Number) (List ForwardAggregateObservationKey))
    (likelihood-support-counts Atom SupportCounts)
    (likelihood-sources Atom Number SourceList)
    (likelihood-support-admissible? Atom SourceList Bool)
@@ -242,7 +242,6 @@
    (beta_kl Number Number Number Number Number)
    ;; A branch's sample taken into its segments, the segments and the member's
    ;; segment after it; and the segments' evidence (runtime_helpers.pl).
-   (ledger-reset-regime-aliases! Number Bool)
    (regime-take! Number Number Number (List RegimeSegment) Number BaseRateEvidenceState BaseRateEvidenceState ((List RegimeSegment) Number))
    (regime-evidence Number (List RegimeSegment) BaseRateEvidenceState)
    ;; A stored proof expanded with each shared subproof printed once (runtime_helpers.pl).

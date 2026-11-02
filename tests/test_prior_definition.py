@@ -459,10 +459,10 @@ class PriorDefinitionTests(unittest.TestCase):
             "'update-aggregate-sources!'(-9001,_Key,AB,1,B,1,_),"
             "clause('&forward_aggregate_read'(_HB,-9001,_Reader),true,_StillB),"
             "(_RefB==_StillB -> KeptB=true;KeptB=false),"
-            "'aggregate-readers'(-9001,_HA,Removed),"
-            "'aggregate-readers'(-9001,_HB,Remaining),"
+            "'aggregate-readers'(-9001,[_HA],Removed),"
+            "'aggregate-readers'(-9001,[_HB],Remaining),"
             "'update-aggregate-sources!'(-9001,_Key,B,1,['source-list',[]],0,_),"
-            "'aggregate-readers'(-9001,_HB,Drained)", {'Kb': self.h.kb})
+            "'aggregate-readers'(-9001,[_HB],Drained)", {'Kb': self.h.kb})
         self.assertEqual((result['KeptA'], result['KeptB']), ('true', 'true'))
         self.assertEqual(result['Removed'], [])
         self.assertEqual(result['Remaining'], [['reader', self.h.kb]])

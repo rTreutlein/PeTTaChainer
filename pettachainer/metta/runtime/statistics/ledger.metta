@@ -26,11 +26,15 @@
                       (empty))))))
       ()))
 
+;; Storing the value the cache already holds is skipped, since every store
+;; wakes the folds over the pattern.
 (: store-produced-base-rate! (-[det]-> KB Statement TV $mode (List $none)))
 (= (store-produced-base-rate! $kbid $pattern $tv $mode)
    (if (== $tv no-evidence) ()
       (let $entries (base-rate-cache-entries-for-mode $kbid $pattern $mode)
-         (if (any-flat? base-rate-entry-user? $entries)
+         (if (case $entries (
+                ((cons $entry $_rest) (if (== (base-rate-entry-tv $entry) $tv) true (any-flat? base-rate-entry-user? $entries)))
+                (() false)))
             ()
             (let* (($stored (copy_term $pattern))
                    ($hash (base-rate-cache-hash $kbid $pattern))
@@ -40,14 +44,6 @@
                          ($hash (base-rate $kbid $stored $tv computed $mode))))
                    ($_readers (base-rate-readers-changed! $kbid $pattern)))
                ())))))
-
-(: remove-produced-base-rate! (-[det]-> KB Statement $mode (List $none)))
-(= (remove-produced-base-rate! $kbid $pattern $mode)
-   (let* (($_old
-             (foreach-flat base-rate-cache-remove-derived-entry!
-                (base-rate-cache-entries-for-mode $kbid $pattern $mode)))
-          ($_readers (base-rate-readers-changed! $kbid $pattern)))
-      ()))
 
 (: fa-id (-[semidet]-> ForwardAggregateIdentityKey Number))
 (= (fa-id $a)(let $b (index-hash $a)(once (match &ctx_forward_aggregate_identity ($b (forward-aggregate-identity-row $c $d))(if (=alpha $c $a) $d (empty))))))
@@ -85,14 +81,10 @@
 (: fa-obs (-[det]-> ForwardAggregateObservationKey (List ForwardAggregateObservation)))
 (= (fa-obs $a)(let $h (index-hash $a)(collapse (match &ctx_forward_aggregate_observation ($h $a $b $c $d $_sources)(forward-aggregate-observation $a $b $c $d)))))
 
-(: fa-read-step (-[det]-> Number (List ForwardAggregateObservationKey) Number (List ForwardAggregateObservationKey)))
-(= (fa-read-step $id $keys $read) (append-flat (aggregate-readers $id $read) $keys))
-
 ;; Standard key order, never random KB-hash order: subtraction affects floats.
 (: fa-left-out (-[det]-> Number (List Number) (List ForwardAggregateObservation)))
 (= (fa-left-out $id $exclude)
-   (fold-flat append-flat () (map-flat fa-obs
-      (sort-atom (list_to_set (fold-flat (fa-read-step $id) () $exclude))))))
+   (fold-flat append-flat () (map-flat fa-obs (aggregate-readers $id $exclude))))
 
 (: fa-subtract-step (-[det]-> ForwardAggregateState ForwardAggregateObservation ForwardAggregateState))
 (= (fa-subtract-step (forward-aggregate-state $id $sum $mass $members)
@@ -148,25 +140,16 @@
             ()))
       ()))
 
-(: sk-read-members-step (-[det]-> Number (List Number) Number (List Number)))
-(= (sk-read-members-step $hash $found $read)
-   (append-flat (collapse (match &ctx_sk_instance_read ($read $hash $mhash $_member) $mhash)) $found))
-
-(: sk-member-sample-step (-[det]-> Number (List InstanceSample) Number (List InstanceSample)))
-(= (sk-member-sample-step $hash $found $mhash)
-   (append-flat
-      (collapse (match &ctx_sk_instance_member ($mhash $hash $_member $pos-seg $neg-seg $contribution)
-         (case $contribution (
-            ((InstanceEvidence (BaseRateEvidence $_pw 0.0) (BaseRateEvidence $_nw 0.0)) (empty))
-            ($sample (instance-sample $pos-seg $neg-seg $sample))))))
-      $found))
-
 ;; Each contributing member is excluded once, in stable sample order.
 (: sk-left-out (-[det]-> Number (List Number) (List InstanceSample)))
 (= (sk-left-out $hash $exclude)
-   (if (== $exclude ()) ()
-      (sort-atom (fold-flat (sk-member-sample-step $hash) ()
-         (list_to_set (fold-flat (sk-read-members-step $hash) () $exclude))))))
+   (let $members (list_to_set (collapse (let $read (superpose $exclude)
+                    (match &ctx_sk_instance_read ($read $hash $read-member $_member) $read-member))))
+      (sort-atom (collapse (let $mhash (superpose $members)
+         (match &ctx_sk_instance_member ($mhash $hash $_stored $pos-seg $neg-seg $contribution)
+            (case $contribution (
+               ((InstanceEvidence (BaseRateEvidence $_pw 0.0) (BaseRateEvidence $_nw 0.0)) (empty))
+               ($sample (instance-sample $pos-seg $neg-seg $sample))))))))))
 
 (: sk-leave-out-step (-[det]-> Number InstanceRegimeState InstanceSample InstanceRegimeState))
 (= (sk-leave-out-step $hash (instance-regimes $hazard $next $pos $neg) (instance-sample $pos-seg $neg-seg (InstanceEvidence $old-pos $old-neg)))
@@ -178,8 +161,8 @@
 (: ledger-instance-read-excluding (-[det]-> Number InstanceRegimeState (List InstanceSample) InstanceRegimeState))
 (= (ledger-instance-read-excluding $hash $tally $left) (fold-flat (sk-leave-out-step $hash) $tally $left))
 
-(: sk-instance-read! (-[det]-> Number Number SkeletonKey KBContext Atom Atom Atom))
-(= (sk-instance-read! $hash $mhash $member $kbctx $_acc $statement)
+(: sk-instance-read! (-[det]-> Number Number SkeletonKey KBContext Atom Atom))
+(= (sk-instance-read! $hash $mhash $member $kbctx $statement)
    (let* (($read (index-hash (sk-key $statement $kbctx)))
           ($_row (context-add! &sk_instance_read ($read $hash $mhash $member))))
       ()))
@@ -188,16 +171,9 @@
 (= (sk-instance-reads! $hash $mhash $member)
    (case $member (
       ((sk-key (ImplicationInstanceSample $a $b $_atv $_btv) $kbctx)
-         (fold-flat (sk-instance-read! $hash $mhash $member $kbctx) ()
+         (foreach-flat (sk-instance-read! $hash $mhash $member $kbctx)
             (cons $b (implication-side-conjuncts (the Statement $a)))))
       ($_other ()))))
-
-(: sk-antecedent-fact-entries (-[det]-> KBContext Atom (List Evidence) (List Evidence)))
-(= (sk-antecedent-fact-entries $kbctx $conjunct $entries)
-   (foldr-flat sk-fact-entry-step $entries (kb-facts (the Statement $conjunct) $kbctx)))
-
-(: sk-fact-entry-step (-[det]-> (Statement KBContext Proof TV) (List Evidence) (List Evidence)))
-(= (sk-fact-entry-step ($type $kbctx $proof $_tv) $entries) (cons (fact-evidence-entry $kbctx $proof $type) $entries))
 
 (: sk-entry-hash-step (-[det]-> Number Evidence Number))
 (= (sk-entry-hash-step $sum $entry) (+ $sum (index-hash $entry)))
@@ -213,7 +189,11 @@
                      ((sk-val $_fact $ev $_deps)
                         (let $kept
                               (evidence-subtraction (evidence-inherited $ev)
-                                 (evidence-set (foldr-flat (sk-antecedent-fact-entries $kbctx) () (implication-side-conjuncts (the Statement $a)))))
+                                 (evidence-set (collapse (let* (($conjuncts (implication-side-conjuncts (the Statement $a)))
+                                                                ($conjunct (superpose $conjuncts))
+                                                                ($facts (kb-facts (the Statement $conjunct) $kbctx))
+                                                                (($type $fact-ctx $proof $_tv) (superpose $facts)))
+                                                             (fact-evidence-entry $fact-ctx $proof $type)))))
                            (evidence-set (evidence-shared-facts $kept $kept))))
                      ($_none (ev-set 0)))))
                 ($observed (fold-flat sk-entry-hash-step 0 (evidence-entries $sample-evidence)))
@@ -271,13 +251,6 @@
 (= (sk-rate-changed $hash $fold)
    (collapse (match &ctx_sk_rate_dirty ($hash $_mhash $stored $member) (if (=alpha $stored $fold) $member (empty)))))
 
-;; Removing a population member subtracts its prior contribution and physical
-;; support. The caller decides whether the resulting estimate is published.
-(: ledger-remove-member! (-[semidet]-> Number ForwardAggregateObservationKey (List ForwardAggregateObservation) ForwardAggregateState))
-(= (ledger-remove-member! $id $key $previous)
-   (ledger-replace-member! $id $previous
-      (forward-aggregate-observation $key no-forward-aggregate-observation-value 0.0 0.0) false (source-list ())))
-
 ;; Exclusion is a projection: the stored tally and cache remain authoritative.
 (: ledger-read-excluding (-[semidet]-> Number (List ForwardAggregateObservation) ForwardAggregateState))
 (= (ledger-read-excluding $id $left)
@@ -285,9 +258,6 @@
 
 ;; Hazard selection stays with the temporal policy. Reset replays admitted
 ;; members in their original read-index order, before still-pending members.
-(: sk-rate-dirty-step (-[det]-> SkeletonKey Atom SkeletonKey Atom))
-(= (sk-rate-dirty-step $fold $_acc $member) (sk-rate-dirty! $fold $member))
-
 (: ledger-reset-regime! (-[det]-> Number SkeletonKey Atom))
 (= (ledger-reset-regime! $hash $fold)
    (let* (($members (the (List SkeletonKey) (alpha_unique_keys (collapse (match &ctx_sk_instance_read ($_fr $hash $_fmh $member) $member)))))
@@ -295,11 +265,11 @@
           ($_dirty (remove-data-rows! &sk_rate_dirty (quote ($hash $_dmh $_df $_dm))))
           ($_tally (remove-data-rows! &sk_instance_tally (quote ($hash $_tf $_ta))))
           ($_member (remove-data-rows! &sk_instance_member (quote ($_mmh $hash $_mm $_mp $_mn $_mc))))
-          ($_regime (ledger-reset-regime-aliases! $hash))
+          ($_regime (remove-data-rows! &sk_instance_regime (quote ($hash $_rs $_rt))))
           ($_digest (remove-data-rows! &sk_instance_digest (quote ($hash $_dd))))
           ($_sig (remove-data-rows! &sk_instance_sig (quote ($_smh $hash $_ss))))
           ($_read (remove-data-rows! &sk_instance_read (quote ($_rr $hash $_rmh $_rmm)))))
-      (fold-flat (sk-rate-dirty-step $fold) () (append-flat $members $pending))))
+      (foreach-flat (sk-rate-dirty! $fold) (append-flat $members $pending))))
 
 ;; User-rate validation, canonicalization, gating and notifications remain in
 ;; the API controller; this transaction owns the physical replacement only.

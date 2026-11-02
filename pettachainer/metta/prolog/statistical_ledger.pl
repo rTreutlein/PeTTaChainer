@@ -72,10 +72,11 @@ likelihood_replace_sources(Fold,Old,OP,ON,Sources,Pos,Neg) :-
       likelihood_replace_sources(['aggregate-support',Id],Old,OP,0,Sources,Pos,0) ).
 
 % Keep the full reader once; reverse edges retain only scalar identities.
-% Edge enumeration preserves arrival order and keeps the aggregate indexed.
-'aggregate-readers'(Id,Read,Keys) :-
-    findall(Key,('&ctx_forward_aggregate_read'(Read,Id,Reader),
-                 support_identity(Reader,_,['aggregate-reader',Id,Key])),Keys).
+% The readers of any of the reads, as a set in standard order.
+'aggregate-readers'(Id,Reads,Keys) :-
+    findall(Key,(member(Read,Reads),'&ctx_forward_aggregate_read'(Read,Id,Reader),
+                 support_identity(Reader,_,['aggregate-reader',Id,Key])),Found),
+    sort(Found,Keys).
 
 'likelihood-support-counts'(Fold,Counts) :-
     'index-hash'(Fold,H),
@@ -321,6 +322,3 @@ regime_make_room(Hash, Id, Segs, Posts, Kept) :-
         findall(S, ( nth1(N, Segs, S), N =\= Drop ), Kept)
     ).
 
-
-'ledger-reset-regime-aliases!'(Hash,true) :-
-    'remove-data-rows!'('&sk_instance_regime',[Hash,_,_],_).

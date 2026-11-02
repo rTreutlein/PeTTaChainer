@@ -48,32 +48,25 @@
 (: hm-outcomes (-[det]-> KB Atom Number))
 (= (hm-outcomes $kb $pattern)
    (let $hash (hm-pattern-hash $kb $pattern)
-      (case (collapse (once (match &hm_outcomes ($hash $kb $stored $count)
-               (if (=alpha $stored $pattern) $count (empty))))) (
-         ((cons $count $_rest) $count)
-         (() 0)))))
-
-(datatype HmOutcome (hm-outcome Atom Number))
+      (chainer-first-or 0 (collapse (once (match &hm_outcomes ($hash $kb $stored $count)
+         (if (=alpha $stored $pattern) $count (empty))))))))
 
 (: hm-count-outcome! (-[det]-> KB Atom Atom))
 (= (hm-count-outcome! $kb $pattern)
    (let $hash (hm-pattern-hash $kb $pattern)
-      (case (collapse (once (match &hm_outcomes ($hash $kb $stored $count)
-               (if (=alpha $stored $pattern) (hm-outcome $stored $count) (empty))))) (
-         ((cons (hm-outcome $stored $count) $_rest)
+      (collapse (once (match &hm_outcomes ($hash $kb $stored $count)
+         (if (=alpha $stored $pattern)
             (let* (($_old (remove-atom &hm_outcomes ($hash $kb $stored $count)))
                    ($count1 (+ $count 1)))
-               (add-atom &hm_outcomes ($hash $kb $stored $count1))))
-         (() ())))))
+               (add-atom &hm_outcomes ($hash $kb $stored $count1)))
+            (empty)))))))
 
 ;; --- Recent facts by constant ----------------------------------------------
 
 (: hm-record! (-[det]-> KB Atom Number Atom Atom Atom Atom))
 (= (hm-record! $kb $type $seq $time $layer $value)
    (let* (($hash (hm-pattern-hash $kb $value))
-          ($count (case (collapse (once (match &hm_value_count ($hash $kb $value $n) $n))) (
-                     ((cons $n $_rest) $n)
-                     (() 0))))
+          ($count (chainer-first-or 0 (collapse (once (match &hm_value_count ($hash $kb $value $n) $n)))))
           ($_count (remove-data-rows! &hm_value_count (quote ($hash $kb $value $_old))))
           ($next (+ $count 1))
           ($_new-count (add-atom &hm_value_count ($hash $kb $value $next)))
@@ -154,12 +147,6 @@
 (= (hm-explained? $kb $explained $antecedent)
    (if $explained true (not (hm-across? $kb $antecedent))))
 
-;; The candidates proposed from one fact's, from the count and picks so far,
-;; at most max-new in all.
-(: hm-propose! (-[det]-> KB Number Number (Number (List AnnotatedStatement)) (List (Atom Atom Atom)) (Number (List AnnotatedStatement))))
-(= (hm-propose! $kb $max-new $max-live $state $candidates)
-   (fold-flat (hm-consider! $kb $max-new $max-live) $state $candidates))
-
 ;; The fact is counted in the outcomes of the consequent patterns it is an
 ;; instance of. Its features are the recent true facts sharing a constant
 ;; with it at its time point and at the ones its links make the previous and
@@ -182,14 +169,14 @@
 
 (= (hm-propose-observation! $kb (hm-limits $max-new $max-live) $state (hm-observation $type $s $layer $features))
    (if (> $s 0.5)
-      (hm-propose! $kb $max-new $max-live $state (hypothesis-candidates $type $layer $features))
+      (fold-flat (hm-consider! $kb $max-new $max-live) $state (hypothesis-candidates $type $layer $features))
          (let* (($patterns (hypothesis-patterns $type))
                 ($live (collapse (let* (($pattern (superpose $patterns))
                                         ($phash (hm-pattern-hash $kb $pattern)))
                                      (match &hm_live ($phash $kb $consequent $_name $antecedent $_born)
                                         (if (=alpha $consequent $pattern) ($antecedent $consequent) (empty))))))
-                ($exceptions (hm-propose! $kb $max-new $max-live $state (hypothesis-exception-pairs $type $layer $features $live)))
-                ($result (hm-propose! $kb $max-new $max-live $exceptions (hypothesis-failure-candidates $type $layer $features $live))))
+                ($exceptions (fold-flat (hm-consider! $kb $max-new $max-live) $state (hypothesis-exception-pairs $type $layer $features $live)))
+                ($result (fold-flat (hm-consider! $kb $max-new $max-live) $exceptions (hypothesis-failure-candidates $type $layer $features $live))))
             $result)))
 
 (: hm-mine! (-[det]-> KB Atom Number Atom Atom HmMiningLimits (List AnnotatedStatement)))
@@ -206,7 +193,7 @@
           ($seq (next-search-id hm_seq))
           ($_horizon
              (if (space-row-present? &hm_period ($period-hash $kb $time $_seq $_fact $_truth $_layer)) ()
-                (let* (($count (case (collapse (once (match &hm_period_count ($kb $n) $n))) (((cons $n $_rest) $n) (() 0))))
+                (let* (($count (chainer-first-or 0 (collapse (once (match &hm_period_count ($kb $n) $n)))))
                        ($_period-count (remove-data-rows! &hm_period_count (quote ($kb $_old))))
                        ($next-period (+ $count 1))
                        ($_next (add-atom &hm_period_count ($kb $next-period)))
