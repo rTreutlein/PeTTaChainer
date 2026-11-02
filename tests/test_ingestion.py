@@ -122,7 +122,7 @@ class TestIngestion(unittest.TestCase):
             'pattern-shape': "'pattern-shape'([_Head,['P',a],['Q',b]],_Out),var(_Head)",
             'sk-fact-premise-type': "'sk-fact-premise-type'([[_Head,a],[Kb,'MAIN','Nil'],proof,['STV',1.0,1.0]],[],_Out),var(_Head),_Out=[[_Head,a]]",
             'sk-shared-candidate': "'sk-shared-candidate'([],['sk-key',[_Head,a],[Kb,'MAIN','Nil']],_Out),var(_Head)",
-            'forward-maintain-aggregates!': "'forward-maintain-aggregates!'(forward_add,[[_Head,a,b],[Kb,'MAIN','Nil'],proof,['STV',1.0,1.0]],_Out),var(_Head)",
+            'forward-maintain-aggregates!': "'forward-maintain-aggregates!'('aggregate-update',[[_Head,a,b],[Kb,'MAIN','Nil'],proof,['STV',1.0,1.0]],_Out),var(_Head)",
             'sk-row-exclusions': "_Key=['sk-key',[_Head,a,b,c,d],[Kb,'MAIN','Nil']],'index-hash'(_Key,_Hash),'sk-row-exclusions'(_Hash,_Key,proof,_Out),var(_Head)",
         }
         for label, query in cases.items():
