@@ -2,7 +2,6 @@
 ;; Groups share a determinism annotation; a bare name retains an intentionally
 ;; untyped Python/ingestion boundary.
 ;; The bootstrap loads their implementations before this declaration table.
-(: declare-natives! (-[det]-> Atom Atom Bool))
 !(declare-natives! -[det]-> (
    declare-stores!
    (sk-order-claims (List SkeletonClaim) (List SkeletonClaim))
@@ -144,7 +143,6 @@
    ;; reader is a row's identity, not its whole row.
    (sk-push-reader! (Number SkeletonKey Number) Atom)
    (sk-restore-readers! Atom Bool)
-   (heap-empty? (Heap $item) Bool)
    ;; Shared compiler/runtime lookup hash (native, variable-safe).
    (index-hash $term Number)
    ;; A lookup column is hashed with every variable replaced by one marker
@@ -205,11 +203,6 @@
    (evidence-inherited EvidenceSet EvidenceSet)
    (evidence-shared-facts EvidenceSet EvidenceSet (List Evidence))
    (evidence-excludes? EvidenceSet EvidenceSet Bool)
-   ;; Sets of key hashes, kept as SWI ordered sets (runtime_helpers.pl).
-   (hash-set (List Number) (List Number))
-   (hash-union (List Number) (List Number) (List Number))
-   (hash-subset? (List Number) (List Number) Bool)
-   (hash-intersection (List Number) (List Number) (List Number))
    ;; A value's dependency set, an interned node id; 0 is the empty set
    ;; (runtime_helpers.pl).
    (deps-key Number Number)
@@ -237,16 +230,12 @@
    ;; Contexts of Assuming queries, which see the world, and whether their
    ;; assumptions can change a statement (runtime_helpers.pl).
    (context-create! KBContext Bool)
-   ;; KL divergence of Beta(a1, b1) from Beta(a2, b2) (runtime_helpers.pl).
-   (beta_kl Number Number Number Number Number)
    ;; A branch's sample taken into its segments, the segments and the member's
    ;; segment after it; and the segments' evidence (runtime_helpers.pl).
    (regime-take! Number Number Number (List RegimeSegment) Number BaseRateEvidenceState BaseRateEvidenceState ((List RegimeSegment) Number))
    (regime-evidence Number (List RegimeSegment) BaseRateEvidenceState)
    ;; A stored proof expanded with each shared subproof printed once (runtime_helpers.pl).
    (proof_dag_expand Atom Atom)
-   ;; The first of each group of variant terms, in order (runtime_helpers.pl).
-   (alpha_unique_keys (List $item) (List $item))
    ;; Proof-indexed subsumption preserves root order (runtime_helpers.pl).
    (prune_answer_instances (List RuntimeResult) (List RuntimeResult))
    (grows-from? SkPattern SkPattern Bool)
@@ -287,7 +276,6 @@
    (search-id-value CounterKey Number)
    (fresh-rule-id Number Number)
    ;; Inference time, process-wide (runtime_helpers.pl); reasoning never reads it.
-   (inference-clock Number)
    (inference-add! Number Bool)
    ;; Opt-in diagnostic counters kept natively; reasoning never reads them.
    (query_metrics_enabled Bool)
@@ -308,7 +296,6 @@
    (jeffrey-posterior Number Number Number TV Expression STVType)
    (pearl-moments Number Atom Atom Expression STVType)
    (event-node-joint Atom Expression Number Expression Expression Expression Expression Expression)
-   (heap_pop (Heap $item) (Number $item (Heap $item)))
    ;; Keep selection as an output across the FFI: nth0/4 types its third
    ;; position as an input under strict checking.
    (rule-premise Number (List SkPattern) SkPattern)
@@ -319,14 +306,12 @@
    (evidence-proof-fact EvidenceSet Proof Evidence)
 ))
 
-;; Higher-order brackets keep native storage independent of runtime policy.
-!(declare-natives! -[semidet]-> (
-   (execution-finally (-[nondet]-> Atom $result) (-[nondet]-> Atom Atom) $result)
-   (context-with-scope Atom (-[semidet]-> Atom $result) $result)))
+;; A higher-order bracket keeps native storage independent of runtime policy.
+!(declare-natives! -[semidet]-> ((context-with-scope Atom (-[semidet]-> Atom $result) $result)))
 
 ;; Executor contracts for the mutually recursive evaluator. Implementations
 ;; are MeTTa in runtime/store/allowances, loaded after the computation modules.
-!(execution-declare! -[det]-> (
+!(declare-forward! -[det]-> (
    (sk-take! CounterKey Number Bool)
    (sk-reserve-near! Number Atom)
    (sk-evaluation-per-step Number)
@@ -338,14 +323,14 @@
    (execution-close-slice! EvaluationSlice EvaluationTier Number)
    (execution-open-frame! (List Number) (Number Number))
    (retain-query-proof! (Number AnnotatedStatement) Bool)))
-!(execution-declare! -[semidet]-> (
+!(declare-forward! -[semidet]-> (
    (execution-close-frame! Number Number (List Number) (List Number))
    (context-cold-merged Number SkeletonKey SkeletonFilter SkeletonMerged)
    (context-answer-seeds! SkPattern Atom)
    (context-propagate? SkeletonKey Bool)
    (query-plan-runtime-goal (Number Statement AnnotatedStatement CompiledQueryGoal) ExecutionGoal)
 ))
-!(execution-declare! -[nondet]-> (
+!(declare-forward! -[nondet]-> (
    (present-query-plan-results Bool (List (Number Statement AnnotatedStatement CompiledQueryGoal)) (List (List RuntimeResult)) (List (Number AnnotatedStatement)))
    (execute-backward Number (List ExecutionGoal) Bool (List (List RuntimeResult)))
    (run-query-execution-plan Number QueryExecutionPlan Bool Bool (List (Number AnnotatedStatement)))))

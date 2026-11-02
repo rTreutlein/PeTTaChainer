@@ -10,14 +10,6 @@
 !(import! &self core/vocabulary)
 !(import! &self core/logic_config)
 
-!(use-module! heaps)
-
-!(import_prolog_function (superpose (empty_heap add_to_heap get_from_heap heap_size)))
-!(assertzPredicate (Predicate (arity empty_heap 1)))
-!(assertzPredicate (Predicate (arity add_to_heap 4)))
-!(assertzPredicate (Predicate (arity get_from_heap 4)))
-!(assertzPredicate (Predicate (arity heap_size 2)))
-
 ;; Prolog helper imports resolve against the process CWD, while MeTTa imports
 ;; resolve against working_dir. Build both supported paths from working_dir so
 ;; loading works from the package, repository root, Python, and benchmarks.
@@ -42,8 +34,9 @@
       (if (== $runtime-helper $parent-runtime-helper)
          $runtime-helper
          (superpose ($runtime-helper $parent-runtime-helper)))
-      (quote (declare-natives! execution-declare!))))
+      (quote (declare-natives! declare-forward!))))
 
+!(import! &self lib/natives)
 !(import! &self core/natives)
 !(declare-stores!)
 

@@ -55,9 +55,13 @@ implementations belong to its ABI.
   `core/search_terms.metta` supplies schemas and structural node hashes.
 - `core/runtime_terms.metta`, `stored_terms.metta`, `truth_values.metta` and
   `fold_values.metta` provide shared data boundaries and pure normalization.
-  `runtime_terms_keys.metta` owns pure key adapters; `runtime_terms.pl` owns
-  variant-preserving collection deduplication.
+  `runtime_terms_keys.metta` owns pure key adapters.
   These operations do not choose query or evaluation policy.
+- `lib/` holds chainer-independent support below all of these: list and space
+  operations (`collections.metta`), native registration, the `finally` cleanup
+  bracket and host calls (`natives.pl`), variant deduplication, ordered integer
+  sets and heaps (`collections.pl`) and numeric kernels (`numeric.pl`), declared
+  by `natives.metta`.
 
 The raw store dependency order is `rows` → `search_index` / `value_store` →
 `journal`; fact/settings indexes, rule identity, schema and allowances have no

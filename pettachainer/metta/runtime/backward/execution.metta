@@ -9,7 +9,7 @@
 (: execute-backward
    (-[nondet]-> Number (List ExecutionGoal) Bool (List (List RuntimeResult))))
 (= (execute-backward $steps $requested $materialize?)
-   (execution-finally (execute-backward-run $steps $requested $materialize?) execution-finish-backward!))
+   (finally (execute-backward-run $steps $requested $materialize?) execution-finish-backward!))
 
 (: execute-backward-run
    (-[nondet]-> Number (List ExecutionGoal) Bool Atom (List (List RuntimeResult))))
@@ -33,7 +33,7 @@
           ;; the search needs, and the allowance bounds what new facts set off
           ;; through recursive rules. Deliveries beyond it are made from the
           ;; query's allowance (docs/metta/fact_absorption.md).
-          ($started (inference-clock))
+          ($started (current-time))
           ($_absorbing (change-state! sk_row_budget (* 10 (+ (length (collapse (match &sk_pending_facts $fact $fact))) $steps))))
           ($_facts (sk-activate-facts!))
           ($_scored (fold-semidet sk-root-score-step () $goals))
@@ -85,13 +85,13 @@
    (-[nondet]-> Number KB (List (Statement KBContext Proof TV))
        (List (Statement KBContext Proof TV))))
 (= (forward-chain $units $kb $facts)
-   (execution-finally (execution-forward-run $units $kb $facts) execution-finish-forward!))
+   (finally (execution-forward-run $units $kb $facts) execution-finish-forward!))
 
 (: execution-forward-run
    (-[nondet]-> Number KB (List (Statement KBContext Proof TV)) Atom
        (List (Statement KBContext Proof TV))))
 (= (execution-forward-run $units $kb $facts $_unit)
-   (let* (($started (inference-clock))
+   (let* (($started (current-time))
           ($_frames (execution-reset-frames!))
           ($_mode (change-state! sk_forward_run 1))
           ($_seen (remove-data-rows! &sk_seen (quote ($hash $node))))
@@ -126,7 +126,7 @@
 (: run-query-execution-plan
    (-[nondet]-> Number QueryExecutionPlan Bool Bool (List (Number AnnotatedStatement))))
 (= (run-query-execution-plan $steps $plan $materialize? $expand?)
-   (execution-finally (execution-query-run $steps $plan $materialize? $expand?) execution-query-finish!))
+   (finally (execution-query-run $steps $plan $materialize? $expand?) execution-query-finish!))
 
 (: execution-query-run
    (-[nondet]-> Number QueryExecutionPlan Bool Bool Atom (List (Number AnnotatedStatement))))
@@ -165,7 +165,7 @@
 (= (execution-search-goal $requested)
    (case $requested (
       ((query-scope $scope $facts $inner $proof $tv)
-         (let* (($started (inference-clock))
+         (let* (($started (current-time))
                 (($_kb $ctx $_vars) $scope)
                 ($_prepared (context-prepare! $scope $facts $proof $tv))
                 ($_seeds (map-semidet execution-register-seed! (context-seeds $ctx)))
@@ -199,7 +199,7 @@
 (= (execution-context-run $allowance $reserve ($kb $ctx $_vars) $facts $inner $want-proof $want-tv $_unit)
    (let* (($_allowance (execution-allowances! $allowance true))
           ($_reserve (change-state! sk_near_reserve $reserve))
-          ($started (inference-clock))
+          ($started (current-time))
           ($_holding (change-state! sk_holding 1))
           ($_refresh (sk-refresh-near!))
           ($_dirty (map-flat execution-dirty-seed! (context-seeds $ctx)))

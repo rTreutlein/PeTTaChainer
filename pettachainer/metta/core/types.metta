@@ -3,15 +3,6 @@
 ;; MeTTa signatures stay beside their implementations; native signatures live
 ;; in natives. These representations cross compiler/runtime module boundaries.
 
-;; SWI heap values are opaque Prolog terms. The parameter tracks their payload
-;; type, while heap_pop adapts get_from_heap/4 to PeTTa's single output.
-(: Heap (Foreign 1))
-(: empty_heap (-[det]-> (Heap $item)))
-(: add_to_heap
-   (-[det]-> (Heap $item) Number $item (Heap $item)))
-
-(: sort-atom (-[det]-> (List $item) (List $item)))
-
 ;; A value's evidence, an interned set of entries kept in the order they were
 ;; first added; (ev-set 0) is the empty set (runtime_helpers.pl,
 ;; docs/metta/evidence_sets.md). Equal sets have equal ids.

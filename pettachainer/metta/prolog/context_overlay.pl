@@ -1,4 +1,3 @@
-:- ensure_loaded(execution).
 % Assuming overlays share logical keys and search rows with MAIN. Only mutable
 % evaluation entries live here; overlay writes never copy or mutate borrowed
 % MAIN clauses. Independent cold reads perform ordinary MAIN maintenance.

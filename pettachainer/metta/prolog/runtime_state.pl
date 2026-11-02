@@ -1,4 +1,3 @@
-:- ensure_loaded('../core/runtime_terms').
 % Physical inference state: indexed rows, identities, proof/evidence lifetime,
 % pending-search ownership and scalar instrumentation. No search expansion or evaluator.
 % Rank claims by depth, cost and age, then their pending enumeration sequence.
@@ -18,16 +17,6 @@
         ( trie_insert(Trie,forced(Key,Row,Cause))
         -> 'context-add!'('&sk_forced',[Key,Row,Cause],true)
         ; true )).
-
-% PeTTa arrows have one result position. Package SWI's three relational
-% get_from_heap/4 outputs into one positional product.
-heap_pop(Heap, [Priority, Value, Rest]) :-
-    get_from_heap(Heap, Priority, Value, Rest).
-
-% Test before popping, so a caller can pop without collecting the result: a
-% collected pop copies the whole remaining heap.
-'heap-empty?'(Heap, Empty) :-
-    (   empty_heap(Heap) -> Empty = true ; Empty = false ).
 
 % A statically imported rule dump stores its rule ids without advancing the
 % live counter, so the counter's next id may already be taken: a new live rule
@@ -85,13 +74,6 @@ generalize_argument(Arg, General, Seen0, Seen) :-
       ( var(Premise)
       ; Premise=[Tag, Fun|_], (var(Tag) ; Tag=='CPU', (var(Fun) ; Fun=='CTVBayesFormula')) )
     -> Has=true ; Has=false ).
-
-% Hash sets (exclusion lists, unifier sets) are SWI ordered sets of key
-% hashes, so union and membership are linear merges over short lists.
-'hash-set'(Hashes, Set) :- sort(Hashes, Set).
-'hash-union'(Left, Right, Set) :- ord_union(Left, Right, Set).
-'hash-subset?'(Left, Right, Result) :- ( ord_subset(Left, Right) -> Result = true ; Result = false ).
-'hash-intersection'(Left, Right, Both) :- ord_intersection(Left, Right, Both).
 
 % A value's dependency set is an interned node id, so a value stays one
 % integer however long the derivation behind it (docs/metta/
@@ -1093,9 +1075,9 @@ particle_merge_args(
     nb_current(sk_reading, Readers), reverse(Readers, Outermost), member(Reader, Outermost).
 
 % Inference time, process-wide, in seconds: activation, search and evaluation
-% of backward queries, and forward runs. A caller splits the wall time of its
-% calls into inference and overhead with it; it costs two clock reads a call.
-'inference-clock'(Time) :- get_time(Time).
+% of backward queries, and forward runs, each from its current-time Start. A
+% caller splits the wall time of its calls into inference and overhead with
+% it; it costs two clock reads a call.
 'inference-add!'(Start, true) :-
     get_time(Now),
     flag(pettachainer_inference_seconds, Seconds, Seconds + Now - Start).
@@ -1116,68 +1098,6 @@ query_metric_increment(Key, Result) :-
         atom_concat(pettachainer_query_metric_, Key, G), nb_setval(G, Result)
     ;   Result = 0
     ).
-
-% KL divergence of Beta(A1,B1) from Beta(A2,B2): how far a key's new value,
-% read as a Beta over its strength, moved from its old one.
-beta_kl(A1, B1, A2, B2, KL) :-
-    digamma(A1, PA), digamma(B1, PB), S1 is A1 + B1, digamma(S1, PS),
-    KL is lgamma(A2) + lgamma(B2) - lgamma(A2 + B2)
-        - (lgamma(A1) + lgamma(B1) - lgamma(S1))
-        + (A1 - A2) * PA + (B1 - B2) * PB
-        + (A2 - A1 + B2 - B1) * PS.
-
-% Digamma by the recurrence psi(x) = psi(x + 1) - 1/x up to x >= 6, then the
-% asymptotic series.
-digamma(X, P) :-
-    (   X < 6.0
-    ->  X1 is X + 1.0, digamma(X1, P1), P is P1 - 1.0 / X
-    ;   I is 1.0 / (X * X),
-        P is log(X) - 0.5 / X
-            - I * (1.0/12 - I * (1.0/120 - I * (1.0/252 - I * (1.0/240 - I / 132))))
-    ).
-
-% Python's call of a chainer function (pettachainer.py): Fn applied to the
-% arguments each MeTTa source in Sources reads as, every result collected in
-% order, as a runnable `!(Fn Args)` returns them. Arguments that are data,
-% which a runnable passes as they are, are passed without compiling one; any
-% other argument, such as a nested call or a lambda a runnable evaluates
-% first, is compiled as a runnable. As text, a result is printed as MeTTa
-% prints it; as terms, an expression arrives through janus as a list and a
-% symbol or string as a str, and since janus passes no unbound variable each
-% is named as MeTTa prints it.
-metta_call(Fn, Sources, Results) :-
-    atom_string(Name, Fn),
-    foldl(metta_call_source(Name), Sources, Results, []).
-metta_call_source(Name, Source, Results, Rest) :-
-    format(string(Expression), "(~s)", [Source]),
-    sread(Expression, Args),
-    (   maplist(metta_data, Args)
-    ->  append(Args, [Result], CallArgs),
-        Goal =.. [Name|CallArgs],
-        findall(Result, Goal, Results, Rest)
-    ;   format(string(Code), "!(~w ~s)", [Name, Source]),
-        process_metta_string(Code, Own),
-        append(Own, Rest, Results)
-    ).
-% What a runnable passes unevaluated: a variable, a number, symbol or string,
-% or an expression of such terms whose head names no function, special form
-% or translator rule.
-metta_data(Term) :- var(Term), !.
-metta_data(Term) :- atomic(Term), !.
-metta_data([Head|Args]) :-
-    (   atom(Head)
-    ->  \+ fun(Head), \+ translator_rule(Head), \+ special_builtin_form(Head, Args, _)
-    ;   metta_data(Head)
-    ),
-    maplist(metta_data, Args).
-metta_call_text(Fn, Sources, Texts) :-
-    metta_call(Fn, Sources, Results),
-    maplist(swrite, Results, Texts).
-metta_call_terms(Fn, Sources, Results) :-
-    metta_call(Fn, Sources, Results),
-    term_variables(Results, Variables),
-    foldl([Variable, N0, N]>>(format(atom(Variable), '$_~d', [N0]), N is N0 + 1),
-          Variables, 0, _).
 
 % A view's evidence as its readers inherit it: the role in which the view read
 % a certain fact (given-ev, a condition) is that view's own; a reader holds the

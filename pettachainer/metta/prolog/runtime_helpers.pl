@@ -4,6 +4,9 @@
 :- use_module(library(assoc)).
 :- use_module(library(nb_set)).
 :- use_module(library(yall)).
+:- ensure_loaded('../lib/natives').
+:- ensure_loaded('../lib/collections').
+:- ensure_loaded('../lib/numeric').
 :- ensure_loaded(term_index).
 :- ensure_loaded(context_overlay).
 :- ensure_loaded(pending_store).
