@@ -78,7 +78,7 @@ without binding it, so a bound premise's expansion wins the priority tie.
 Removing this discount alone delayed paid conditioning for fuzzer seed
 22000162, `(D b)`, at budget 2000. CPU policies, including zero search priority
 for settled steps, remain unchanged. Duplicate evidence and changed logical
-answer sets still block. `MERGE1B_REPORT.md` records moved pins, token counts,
+answer sets still block. `git show f1ca759f:MERGE1B_REPORT.md` records moved pins, token counts,
 symbol audit, final gates and finite-budget benchmark differences.
 
 Exists claim/witness folds, Boolean-event conditional planning, compound

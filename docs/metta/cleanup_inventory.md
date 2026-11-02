@@ -1,7 +1,7 @@
 # Core cleanup inventory — round 1
 
 Baseline: `6b66c506`, branch `cleanup-1`, 2026-10-29. Count with
-`scratch/core_count.py` using `tiktoken` / `o200k_base`: **327,439 core tokens**,
+`scripts/core_count.py` using `tiktoken` / `o200k_base`: **327,439 core tokens**,
 **17,685 third-party tokens**, **345,124 combined**. Core comprises every
 `pettachainer/metta/**/*.{metta,pl}` and `pettachainer/*.py`; docs, tests and
 nested Python benchmarks/simulations are outside that definition.
@@ -127,7 +127,7 @@ construct lowering. No fresh matrix correctness claim is made.
 ## Deletion ledger, ordered by saving per semantic risk
 
 Risk here is about answer and budget movement. Exact net savings are recorded
-in `CLEANUP_REPORT.md`; “footprint” is the current source to investigate.
+in the round's report (`git show 2ad70bdf:CLEANUP_REPORT.md`); “footprint” is the current source to investigate.
 
 | Order | Mechanism / footprint | Evidence and action | Required proof before larger deletion |
 | --- | --- | --- | --- |
@@ -193,7 +193,7 @@ or newly reproduced in this round**:
 Round-1 measured result: **327,208 core tokens**, **231 saved (0.071%)**;
 third-party stays **17,685**. The three deletions above each have an immediate
 strict MeTTa-suite gate; final gate/benchmark evidence and full before/after
-per-file counts are in the root `CLEANUP_REPORT.md`. This is contract groundwork,
+per-file counts are in `git show 2ad70bdf:CLEANUP_REPORT.md`. This is contract groundwork,
 not attainment of either size milestone.
 
 Final validation: strict MeTTa 161/0 after each deletion; full verify PASS
@@ -201,5 +201,5 @@ Final validation: strict MeTTa 161/0 after each deletion; full verify PASS
 PASS with no accuracy changes; local-timing anchor canary PASS. A focused
 standard paired retime resolved the full report's incomparable conflict
 sample: 45.12 -> 44.93 chainer seconds at equal load, identical accuracy.
-See [CLEANUP_REPORT.md](../../CLEANUP_REPORT.md) for exact commands, reports,
+See `git show 2ad70bdf:CLEANUP_REPORT.md` for exact commands, reports,
 remote timing failure diagnosis, limitations and every per-file token count.

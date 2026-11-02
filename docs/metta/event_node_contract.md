@@ -140,8 +140,8 @@ The bound trades tightness for a simple guarantee. Round 2's 1,713-goal trial
 has no overconfident converted confidence; median variance factors are 1.58
 on D0 and 2.56 on authored posterior fixtures. Thin endpoint boundary layers
 can widen by tens of millions, reducing useful confidence. The full inputs,
-reference error labels and distributions are in `experiments/confvar/` and
-`CONFVAR_REPORT.md`; numerical references alone are not certified exactness.
+reference error labels and distributions are in `git show c3ee6d01:experiments/confvar/` and
+`git show c3ee6d01:CONFVAR_REPORT.md`; numerical references alone are not certified exactness.
 
 ## Output and unknown dependence
 

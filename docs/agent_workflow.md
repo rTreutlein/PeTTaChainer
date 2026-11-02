@@ -484,3 +484,7 @@ The coordinator reads the report, not your transcript. Include:
 6. **Moved test values**: every expected value you changed in a test, old to
    new, with the reason it is correct now.
 7. **Limits**: what is not done or not verified, and known weaknesses.
+
+A committed root `<ROUND>_REPORT.md` does not stay on master: after landing,
+the coordinator deletes it and adds one line to `docs/history/rounds.md`.
+Tools a later round needs go into `scripts/`, not `scratch/`.

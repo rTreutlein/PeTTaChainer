@@ -58,10 +58,10 @@ def measure(root, revision=None):
         for form in forms(source):
             if len(form) == 3 and form[0] == '=' and isinstance(form[1], list) and form[1] and isinstance(form[1][0], str):
                 rows.append(dict(file=file, name=form[1][0], refs=list(references(form[2]))))
-    # Parse historical native files from a scratch snapshot, without consulting
-    # project code or changing another checkout. The graph algorithm is unchanged.
+    # Parse historical native files from a temporary snapshot, without consulting
+    # project code or changing another checkout.
     native = [f for f in files if f.endswith('.pl')]
-    with tempfile.TemporaryDirectory(prefix='reference-native-', dir=root / 'scratch') as tmp:
+    with tempfile.TemporaryDirectory(prefix='reference-native-') as tmp:
         parse_root = Path(tmp) if revision else root
         if revision:
             for f in native:

@@ -1,7 +1,7 @@
 # Compound outputs from the event node
 
 Baseline `2ad70bdf`, worktree/branch `merge2-outputs`, 2026-10-29.
-Measured with `scratch/core_count.py`, `o200k_base`: core **327,208**,
+Measured with `scripts/core_count.py`, `o200k_base`: core **327,208**,
 third party **17,685**, total **344,893** tokens.
 
 ## Existing ownership and callers
@@ -78,6 +78,6 @@ Removing conditional export failed three MeTTa files; unconstrained cold and
 warm query probes confirmed actual answer loss, rather than a proof-pattern
 mismatch. The retained runtime is byte-identical to the baseline, with zero
 token savings and no accepted answer changes. See
-[the hand-back report](../../MERGE2_REPORT.md) for exact queries, values,
+the hand-back report (`git show d1ee51a7:MERGE2_REPORT.md`) for exact queries, values,
 symbol audit and verification/comparison evidence. The complete mechanism
 deletion remains unimplemented under the brief's stopping rule.

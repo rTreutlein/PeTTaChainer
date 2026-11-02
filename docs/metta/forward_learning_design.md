@@ -28,7 +28,7 @@ and withdrawal), `API.md`, and the forward/learning regression families.
 
 ## Current moving parts
 
-o200k tokens, including comments and declarations, using `scratch/core_count.py`:
+o200k tokens, including comments and declarations, using `scripts/core_count.py`:
 
 | File under `pettachainer/metta/runtime/` | Tokens |
 | --- | ---: |
