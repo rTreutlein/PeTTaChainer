@@ -39,6 +39,27 @@ with the message `a negated statement takes an STV`. Rejection publishes no comp
 facts, rules or ingestion observations for that input. Bulk Python ingestion
 keeps its successfully added prefix, including its timed-worker replay journal.
 
+`Premises` and `Conclusions` are unsupported structural wrappers at executable
+statement positions. They raise `domain_error(rule_syntax, ...)`, naming the
+supported `(Implication antecedent consequent)` syntax; use `And` for multiple
+premises or conclusions. Arbitrary predicate heads remain valid, and quoted
+predicate arguments are data rather than executable statement positions.
+
+STV strength and confidence must each be in `[0,1]`; confidence 1 is the
+documented certainty endpoint. An out-of-range numeric field raises
+`domain_error(truth_value, TV)`. The same check applies to both STVs in a CTV
+and to explicit PTV/FTV values after kind canonicalization. Computed rule
+fields are checked when present at ingestion; unbound formula outputs stay
+schematic. The compiler's TV union accepts STV, CTV and the internal
+`no-evidence` marker. Distributions are values in statement arguments, rather
+than epistemic TV annotations: `PointMass` and evaluated particle constructors
+retain their value and weight semantics. Historical distribution annotation
+forms listed by the Python syntax checker still fail the compiler's TV type check.
+Python `add_atom`, `add_atoms_no_check`, and direct `compileadd` share these
+checks. The lower-level `add-to-kb` checks the same structural wrappers and
+STV/CTV domains in raw runtime facts and rule fact premises/conclusions before
+installation; it takes compiled forms, not source annotations or PTV/FTV kinds.
+
 `(Member x P)` is the statement `(P x)` (#96, LANGUAGE_SPEC "Member is a
 unary predicate"): every source and query statement is read so at its
 statement positions, answers keep their query's form, and the KB stores the

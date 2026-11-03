@@ -16,10 +16,33 @@
     ; throw(error(resource_error(stored_term_bytes(Size, Limit)),
                   context(compileadd/2, 'stored term exceeds max-term-bytes'))) ),
     Statement = [':', _, Type, TV],
+    ingestion_check(Type, TV),
     ingestion_negation(Type, TV),
     ( ingestion_closed([], Type) -> true
     ; throw(error(domain_error(fact_without_free_variables, Type),
                   context(compileadd/2, 'fact contains free variables'))) ).
+
+ingestion_check(Type, TV) :-
+    forall((source_atom(Type, Atom), (atom(Atom) -> Head=Atom ; Atom=[Head|_]),
+            memberchk(Head, ['Premises','Conclusions'])),
+           throw(error(domain_error(rule_syntax, Atom),
+                       context(compileadd/2, 'use (Implication antecedent consequent), with And for multiple statements')))),
+    ingestion_tv(TV).
+
+ingestion_tv(TV) :-
+    ( var(TV) -> true
+    ; TV=[Head|Branches], Head=='CTV' -> maplist(ingestion_tv, Branches)
+    ; TV=[Head,S,C], Head=='STV'
+    -> forall((member(Value, [S,C]), nonvar(Value)),
+              ( number(Value), Value >= 0, Value =< 1 -> true
+              ; throw(error(domain_error(truth_value, TV),
+                            context(compileadd/2, 'STV strength and confidence must be in [0,1]'))) ))
+    ; true ).
+
+ingestion_addition([rules, [Premises, '|-', Conclusion]]) :- !,
+    maplist(ingestion_addition, [Conclusion|Premises]).
+ingestion_addition([Type, _, _, TV]) :-
+    ( Type == 'CPU' -> true ; ingestion_check(Type, TV) ).
 
 % A fact's context, proof name and statement are its evidence identity. A new
 % observation is new evidence, never a replacement (append-only), so a source

@@ -25,6 +25,7 @@ source_plan_parts(Plan, S, R, P, S, R, P, Plan).
     -> PublishedRole=summary
     ; PublishedRole=observation ).
 'prepare-source-addition'(Addition, Prepared) :-
+    ingestion_addition(Addition),
     ( Addition = [rules, [Ps, '|-', [Type, Scope, Proof, TV]]]
     -> source_raw_role(Proof, Scope, Ps, Role),
        findall([KB, Pattern],
