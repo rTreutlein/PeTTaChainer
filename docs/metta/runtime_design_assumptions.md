@@ -139,6 +139,13 @@ temporal or scope policy. Query-local rows and replaceable cache/index rows are 
 logical retractions as long as deleting those optimization tables would leave
 the unbounded logical answers unchanged.
 
+Identical rule replays reuse the live rule id selected through the rule-name
+index and nonbinding alpha comparison of conclusion and premises together.
+Gated rules use their existing gate index. Withdrawal allows reinstallation;
+no historical ingestion registry survives it. Fact publication reports whether
+the existing fact-presence check admitted an observation, so replay does not
+feed mining or gap closure again.
+
 In particular, negative or empty-search cache markers may keep one mutable
 best-known budget per key. They are not assertions of falsity. Matching new
 knowledge should refine the registered cache contribution directly; unrelated

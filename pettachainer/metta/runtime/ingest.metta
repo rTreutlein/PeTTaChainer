@@ -31,7 +31,10 @@
         ($_sorts (record-source-sorts! $kb $source))
         ($_recorded-heads (record-source-heads! $kb $source))
         ($eatoms (the (List CompiledAddition) (map-flat externalize-proof-structure $iatoms)))
-        ($_ (collapse (foreach-flat add-to-kb $iatoms)))
-        ($_mined (map-flat (|-> ($hypothesis) (collapse (compileadd $kb $hypothesis))) (hm-observe! $kb $source)))
-        ($_closed (map-flat (|-> ($fact) (collapse (compileadd $kb $fact))) (observed-gaps $kb $source))))
+        ($published (collapse (let $addition (superpose $iatoms) (== (add-to-kb $addition) true))))
+        ($_observed (if (stored-list-member? true $published)
+           (progn
+              (map-flat (|-> ($hypothesis) (collapse (compileadd $kb $hypothesis))) (hm-observe! $kb $source))
+              (map-flat (|-> ($fact) (collapse (compileadd $kb $fact))) (observed-gaps $kb $source)))
+           ())))
       (superpose $eatoms)))

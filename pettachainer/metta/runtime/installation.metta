@@ -27,24 +27,6 @@
                      (data $fold-type ($fold-kb $fold-ctx $fold-vars) $fold-prf $fold-tv) $id $idx)))))))
       (+ $idx 1)))
 
-;; Index rules by the statement name embedded in their conclusion proof, so a
-;; rule's rows are found by its name without scanning the rules space (rule
-;; withdrawal, a refined rule's truth, its declaration). An assumed rule is
-;; named by its context token (rule-name?). Rules whose proof carries no
-;; extractable name (open query adapters, negated outputs) are not indexed.
-(: register-rule-name!
-   (-[det]-> KbBackend Number (Statement KBContext Proof TV) (| Bool (List $none))))
-(= (register-rule-name! $backend $id $ccls)
-   (case $ccls (
-      (($_type $_kb $prf $_tv)
-         (if (is-var $prf) ()
-            (let $name (rule-evidence-head $prf)
-               (if (is-var $name) ()
-                  (if (rule-name? $name)
-                     (once (kb-add-atom $backend rule_name_index (make-space-pair $name $id)))
-                     ())))))
-      ($_other ()))))
-
 (: note-combination-outcome! (-[det]-> (Statement KBContext Proof TV) Atom))
 (= (note-combination-outcome! $fact)
    (case $fact (
@@ -89,56 +71,62 @@
                    ($_functional (functional-fact! $fact))
                    ($_published (kb-publish-fact! live $role $fact))
                    ($_journal (sk-note-fact! $type $kb))
-                   ($_outcome (note-combination-outcome! $fact)))
-                  ;; The aggregates observing the statement count it at once,
-                  ;; with its stored facts merged: whether a forward run takes it
-                  ;; is not theirs to decide.
-                  (case (stored-statement-candidate $type $kb false) (
+                   ($_outcome (note-combination-outcome! $fact))
+                   ;; Count the stored statement immediately, independently of forward runs.
+                   ($_aggregates (case (stored-statement-candidate $type $kb false) (
                      ((forward-derived $merged $_ev) (forward-maintain-aggregates! aggregate-update $merged))
                      (no-forward-output-candidate ())))))
+                  true))
             (kb-publish-fact! $backend $role $fact))))))
 
 (: kb-add-rule! (-[nondet]-> KbBackend Atom Atom Atom Number))
 (= (kb-add-rule! $backend $info $args $ccls)
    (let*
       (($typed-ccls (typed-runtime-fact $ccls))
-       ($inputs (typed-runtime-premises $args))
        ((source-info $_source $_role $_priors $_parents $recipe) $info)
-       ($rule-args (context-rule-premises $typed-ccls $inputs))
-       ;; Temp (per-query) rule ids are offset so they can never collide
-       ;; with live ones: both counters start at 0 and both backends'
-       ;; rules/rule_expected/prem_index rows share the same spaces.
-       ($id
-          (if (== $backend temp)
-             (+ 1000000000 (next-search-id bwd_tmp_ruleid))
-             (let $fresh (fresh-rule-id (search-id-value ruleid))
-                (progn (change-state! ruleid (+ $fresh 1)) $fresh))))
-       ($_proof (proof-template! $id $typed-ccls $rule-args))
-       ($_catalog (source-catalog-rule! $backend $id $info $typed-ccls))
-       ($_recipe (if (== $recipe no-completion) true
-          (kb-add-atom $backend &completion_recipe (brand SpaceAtom (data $id $recipe)))))
-       ($_context (context-note-rule! $id $typed-ccls))
-       ($_functional (functional-rule! $typed-ccls))
-       ($_1 (if (== $backend backward) 0 (fold-flat (kb-add-prem $backend $id) 0 $rule-args)))
-       ($ccls-row (make-space-row3 $typed-ccls $id $rule-args))
-       ($_2 (kb-add-atom $backend ccls_index $ccls-row))
-       ($_3
-          (kb-add-atom $backend rules
-             (brand SpaceAtom (runtime-rule-row $id $typed-ccls $rule-args))))
-       ;; Expected premise confidence is fixed per compiled rule.
-       ($_expected (let $hits (collapse (premises-expected-confidence (copy_term $rule-args)))
-          (if (== $hits ()) () (once (kb-add-atom $backend rule_expected (make-space-pair $id (car-atom $hits)))))))
-       ($_truth (case (copy_term $rule-args) (
-          ((cons (CPU $_fun $_args $_res) $_cpu-rest) ())
-          ((cons ($truth-type $truth-ctx $_truth-proof $_truth-tv) $_truth-rest)
-             (if (head-is? $truth-type RuleTruth)
-                (let $hash (index-hash (sk-key $truth-type $truth-ctx))
-                   (add-atom &sk_rule_truth ($id $hash $truth-type $truth-ctx))) ()))
-          ($_no-truth ()))))
-       ($_name-idx (register-rule-name! $backend $id $typed-ccls))
-       ($_journal (sk-note-rule! $id $typed-ccls))
-       ($_aggregates (register-forward-aggregate-premises! (== $backend live) $rule-args)))
-      $id))
+       ($rule-args (context-rule-premises $typed-ccls (typed-runtime-premises $args)))
+       (($_type $_scope $prf $_tv) $typed-ccls)
+       ($name (rule-evidence-head $prf))
+       ($named (if (is-var $name) false (rule-name? $name))))
+      (case (if (== $backend live)
+               (if $named
+                  (collapse (once (match rule_name_index ($name $existing)
+                     (match rules (runtime-rule-row $existing $stored-ccls $stored-args)
+                        (if (rule-live? (the Number $existing))
+                           (if (=alpha (quote ($stored-ccls $stored-args)) (quote ($typed-ccls $rule-args)))
+                              (the Number $existing) (empty)) (empty)))))) ()) ()) (
+         ((cons $found $_rest) (the Number $found))
+         (() (let*
+               (($id
+                  (if (== $backend temp)
+                      (+ 1000000000 (next-search-id bwd_tmp_ruleid))
+                      (let $fresh (fresh-rule-id (search-id-value ruleid))
+                         (progn (change-state! ruleid (+ $fresh 1)) $fresh))))
+                ($_proof (proof-template! $id $typed-ccls $rule-args))
+                ($_catalog (source-catalog-rule! $backend $id $info $typed-ccls))
+                ($_recipe (if (== $recipe no-completion) true
+                   (kb-add-atom $backend &completion_recipe (brand SpaceAtom (data $id $recipe)))))
+                ($_context (context-note-rule! $id $typed-ccls))
+                ($_functional (functional-rule! $typed-ccls))
+                ($_1 (if (== $backend backward) 0 (fold-flat (kb-add-prem $backend $id) 0 $rule-args)))
+                ($_2 (kb-add-atom $backend ccls_index (make-space-row3 $typed-ccls $id $rule-args)))
+                ($_3
+                   (kb-add-atom $backend rules
+                      (brand SpaceAtom (runtime-rule-row $id $typed-ccls $rule-args))))
+                ;; Expected premise confidence is fixed per compiled rule.
+                ($_expected (let $hits (collapse (premises-expected-confidence (copy_term $rule-args)))
+                   (if (== $hits ()) () (once (kb-add-atom $backend rule_expected (make-space-pair $id (car-atom $hits)))))))
+                ($_truth (case (copy_term $rule-args) (
+                   ((cons (CPU $_fun $_args $_res) $_cpu-rest) ())
+                   ((cons ($truth-type $truth-ctx $_truth-proof $_truth-tv) $_truth-rest)
+                      (if (head-is? $truth-type RuleTruth)
+                         (let $hash (index-hash (sk-key $truth-type $truth-ctx))
+                            (add-atom &sk_rule_truth ($id $hash $truth-type $truth-ctx))) ()))
+                   ($_no-truth ()))))
+                ($_name-idx (if $named (once (kb-add-atom $backend rule_name_index (make-space-pair $name $id))) ()))
+                ($_journal (sk-note-rule! $id $typed-ccls))
+                ($_aggregates (register-forward-aggregate-premises! (== $backend live) $rule-args)))
+               $id))))))
 
 (: kb-add-gated-rule! (-[semidet]-> KbBackend Atom KB Statement Atom Atom (List $none)))
 (= (kb-add-gated-rule! $backend $info $kb $pattern $args $ccls)
@@ -147,9 +135,12 @@
          (if $user (let $_id (once (kb-add-rule! temp $info $args $ccls)) ()) ())
          (let* ((($_type $_kbctx $prf $_tv) (typed-runtime-fact $ccls))
                 ($hash (base-rate-cache-hash $kb $pattern))
-                ($name (rule-evidence-head $prf))
-                ($_row (add-atom &prior_gated_rules ($hash $kb $pattern $name $backend $info $args $ccls))))
-            (if $user (prior-gated-add! $hash $kb $pattern $name $backend $info $args $ccls) ())))))
+                ($name (rule-evidence-head $prf)))
+            (if (== (collapse (once (match &prior_gated_rules
+                     ($hash $kb $_pattern $name $backend $_info $stored-args $stored-ccls)
+                     (if (=alpha (quote ($stored-ccls $stored-args)) (quote ($ccls $args))) true (empty))))) ())
+               (let $_row (add-atom &prior_gated_rules ($hash $kb $pattern $name $backend $info $args $ccls))
+                  (if $user (prior-gated-add! $hash $kb $pattern $name $backend $info $args $ccls) ())) ())))))
 
 (: prior-gated-add! (-[semidet]-> Number KB Statement Proof KbBackend Atom Atom Atom (List $none)))
 (= (prior-gated-add! $hash $kb $pattern $name $backend $info $args $ccls)

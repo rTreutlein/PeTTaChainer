@@ -25,7 +25,10 @@ it does not add statements to the handler's knowledge base.
 | `(add-to-kb $expr)` | Add an already-compiled, internal-form atom to the live KB. Lower-level. |
 
 `compileadd` checks the complete evaluated source annotation before compiling
-or publishing it. An ordinary fact must have **no free statement variables**.
+or publishing it. An identical live rule reuses its installed identity; an
+identical fact adds no evidence or ingestion observations. Withdrawal permits
+rule reinstallation. Different proof names remain distinct evidence.
+An ordinary fact must have **no free statement variables**.
 `(: f ($predicate a b) (STV 1 1))`, `(Pair $x $x)` and `(P $y)` as facts
 raise `domain_error(fact_without_free_variables, ...)`, with the message
 `fact contains free variables`. Python `add_atom` and `add_atoms_no_check`

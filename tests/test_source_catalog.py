@@ -44,6 +44,7 @@ class SourceCatalogTests(unittest.TestCase):
         for antecedent in ('(A $x)', '(And (A $x) (B $x))', '(Or (A $x) (Not (B $x)))'):
             with self.subTest(antecedent=antecedent):
                 h = PeTTaChainer()
+                # Reinstall through the complete rule lifetime: live replay is a no-op.
                 result = janus.query_once(
                     "sread(Source,_Source), "
                     "findall(_Plan,'mm2compile'(Kb,_Source,_Plan),_Plans), "
@@ -51,7 +52,7 @@ class SourceCatalogTests(unittest.TestCase):
                     "_Scope=[Kb,'MAIN','Nil'],source_catalog_template(['C',a],_Scope,_Compiled), "
                     "_Compiled=conditional(_Parent,_,_Pos,_Neg), "
                     "findall(_Id,source_catalog_application(_Id,_,_,[_,[Kb|_]],_,_,_),_Ids), "
-                    "forall(member(_Id,_Ids),'source-catalog-remove!'(_Id,true)), "
+                    "'withdraw-rule-ids!'(_Ids,_), "
                     "forall(member(_Plan,_Plans),('source-plan-addition'(_Plan,_Raw),'add-to-kb'(_Raw,_))), "
                     "source_catalog_template(['C',a],_Scope,conditional(_RawParent,_,_Pos,_Neg)), "
                     "node_formula(_Parent,_Formula,[],_Atoms),node_formula(_RawParent,_Formula,[],_Atoms)",

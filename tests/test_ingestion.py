@@ -252,6 +252,161 @@ class TestIngestion(unittest.TestCase):
                 self.h.add_atom(f'(: same {stored})')
                 self.h.add_atom(f'(: same {restated})')
 
+    def test_identical_assertions_do_not_reinstall_refinement(self):
+        rule = '(: calibration (Implication (A $x) (B $x)) (CTV (STV 0.8 0.1) (STV 0.1 0.1)))'
+        facts = [atom for i in range(16) for atom in (
+            f'(: a{i} (A E{i}) (STV {int(i < 8)} 1))',
+            f'(: b{i} (B E{i}) (STV {int(i < 8)} 1))')]
+        queries = [f'(: $p (RuleTruth (Implication {a} (B $x))) $tv)'
+                   for a in ('(A $x)', '(Not (A $x))')]
+        for replay in ('rule', 'facts'):
+            for when in ('before', 'after', 'warm'):
+                with self.subTest(replay=replay, when=when):
+                    h = PeTTaChainer()
+                    h.set_rule_refinement(True)
+                    h.add_atom(rule)
+                    duplicates = [rule] if replay == 'rule' else facts
+                    if when == 'before':
+                        h.add_atoms_no_check(duplicates * 2)
+                    h.add_atoms_no_check(facts)
+                    if when == 'after':
+                        h.add_atoms_no_check(duplicates * 2)
+                    answers = h.query_many_refs(queries, steps=500)
+                    tvs = [[answer.tv for answer in rows] for rows in answers]
+                    for rows, strength in zip(tvs, (0.81651376146789, 0.09174311926605505)):
+                        self.assertEqual(len(rows), 1)
+                        self.assertAlmostEqual(rows[0][1], strength)
+                        self.assertAlmostEqual(rows[0][2], 0.10802775024777006)
+                    rules = janus.query_once('aggregate_all(count,rules(_,_,_,_),N)')['N']
+                    h.add_atoms_no_check(duplicates * 2)
+                    self.assertEqual(janus.query_once(
+                        'aggregate_all(count,rules(_,_,_,_),N)')['N'], rules)
+                    for _ in range(2):
+                        self.assertEqual([[a.tv for a in rows] for rows in
+                                          h.query_many_refs(queries, steps=500)], tvs)
+                    h.add_atoms_no_check([
+                        '(: a16 (A E16) (STV 1 1))', '(: b16 (B E16) (STV 0 1))',
+                        '(: a17 (A E17) (STV 0 1))', '(: b17 (B E17) (STV 1 1))'])
+                    updated = h.query_many_refs(queries, steps=500)
+                    prior_count = 800 * 0.1 / 0.9
+                    for rows, successes, prior in zip(updated, (8, 1), (0.8, 0.1)):
+                        self.assertAlmostEqual(rows[0].tv[1],
+                                               (prior_count * prior + successes) / (prior_count + 9))
+                        self.assertAlmostEqual(rows[0].tv[2],
+                                               (prior_count + 9) / (prior_count + 809))
+                    # Another named report is new evidence, even for the same statement.
+                    h.add_atoms_no_check(['(: first (Report e) (STV 0.6 0.2))',
+                                          '(: second (Report e) (STV 0.6 0.2))'])
+                    report = h.query_many_refs(['(: $p (Report e) $tv)'], steps=0)[0]
+                    self.assertAlmostEqual(report[0].tv[2], 1 / 3)
+
+    def test_compiled_addition_replay_is_idempotent(self):
+        result = janus.query_once(
+            "sread(Source,_Source),findall(_Add,'mm2compile'(Kb,_Source,_Add),_Adds),"
+            "forall(member(_Add,_Adds),'add-to-kb'(_Add,_)),"
+            "aggregate_all(count,rules(_,_,_,_),Before),"
+            "forall(member(_Add,_Adds),'add-to-kb'(_Add,_)),"
+            "aggregate_all(count,rules(_,_,_,_),After)",
+            {'Kb': self.h.kb, 'Source':
+             '(: r (Implication (P $x) (Q $x)) (CTV (STV 0.8 0.1) (STV 0.1 0.1)))'})
+        self.assertTrue(result['truth'])
+        self.assertEqual(result['Before'], result['After'])
+
+    def test_replayed_rule_can_be_withdrawn_and_reinstalled(self):
+        for gated in (False, True):
+            with self.subTest(gated=gated):
+                h = PeTTaChainer()
+                if gated:
+                    h._call('set-positive-only-predicate', [f'{h.kb} P'])
+                rule = '(: reinstall (Implication (P $x) (Q $x)) (CTV (STV 0.9 1) (STV 0.1 1)))'
+                renamed = rule.replace('$x', '$y')
+                ids = lambda: janus.query_once(
+                    "findall(_Id,(rule_name_index(reinstall,_Id),"
+                    "rules('runtime-rule-row',_Id,[_,[Kb|_],_,_],_)),Ids)",
+                    {'Kb': h.kb})['Ids']
+                h.add_atom(rule)
+                before = ids()
+                self.assertTrue(before)
+                h.add_atom(renamed)
+                self.assertEqual(ids(), before)
+                if gated:
+                    count = lambda space: janus.query_once(
+                        f"aggregate_all(count,'{space}'(_,Kb,_,reinstall,_,_,_,_),N)",
+                        {'Kb': h.kb})['N']
+                    self.assertEqual(count('&prior_gated_rules'), 1)
+                    h._call('set-base-rate', [f'{h.kb} (P $x) (STV 0.5 1)'])
+                    active = ids()
+                    self.assertGreater(len(active), len(before))
+                    h.add_atom(renamed)
+                    self.assertEqual(ids(), active)
+                    self.assertEqual(count('&prior_gated_rules'), 1)
+                    h._call('clear-base-rate', [f'{h.kb} (P $x)'])
+                    self.assertEqual(ids(), before)
+                    h._call('set-base-rate', [f'{h.kb} (P $x) (STV 0.5 1)'])
+                    self.assertEqual(len(ids()), len(active))
+                h.add_atom('(: p (P a) (STV 1 1))')
+                query = ['(: $proof (Q a) $tv)']
+                expected = h.query_many_refs(query, steps=100)[0][0].tv
+                h._call('withdraw-named-rules!', ['reinstall'])
+                self.assertEqual(ids(), [])
+                self.assertEqual(h.query_many_refs(query, steps=100)[0], [])
+                h.add_atom(rule)
+                after = ids()
+                self.assertTrue(after)
+                self.assertTrue(set(before).isdisjoint(after))
+                self.assertEqual(h.query_many_refs(query, steps=100)[0][0].tv, expected)
+                h.add_atom(renamed)
+                self.assertEqual(ids(), after)
+
+    def test_fact_replay_does_not_repeat_ingestion_observations(self):
+        h = self.h
+        h._call('set-hypothesis-mining', [f'{h.kb} 2 4'])
+        h._call('set-predicate-time', [f'{h.kb} Event 2 0'])
+        fact = '(: event (Event a t1) (STV 1 1))'
+        h.add_atom(fact)
+        sequence = janus.query_once("'search-id-value'(hm_seq,N)")['N']
+        h.add_atom(fact)
+        self.assertEqual(janus.query_once("'search-id-value'(hm_seq,N)")['N'], sequence)
+        h.add_atom('(: other (Event a t1) (STV 1 1))')
+        self.assertGreater(janus.query_once("'search-id-value'(hm_seq,N)")['N'], sequence)
+
+    def test_link_replay_does_not_close_new_gaps(self):
+        h = self.h
+        for function, arguments in (
+                ('set-predicate-time', 'Ball 2 0'),
+                ('set-time-link', 'NextPeriod'),
+                ('set-observed-predicate', 'Ball')):
+            h._call(function, [f'{h.kb} {arguments}'])
+        link = '(: link (NextPeriod d1 d2) (STV 1 1))'
+        h.add_atoms_no_check(['(: ball (Ball right d1) (STV 1 1))', link])
+        h.add_atom('(: late (Implication (And (NextPeriod $t $u) (Ball right $t)) '
+                   '(Ball equal $u)) (STV 0.5 0.01))')
+        gaps = lambda: janus.query_once(
+            "findall(_P,'&kb'(['Ball',equal,d2],[Kb,'MAIN','Nil'],_P,['STV',0.0,1.0]),Ps)",
+            {'Kb': h.kb})['Ps']
+        h.add_atom(link)
+        self.assertEqual(gaps(), [])
+        h.add_atom(link.replace(': link ', ': other_link '))
+        self.assertEqual(len(gaps()), 1)
+
+    def test_rule_identity_preserves_variable_sharing_and_proof_names(self):
+        h = self.h
+        rule = ('(: sharing (Implication (Pair $x $y) (Match $x $y)) '
+                '(CTV (STV 1 1) (STV 0 1)))')
+        count = lambda: janus.query_once('aggregate_all(count,rules(_,_,_,_),N)')['N']
+        h.add_atom(rule)
+        before = count()
+        h.add_atom(rule.replace('$x', '$a').replace('$y', '$b'))
+        self.assertEqual(count(), before)
+        h.add_atom(rule.replace('(Match $x $y)', '(Match $x $x)'))
+        self.assertGreater(count(), before)
+        before = count()
+        h.add_atom(rule.replace(': sharing ', ': independent '))
+        self.assertGreater(count(), before)
+        h.add_atom('(: pair (Pair a b) (STV 1 1))')
+        for target in ('a', 'b'):
+            self.assertTrue(h.query_many_refs([f'(: $p (Match a {target}) $tv)'], steps=100)[0])
+
     def test_malformed_asserted_negation_rejects_before_publication(self):
         for statement in ('(Not)', '(Not a b)', '(Not (Not a b))'):
             atom = f'(: malformed {statement} (STV 0.8 0.9))'
