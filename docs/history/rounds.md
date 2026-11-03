@@ -87,3 +87,4 @@ Removed Nov 2 2026 (unreferenced, user-approved): docs/metta/search_gain.md, doc
 
 - simplify-stats (Claude build, Nov 2 2026; A/B vs Codex): Statistics −873 tokens, no behaviour change — `git show fec48dbf:SIMPLIFY_REPORT.md`
 - simplify-store (Claude build, Nov 2 2026; A/B vs Codex): Proofs/Fact store/Runtime terms −189 tokens; known edge: empty internal proof values now return false instead of raising — `git show 2e83cfa3:SIMPLIFY_STORE_REPORT.md`
+- dupfold164 (Codex build r2, Claude review, Nov 3 2026; issue #164): identical rule replay reuses the installed rule instead of adding another instance-fold producer, −9 production tokens — `git show 2405fc92:DUPFOLD164_REPORT.md`
