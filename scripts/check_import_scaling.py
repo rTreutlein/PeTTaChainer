@@ -17,8 +17,8 @@ def generated_statements(count: int) -> list[str]:
     return [
         (
             f"(: import_scaling_{index} "
-            f"(Implication (Premises (ImportScalingSource{index} $x)) "
-            f"(Conclusions (ImportScalingTarget{index} $x))) "
+            f"(Implication (ImportScalingSource{index} $x) "
+            f"(ImportScalingTarget{index} $x)) "
             "(CTV (STV 0.7 0.393469) (STV 0 1)))"
         )
         for index in range(count)
