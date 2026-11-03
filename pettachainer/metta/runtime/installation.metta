@@ -91,7 +91,7 @@
       (case (if (== $backend live)
                (if $named
                   (collapse (once (match rule_name_index ($name $existing)
-                     (match rules (runtime-rule-row $existing $stored-ccls $stored-args)
+                     (match ccls_index ($stored-ccls $existing $stored-args)
                         (if (rule-live? (the Number $existing))
                            (if (=alpha (quote ($stored-ccls $stored-args)) (quote ($typed-ccls $rule-args)))
                               (the Number $existing) (empty)) (empty)))))) ()) ()) (
@@ -109,10 +109,7 @@
                 ($_context (context-note-rule! $id $typed-ccls))
                 ($_functional (functional-rule! $typed-ccls))
                 ($_1 (if (== $backend backward) 0 (fold-flat (kb-add-prem $backend $id) 0 $rule-args)))
-                ($_2 (kb-add-atom $backend ccls_index (make-space-row3 $typed-ccls $id $rule-args)))
-                ($_3
-                   (kb-add-atom $backend rules
-                      (brand SpaceAtom (runtime-rule-row $id $typed-ccls $rule-args))))
+                ($_rule (kb-add-atom $backend ccls_index (make-space-row3 $typed-ccls $id $rule-args)))
                 ;; Expected premise confidence is fixed per compiled rule.
                 ($_expected (let $hits (collapse (premises-expected-confidence (copy_term $rule-args)))
                    (if (== $hits ()) () (once (kb-add-atom $backend rule_expected (make-space-pair $id (car-atom $hits)))))))
@@ -174,18 +171,16 @@
 (: remove-rule-row! (-[det]-> Number (List KB)))
 (= (remove-rule-row! $id)
    (collapse
-      (match rules
-         (runtime-rule-row $id $ccls $args)
+      (match ccls_index ($ccls $id $args)
          (let*
             (($_catalog (source-catalog-remove! $id))
              ($_retired (withdraw-rule! $id))
              ($_prems (remove-atom prem_index ($_pkey $_prem $id $_pidx)))
              ($_prefixes (remove-atom &prem_prefix ($_prefix $_pprem $id $_ppidx)))
-             ($_ccls-idx (remove-atom ccls_index ($ccls $id $_prems2)))
              ($_expected (remove-atom rule_expected ($id $_score)))
              ($_recipe (remove-atom &completion_recipe ($id $_plan)))
              (($_type ($kbid $_ctx $_vars) $_prf $_tv) $ccls)
-             ($_row (remove-atom rules (runtime-rule-row $id $ccls $args))))
+             ($_row (remove-atom ccls_index ($ccls $id $args))))
             (brand KB $kbid)))))
 
 ;; Rule rows leave the rule indexes, their durable joins and views are

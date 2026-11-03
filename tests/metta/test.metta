@@ -55,8 +55,7 @@
    1)
 
 !(test
-   (match rules
-      (runtime-rule-row $id $ccls $args)
+   (match ccls_index ($ccls $id $args)
       (if (= $ccls (: (kb $ctx $vars) (by foldRule cpu) (ScoreTotal $total) $tv))
          (if (= $args
                   ((CPU FoldAllCompiled $call $total)
@@ -70,8 +69,7 @@
    ())
 
 !(test
-   (match rules
-      (runtime-rule-row $id $ccls $args)
+   (match ccls_index ($ccls $id $args)
       (if (= $ccls (: (kb $ctx $vars) (by foldRule $prem) (ScoreTotal $total) $tv))
          (if (= $args
                   ((: $_kb $_prf
@@ -110,8 +108,7 @@
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
-   (match rules
-      (runtime-rule-row $id $ccls $args)
+   (match ccls_index ($ccls $id $args)
       (if (= $ccls
                (: (kb $ctx $vars)
                   (by foldValueShapeRule cpu)
@@ -135,8 +132,7 @@
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
-   (match rules
-      (runtime-rule-row $id $ccls $args)
+   (match ccls_index ($ccls $id $args)
       (if (= $ccls
                (: (kb $ctx $vars)
                   (by avgShapeRule cpu)
@@ -160,8 +156,7 @@
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
-   (match rules
-      (runtime-rule-row $id $ccls $args)
+   (match ccls_index ($ccls $id $args)
       (if (= $ccls
                (: (kb MAIN Nil)
                   (conjunction $fact-prf cpu)

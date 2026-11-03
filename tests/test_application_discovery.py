@@ -14,7 +14,7 @@ class TestApplicationDiscovery(unittest.TestCase):
         ])
         result = janus.query_once(
             "_Scope=[Kb,'MAIN','Nil'], "
-            "once((rules('runtime-rule-row',_Id,_C,_P), _C=[['B',_],_Scope,_Proof,_], "
+            "once((ccls_index(_C,_Id,_P), _C=[['B',_],_Scope,_Proof,_], "
             " 'rule-application-proof?'(_Proof,true))), "
             "_Goal=[['B',a],_Scope,_,_], "
             "findall(_Plan,('sk-rule-match'(_Goal,_Plan),_Plan=['sk-match',_Id,_,_]),_Backward), "
@@ -84,7 +84,7 @@ class TestApplicationDiscovery(unittest.TestCase):
         ])
         result = janus.query_once(
             "_Scope=[Kb,'MAIN','Nil'], "
-            "once((rules('runtime-rule-row',_Id,[['B',_],_Scope,_Proof,_],_), "
+            "once((ccls_index([['B',_],_Scope,_Proof,_],_Id,_), "
             " 'rule-application-proof?'(_Proof,true))), "
             "'statement-prefix-hashes'(['A',a],_Hashes), 'index-hash'('A',_Head), "
             "findall(_Key,(member(_Hash,[_Head|_Hashes]),'prefix-key'(Kb,_Hash,_Key)),_Prefixes), "

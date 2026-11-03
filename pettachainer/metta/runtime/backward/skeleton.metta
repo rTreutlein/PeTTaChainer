@@ -36,7 +36,7 @@
    (append-flat
       (collapse
          (let* ((($_pattern $id $idx) (match &prem_prefix ($prefix $pattern $id $idx) ($pattern $id $idx)))
-                ((runtime-rule-row $id $ccls $prems) (match rules (runtime-rule-row $id $ccls $prems) (runtime-rule-row $id $ccls $prems)))
+                (($ccls $prems) (match ccls_index ($ccls $id $prems) ($ccls $prems)))
                 ($_rest (nth0 $idx $prems (assemble-stored-runtime-fact $type $kbctx $_proof $_tv))))
             (sk-match $id $prems $ccls)))
       $found))
@@ -856,8 +856,8 @@
                            ;; Indexed lookup unifies its copied pattern. Read
                            ;; the original shape by id before checking alpha
                            ;; identity, so a general scaffold stays general.
-                           (match rules (runtime-rule-row $scaffold-id
-                                 ($scaffold-type $_ctx $_proof $_tv) $_premises)
+                           (match ccls_index (($scaffold-type $_ctx $_proof $_tv)
+                                 $scaffold-id $_premises)
                               (if (if (== $backend backward) (< $scaffold-id 1000000000) true)
                                  (if (=alpha $scaffold-type $type)
                                     (if (= $lookup-tv $scaffold-tv)
@@ -1192,7 +1192,7 @@
 (: sk-activate-rule-step (-[semidet]-> Atom Number Atom))
 (= (sk-activate-rule-step $_acc $id)
    (fold-semidet (sk-activate-rule-row $id) ()
-      (collapse (match rules (runtime-rule-row $id $ccls $args) (sk-rule-def $ccls $args)))))
+      (collapse (match ccls_index ($ccls $id $args) (sk-rule-def $ccls $args)))))
 
 (: sk-absorb-step (-[semidet]-> Atom SkeletonMatch Atom))
 (= (sk-absorb-step $_acc (sk-match $id $prems $ccls))

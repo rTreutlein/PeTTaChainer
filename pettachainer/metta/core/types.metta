@@ -113,17 +113,9 @@
    hm_name
    hm_seq)
 
-;; Stored rule rows retain the existing conclusion/premise wire format. The
-;; premise list contains executable goals and internal runtime fact tuples;
-;; keeping that union here lets both chainers retain it after a space lookup.
-(datatype RuntimeRuleRow
-   (runtime-rule-row Number (Statement KBContext Proof TV) (List (| Goal (Statement KBContext Proof TV)))))
-(: rules
-   (SpaceOf
-      (runtime-rule-row
-         Number
-         (Statement KBContext Proof TV)
-         (List (| Goal (Statement KBContext Proof TV))))))
+;; The rule store: one row per rule, conclusion first, so a goal finds its
+;; rules by the conclusion's head; a lookup by rule id uses the second column.
+;; The premise list contains executable goals and internal runtime fact tuples.
 (: ccls_index
    (SpaceOf
       ((Statement KBContext Proof TV)

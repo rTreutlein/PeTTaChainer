@@ -55,7 +55,7 @@ class TestSearchRetirement(unittest.TestCase):
             "_N=[['MeterInput',x],[Kb,'MAIN','Nil'],_,_],"
             "_C=[['MeterOutput',x],[Kb,'MAIN','Nil'],_,_],"
             "_W=['sk-partial',_C,9999010,_C,[],[_N],[]],"
-            "assertz(rules('runtime-rule-row',9999010,_C,[_N])),"
+            "assertz(ccls_index(_C,9999010,[_N])),"
             "'sk-node-hash'(_N,_H),'sk-store-wait!'(9999011,_H,_N,_W,_),"
             "forall(between(1,2048,_D),'sk-store-join!'(_D,_W,_C,true)),"
             "sk_wait_ref(_H,_N,_W,_Ref),"
@@ -104,7 +104,7 @@ class TestSearchRetirement(unittest.TestCase):
         premise = [['Missing', 'x'], ctx, 'premise', ['STV', 0.5, 0.1]]
         result = janus.query_once(
             "'sk-node-hash'(N,H),'link-digest'(['sk-child-link',O,N],D),"
-            "assertz(rules('runtime-rule-row',9999001,O,[N])),"
+            "assertz(ccls_index(O,9999001,[N])),"
             "forall(between(1,100,_),'sk-store-wait!'(D,H,N,['sk-partial',O,9999001,O,[],[N],[]],_)),"
             "use_module(library(prolog_profile)),"
             "'$profile'('sk-retire-known!'(['Uncertain',x],Ctx,_),cputime,false,500.0),"
@@ -365,7 +365,7 @@ class TestSearchRetirement(unittest.TestCase):
         janus.query_once(
             "'sk-known-conclusion?'(O,_),'sk-node-hash'([['Watched',x],Ctx,_,_],H),"
             "_N=[['Watched',x],Ctx,_,_],copy_term_nat(_N,_Child),'link-digest'(['sk-child-link',O,_Child],D),"
-            "assertz(rules('runtime-rule-row',9999002,O,[_N])),"
+            "assertz(ccls_index(O,9999002,[_N])),"
             "forall(between(1,5,_),'sk-store-wait!'(D,H,_N,['sk-partial',O,9999002,O,[],[_N],[]],_)),"
             "'sk-add-child!'(O,_Child,1.0,D,_)",
             {'Ctx': ctx, 'O': owner})

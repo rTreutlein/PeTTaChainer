@@ -19,24 +19,21 @@ class SourceCatalogTests(unittest.TestCase):
             "graph_plan(_Key,_Before), _Before=graph(_,_,_), "
             "'source-catalog-priors'(['A',a],_Scope,_Priors), _Priors=[_|_], "
             "source_catalog_stamp(Kb,_Generation), "
-            "findall(row(_Id,_C,_Ps),(rules('runtime-rule-row',_Id,_C,_Ps),_C=[_,[Kb|_],_,_]),_Rows), "
-            "findall(idx(_C,_Id,_Ps),(ccls_index(_C,_Id,_Ps),_C=[_,[Kb|_],_,_]),_Indexes), "
+            "findall(row(_Id,_C,_Ps),(ccls_index(_C,_Id,_Ps),_C=[_,[Kb|_],_,_]),_Rows), "
             "setup_call_cleanup(true, "
             " (forall(member(row(_Id,_C,_Ps),_Rows), "
-            "   (retractall(rules('runtime-rule-row',_Id,_,_)), "
+            "   (retractall(ccls_index(_,_Id,_)), "
             "    partition([_P]>>(_P=[_H|_],_H=='CPU'),_Ps,_CPU,_Facts), "
             "    reverse(_CPU,_Reordered),append(_Facts,_Reordered,_New), "
-            "    assertz(rules('runtime-rule-row',_Id,_C,_New)))), "
+            "    assertz(ccls_index(_C,_Id,_New)))), "
             "  event_graph_reset,graph_plan(_Key,_ReorderedModel),_ReorderedModel==_Before, "
-            "  forall(member(row(_Id,_,_),_Rows),retractall(rules('runtime-rule-row',_Id,_,_))), "
             "  retractall(ccls_index([_,[Kb|_],_,_],_,_)), "
             "  retractall('&sk_row'(_,['sk-key',_,[Kb|_]],_,_)), "
             "  event_graph_reset,graph_plan(_Key,_WithoutRows),_WithoutRows==_Before, "
             "  'source-catalog-priors'(['A',a],_Scope,_StillPriors),_StillPriors=@=_Priors, "
             "  source_catalog_stamp(Kb,_Generation)), "
-            " (forall(member(row(_Id,_C,_Ps),_Rows), "
-            "    (retractall(rules('runtime-rule-row',_Id,_,_)),assertz(rules('runtime-rule-row',_Id,_C,_Ps)))), "
-            "  forall(member(idx(_C,_Id,_Ps),_Indexes),assertz(ccls_index(_C,_Id,_Ps))),event_graph_reset))",
+            " (retractall(ccls_index([_,[Kb|_],_,_],_,_)), "
+            "  forall(member(row(_Id,_C,_Ps),_Rows),assertz(ccls_index(_C,_Id,_Ps))),event_graph_reset))",
             {'Kb': h.kb})
         self.assertTrue(result['truth'])
 
@@ -68,7 +65,6 @@ class SourceCatalogTests(unittest.TestCase):
             '(: c (C a) (STV 0.8 0.9))',
         ])
         result = janus.query_once(
-            "retractall(rules('runtime-rule-row',_,[_,[Kb|_],_,_],_)), "
             "retractall(ccls_index([_,[Kb|_],_,_],_,_)),event_graph_reset, "
             "graph_plan(['sk-key',['A',a],[Kb,'MAIN','Nil']],none)", {'Kb': h.kb})
         self.assertTrue(result['truth'])

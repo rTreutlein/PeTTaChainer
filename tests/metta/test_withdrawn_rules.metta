@@ -135,7 +135,7 @@
           ($_retired (withdraw-rule! 999800))
           ($_expanded (add-atom &sk_expanded ($hash $node)))
           ($prems (cons $child ()))
-          ($_definition (add-space-atom! rules (quote (runtime-rule-row 999800 $conclusion $prems))))
+          ($_definition (add-space-atom! ccls_index (quote ($conclusion 999800 $prems))))
           ($_wait (sk-store-wait! 999805 $child-hash $child $waiter))
           ($_join (add-atom &sk_deferred_joins ($hash 999801 (sk-join $waiter (sk-key (CleanupA warm) (cleanupKb MAIN Nil))))))
           ($_deferred (add-atom &sk_deferred ($hash 999802 (sk-deferred $node 999800 $conclusion () ()))))

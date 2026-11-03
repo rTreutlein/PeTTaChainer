@@ -11,7 +11,7 @@ class TestWaiterPayload(unittest.TestCase):
         result = janus.query_once(
             "_C=[['Result',_X],[Kb,'MAIN','Nil'],['by',r,_P],_TV],"
             "_A=[['Input',_X],[Kb,'MAIN','Nil'],_P,_TV],"
-            "assertz(rules('runtime-rule-row',9999003,_C,[_A])),"
+            "assertz(ccls_index(_C,9999003,[_A])),"
             "_O=[['Result',_],[Kb,'MAIN','Nil'],_,_],"
             "_N=[['Input',i],[Kb,private,'Nil'],_Proof,_Value],"
             "_W=['sk-partial',_O,9999003,[['Result',i],[Kb,private,'Nil'],['by',r,_Proof],_Value],[],[_N],[]],"

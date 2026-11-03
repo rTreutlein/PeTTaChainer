@@ -112,7 +112,7 @@ argument_shape(Arg, Shape) :-
 
 dormancy_analysis(Id, Dormant, Heads) :-
     nb_setval(dormancy_budget, 2000), nb_setval(dormancy_heads, []),
-    (   dormancy_row(rules('runtime-rule-row', Id, [Type, Ctx, Proof|_], Premises)),
+    (   dormancy_row(ccls_index([Type, Ctx, Proof|_], Id, Premises)),
         \+ ( 'derivation-proof?'(Type, Proof, true), dormancy_complete(Type, Ctx) ),
         member([PType, PCtx, _, _], Premises), PType \== 'CPU',
         \+ dormancy_premise_supported(Proof, PType, PCtx, Type-Ctx, [], 8)
@@ -130,10 +130,10 @@ dormancy_supported(Type, Ctx, Forbidden, Path, Depth) :-
         ;   Depth =< 0 -> true
         ;   \+ dormancy_judged(Type, Ctx) -> true
         ;   dormancy_fact(Type, Ctx) -> true
-        ;   \+ dormancy_row(rules('runtime-rule-row', _, [Type, Ctx|_], _)) -> true
+        ;   \+ dormancy_row(ccls_index([Type, Ctx|_], _, _)) -> true
         ;   dormancy_note_head(Type),
             Depth1 is Depth - 1,
-            dormancy_row(rules('runtime-rule-row', _, [Type, Ctx, Proof|_], Premises)),
+            dormancy_row(ccls_index([Type, Ctx, Proof|_], _, Premises)),
             (   memberchk(['CPU', 'SettlesFormula'|_], Premises) -> \+ \+ dormancy_settles(Premises)
             ;   forall(( member([PType, PCtx, _, _], Premises), PType \== 'CPU' ),
                        dormancy_premise_supported(Proof, PType, PCtx, Forbidden, [Type-Ctx|Path], Depth1)) ) ) ).
@@ -144,7 +144,7 @@ dormancy_premise_supported(Proof, Type, Ctx, Forbidden, Path, Depth) :-
 
 dormancy_derived(Type, Ctx) :-
     (   dormancy_complete(Type, Ctx) -> true
-    ;   \+ \+ ( dormancy_row(rules('runtime-rule-row', _, [Type, Ctx, Proof|_], _)),
+    ;   \+ \+ ( dormancy_row(ccls_index([Type, Ctx, Proof|_], _, _)),
                  'rule-application-proof?'(Proof, true) ) ).
 
 % A complete statement always has a value once its search settles: its rule
@@ -219,7 +219,7 @@ statement_head(T, H) :-
 % Functional input relations are immutable value tables. Ground certain-true
 % facts assign a key; no other fact or rule may define that relation.
 % This is stronger than merely knowing an uncertain most likely value.
-:- dynamic '&kb'/4, '&sk_answer'/3, rules/4.
+:- dynamic '&kb'/4, '&sk_answer'/3, ccls_index/3.
 'set-functional-predicate'(Kb, Head, Arity, Positions, true) :-
     'declared-head!'(Head, true),
     ( atom(Head), integer(Arity), Arity > 1, is_list(Positions),
@@ -229,7 +229,7 @@ statement_head(T, H) :-
     ( functional_predicate(Head, Kb, Arity, Positions) -> true
     ; ( functional_predicate(Head, Kb, _, _)
       ; '&kb'([Head|_], [Kb|_], _, _)
-      ; rules('runtime-rule-row', _, [[Head|_],[Kb|_]|_], _) )
+      ; ccls_index([[Head|_],[Kb|_]|_], _, _) )
     -> throw(error(permission_error(declare, functional_predicate, Head), _))
     ; assertz(functional_predicate(Head, Kb, Arity, Positions)),
       'set-positive-only-predicate'(Kb, Head, true) ).

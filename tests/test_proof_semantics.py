@@ -88,9 +88,9 @@ class ProofSemanticsTests(unittest.TestCase):
         h.add_atom('(: source-template (Implication (A $x) (B $x)) (STV 0.8 0.9))')
         result = janus.query_once(
             "once((rule_name_index('source-template',Id), 'application-rule'(Id,_Before))), "
-            "setup_call_cleanup(retract(rules('runtime-rule-row',Id,[_T,_S,_P,_V],_Ps)), "
+            "setup_call_cleanup(retract(ccls_index([_T,_S,_P,_V],Id,_Ps)), "
             " ('application-rule'(Id,_After), 'proof-application-name'(Id,Name)), "
-            " assertz(rules('runtime-rule-row',Id,[_T,_S,_P,_V],_Ps))), "
+            " assertz(ccls_index([_T,_S,_P,_V],Id,_Ps))), "
             "_Before =@= _After, 'source-catalog-remove!'(Id,true), "
             "(proof_template(Id,_,_,_)->Removed=false;Removed=true)"
         )

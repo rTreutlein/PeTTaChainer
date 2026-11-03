@@ -27,7 +27,7 @@ class CompletionRecipeTests(unittest.TestCase):
         h.add_atom('(: r (Implication (And (A $x) (B $x)) (C $x)) (STV 0.9 0.8))')
         result = janus.query_once(
             "_Scope=[Kb,'MAIN','Nil'], "
-            "rules('runtime-rule-row',_Id,[['B',_X],_Scope,_,_],_Ps), "
+            "ccls_index([['B',_X],_Scope,_,_],_Id,_Ps), "
             "'&completion_recipe'(_Id,Recipe), ground(Recipe), "
             "Recipe=['completion-recipe',Index,0,Opening], "
             "'rule-contextual-premise'(0,_Ps,['CPU','CompoundEvidence',[_Kb,_Compound,_,_RecipeScope],_]), "
@@ -68,7 +68,7 @@ class CompletionRecipeTests(unittest.TestCase):
                         "_Conclusion=[['B',_X],_,_,_], "
                         "_Premises=[['CPU','ReadLikelihoodContext',Recipe,_]|_Executable], "
                         "forall('mm2compile'(Kb,_Source,_Addition),'add-to-kb'(_Addition,_)), "
-                        "rules('runtime-rule-row',_Id,_Conclusion,_Stored), "
+                        "ccls_index(_Conclusion,_Id,_Stored), "
                         "'&completion_recipe'(_Id,_Prepared), "
                         "(Recipe==_Prepared -> Same=true;Same=false)",
                         {'Kb': raw.kb, 'Connective': connective, 'Negated': 'true' if negated else 'false'},
@@ -102,7 +102,7 @@ class CompletionRecipeTests(unittest.TestCase):
         for member in ('i', 'j'):
             self.assertTrue(h.query(f'(: $p (B {member}) $tv)', steps=200, timeout_sec=None))
         result = janus.query_once(
-            "rules('runtime-rule-row',_Id,[['B',_],[Kb,'MAIN','Nil'],_,_],_), "
+            "ccls_index([['B',_],[Kb,'MAIN','Nil'],_,_],_Id,_), "
             "findall(_Plan,'&completion_recipe'(_Id,_Plan),[_Only]),ground(_Only), "
             "aggregate_all(count,('&sk_row'(_,_,_,['sk-row',['sk-ident',_Id,_,_],_,_Ps,_]), "
             " 'rule-completion-inputs'(_Id,_Ps,['completion-inputs'|_])),Rows)",

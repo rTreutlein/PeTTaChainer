@@ -30,7 +30,7 @@ class TestIngestion(unittest.TestCase):
             # A variable head must never create an a -> b rule, nor a fact.
             rows = janus.query_once(
                 "aggregate_all(count,'&kb'(_, [Kb,'MAIN','Nil'], rejected, _),Facts),"
-                "aggregate_all(count,(rules('runtime-rule-row',_,[_,[Kb|_],_Prf,_],_),"
+                "aggregate_all(count,(ccls_index([_,[Kb|_],_Prf,_],_,_),"
                 "sub_term(_P,_Prf),_P==rejected),Rules)",
                 {'Kb': self.h.kb})
             self.assertEqual(rows['Facts'], 0)
@@ -277,10 +277,10 @@ class TestIngestion(unittest.TestCase):
                         self.assertEqual(len(rows), 1)
                         self.assertAlmostEqual(rows[0][1], strength)
                         self.assertAlmostEqual(rows[0][2], 0.10802775024777006)
-                    rules = janus.query_once('aggregate_all(count,rules(_,_,_,_),N)')['N']
+                    rules = janus.query_once('aggregate_all(count,ccls_index(_,_,_),N)')['N']
                     h.add_atoms_no_check(duplicates * 2)
                     self.assertEqual(janus.query_once(
-                        'aggregate_all(count,rules(_,_,_,_),N)')['N'], rules)
+                        'aggregate_all(count,ccls_index(_,_,_),N)')['N'], rules)
                     for _ in range(2):
                         self.assertEqual([[a.tv for a in rows] for rows in
                                           h.query_many_refs(queries, steps=500)], tvs)
@@ -304,9 +304,9 @@ class TestIngestion(unittest.TestCase):
         result = janus.query_once(
             "sread(Source,_Source),findall(_Add,'mm2compile'(Kb,_Source,_Add),_Adds),"
             "forall(member(_Add,_Adds),'add-to-kb'(_Add,_)),"
-            "aggregate_all(count,rules(_,_,_,_),Before),"
+            "aggregate_all(count,ccls_index(_,_,_),Before),"
             "forall(member(_Add,_Adds),'add-to-kb'(_Add,_)),"
-            "aggregate_all(count,rules(_,_,_,_),After)",
+            "aggregate_all(count,ccls_index(_,_,_),After)",
             {'Kb': self.h.kb, 'Source':
              '(: r (Implication (P $x) (Q $x)) (CTV (STV 0.8 0.1) (STV 0.1 0.1)))'})
         self.assertTrue(result['truth'])
@@ -322,7 +322,7 @@ class TestIngestion(unittest.TestCase):
                 renamed = rule.replace('$x', '$y')
                 ids = lambda: janus.query_once(
                     "findall(_Id,(rule_name_index(reinstall,_Id),"
-                    "rules('runtime-rule-row',_Id,[_,[Kb|_],_,_],_)),Ids)",
+                    "ccls_index([_,[Kb|_],_,_],_Id,_)),Ids)",
                     {'Kb': h.kb})['Ids']
                 h.add_atom(rule)
                 before = ids()
@@ -393,7 +393,7 @@ class TestIngestion(unittest.TestCase):
         h = self.h
         rule = ('(: sharing (Implication (Pair $x $y) (Match $x $y)) '
                 '(CTV (STV 1 1) (STV 0 1)))')
-        count = lambda: janus.query_once('aggregate_all(count,rules(_,_,_,_),N)')['N']
+        count = lambda: janus.query_once('aggregate_all(count,ccls_index(_,_,_),N)')['N']
         h.add_atom(rule)
         before = count()
         h.add_atom(rule.replace('$x', '$a').replace('$y', '$b'))

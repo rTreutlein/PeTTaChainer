@@ -96,7 +96,7 @@ context_removed(C, Space, Row) :-
 'context-seeds'(C, Seeds) :- findall(Seed,context_seed(_,C,Seed),Seeds).
 'context-rule-rows'(C, Rows) :-
     findall(['sk-rule-def',Id,Concl,Ps],
-            (context_rule(Id,C),rules('runtime-rule-row',Id,Concl,Ps)),Rows).
+            (context_rule(Id,C),ccls_index(Concl,Id,Ps)),Rows).
 'context-answer-keys'(Node, Keys) :-
     ( Node=[Type,[Kb,'MAIN',Vars],_,_]
     -> findall(['sk-key',S,[Kb,'MAIN',Vars]],

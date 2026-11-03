@@ -39,7 +39,7 @@
    (if (judgment-world-premise? $type (make-kb-context (brand KB $kbid) $ctx $vars))
       (let $lookup (copy_term (data $type (data $kbid MAIN Nil) $proof $tv))
          (match ccls_index ($lookup $id $args)
-            (match rules (runtime-rule-row $id ($_type ($_kb $stored-ctx $_vars) $_prf $_tv) $_args)
+            (match ccls_index (($_type ($_kb $stored-ctx $_vars) $_prf $_tv) $id $_args)
                (if (if (== $stored-ctx MAIN) (sk-node-row? $_prf) false)
                   (if (= $lookup (data $type (data $kbid MAIN Nil) $proof $tv))
                      (let* (($scope (make-kb-context (brand KB $kbid) $ctx $vars))
@@ -104,8 +104,7 @@
 (: discover-triggered-applications (-[nondet]-> SkeletonKey Atom SkeletonMatch))
 (= (discover-triggered-applications (sk-key $type $kbctx) $trigger)
    (let* ((($pattern $id $idx) (match prem_index ($trigger $pattern $id $idx) ($pattern $id $idx)))
-                ((runtime-rule-row $id $ccls $prems)
-                   (match rules (runtime-rule-row $id $ccls $prems) (runtime-rule-row $id $ccls $prems)))
+                (($ccls $prems) (match ccls_index ($ccls $id $prems) ($ccls $prems)))
                 ($premise (rule-premise (stored-number $idx) $prems))
                 ($_matched
                    (case $premise (

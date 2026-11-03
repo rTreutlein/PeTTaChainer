@@ -124,7 +124,7 @@ it did not have.
 
 `sk-start-rule-step` (node expansion and pending-rule activation) and
 `sk-forward-start-step` (forward runs) skip a dormant rule. Nothing else
-changes: compilation, the rules space and self-support exclusion stay as
+changes: compilation, the rule store and self-support exclusion stay as
 they are.
 
 ## Evaluation

@@ -46,7 +46,7 @@ class TestFunctionalPredicates(unittest.TestCase):
         with self.assertRaises(janus.PrologError):
             h.add_atom('(: r (Implication (Source $x $y) (Next $x $y)) (STV 1 1))')
         self.assertEqual(janus.query_once(
-            "aggregate_all(count,rules('runtime-rule-row',_,[['Next'|_],[Kb,'MAIN','Nil']|_],_),N)",
+            "aggregate_all(count,ccls_index([['Next'|_],[Kb,'MAIN','Nil']|_],_,_),N)",
             {'Kb': h.kb})['N'], 0)
         self.assertEqual(janus.query_once(
             "aggregate_all(count,'&kb'(_, [Kb,'MAIN','Nil'],r,_),N)", {'Kb': h.kb})['N'], 0)
@@ -100,7 +100,7 @@ class TestFunctionalPredicates(unittest.TestCase):
                         "'|-',[['Next',a,c],Ctx,temporary,['STV',1,1]]]]],_)",
                         {'Ctx': [h.kb, 'MAIN', 'Nil']})
                 self.assertEqual(janus.query_once(
-                    "aggregate_all(count,rules('runtime-rule-row',_,[['Next'|_],[Kb,'MAIN','Nil']|_],_),N)",
+                    "aggregate_all(count,ccls_index([['Next'|_],[Kb,'MAIN','Nil']|_],_,_),N)",
                     {'Kb': h.kb})['N'], 0)
                 answers = h.query_many_refs(['(: $p (Next a $value) $tv)'], steps=40)[0]
                 self.assertEqual([a.statement for a in answers], [['Next', 'a', 'b']] if assigned else [])
@@ -159,7 +159,7 @@ class TestFunctionalPredicates(unittest.TestCase):
         ctx = [h.kb, 'MAIN', 'Nil']
         janus.query_once(
             "_O=[outcome,Ctx,_,_],_P=[['At',_,_],Ctx,_,_],"
-            "assertz(rules('runtime-rule-row',9999004,_O,[_P])),"
+            "assertz(ccls_index(_O,9999004,[_P])),"
             "forall(between(1,600,_I),(_N=[['At',_I,t1],Ctx,_,_],"
             "'sk-node-hash'(_N,_H),'sk-store-wait!'(777,_H,_N,"
             "['sk-partial',_O,9999004,_O,[],[_N],[]],_))),"
@@ -181,7 +181,7 @@ class TestFunctionalPredicates(unittest.TestCase):
         h.set_functional_predicate('At', 2, (2,))
         result = janus.query_once(
             "_Ctx=[Kb,'MAIN','Nil'],_O=[outcome,_Ctx,_,_],_N=[['At',left,t2],_Ctx,_,_],"
-            "assertz(rules('runtime-rule-row',9999005,_O,[_N])),"
+            "assertz(ccls_index(_O,9999005,[_N])),"
             "'sk-node-hash'(_N,_NH),"
             "'sk-store-wait!'(779,_NH,_N,['sk-partial',_O,9999005,_O,[],[_N],[]],_),"
             "clause(sk_wait_payload(_NH,_,_,_),true,_Ref),"

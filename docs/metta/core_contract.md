@@ -37,7 +37,7 @@ This contract does not authorize numerical corrections or broader language suppo
 | State | Lookup key and lifetime | Required readers/writers |
 | --- | --- | --- |
 | `&kb`, `&kb_prefix`, `&kb_open` | canonical statement/context/proof; prefixes of ground arguments; authored lifetime | ingestion, leaf reads, forward copies, materialization |
-| `rules`, `ccls_index`, `prem_index`, `&prem_prefix` | permanent rule ID, structural conclusion, premise prefix | compilation/storage; downward and upward joins |
+| `ccls_index`, `prem_index`, `&prem_prefix` | structural conclusion (the rule store; rule ID second), premise prefix | compilation/storage; downward and upward joins |
 | `&sk_expanded`, `&sk_node_terms`, `&sk_answer` | node hash plus exact pattern; answer key | search and late activation; durable except retired/context-local nodes |
 | `&sk_keys`, `&sk_key_*`, `&sk_reader_*`, `&sk_unifiers` | key hash/exact key and statement prefixes | key registration, matching readers and self-support cuts |
 | `&sk_wait`, native payloads/templates, `&sk_child`, pending components | awaited node and exact continuation; owner/conclusion leases | search delivery and bounded retirement; structure shared by Assuming |

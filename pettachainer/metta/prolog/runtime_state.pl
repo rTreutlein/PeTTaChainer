@@ -22,8 +22,8 @@
 % live counter, so the counter's next id may already be taken: a new live rule
 % then takes the id past every stored live one. Temp ids start at 10^9.
 'fresh-rule-id'(Next, Id) :-
-    (   catch(rules('runtime-rule-row', Next, _, _), error(existence_error(procedure, _), _), fail)
-    ->  aggregate_all(max(I), (rules('runtime-rule-row', I, _, _), I < 1000000000), Max),
+    (   catch(ccls_index(_, Next, _), error(existence_error(procedure, _), _), fail)
+    ->  aggregate_all(max(I), (ccls_index(_, I, _), I < 1000000000), Max),
         Id is Max + 1
     ;   Id = Next
     ).

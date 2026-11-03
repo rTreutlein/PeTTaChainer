@@ -105,7 +105,7 @@ sk_search_owned(H, Key, Space, Ref) :-
     ; Waiter = ['sk-partial', _, Id, C, Done, _, _], length(Done, Pos),
     ( sk_wait_template(Id, Pos, TemplateId, Template, Bindings), subsumes_term(Template, Waiter)
     -> Template = Waiter
-    ; rules('runtime-rule-row', Id, Conclusion, Premises),
+    ; ccls_index(Conclusion, Id, Premises),
       copy_term_nat(Conclusion, Owner),
       length(Prefix, Pos), append(Prefix, Remaining, Premises), reverse(Prefix, Consumed),
       term_subsumer(['sk-partial', Owner, Id, Conclusion, Consumed, Remaining, _], Waiter, Template),
