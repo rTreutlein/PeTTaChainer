@@ -61,7 +61,9 @@
 !(compileadd logicKb (: pbc (Parent b c) (STV 1.0 1.0)))
 !(compileadd logicKb (: acd (Ancestor c d) (STV 1.0 1.0)))
 !(test (collapse (query 100 logicKb (: $p (Parent c d) $tv))) ())
-!(test (query 100 logicKb (: $p (Ancestor a b) $tv)) (: (by parentAncestor pab) (Ancestor a b) (STV 1.0 0.9998666844365203)))
+; A certain parent through a certain-positive rule has zero variance. The
+; family graph records the rule owner and reports the zero-variance c=.9999.
+!(test (query 100 logicKb (: $p (Ancestor a b) $tv)) (: (node (conjunction pab (by parentAncestor cpu) (population-prior (Ancestor $_0 $_1)))) (Ancestor a b) (STV 1.0 0.9999)))
 !(compileadd ctvLogicKb (: parentAncestor (Implication (Parent $x $y) (Ancestor $x $y)) (CTV (STV 1.0 1.0) (STV 0.3 1.0))))
 !(compileadd ctvLogicKb (: pab (Parent a b) (STV 1.0 1.0)))
 !(compileadd ctvLogicKb (: acd (Ancestor c d) (STV 1.0 1.0)))
