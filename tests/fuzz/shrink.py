@@ -12,6 +12,7 @@ unused root predicates.
 from __future__ import annotations
 
 import dataclasses
+import json
 from typing import Callable, Iterator
 
 from .kb import KB, Antecedent, Literal, Rule
@@ -114,3 +115,99 @@ def shrink(kb: KB, category: str, atom: tuple[str, str], settings: Settings, log
             if runs >= limit:
                 break
     return kb, verdict, runs
+
+
+def shrink_event(kb, flag, settings, execute, limit=24):
+    """Delete to a fixed point while retaining this query and invariant.
+
+    Paired mutations are rebuilt after every reduction. A trial is accepted
+    only with the same semantic failure, never a crash in place of a wrong
+    answer. The status explicitly records a limit rather than claiming a
+    globally minimal counterexample.
+    """
+    from .run import event_evaluate
+    from .kb import formula_text
+    kb = kb.copy()
+    query = formula_text(kb.queries[flag['query']])
+    invariant = flag['invariant']
+    checked = flag.get('variant', invariant)
+    kb.checks = [checked] if checked in kb.checks else []
+    # Marginal/joint consistency needs all three queries.
+    if invariant not in ('frechet',):
+        kb.queries = [kb.queries[flag['query']]]
+    attempts, detail = 0, flag
+    seen = set()
+    while True:
+        candidates = []
+        # A producer family is a useful chunk: deleting interleaved sources
+        # one at a time otherwise spends most trials on irrelevant siblings.
+        for head in dict.fromkeys(r[2] for r in kb.rules):
+            family = [r for r in kb.rules if r[2] == head]
+            for keep in ([], family[:1], family[-1:]):
+                if len(keep) == len(family):
+                    continue
+                c = kb.copy()
+                c.rules = [r for r in kb.rules if r[2] != head] + keep
+                candidates.append(c)
+        for field in ('raw', 'reports', 'rules'):
+            values = getattr(kb, field)
+            if len(values) > 2:
+                for part in (values[:len(values)//2], values[len(values)//2:]):
+                    c = kb.copy()
+                    setattr(c, field, part)
+                    candidates.append(c)
+            for i in range(len(values)):
+                c = kb.copy()
+                del getattr(c, field)[i]
+                candidates.append(c)
+        # Roots used by a remaining rule/query cannot simply disappear from
+        # the model. Remove an unused atom together with its source instead.
+        for atom in kb.roots:
+            c = kb.copy()
+            del c.roots[atom]
+            candidates.append(c)
+        for atom in kb.bases:
+            c = kb.copy()
+            del c.bases[atom]
+            candidates.append(c)
+        if kb.probe and kb.probe[0] > 4:
+            c = kb.copy()
+            c.probe = [n//2 for n in kb.probe]
+            candidates.append(c)
+        progress = False
+        for c in candidates:
+            # Keep transformations defined after removing required structure.
+            if checked in ('flip', 'false') and not c.reports:
+                continue
+            if checked == 'neutral' and not c.roots:
+                continue
+            if checked == 'inactive' and not c.rules:
+                continue
+            if c.reference and not c.rules and not any(not isinstance(f, str) for f, _, _ in c.reports):
+                continue
+            if c.reference or invariant == 'flip':
+                atoms = set(c.roots) | {r[2] for r in c.rules}
+                def reads(form):
+                    return {form} if isinstance(form, str) else set().union(*(reads(x) for x in form[1:]))
+                required = set().union(*(reads(r[1]) for r in c.rules), *(reads(f) for f, _, _ in c.reports), *(reads(q) for q in c.queries))
+                if not required <= atoms:
+                    continue
+                if c.reference and not c.raw:
+                    c.roots = {a: tv for a, tv in c.roots.items() if a in required}
+                    c.bases = {a: tv for a, tv in c.bases.items() if a in atoms and a in required}
+            key = json.dumps(c.to_json(), sort_keys=True)
+            if key in seen:
+                continue
+            if attempts >= limit:
+                return kb, detail, attempts, False
+            seen.add(key)
+            attempts += 1
+            found = event_evaluate(c, settings, execute)
+            matches = [f for f in found['flags'] if f['invariant'] == invariant and
+                       f['severity'] == flag['severity'] and f.get('variant') == flag.get('variant') and
+                       formula_text(c.queries[f['query']]) == query]
+            if matches:
+                kb, detail, progress = c, matches[0], True
+                break
+        if not progress:
+            return kb, detail, attempts, True

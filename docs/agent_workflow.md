@@ -488,3 +488,23 @@ The coordinator reads the report, not your transcript. Include:
 A committed root `<ROUND>_REPORT.md` does not stay on master: after landing,
 the coordinator deletes it and adds one line to `docs/history/rounds.md`.
 Tools a later round needs go into `scripts/`, not `scratch/`.
+
+## Run the fuzzer before hand-back
+
+Run the shared differential/metamorphic fuzzer against the build you changed:
+
+```bash
+( unset DISPLAY; ulimit -v 16000000
+  /nexus/Dev/OpenCog/bench/capped --slots 8 .venv/bin/python \
+    scripts/fuzz_vs_problog.py --quick --jobs 8 --chainer /path/to/worktree \
+    --out scratch/fuzz-quick </dev/null )
+```
+
+The fuzzer may come from master while `--chainer` points at an older builder
+branch with its own repointed `.venv`; `CHAINER_PYTHON` also selects an
+interpreter. Exit 1 means a BLOCKER was found. Do not fix core behavior in a
+fuzzer run. Report the target commit/runtime path, seed, budgets, elapsed
+seconds, severity/invariant counts, and paths to `summary.md` and the shrunk
+JSON/MeTTa repros. Include whether each shrink reached a deletion fixed point
+or its trial limit. `--long` expands the seeded campaign for nightly use.
+See [fuzzing.md](metta/fuzzing.md) for reference semantics and limits.

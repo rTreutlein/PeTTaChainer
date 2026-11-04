@@ -219,3 +219,89 @@ first minimal repro (category, direction, the features the repro still uses,
 its proof constructors). Clusters are listed by frequency with their
 smallest repro. Two clusters can share a root cause; the proof in the repro
 usually shows it.
+
+## Event differential and metamorphic mode
+
+The same entry point, generator, worker transport and shrinker now support
+`--quick` (builder loop) and `--long` (nightly). The legacy feature/ProbLog
+mode remains available. Quick/long also run the ProbLog subset; neither is
+part of `verify.sh` because these campaigns deliberately expose open defects.
+
+```bash
+( unset DISPLAY; ulimit -v 16000000
+  /nexus/Dev/OpenCog/bench/capped --slots 8 .venv/bin/python \
+    scripts/fuzz_vs_problog.py --quick --jobs 8 --chainer /path/to/build \
+    --out scratch/fuzz </dev/null )
+# Replay a reduced event or legacy ProbLog KB:
+.venv/bin/python scripts/fuzz_vs_problog.py --chainer /path/to/build \
+  --replay scratch/fuzz/repros/CASE.json </dev/null
+```
+
+The entry point admits itself through `bench/capped` if necessary; it does
+not fall back to uncapped execution. `--chainer` uses that repository's
+`.venv/bin/python` and checks its actual imported package path. Without it,
+`CHAINER_PYTHON` selects the interpreter. Every event case records the imported
+package path. Workers start fresh per KB and budget and remove `DISPLAY`.
+Quick uses seed 1 by default, budgets 100/500, k=800, strength tolerance .001,
+a 45-second worker timeout, and up to 24 reduction trials per violation.
+Long uses twenty consecutive seeds, more CTV shapes and 80 reduction trials.
+Quick applies rename/reorder/repeat to origin families through three sources;
+seven/eight-source cases check exact moments, joint bounds and budgets. Long
+also applies the expensive syntactic mutations at those larger widths.
+Admission waiting precedes the reported campaign time.
+
+`EventKB` adds ground formulas over at most twelve atoms: stored facts,
+STV/FTV certain-positive producer families through eight independent origins,
+uncertain CTV branches, And/Or/Not reports including otherwise unused leaves,
+neutral descendants, ground base rates, identity conjunctions with residual
+judgments, and Member/Inheritance chains with active rule schemas. Seeded
+variants change rates, confidence-sensitive shapes and connective structure.
+The source role is explicit: stored counts have Beta(ns+1,n(1-s)+1),
+n=k*c/(1-c); propagated views have Beta(ns,n(1-s)) or Bernoulli(s) at c=0.
+Certain sources are points. Reports supply Pearl likelihoods using their
+predictive probability. A certain-positive family is OR of its active
+antecedents plus a separate fallback event per consequent. No arbitrary
+multi-CTV combination law is invented.
+
+`event_oracle.py` enumerates the Boolean worlds independently of the chainer.
+Strength is E[N]/E[Z], exact at analytic parameter means for the multilinear
+network. Shared atoms are one bit. With constant Z, two-node Beta integration
+is a polynomial moment and gives exact variance. With observations, 12/24-node
+Beta integration estimates Var(N/Z) under the Z-tilted parameter law, records
+its discrepancy, and labels it **numerical**, not certified exact. A separate
+analytic bound, E[(N-sZ)^2]/(E[Z]*max_world_likelihood), is a certified variance
+lower bound. This bound uses only degree-two polynomial moments. Integration
+is capped at 150,000 parameter cells; the exact mean and analytic variance
+lower bound remain available beyond that cap.
+
+Wrong strength, lost answers, impossible positive support, violated invariants,
+error beyond two claimed standard deviations, or variance below 80% of the
+certified lower bound are BLOCKERs. Numerical-only variance warnings are
+FOLLOW-UPs, with the two-order discrepancy retained for review. Output confidence
+is decoded using the public ideal-variance formula; the .001 strength tolerance
+also absorbs rounding in the error-versus-sd check. Conditional-source and
+judgment shapes without an unambiguous normalized interpretation use only
+metamorphic obligations; the fuzzer does not compare them to an invented joint.
+
+Paired checks add a neutral descendant, flip a relevant report in the direction
+predicted by a normalized control, add an impossible constraint, rename symbols,
+reverse installation/connective order, and repeat source identities and query
+atoms. Inactive producers must preserve explicit bases; inactive class-link
+rules must preserve existing classification. Origin scaling checks the Fréchet
+bounds on marginals and joints; each reference case also checks error at the
+larger budget. A deterministic Prolog inference-count probe detects repeated
+superlinear catalog normalization when producer counts double; CPU times are
+retained as diagnostics, not used as a flaky timing gate.
+
+Every event violation has a JSON replay and standalone MeTTa repro. Paired
+violations also have a `-variant.metta`; the JSON replay is authoritative for
+the pair and for work-scaling measurements. The shrinker rebuilds mutations
+and references after deletion and accepts only the same severity/invariant on
+the same query. It removes statements, rules, reports, unused roots and base
+pins, and halves cost-probe sizes. `one_minimal` means no permitted single
+deletion preserves this failure; it is not a claim of global minimum. Trial
+limits are reported explicitly. `cases.jsonl` retains original KBs, exact
+means, variance labels, both budgets, variants and proofs; `summary.json` and
+`summary.md` record runtime provenance and severity counts. Exit 1 means a
+BLOCKER or a failing ProbLog differential; exit 0 means this bounded campaign
+found none, not correctness for ungenerated shapes.

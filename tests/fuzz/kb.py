@@ -376,3 +376,71 @@ def problog(kb: KB, evidence: bool = True) -> str:
         lines += [f"evidence({_pl(f.pred)}({f.ind}), {'true' if f.strength == 1 else 'false'})." for f in kb.facts if f.hard]
     lines += [f"query({_pl(pred)}({ind}))." for pred, ind in kb.queries]
     return "\n".join(lines) + "\n"
+
+
+# Event models extend the same transport/repro format beyond ProbLog's subset.
+# A formula is a ground atom string or (And|Or|Not, formula, ...).
+def formula_text(formula) -> str:
+    return formula if isinstance(formula, str) else '(' + ' '.join([formula[0], *(formula_text(p) for p in formula[1:])]) + ')'
+
+
+def formula_holds(formula, world):
+    if isinstance(formula, str):
+        return world[formula]
+    values = [formula_holds(p, world) for p in formula[1:]]
+    if formula[0] == 'Not':
+        return ~values[0]
+    import numpy as np
+    return np.logical_and.reduce(values) if formula[0] == 'And' else np.logical_or.reduce(values)
+
+
+@dataclass
+class EventKB:
+    """Small ground event network, with explicit count/view source roles.
+
+    rules: (name, antecedent, head, kind, positive TV, negative TV).
+    A certain-positive producer family is OR of its antecedents plus one
+    independent fallback bit per head. Other families have one CTV rule.
+    Raw statements exercise judgments/class links, judged by invariants only.
+    """
+    name: str
+    roots: dict[str, tuple[float, float, str]]
+    rules: list
+    reports: list
+    queries: list
+    bases: dict[str, tuple[float, float]] = field(default_factory=dict)
+    raw: list[str] = field(default_factory=list)
+    checks: list[str] = field(default_factory=list)
+    reference: bool = True
+    probe: list[int] = field(default_factory=list)
+
+    def to_json(self):
+        return {'event': True, **dataclasses.asdict(self)}
+
+    @staticmethod
+    def from_json(data):
+        return EventKB(**{k: v for k, v in data.items() if k != 'event'})
+
+    def copy(self):
+        return EventKB.from_json(json.loads(json.dumps(self.to_json())))
+
+    def program(self):
+        statements = [f'(: f{i} {atom} (STV {s} {c}))' for i, (atom, (s, c, _)) in enumerate(self.roots.items())]
+        for name, ant, head, kind, pos, neg in self.rules:
+            tv = f'(CTV (STV {pos[0]} {pos[1]}) (STV {neg[0]} {neg[1]}))' if kind == 'CTV' else f'({kind} {pos[0]} {pos[1]})'
+            statements.append(f'(: {name} (Implication {formula_text(ant)} {head}) {tv})')
+        statements += [f'(: report{i} {formula_text(f)} (STV {s} {c}))' for i, (f, s, c) in enumerate(self.reports)]
+        return MettaProgram([], False, statements + self.raw,
+                            [(a, f'(STV {s} {c})') for a, (s, c) in self.bases.items()],
+                            [f'(: $prf {formula_text(q)} $tv)' for q in self.queries])
+
+    def metta_file(self, budget, k, repo):
+        p = self.program()
+        if self.probe:
+            p.statements += [f'(: r{i} (Implication (O e) (A e)) (FTV 1 1))' for i in range(max(self.probe))]
+            budget = 1
+        return '\n'.join([f'!(import! &self {repo}/pettachainer/metta/petta_chainer)',
+                          f'!(set-evidence-confidence-k {k})',
+                          *[f'!(compileadd kb {s})' for s in p.statements],
+                          *[f'!(set-base-rate kb {a} {tv})' for a, tv in p.base_rates],
+                          *[f'!(query {budget} kb {q})' for q in p.queries]]) + '\n'

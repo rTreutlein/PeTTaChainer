@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import re
 import sys
@@ -96,13 +97,16 @@ def describe(kb: KB) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--chainer", type=Path, help="target repository with its own repointed .venv")
+    parser.add_argument("--quick", action="store_true", help="event + metamorphic builder gate (under ten minutes)")
+    parser.add_argument("--long", action="store_true", help="nightly event + metamorphic campaign")
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--n", type=int, default=50)
     parser.add_argument("--features", default=",".join(DEFAULT), help=f"comma-separated, 'all' or 'default'; known: {', '.join(FEATURES)}")
     parser.add_argument("--no-mix", action="store_true", help="give every KB all chosen features (default: a random subset each)")
     parser.add_argument("--budgets", default="100,2000", help="ascending; the last is judged, the first checks that more budget is no worse")
-    parser.add_argument("--k", type=float, default=5.0)
-    parser.add_argument("--threshold", type=float, default=0.05)
+    parser.add_argument("--k", type=float, default=None)
+    parser.add_argument("--threshold", type=float, default=None)
     parser.add_argument("--jobs", type=int, default=2)
     parser.add_argument("--shrink", type=int, default=2, help="flagged KBs to shrink per cluster (0: none)")
     parser.add_argument("--shrink-limit", type=int, default=120, help="chainer runs per shrink")
@@ -110,8 +114,18 @@ def main() -> None:
     parser.add_argument("--replay", type=Path, help="a repro .json (or a KB as JSON): print both sides' answers and the chainer's proofs")
     args = parser.parse_args()
     reexec_capped()
+    if args.chainer:
+        from tests.fuzz import run
+        target = args.chainer.resolve()
+        run.CHAINER_PYTHON = str(target / '.venv/bin/python')
+        os.environ['FUZZ_CHAINER_REPO'] = str(target)
+    if args.quick or args.long:
+        from tests.fuzz.run import event_campaign
+        if args.out is None:
+            parser.error('--out is required')
+        raise SystemExit(event_campaign(args))
     if args.replay:
-        replay(args.replay, Settings(budgets=tuple(int(b) for b in args.budgets.split(",")), k=args.k, threshold=args.threshold))
+        replay(args.replay, Settings(budgets=tuple(int(b) for b in args.budgets.split(",")), k=args.k if args.k is not None else 5.0, threshold=args.threshold if args.threshold is not None else 0.05))
         return
     if args.out is None:
         parser.error("--out is required")
@@ -120,7 +134,7 @@ def main() -> None:
     unknown = set(chosen) - set(FEATURES)
     if unknown:
         parser.error(f"unknown features {sorted(unknown)}")
-    settings = Settings(budgets=tuple(int(b) for b in args.budgets.split(",")), k=args.k, threshold=args.threshold)
+    settings = Settings(budgets=tuple(int(b) for b in args.budgets.split(",")), k=args.k if args.k is not None else 5.0, threshold=args.threshold if args.threshold is not None else 0.05)
     out = args.out
     (out / "repros").mkdir(parents=True, exist_ok=True)
 
@@ -208,7 +222,16 @@ def main() -> None:
 
 def replay(path: Path, settings: Settings) -> None:
     data = json.loads(path.read_text())
-    kb = KB.from_json(data.get("kb", data))
+    raw = data.get("kb", data)
+    if raw.get('event'):
+        from tests.fuzz.kb import EventKB
+        from tests.fuzz.run import event_evaluate
+        if 'settings' in data:
+            settings = Settings(**data['settings'])
+        print(json.dumps(event_evaluate(EventKB.from_json(raw), settings,
+                         lambda kb: chainer(kb, settings)), indent=2))
+        return
+    kb = KB.from_json(raw)
     print(describe(kb))
     print(problog(kb))
     ((exact, answers, verdict),) = evaluate([kb], settings, 1)
