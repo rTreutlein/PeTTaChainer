@@ -62,9 +62,10 @@
 !(compileadd instanceOnlyKb (: price (ChargesLowerPrices Supplier1) (STV 1 1)))
 !(test (collapse (query 300 instanceOnlyKb (: $p (And (SourceDocument Report Study) (Implication (AcceptSource Report) (Implication (And (Member $x Supplier) (ExposedTo $x ClimateRisk)) (ChargesLowerPrices $x)))) $tv))) ())
 
-;; All conjuncts remain in the answer, in the caller's order.
+;; All conjuncts remain in the answer, in the caller's order; the world parts
+;; are read as one compound beside the judgment.
 !(compileadd compoundKb (: tag (Reviewed Report) (STV 1 1)))
-!(test (collapse (let (: (conjunction metadata tag (merge/revision rule (conditional-implication (by (by rule (ctx proof $ctx)) (conjunction (ctx proof $ctx 1) (ctx proof $ctx 2)))))) (And (SourceDocument Report Study) (Reviewed Report) (Implication (AcceptSource Report) (Implication (And (Member $x Supplier) (ExposedTo $x ClimateRisk)) (ChargesLowerPrices $x)))) $result-tv)
+!(test (collapse (let (: (conjunction (conjunction metadata tag) (merge/revision rule (conditional-implication (by (by rule (ctx proof $ctx)) (conjunction (ctx proof $ctx 1) (ctx proof $ctx 2)))))) (And (SourceDocument Report Study) (Reviewed Report) (Implication (AcceptSource Report) (Implication (And (Member $x Supplier) (ExposedTo $x ClimateRisk)) (ChargesLowerPrices $x)))) $result-tv)
    (query 300 compoundKb (: $p (And (SourceDocument Report Study) (Reviewed Report) (Implication (AcceptSource Report) (Implication (And (Member $x Supplier) (ExposedTo $x ClimateRisk)) (ChargesLowerPrices $x)))) $tv)) $result-tv))
    ((STV 1 0.999700089898053)))
 

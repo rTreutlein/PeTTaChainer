@@ -97,7 +97,7 @@
       (case (sk-premise-value false ($read $key $filter $exclude)) (
          ((sk-val $fact $member-ev $member-deps)
             (let ($_type $_ctx $proof (STV $s $c)) $fact
-               (if (if (> $c 0) (if $floor true (> $s 0)) false)
+               (if (if $floor true (> $s 0))
                   (let $take (case $best (
                           (sk-none true)
                           ((sk-val $old-fact $_old-ev $_old-deps)

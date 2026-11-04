@@ -4,7 +4,6 @@
                      ['node-message-result', TV, Likelihood]) :-
     observed(KProof, KTV),
     pearl_factor(K, KTV, Factor),
-    Factor =\= 0.5,
     atom_dists(K, Formula, Index, Siblings, Proofs, Dists),
     nth0(Index, AllKeys, target, Keys),
     Likelihood = [likelihood, Formula, Index, Factor, AllKeys, Dists],

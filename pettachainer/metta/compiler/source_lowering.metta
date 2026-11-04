@@ -639,11 +639,27 @@
    (let (premise-bundle $goals $tv $proof) (lower-part $kc $part)
       (premise-bundle $goals $tv ((atom_concat $head introduction) $proof))))
 
+;; A conjunction's world parts beside a judgment are read as one compound key,
+;; first: the key keeps their joint, which part-by-part reads lose.
+;; Judgments and computations follow in their order.
+(: compound-parts (-[det]-> Statement (List Statement) (List Statement)))
+(= (compound-parts $compound $parts)
+   (let ($world $rest) (foldr-flat world-part (() ()) $parts)
+      (if (if (head-is? $compound And) (if (any-flat? implication-type? $parts) (case $world (((cons $_a (cons $_b $_more)) true) ($_few false))) false) false)
+         (cons (brand Statement (cons-atom And $world)) $rest)
+         $parts)))
+(: world-part (-[det]-> Statement ((List Statement) (List Statement)) ((List Statement) (List Statement))))
+(= (world-part $part ($world $rest))
+   (if (if (implication-type? $part) false
+          (if (is-expr $part) (let $head (car-atom $part) (if (is-var $head) true (if (== $head Not) true (not (source-computation-head? $head))))) true))
+      (data (cons $part $world) $rest)
+      (data $world (cons $part $rest))))
+
 ;; The readings of a compound: in All mode its complete bundle, then the
 ;; bundle of each part that settles it alone; in Any mode one per part.
 (: compound-readings (-[semidet]-> KBContext Statement (List PremiseBundle)))
 (= (compound-readings $kc $compound)
-   (let* (($head (car-atom $compound)) ($parts (statement-children (list_to_set (cdr-atom $compound)))))
+   (let* (($head (car-atom $compound)) ($parts (compound-parts $compound (statement-children (list_to_set (cdr-atom $compound))))))
       (if (== (configured-compound-premise-mode $head) Any)
          (map-semidet (any-reading $kc $head) $parts)
          (cons (lower-all lower-part $kc $head $parts) (settlings lower-part $kc true $compound $parts)))))
@@ -667,7 +683,7 @@
       (if (compound-source? $key)
          (fold-semidet (child-producers-step $kc)
             (map-flat (reading-addition $kc $key) (compound-readings $kc $key))
-            (statement-children (list_to_set (cdr-atom $key))))
+            (compound-parts $key (statement-children (list_to_set (cdr-atom $key)))))
          ())))
 
 ;; Every lowering of a rule's antecedent, the complete one first. Each conjunct

@@ -56,11 +56,10 @@
 
 ;; A stated conditional and both double-negated applications are one source.
 ;; Revision with those applications used to inflate confidence to 0.870943.
-;; The three parts of the stored conjunction are read conditioned on its event
-;; (given true they are certain, given false each is its compound's Jeffrey
-;; update), mixed by the stored fact (1, .9), an observation read by its
-;; Pearl factor at its mean (exact only at confidence 1): the compound counts
-;; once.
+;; The world parts are read as their stored conjunction, a report (1, .9) on
+;; three uniform parts: its posterior m / (m + 7 (1 - m)), m = 7201/7202, is
+;; 7201/7208, at the conservative variance bound of an observed compound
+;; (c 0), times the stated conditional. The compound counts once.
 !(compileadd ev68ExplicitKb (: src_event (And (AnnouncedBy Split1 Apple)
    (AnnouncedOn Split1 Date20200730) (Member Split1 StockSplit)) (STV 1 0.9)))
 !(compileadd ev68ExplicitKb (: src_conditional
@@ -69,9 +68,9 @@
    (query 300 ev68ExplicitKb (: $p (Exists ($e) (And
       (AnnouncedBy $e Apple) (AnnouncedOn $e Date20200730) (Member $e StockSplit)
       (Implication (Implemented $e) (Not (Dilutes $e))))) $value)) $tv)
-   (STV 1.0 0.817759475826309))
+   (STV 0.9990288568257489 0.0))
 !(test (let (: $_proof $_statement $tv)
    (query 300 ev68ExplicitKb (: $p (Exists ($e) (And
       (AnnouncedBy $e Apple) (AnnouncedOn $e Date20200730) (Member $e StockSplit)
       (Implication (Implemented $e) (Not (Dilutes $e))))) $value)) $tv)
-   (STV 1.0 0.817759475826309))
+   (STV 0.9990288568257489 0.0))

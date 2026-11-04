@@ -72,17 +72,15 @@
       (: $proof (Problem current) $tv))
    (: (factored-revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) (prior (STV 0.5199995299237518 0.9140621947055227)) (((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455289852 0.003629357526433342))) currentAlarm))) (Problem current) (STV 0.906976585290498 0.9691290859469237)))
 
-;; LocalProblem cannot reuse evidence that depends on itself: the general
-;; Problem estimate does. The completion of the definition onto it reads the
-;; alarm's inversion over Problem's base rate, which does not, with the other
-;; disjunct at its value. The completion updates the stored localPrior in
-;; its population prior's place (#42): odds(.4)*odds(completion)/
-;; odds(.4185934569) gives .6976600101. Revision formerly drowned out
-;; this diagnostic update in the stored belief's evidence count.
+;; LocalProblem is the event graph's posterior: the certain definition and the
+;; alarm's likelihoods over the two stored roots, whose counts are read at
+;; their means m = (7200 s + 1)/7202. Exact enumeration gives
+;; mL .9 / (mL .9 + (1 - mL)(mD .9 + (1 - mD) .1)) = .6976447619735168; a
+;; model-less region without evidence beyond it sums out (barren pruning).
 !(test
    (query 20000 orInversionConditionedMergeKb
       (: $proof (LocalProblem current) $tv))
-   (: (factored-revision localPrior (prior (STV 0.4000027777006194 0.9)) (((antecedent-completion (bi-forward problemDefinition) 0 with cpu (prior (STV 0.5 0.0))) (conjunction dependencyPrior ((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455289852 0.003629357526433342))) currentAlarm))))) (LocalProblem current) (STV 0.6976768597879697 0.9110388213710066)))
+   (: (node (conjunction currentAlarm localPrior dependencyPrior (by problemRaisesAlarm cpu) (by (bi-forward problemDefinition) cpu))) (LocalProblem current) (STV 0.6976447619735168 0.7906668093884545)))
 
 ;; The same with an atom: Local is derived (0.52) and certainly equivalent to
 ;; Problem. The bi-backward application of the alarm's inversion over Problem

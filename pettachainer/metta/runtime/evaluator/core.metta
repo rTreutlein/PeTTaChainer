@@ -185,40 +185,54 @@
                 (() (sk-fold-views $hash $key)))))))))
       (fold-semidet sk-cons-step () (fold-semidet (sk-admit-step $hash $key $filter $exclude) () $versions))))
 
-;; Leaves first, then one version per row in the order the rows were found;
-;; a certain stored fact stands alone (sk-certain-or). Views read under given
-;; statements leave out the leaves that depend on them. Views that overlap
-;; condition the key on what they share.
+;; A compound the event graph models has one value, its posterior, whoever
+;; reads it outside a condition: a stored report on it is a likelihood on its
+;; parts, and its parts' joint is the graph's.
+(: sk-report-posterior (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) EvidenceSet EventNetworkRead))
+(= (sk-report-posterior $given $key $filter $exclude $ev)
+   (case (data $given $key) (
+      ((() (sk-key $type $_kbctx))
+         (if (compound-source? $type) (event-network-read $key $filter $exclude $ev) no-event-model))
+      ($_other no-event-model))))
+
+;; A compound's posterior (sk-report-posterior), or leaves first, then one
+;; version per row in the order the rows were found; a certain stored fact
+;; stands alone (sk-certain-or). Views read under given statements leave out
+;; the leaves that depend on them. Views that overlap condition the key on
+;; what they share.
 (: sk-merge-key
    (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) (List SkeletonGiven) (List SkeletonValue) SkeletonValue))
 (= (sk-merge-key $hash $key $filter $exclude $given $views)
-   (let* (($outside (hash-union $exclude (hash-set (sk-given-hashes $given))))
-          ($leaves (sk-leaf-views $hash $key $filter $outside))
-          ($sources (sk-judgment-values $key
-             (map-flat (sk-read-value $filter) (append-flat $leaves $views))))
-          ($own (sk-own-values (sk-complete-values (sk-certain-or $leaves $sources))))
-          ;; The standing views come out of the step reversed; the split restores their order.
-          (($messages $updates $standing)
-             (fold-semidet sk-node-split-step (data () () ()) (fold-semidet (sk-standing-step $own) () $own)))
-          ($unifiers (sk-unifier-hashes $hash $key))
-          ($ignore (hash-union $unifiers $outside))
-          (($values $siblings $references) (sk-reference-values (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) (sk-row-reader sk-row-view) $ignore (the (List SkeletonValue) $standing))))
-      (sk-node-apply (sk-value-reader sk-value) $key $outside (the (List SkeletonValue) $messages) (the (List SkeletonValue) $updates) (let $state (fold-semidet (sk-pair-merge-step (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) true $ignore) (sk-merging sk-none () 0) (sk-report-values (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) $values))
-         (case $state (
-            ((sk-merging $merged () $deps)
-               (let $_settled
-                  (if (if (== $outside ()) (== $filter sk-any-filter) false)
-                     (if (sk-root-claim? $given $hash $key) (sk-clear-root-cap! $hash $key) ()) ())
-                  (if (if (== $deps 0) (if $siblings false true) false) $merged
-                     (sk-key-fallback (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) $ignore $references $values))))
-            ((sk-merging $_provisional $keys $deps)
-               (let* (($merged (sk-key-fallback (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) $ignore $references $values))
-                      ($near (sk-shared-statements $ignore (deps-near-shared (map-semidet (sk-view-deps-step 0) $values))))
-                      ($cut (if (sk-root-claim? $given $hash $key) $keys
-                         (fold-semidet (sk-near-key-step $near) () $keys))))
-                  (if (== $cut ()) $merged
-                     (sk-conditioned $given (sk-key-target $hash $key $filter $exclude) $hash -1
-                        (hash-union $exclude $unifiers) $cut (+ 1 (deps-size $deps)) $merged $merged))))))))))
+   (case (sk-report-posterior $given $key $filter $exclude (ev-set 0)) (
+      ((event-posterior $posterior) $posterior)
+      (no-event-model
+         (let* (($outside (hash-union $exclude (hash-set (sk-given-hashes $given))))
+                ($leaves (sk-leaf-views $hash $key $filter $outside))
+                ($sources (sk-judgment-values $key
+                   (map-flat (sk-read-value $filter) (append-flat $leaves $views))))
+                ($own (sk-own-values (sk-complete-values (sk-certain-or $leaves $sources))))
+                ;; The standing views come out of the step reversed; the split restores their order.
+                (($messages $updates $standing)
+                   (fold-semidet sk-node-split-step (data () () ()) (fold-semidet (sk-standing-step $own) () $own)))
+                ($unifiers (sk-unifier-hashes $hash $key))
+                ($ignore (hash-union $unifiers $outside))
+                (($values $siblings $references) (sk-reference-values (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) (sk-row-reader sk-row-view) $ignore (the (List SkeletonValue) $standing))))
+            (sk-node-apply (sk-value-reader sk-value) $key $outside (the (List SkeletonValue) $messages) (the (List SkeletonValue) $updates) (let $state (fold-semidet (sk-pair-merge-step (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) true $ignore) (sk-merging sk-none () 0) (sk-report-values (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) $values))
+               (case $state (
+                  ((sk-merging $merged () $deps)
+                     (let $_settled
+                        (if (if (== $outside ()) (== $filter sk-any-filter) false)
+                           (if (sk-root-claim? $given $hash $key) (sk-clear-root-cap! $hash $key) ()) ())
+                        (if (if (== $deps 0) (if $siblings false true) false) $merged
+                           (sk-key-fallback (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) $ignore $references $values))))
+                  ((sk-merging $_provisional $keys $deps)
+                     (let* (($merged (sk-key-fallback (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) $ignore $references $values))
+                            ($near (sk-shared-statements $ignore (deps-near-shared (map-semidet (sk-view-deps-step 0) $values))))
+                            ($cut (if (sk-root-claim? $given $hash $key) $keys
+                               (fold-semidet (sk-near-key-step $near) () $keys))))
+                        (if (== $cut ()) $merged
+                           (sk-conditioned $given (sk-key-target $hash $key $filter $exclude) $hash -1
+                              (hash-union $exclude $unifiers) $cut (+ 1 (deps-size $deps)) $merged $merged)))))))))))))
 
 (: sk-summary-version
    (-[semidet]-> (List SkeletonGiven) Number SkeletonKey SkeletonFilter (List Number) (List SkeletonVersion) SkeletonVersion (List SkeletonVersion)))
@@ -399,30 +413,34 @@
                    ($_left (context-remove! &sk_conditioning ($hash -2))))
                $all)))))
 
+;; A compound's posterior, or the leaves and views whose evidence lies outside `$ev`.
 (: sk-compatible-value
    (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) EvidenceSet Bool SkeletonValue))
 (= (sk-compatible-value $given $key $filter $exclude $ev $views)
-   (let* (($hash (index-hash $key))
-          ($outside (hash-union $exclude (hash-set (sk-given-hashes $given))))
-          ($leaves (sk-leaf-views $hash $key $filter $outside))
-          ($ignore (hash-union (sk-unifier-hashes $hash $key) $outside))
-          ;; The compatible views come out of the step reversed; the split restores their order.
-          (($messages $updates $compatible)
-             (fold-semidet sk-node-split-step (data () () ())
-                (fold-semidet (sk-compatible-step $ev) ()
-                (sk-own-values
-                   (sk-judgment-values $key
-                      (map-flat (sk-read-value $filter)
-                         (if $views
-                            (append-flat $leaves
-                               (map-semidet (sk-given-view $given $exclude $hash $key)
-                                  (sk-admitted-versions $hash $key $filter (sk-admission-exclusions $given $exclude))))
-                            $leaves)))))))
-          (($selected $siblings $references)
-             (sk-reference-values (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) (sk-row-reader sk-row-view) $ignore (sk-certain-or $leaves (the (List SkeletonValue) $compatible)))))
-      (let $value (if $siblings (sk-key-fallback (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) $ignore $references $selected)
-                     (fold-semidet (sk-merge-step (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) true $ignore) sk-none (sk-report-values (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) $selected)))
-         (sk-calibrated-value $given $key $filter $outside (sk-node-apply (sk-value-reader sk-value) $key $outside (the (List SkeletonValue) $messages) (the (List SkeletonValue) $updates) $value)))))
+   (case (sk-report-posterior $given $key $filter $exclude $ev) (
+      ((event-posterior $posterior) $posterior)
+      (no-event-model
+         (let* (($hash (index-hash $key))
+                ($outside (hash-union $exclude (hash-set (sk-given-hashes $given))))
+                ($leaves (sk-leaf-views $hash $key $filter $outside))
+                ($ignore (hash-union (sk-unifier-hashes $hash $key) $outside))
+                ;; The compatible views come out of the step reversed; the split restores their order.
+                (($messages $updates $compatible)
+                   (fold-semidet sk-node-split-step (data () () ())
+                      (fold-semidet (sk-compatible-step $ev) ()
+                      (sk-own-values
+                         (sk-judgment-values $key
+                            (map-flat (sk-read-value $filter)
+                               (if $views
+                                  (append-flat $leaves
+                                     (map-semidet (sk-given-view $given $exclude $hash $key)
+                                        (sk-admitted-versions $hash $key $filter (sk-admission-exclusions $given $exclude))))
+                                  $leaves)))))))
+                (($selected $siblings $references)
+                   (sk-reference-values (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) (sk-row-reader sk-row-view) $ignore (sk-certain-or $leaves (the (List SkeletonValue) $compatible)))))
+            (let $value (if $siblings (sk-key-fallback (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) $ignore $references $selected)
+                           (fold-semidet (sk-merge-step (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) true $ignore) sk-none (sk-report-values (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) $selected)))
+               (sk-calibrated-value $given $key $filter $outside (sk-node-apply (sk-value-reader sk-value) $key $outside (the (List SkeletonValue) $messages) (the (List SkeletonValue) $updates) $value))))))))
 
 ;; Reconstruct one proof per existing row only for an unanswered public root
 ;; after paid evaluation. Never expand or condition history here.

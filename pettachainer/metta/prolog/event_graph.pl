@@ -65,8 +65,13 @@ graph_model(['sk-key', Goal, Scope], Observed, Watched, Stamp, graph(Models, Fac
         findall(Fact, ( member(model(_, conditional(_, _, _, _), Fs), Models), member(Fact, Fs) ), Reports),
         append(CompoundFacts, Reports, Factors0), sort(Factors0, Unique),
         exclude(graph_settled_factor(Models), Unique, Factors),
+        % A sourceless root goal nothing reads is independent of the evidence.
+        \+ ( memberchk(model(Goal, root, []), Models),
+             \+ ( ( member([T|_], Factors) ; member(model(_, conditional(T, _, _, _), _), Models) ),
+                  node_formula(T, _, [], As), memberchk(Goal, As) ) ),
         ( Factors \== [] ; memberchk(model(Goal, root, [_]), Models)
-        ; memberchk(model(_, conditional(_, _, _, base), _), Models), member(model(_, root, [_|_]), Models) ).
+        ; member(model(_, conditional(Parent, _, _, base), _), Models), node_formula(Parent, _, [], As),
+          member(A, As), memberchk(model(A, root, [_|_]), Models) ).
 
 % A compound already settled by its root inputs carries no information about
 % its remaining parts. Keep a zero-weight factor so contradictions still fail.
@@ -107,7 +112,23 @@ graph_observations([T|Ts], Scope, Goal, Stamp, Seen, Ks, Discovery) :-
        ; ( Facts = [_|_] -> NewKs = [T|Ks] ; NewKs = Ks ),
          ( T = [Head|Children], connective_head(Head) -> append(Children, Neighbours, Next) ; Next = Neighbours ) ),
        append(Ts, Next, Todo), graph_observations(Todo, Scope, Goal, Stamp, [T|Seen], NewKs, Discovery)
+    ; T \== Goal, graph_barren([T], Scope, Seen, Barren)
+    -> graph_observations(Ts, Scope, Goal, Stamp, Barren, Ks, Discovery)
     ; Discovery = unsupported ).
+
+% A model-less statement whose region beyond the discovered ones holds no
+% evidence (a source with a non-constant likelihood, compound reports
+% included) sums out exactly; a model needing it as a parent still fails in
+% graph_atoms. The region is watched, so a source there plans again.
+graph_barren([], _, Region, Region).
+graph_barren([T|Ts], Scope, R0, Region) :-
+    ( memberchk(T, R0) -> R = R0, Next = []
+    ; length(R0, N), N < 48, source_catalog_sources(T, Scope, Facts),
+      'evidence-confidence-k'(K), forall(member([_, _, _, TV], Facts), pearl_factor(K, TV, 0.5)),
+      source_catalog_neighbours(T, Scope, Neighbours),
+      ( T = [Head|Children], connective_head(Head) -> append(Children, Neighbours, Next) ; Next = Neighbours ),
+      R = [T|R0] ),
+    append(Ts, Next, Todo), graph_barren(Todo, Scope, R, Region).
 
 graph_atoms([], _, _, Models, Models).
 graph_atoms([Type|Rest], Scope, Stamp, M0, Models) :-

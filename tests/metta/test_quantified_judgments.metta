@@ -224,9 +224,10 @@
 !(test (quantified-answer? witnessKb
    (Implication (Seed $s) (Exists ($y) (And (GeneratedBy $s $y) (Good $s $y))))
    (conditional-implication (disjunction (conjunction (by gen (ctx proof $ctx)) (by mark (ctx proof $ctx))))) 1) true)
+;; Ground, the witness conjunction is one event-graph node over the assumption.
 !(test (quantified-answer? witnessKb
    (Implication (Seed F1) (Exists ($y) (And (GeneratedBy F1 $y) (Good F1 $y))))
-   (conditional-implication (disjunction (conjunction (by gen (ctx proof $ctx)) (by mark (ctx proof $ctx))))) 1) true)
+   (conditional-implication (disjunction (node (conjunction (ctx proof $ctx) (by gen cpu) (by mark cpu))))) 1) true)
 !(test (collapse (query 500 witnessKb (: $p (GeneratedBy $s $y) $tv))) ())
 !(test (collapse (query 500 witnessKb (: $p (Exists ($y) (GeneratedBy F1 $y)) $tv))) ())
 

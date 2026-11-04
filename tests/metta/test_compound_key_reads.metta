@@ -92,8 +92,9 @@
 !(test (let (: $_p $_t $tv) (query 2000 readers2Kb (: $p (Or (A k) (B k)) $tv)) $tv) (STV 0.9055 0.9805614408032333))
 
 ;; V reads the Or as the Or answers, X's observation included through rx's
-;; inversion, in whatever order the queries come: 0.7336 times rv. Reading the
-;; parts, V had 0.42, the Or without that observation.
+;; inversion, in whatever order the queries come: the Or's graph posterior
+;; .7823994913 (its root answer below) through rv, .2 + .5 (.7823994913).
+;; Reading the parts, V had 0.42, the Or without that observation.
 !(compileadd orderKb (: rx (Implication (Or (A $t) (B $t)) (X $t)) (CTV (STV 0.9 1) (STV 0.1 1))))
 !(compileadd orderKb (: rw (Implication (X $t) (W $t)) (CTV (STV 0.8 1) (STV 0.3 1))))
 !(compileadd orderKb (: rv (Implication (Or (A $t) (B $t)) (V $t)) (CTV (STV 0.7 1) (STV 0.2 1))))
@@ -103,7 +104,7 @@
 !(compileadd orderKb (: x2 (X j) (STV 0.3 0.9)))
 !(compileadd orderKb (: a2 (A j) (STV 0.6 0.9)))
 !(compileadd orderKb (: b2 (B j) (STV 0.2 0.9)))
-!(test (let (: $_p $_t $tv) (query 2000 orderKb (: $p (V k) $tv)) $tv) (STV 0.5668085137843598 0.8877359359573489))
+!(test (let (: $_p $_t $tv) (query 2000 orderKb (: $p (V k) $tv)) $tv) (STV 0.5911997456448431 0.7999302208335874))
 !(test
    (posterior-tv-near? 0.7823994912896864 0.41289069125729083 (let (: $_p $_t $tv) (query 2000 orderKb (: $p (Or (A k) (B k)) $tv)) $tv))
    true)
@@ -122,7 +123,7 @@
 !(test
    (posterior-tv-near? 0.7823994912896864 0.41289069125729083 (let (: $_p $_t $tv) (query 2000 order2Kb (: $p (Or (A k) (B k)) $tv)) $tv))
    true)
-!(test (let (: $_p $_t $tv) (query 2000 order2Kb (: $p (V k) $tv)) $tv) (STV 0.5668085137843598 0.8877359359573489))
+!(test (let (: $_p $_t $tv) (query 2000 order2Kb (: $p (V k) $tv)) $tv) (STV 0.5911997456448431 0.7999302208335874))
 
 ;; A completion's consequence is no view derived from the compound it
 ;; completes. Here r1 and r2 read the Or, y observes Y, and rya concludes A.

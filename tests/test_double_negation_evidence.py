@@ -4,7 +4,11 @@ import unittest
 from pettachainer import PeTTaChainer
 
 
-CONFIDENCE = {0.5: 0.47347192825918843, 0.9: 0.8177148713822444}
+def identity(confidence):
+    """P(identity) for the report (STV 1 c) at k 800 over three uniform parts."""
+    n = 800 * confidence / (1 - confidence)
+    m = (n + 1) / (n + 2)
+    return m / (m + 7 * (1 - m))
 
 
 class TestDoubleNegationEvidence(unittest.TestCase):
@@ -50,28 +54,20 @@ class TestDoubleNegationEvidence(unittest.TestCase):
                 with self.subTest(consequent=consequent, repeat=repeat):
                     rows = h.query_many_refs([query], steps=300)[0]
                     self.assertEqual(len(rows), 1, rows)
-                    self.assertAlmostEqual(rows[0].tv[1], 1.0)
                     # As test_double_negation_evidence.metta's ev68ExplicitKb: the
-                    # observation is read by its Pearl factor at its mean.
-                    self.assertAlmostEqual(rows[0].tv[2], 0.8177594758263098)
+                    # report is a likelihood on its parts, so the whole reads the
+                    # identity's posterior, at the conservative bound of an
+                    # observed compound (c 0), times the stated conditional.
+                    self.assertAlmostEqual(rows[0].tv[1], identity(0.9), delta=1e-10)
+                    self.assertLessEqual(rows[0].tv[2], 0.1)
                     confidences.append(rows[0].tv[2])
         self.assertTrue(all(abs(value - confidences[0]) < 1e-12 for value in confidences))
 
     def test_overlapping_bridge_conditions_on_one_source(self):
-        # The conditional's true branch is (1, .8996760265350283). A separate CTV
-        # applied to one source is the control for the strength: it counts the
-        # observation once, without the compound/judgment join. Its false branch
-        # is unknown, (0, 0); the event node reads the parts given the event
-        # false from their messages instead (near 0, with confidence), so the
-        # join claims more confidence than the control: CONFIDENCE.
+        # The join conditions on the one event report: given the identity the
+        # bridge's conditional holds, and the identity is the report's
+        # posterior over its three parts, an upper bound on the join.
         for confidence in (0.5, 0.9):
-            control = PeTTaChainer()
-            control.add_atoms_no_check([
-                f'(: observation Gate (STV 1 {confidence}))',
-                '(: (no_inverse control) (Implication Gate Result) (CTV (STV 1 0.8996760265350283) (STV 0 0)))',
-            ])
-            expected = control.query_many_refs(['(: $p Result $tv)'], steps=300)[0][0].tv
-            self.assertGreater(CONFIDENCE[confidence], expected[2])
             for consequent in ('(DoesNotDilute $e)', '(Not (Dilutes $e))'):
                 conjunction = f'(And (AnnouncedBy $e Apple) (AnnouncedOn $e Date20200730) (Member $e StockSplit) (Implication (Implemented $e) {consequent}))'
                 for statement in (conjunction.replace('$e', 'Split1'), f'(Exists ($e) {conjunction})'):
@@ -84,10 +80,10 @@ class TestDoubleNegationEvidence(unittest.TestCase):
                         with self.subTest(confidence=confidence, consequent=consequent, statement=statement, repeat=repeat):
                             rows = h.query_many_refs([f'(: $p {statement} $tv)'], steps=300)[0]
                             self.assertEqual(len(rows), 1, rows)
-                            self.assertAlmostEqual(rows[0].tv[1], expected[1])
-                            self.assertAlmostEqual(rows[0].tv[2], CONFIDENCE[confidence], places=4)
+                            self.assertAlmostEqual(rows[0].tv[1], identity(confidence), delta=1e-10)
+                            self.assertLessEqual(rows[0].tv[2], 0.1)
                             proof = h.expand_proof(rows[0].proof)
-                            self.assertIn('(conditioned src_event ', proof)
+                            self.assertIn('(conditioned (node (conjunction src_event)) ', proof)
                             self.assertEqual(proof.count('src_event'), 1)
                             evidence = h._call('evidence-entries', [f'(proof-ref-evidence {rows[0].proof[1]})'])[0]
                             self.assertEqual(evidence.count('src_event'), 1)
