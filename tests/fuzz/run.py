@@ -217,6 +217,9 @@ def event_judge(kb, exact, result, settings):
         answer = max(choices, key=lambda r: r[1]) if choices else None
         row = {'query': i, 'answer': answer, 'reference': exact.get('rows', [None]*len(kb.queries))[i]}
         rows.append(row)
+        if 'subset' in exact and answer is not None and answer[0] > exact['subset']['s']+1e-6:
+            flags.append({'severity': 'BLOCKER', 'invariant': 'identity-subset', 'query': i,
+                          'expected': {'at_most': exact['subset']['s']}, 'actual': answer[0]})
         if answer is None and answers[low][i]:
             flags.append({'severity': 'BLOCKER', 'invariant': 'budget_regression', 'query': i,
                           'expected': 'higher budget retains an answer', 'actual': None})
@@ -260,6 +263,13 @@ def event_evaluate(kb, settings, execute):
     from .event_oracle import reference
     from .generator import mutate_event
     exact = reference(kb, settings.k)
+    if 'identity-subset' in kb.checks:
+        # Q = I and judgment implies Q <= I, without inventing a probability
+        # for the judgment. Unobserved identity parts have uniform count laws.
+        identity = kb.reports[0][0]
+        control = EventKB('identity-bound', dict.fromkeys(identity[1:], (.5, 0, 'count')),
+                          [], kb.reports, [identity])
+        exact['subset'] = reference(control, settings.k)['rows'][0]
     result = execute(kb)
     flags, rows = event_judge(kb, exact, result, settings)
     variants = {}
@@ -268,7 +278,7 @@ def event_evaluate(kb, settings, execute):
     high = settings.budgets[-1]
     base = [best(a) for a in result['answers'][high]]
     for check in kb.checks:
-        if check in ('bounds', 'budget'):
+        if check in ('bounds', 'budget', 'identity-subset'):
             continue
         variant = mutate_event(kb, check)
         other = execute(variant)
@@ -287,6 +297,7 @@ def event_evaluate(kb, settings, execute):
             # constraints permit either absence or a zero-strength answer.
             broken = False
             expected = 'same strength and answer availability'
+            actual = [before[0] if before else None, after[0] if after else None]
             if check == 'false':
                 broken = after is not None and after[0] > 1e-6
                 expected = 0
@@ -303,11 +314,17 @@ def event_evaluate(kb, settings, execute):
             elif check == 'class-rule':
                 broken = before is not None and (after is None or abs(after[0]-before[0]) > 1e-6)
                 expected = 'inactive derived link preserves an existing classification'
+            elif check == 'redundant':
+                actual = [max(choices, key=lambda r: r[1])[:2] if choices else None
+                          for choices in (result['answers'][high][i], other['answers'][high][i])]
+                broken = (before is None) != (after is None) or (before is not None and
+                          any(abs(x-y) > 1e-6 for x, y in zip(*actual)))
+                expected = 'same strength, confidence and answer availability'
             else:
                 broken = (before is None) != (after is None) or (before is not None and abs(before[0]-after[0]) > 1e-6)
             if broken:
                 flags.append({'severity': 'BLOCKER', 'invariant': check, 'query': i,
-                              'expected': expected, 'actual': [before[0] if before else None, after[0] if after else None]})
+                              'expected': expected, 'actual': actual})
     if 'bounds' in kb.checks and len(base) == 3 and all(base):
         a, b, joint = [v[0] for v in base]
         if joint > min(a, b)+1e-6 or joint < max(0, a+b-1)-1e-6:
@@ -364,7 +381,7 @@ def event_campaign(args):
             repo = os.environ.get('FUZZ_CHAINER_REPO', str(REPO))
             (out/'repros'/f'{name}.metta').write_text(header+small.metta_file(settings.budgets[-1], settings.k, repo))
             variant_check = flag.get('variant', flag['invariant'])
-            if variant_check in small.checks:
+            if variant_check in small.checks and variant_check != 'identity-subset':
                 variant = mutate_event(small, variant_check)
                 if isinstance(variant, EventKB):
                     (out/'repros'/f'{name}-variant.metta').write_text(header+variant.metta_file(settings.budgets[-1], settings.k, repo))

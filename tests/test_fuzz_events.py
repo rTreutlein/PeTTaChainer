@@ -36,12 +36,42 @@ class EventReferenceTests(unittest.TestCase):
         for kb in event_cases():
             if not kb.name.startswith('origins'):
                 continue
-            u = math.prod(1-v[0] for v in kb.roots.values())
+            u = math.prod(1-(800*c/(1-c)*s+1)/(800*c/(1-c)+2)
+                          for s, c, _ in kb.roots.values())
             rows = reference(kb)['rows']
             self.assertAlmostEqual(rows[0]['s'], 1-u/2, places=11)
             self.assertAlmostEqual(rows[2]['s'], 1-3*u/4, places=11)
             self.assertEqual(rows[0]['variance_status'], 'exact-polynomial')
             self.assertAlmostEqual(rows[0]['variance'], rows[0]['variance_lower'], places=11)
+
+    def test_stored_roots_cannot_be_labeled_views(self):
+        for kb in event_cases():
+            self.assertTrue(all(role == 'count' for _, _, role in kb.roots.values()))
+        kb = EventKB('bad-role', {'(O e)': (.8, .5, 'view')}, [], [], ['(O e)'])
+        with self.assertRaisesRegex(ValueError, 'stored facts'):
+            kb.program()
+
+    def test_base_families_use_stored_origin_mean(self):
+        for kb in event_cases():
+            if not kb.name.startswith('base-'):
+                continue
+            origin = (800*.8+1)/802
+            a = origin+(1-origin)*.2
+            c = .9*a+.1*(1-a)
+            m = (7200*.9+1)/7202
+            z = c*m+(1-c)*(1-m)
+            rows = reference(kb)['rows']
+            self.assertAlmostEqual(rows[0]['s'], a*(.9*m+.1*(1-m))/z)
+            self.assertAlmostEqual(rows[1]['s'], c*m/z)
+
+    def test_redundant_producer_is_distinct_and_certain(self):
+        kb = next(k for k in event_cases() if 'redundant' in k.checks)
+        variant = mutate_event(kb, 'redundant')
+        self.assertNotEqual(kb.rules[0][0], variant.rules[1][0])
+        self.assertEqual(variant.rules[0][1:], list(variant.rules[1][1:]))
+        self.assertEqual(tuple(variant.rules[1][4]), (1, 1))
+        kb.reference = variant.reference = True
+        self.assertEqual(reference(kb), reference(variant))
 
     def test_impossible_and_forced_worlds(self):
         a = '(A e)'
@@ -93,6 +123,45 @@ class EventGateTests(unittest.TestCase):
         kb = next(k for k in event_cases() if k.name.startswith('identity-ground'))
         result = event_evaluate(kb, self.settings, lambda k: self.answers(k, 1))
         self.assertIn('false', [f['invariant'] for f in result['flags']])
+
+    def test_soft_identity_uses_enumerated_subset_below_strength_tolerance(self):
+        kb = next(k for k in event_cases() if 'identity-subset' in k.checks)
+        result = event_evaluate(kb, self.settings, lambda k: self.answers(k, 1, .818))
+        upper = result['exact']['subset']['s']
+        self.assertAlmostEqual(upper, 7201/7208)
+        self.assertLess(1-upper, self.settings.threshold)
+        self.assertIn('identity-subset', [f['invariant'] for f in result['flags']])
+        valid = event_evaluate(kb, self.settings, lambda k: self.answers(k, upper-.01))
+        self.assertFalse(valid['flags'])
+
+    def test_distinct_redundant_producer_detects_admission_switch(self):
+        kb = next(k for k in event_cases() if 'redundant' in k.checks)
+        result = event_evaluate(kb, self.settings,
+                                lambda k: self.answers(k, .6 if len(k.rules) == 1 else .714))
+        self.assertIn('redundant', [f['invariant'] for f in result['flags']])
+        result = event_evaluate(kb, self.settings,
+                                lambda k: self.answers(k, .6, .5 if len(k.rules) == 1 else .9))
+        self.assertIn('redundant', [f['invariant'] for f in result['flags']])
+
+    def test_subset_campaign_writes_unpaired_repro_and_summary(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from tests.fuzz.run import event_campaign
+        kb = next(k for k in event_cases() if 'identity-subset' in k.checks)
+        with tempfile.TemporaryDirectory() as tmp:
+            args = SimpleNamespace(out=Path(tmp), budgets='100,2000', k=None,
+                                   threshold=None, seed=1, long=False, jobs=1)
+            with patch('tests.fuzz.generator.event_cases', return_value=[kb]), \
+                 patch('tests.fuzz.run.chainer', side_effect=lambda k, settings:
+                       {'answers': {b: [[[1, .818, 'test']]] for b in settings.budgets}}), \
+                 patch('tests.fuzz.run.evaluate', return_value=[({}, {}, None)]*3):
+                self.assertEqual(event_campaign(args), 1)
+            summary = json.loads((args.out/'summary.json').read_text())
+            self.assertEqual(summary['violations'], {'BLOCKER:identity-subset': 1})
+            self.assertEqual(len(list((args.out/'repros').glob('*.metta'))), 1)
 
     def test_cost_inferences_classify_quadratic_work(self):
         kb = next(k for k in event_cases() if k.probe)

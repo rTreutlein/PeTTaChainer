@@ -396,7 +396,7 @@ def formula_holds(formula, world):
 
 @dataclass
 class EventKB:
-    """Small ground event network, with explicit count/view source roles.
+    """Small ground event network with stored-count roots.
 
     rules: (name, antecedent, head, kind, positive TV, negative TV).
     A certain-positive producer family is OR of its antecedents plus one
@@ -425,6 +425,8 @@ class EventKB:
         return EventKB.from_json(json.loads(json.dumps(self.to_json())))
 
     def program(self):
+        if any(role != 'count' for _, _, role in self.roots.values()):
+            raise ValueError('EventKB roots are stored facts and require count laws')
         statements = [f'(: f{i} {atom} (STV {s} {c}))' for i, (atom, (s, c, _)) in enumerate(self.roots.items())]
         for name, ant, head, kind, pos, neg in self.rules:
             tv = f'(CTV (STV {pos[0]} {pos[1]}) (STV {neg[0]} {neg[1]}))' if kind == 'CTV' else f'({kind} {pos[0]} {pos[1]})'

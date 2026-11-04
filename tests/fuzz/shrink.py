@@ -177,11 +177,11 @@ def shrink_event(kb, flag, settings, execute, limit=24):
         progress = False
         for c in candidates:
             # Keep transformations defined after removing required structure.
-            if checked in ('flip', 'false') and not c.reports:
+            if checked in ('flip', 'false', 'identity-subset') and not c.reports:
                 continue
             if checked == 'neutral' and not c.roots:
                 continue
-            if checked == 'inactive' and not c.rules:
+            if checked in ('inactive', 'redundant') and not c.rules:
                 continue
             if c.reference and not c.rules and not any(not isinstance(f, str) for f, _, _ in c.reports):
                 continue

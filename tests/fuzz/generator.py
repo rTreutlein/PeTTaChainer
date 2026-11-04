@@ -201,17 +201,20 @@ def event_cases(seed=1, long=False):
                       [('ra', c, a, 'STV', (1, .9), (.5, 0))], [(report, 1, .9)], [c],
                       checks=['flip', 'rename', 'reorder', 'repeat', 'budget'], reference=False)
     for kind in ('STV', 'FTV'):
-        yield EventKB(f'base-{kind}-{seed}', {o: (.8, .5, 'view')},
+        yield EventKB(f'base-{kind}-{seed}', {o: (.8, .5, 'count')},
                       [('ra', o, a, kind, (1, 1), (.5, 0)), ('rc', a, c, 'CTV', (.9, 1), (.1, 1))],
                       [(c, .9, .9)], [a, c], bases={a: (.2, 1)}, checks=['inactive', 'budget'])
     for n in ((1, 2, 3, 7, 8) if seed == 1 else (rng.randint(1, 8),)):
         roots, origins = {}, []
         for i in range(n):
             atom = f'(O{i} e)'
-            roots[atom] = (.8-i*.08 if seed == 1 else rng.uniform(.15, .85), .01, 'view')
+            roots[atom] = (.8-i*.08 if seed == 1 else rng.uniform(.15, .85), .01, 'count')
             origins += [(f'r{p}{i}', atom, f'({p} e)', 'FTV', (1, 1), (.5, 0)) for p in ('A', 'B')]
         yield EventKB(f'origins-{n}-{seed}', roots, origins, [], [a, b, ('And', a, b)],
                       checks=['bounds', 'budget'] + (['rename', 'reorder', 'repeat'] if n <= 3 or long else []))
+    yield EventKB(f'redundant-producer-{seed}', {o: (.2, .001, 'count')},
+                  [('ra', o, a, 'FTV', (1, 1), (.5, 0))], [], [a],
+                  checks=['redundant'], reference=False)
     # General CTV networks with uncertain stored-count branches and nested reports.
     for i in range(3 if not long else 12):
         form = (rng.choice(('And', 'Or')), a, ('Not', b))
@@ -222,6 +225,9 @@ def event_cases(seed=1, long=False):
     identity = ('And', '(AnnouncedBy Split1 Apple)', '(AnnouncedOn Split1 Date20200730)', '(Member Split1 StockSplit)')
     judgment = '(Implication (Implemented Split1) (Not (Dilutes Split1)))'
     bridge = '(: bridge (Implication (And (Member $e StockSplit) (Implemented $e)) (Not (Dilutes $e))) (STV 1 0.9))'
+    yield EventKB(f'identity-soft-{seed}', {}, [], [(identity, 1, .9)],
+                  [('And', *identity[1:], judgment)], raw=[bridge],
+                  checks=['identity-subset'], reference=False)
     for mode in ('ground', 'exists'):
         goal = ('And', *identity[1:], judgment)
         if mode == 'exists':
@@ -235,7 +241,7 @@ def event_cases(seed=1, long=False):
             raw.append('(: licensed (Licensed person) (STV 1 0.99))')
         yield EventKB(f'class-links-{licensed}-{seed}', {}, [], [], ['(Member grace pilot)', '(Member grace person)', '(Member grace animal)'],
                       raw=raw, checks=['class-rule'], reference=False)
-    yield EventKB(f'producer-cost-{seed}', {o: (.8, .5, 'view')}, [], [], [a],
+    yield EventKB(f'producer-cost-{seed}', {o: (.8, .5, 'count')}, [], [], [a],
                   reference=False, probe=[64, 128, 256, 512], checks=['cost'])
 
 
@@ -255,6 +261,9 @@ def mutate_event(kb, check):
         out.roots['(Z e)'] = (0, 1, 'count')
         head = out.rules[0][2]
         out.rules.append(('inactive', '(Z e)', head, 'FTV', (1, 1), (.5, 0)))
+    elif check == 'redundant':
+        _, ant, head, kind, pos, neg = out.rules[0]
+        out.rules.append(('redundant', ant, head, kind, pos, neg))
     elif check == 'false':
         out.reports.append((('Not', out.reports[0][0]), 1, 1))
     elif check == 'class-rule':

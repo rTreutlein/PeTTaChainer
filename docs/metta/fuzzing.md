@@ -256,8 +256,11 @@ uncertain CTV branches, And/Or/Not reports including otherwise unused leaves,
 neutral descendants, ground base rates, identity conjunctions with residual
 judgments, and Member/Inheritance chains with active rule schemas. Seeded
 variants change rates, confidence-sensitive shapes and connective structure.
-The source role is explicit: stored counts have Beta(ns+1,n(1-s)+1),
-n=k*c/(1-c); propagated views have Beta(ns,n(1-s)) or Bernoulli(s) at c=0.
+Every `EventKB` root is emitted as an ordinary stored fact and must have the
+`count` role: Beta(ns+1,n(1-s)+1), n=k*c/(1-c). This includes the origins
+and base-STV/FTV controls. For example, a stored STV(.8,.5) at k=800 has
+mean 641/802, not .8. The emitter rejects view-labeled roots; a genuine
+propagated view would need its own emitting path before that role can be used.
 Certain sources are points. Reports supply Pearl likelihoods using their
 predictive probability. A certain-positive family is OR of its active
 antecedents plus a separate fallback event per consequent. No arbitrary
@@ -280,13 +283,27 @@ certified lower bound are BLOCKERs. Numerical-only variance warnings are
 FOLLOW-UPs, with the two-order discrepancy retained for review. Output confidence
 is decoded using the public ideal-variance formula; the .001 strength tolerance
 also absorbs rounding in the error-versus-sd check. Conditional-source and
-judgment shapes without an unambiguous normalized interpretation use only
-metamorphic obligations; the fuzzer does not compare them to an invented joint.
+judgment shapes without an unambiguous normalized interpretation use
+metamorphic obligations or necessary subset bounds.
+
+The soft KE identity-plus-judgment case checks Q = I and judgment against
+an independently enumerated upper bound P(I). Its three unobserved identity
+parts have uniform stored-count priors; the STV(1,.9) identity report gives
+P(I)=7201/7208 at k=800. Every Q answer must be at most that value, allowing
+1e-6 for rounding. This catches strength 1 with confidence about .818 even
+though the gap is below the general .001 strength tolerance, without
+inventing a probability for the residual judgment. The bound and its
+enumeration metadata are retained under `exact.subset` in `cases.jsonl`.
 
 Paired checks add a neutral descendant, flip a relevant report in the direction
 predicted by a normalized control, add an impossible constraint, rename symbols,
 reverse installation/connective order, and repeat source identities and query
-atoms. Inactive producers must preserve explicit bases; inactive class-link
+atoms. A separate `redundant` mutation adds a distinct rule name with the
+same antecedent, consequent and certain FTV(1,1): it must preserve strength,
+confidence and answer availability. This exercises producer admission
+separately from replaying the same source identity; its enumeration also has
+the same law.
+Inactive producers must preserve explicit bases; inactive class-link
 rules must preserve existing classification. Origin scaling checks the Fréchet
 bounds on marginals and joints; each reference case also checks error at the
 larger budget. A deterministic Prolog inference-count probe detects repeated
@@ -305,3 +322,11 @@ means, variance labels, both budgets, variants and proofs; `summary.json` and
 `summary.md` record runtime provenance and severity counts. Exit 1 means a
 BLOCKER or a failing ProbLog differential; exit 0 means this bounded campaign
 found none, not correctness for ungenerated shapes.
+
+The corrected seed-1 quick campaign against KE2 `8ddce38d` removes all six
+origin-2/3 false strength flags and passes both base-STV/FTV cases. The new
+identity bound catches strength 1 at confidence .81804, and the distinct
+redundant producer catches .6 changing to .7071122230. The one-origin cases
+now expose the ordinary path's disagreement with stored-count enumeration;
+their three strength flags remain evidence for that same producer-admission
+defect. Campaigns still exit 1 while runtime defects remain.
