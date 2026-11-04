@@ -23,7 +23,7 @@ FEATURES = {
     "observe": "hard observations of roots",
     "latent": "root atoms of the queried individuals may stay unobserved (otherwise each is observed)",
     "derived_rates": "pin each derived predicate's base rate to its prior under the model",
-    "learned": "rules refined from a fully observed history (Laplace oracle)",
+    "learned": "rules refined from a fully observed history (count-law oracle)",
     "history_rates": "root priors estimated from a fully observed history",
 }
 DEFAULT = ["chain", "shared", "and", "or", "not", "evidence", "observe", "latent", "derived_rates"]

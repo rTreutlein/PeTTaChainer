@@ -43,7 +43,7 @@ about one second; 300 KBs take five minutes plus the shrinks.
 
 `tests/test_fuzz_kb.py` checks the generator (deterministic, every KB valid)
 and the translation (ProbLog's prior marginals equal exact enumeration of the
-same model, and a learned rule's stated prior revises to Laplace's rule). It
+same model, and a learned rule's stated counts and history use the count law). It
 runs no chainer. A fuzz run is not part of the test suite: it finds open
 defects, so it cannot be a stable gate.
 
@@ -114,11 +114,13 @@ the way the chainer is specified to estimate them:
 
 - **Learned rule.** PeTTaChainer gets the rule with
   `(CTV (STV 0.5 c) (STV 0.5 c))`, `c = 2 / (2 + k)`, two pseudo-observations
-  at 0.5 per branch, and `set-rule-refinement`. Revising that with the n
-  history instances of a branch is Laplace's rule, (s + 1) / (n + 2), and the
-  oracle uses exactly that per branch. (ChainerGame's `(STV 0.5 0.02)` prior
-  revises to (s + 0.05) / (n + 0.1), which differs from Laplace by up to 0.09
-  at n = 8; it gave false positives.)
+  at 0.5 per branch, and `set-rule-refinement`. These are stated evidence,
+  not the uniform prior itself. With N history instances and S successes,
+  revision has n=N+2 and ns=S+1. The stored-count law adds Beta(1,1) once,
+  giving Beta(S+2,N-S+2), mean (S+2)/(N+4), which the oracle uses per branch.
+  The former (S+1)/(N+2) reference mistook the axiom for the whole prior;
+  benchmark seed 22000165 exposed it when the graph began reading refined
+  counts (five negative samples: 2/9, not 1/7).
 - **Estimated root prior.** The chainer reads a base rate over n stored facts
   as the prior of one more member, (s n + a/2) / (n + a) with the Bayes prior
   count a = 0.2 (`prior_factored_merge.md`). The oracle uses the same
@@ -136,7 +138,7 @@ one.
 | two rules into one consequent | PeTTaChainer combines several rules' views by a mode learnt from stored outcomes (`combination_modes.md`), revision until outcomes decide; ProbLog's two clauses are a noisy-OR. The fuzzer states a combination explicitly as one `Or` / `And` rule instead. |
 | STV rules | an STV rule's negative branch is derived from base rates in PeTTaChainer; `p::b :- a` in ProbLog has P(b \| not a) = 0. Only CTV rules are generated. |
 | soft observation with an observation below it, or of a derived atom | a fact of confidence 1 is its own value: no rule is applied to it, so evidence below it does not update it, where ProbLog conditions the prior. |
-| a learned rule with a branch no history individual instantiates | the chainer derives an unsampled branch from the base rates of both sides; Laplace's rule leaves it at 1/2. |
+| a learned rule with a branch no history individual instantiates | the chainer derives an unsampled branch from the base rates of both sides; the symmetric count prior leaves it at 1/2. |
 | a learned rule with an `Or` antecedent or a negated literal | the instance fold samples only plain predicate conjuncts; such a rule keeps its stated prior, where the oracle would learn it. |
 | uncertain confidence below 1 (on facts or stated rules) | confidence is evidence weight, which ProbLog has no reading for. |
 | negation inside a loop, an open predicate in a loop, a loop rule with q > 0 | ProbLog needs stratified negation; the chainer's well-founded reading is defined for complete predicates. |

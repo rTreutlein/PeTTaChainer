@@ -17,9 +17,8 @@ BAYES_PRIOR_COUNT = 0.2  # PeTTaChainer's default a: a population prior is (s n 
 
 
 def uniform_prior(k: float) -> str:
-    """A learned rule's stated truth: two pseudo-observations at 0.5 per
-    branch (confidence 2 / (2 + k)), so revising it with n instances is
-    Laplace's rule (s + 1) / (n + 2), the oracle's estimate."""
+    """Two stated evidence counts at 0.5 per branch. The count-law uniform
+    prior is added once when reading their revision with the history."""
     c = 2 / (2 + k)
     return f"(CTV (STV 0.5 {c:.10g}) (STV 0.5 {c:.10g}))"
 
@@ -50,7 +49,7 @@ class Antecedent:
 class Rule:
     """``ant -> head`` with P(head | ant) = p and P(head | not ant) = q. A
     learned rule states the weak prior to PeTTaChainer, which refines it from
-    the history; the oracle uses Laplace's rule over the same history."""
+    the history; the oracle reads those revised counts under the count law."""
 
     name: str
     head: str
@@ -135,11 +134,15 @@ class KB:
         return tally
 
     def rates(self, rule: Rule) -> tuple[float, float]:
-        """A rule's two branches: as stated, or Laplace counts over the history."""
+        """Certain branches as stated; learned branches as count-law means.
+
+        The axiom has n=2, ns=1. After N samples with S successes the
+        stored-count Beta is (S+2, N-S+2), not (S+1, N-S+1).
+        """
         if not rule.learned:
             return rule.p, rule.q
         tally = self.tally(rule)
-        return tuple((tally[b][0] + 1) / (tally[b][1] + 2) for b in (True, False))
+        return tuple((tally[b][0] + 2) / (tally[b][1] + 4) for b in (True, False))
 
     def model_prior(self, pred: str) -> float:
         """P(pred x) for an individual with no observations, by enumerating

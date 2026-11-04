@@ -25,13 +25,21 @@ class GeneratorTest(unittest.TestCase):
             self.assertEqual(kb.to_json(), generate(seed, features).to_json())
             self.assertLessEqual(len(kb.rules) + len(kb.facts), 15)
 
-    def test_learned_rule_prior_is_laplace(self):
-        """Two pseudo-observations at 0.5 revised with n instances is (s + 1) / (n + 2)."""
+    def test_learned_rule_axiom_is_evidence_under_the_count_law(self):
+        """The stated two counts and the Beta(1,1) prior each enter once."""
         kb = KB(["a"], {"A": 0.5}, [Rule("rB", "B", Antecedent("lit", (Literal("A"),)), 0.9, 0.1, learned=True)], [],
                 history=[Fact("A", "h0", 1.0), Fact("B", "h0", 1.0), Fact("A", "h1", 1.0), Fact("B", "h1", 0.0), Fact("A", "h2", 0.0), Fact("B", "h2", 0.0)],
                 queries=[("B", "a")])
-        self.assertEqual(kb.rates(kb.rules[0]), ((1 + 1) / (2 + 2), (0 + 1) / (1 + 2)))
+        self.assertEqual(kb.rates(kb.rules[0]), ((1 + 2) / (2 + 4), (0 + 2) / (1 + 4)))
         self.assertIn("(CTV (STV 0.5 0.2857142857) (STV 0.5 0.2857142857))", metta(kb, 5.0).statements[0])
+
+    def test_five_negative_samples_are_beta_two_seven(self):
+        # Full benchmark seed 22000165: the old oracle used 1/7. The axiom
+        # contributes n=2, ns=1, five failures give n=7, ns=1, and the
+        # uniform prior makes Beta(2,7). ProbLog must use the mean 2/9.
+        kb = KB(["a"], {"D": 0.5}, [Rule("rE", "E", Antecedent("lit", (Literal("D"),)), .5, .5, learned=True)], [],
+                history=[f for i in range(5) for f in (Fact("D", f"h{i}", 0), Fact("E", f"h{i}", 0))])
+        self.assertEqual(kb.rates(kb.rules[0]), (0.5, 2/9))
 
 
 @unittest.skipUnless(os.path.exists(PROBLOG_PYTHON), "ProbLog interpreter not installed")
