@@ -17,10 +17,12 @@
         'premise-evidence-overlap?'(Ev, Evidence, false),
         'evidence-union'(Ev, Evidence, Cavity),
         maplist(graph_parameter(Scope, Cavity, Exclude), Models, Groups, Priors),
-        append(Groups, Vars), length(Vars, NV), NV =< 12,
+        append(Groups, Vars),
+        graph_fold(Models, Factors, Goal, Vars, Folded, FoldedFactors, FoldedGoal, FoldedVars),
+        length(Folded, NA), NA =< 12, length(FoldedVars, NV), NV =< 12,
         findall(P-D, member(['sk-val', [_, _, P, _], _, D], Priors), PDs),
         pairs_keys_values(PDs, Ps, Ds), append(Proofs, Ps, All), 'deps-join'([D0|Ds], Deps),
-        graph_answer(Models, Factors, Goal, Vars, TV),
+        graph_answer(Folded, FoldedFactors, FoldedGoal, FoldedVars, TV),
         ( TV == inconsistent
         -> 'sk-open-filter?'(Filter, true), Candidate = 'sk-none'
         ; TV = ['STV', S, _], (S =:= 0 ; S =:= 1),
@@ -134,12 +136,53 @@ graph_atoms([], _, _, Models, Models).
 graph_atoms([Type|Rest], Scope, Stamp, M0, Models) :-
     (   memberchk(model(Type, _, _), M0)
     ->  graph_atoms(Rest, Scope, Stamp, M0, Models)
-    ;   length(M0, N), N < 12,
+    ;   length(M0, N), N < 24,
         ( Type = [Head|_] -> 'reserved-head?'(Head, false) ; true ),
         graph_input(Type, Scope, Stamp, input(Model, Facts, _)),
         ( Model = conditional(Parent, _, _, _)
         -> node_formula(Parent, _, Rest, Next) ; Next = Rest ),
         graph_atoms(Next, Scope, Stamp, [model(Type, Model, Facts)|M0], Models) ).
+
+% Independent roots may share one bit only when every occurrence is the same
+% signed literal under the same And/Or. Paths distinguish nested occurrences;
+% a literal goal or a separate report prevents folding that root.
+graph_fold(Models, Factors, Goal, Vars, Folded, Fs, G, Vs) :-
+    findall(F, (F=Goal ; member([F|_], Factors) ; member(model(_,conditional(F,_,_,_),_), Models)), Forms),
+    findall(Signature-T,
+        ( member(model(T,root,_), Models),
+          findall(S, (nth0(I,Forms,F), graph_occurrence(T,F,[I],S)), Ss), sort(Ss,Signature),
+          Signature=[_-(H-B)|_], memberchk(H,['And','Or']),
+          forall(member(_-HB,Signature), HB == H-B) ), Pairs),
+    keysort(Pairs, Sorted), group_pairs_by_key(Sorted, Blocks),
+    foldl(graph_block, Blocks, state(Models,Vars,[]), state(Ms,Vs,Map)),
+    maplist({Map}/[model(T,P,F),model(T,Q,F)]>>(
+        P=conditional(A,R,U,V) -> graph_formula(Map,A,B), Q=conditional(B,R,U,V) ; Q=P), Ms, Folded),
+    maplist({Map}/[[T|Rest],[U|Rest]]>>graph_formula(Map,T,U), Factors, Fs),
+    graph_formula(Map, Goal, G).
+
+graph_occurrence(T, F, Path, Signature) :-
+    ( F == T -> Signature=Path-literal
+    ; F=[H|Cs], (connective_head(H) ; H == 'Not'), nth0(I,Cs,C),
+      ( C == T -> Signature=Path-(H-1)
+      ; C == ['Not',T] -> Signature=Path-(H-0)
+      ; graph_occurrence(T,C,[I|Path],Signature) ) ).
+
+graph_block(Signature-Ts, state(M0,V0,Map0), state(M,V,Map)) :-
+    ( Ts=[_,_|_]
+    -> Signature=[_-(H-B)|_], Block=block(Ts),
+       findall(D, (member(T,Ts),memberchk(T-D,V0)), Dists),
+       ( (H-B == 'And'-0 ; H-B == 'Or'-1) -> Complement=true ; Complement=false ),
+       event_node_product(Dists, Complement, Dist),
+       ( H == 'Or' -> Replacement=['Not',Block] ; Replacement=Block ),
+       findall(T-R, (member(T,Ts),( B=:=0 -> R=['Not',Replacement] ; R=Replacement )), Added),
+       exclude({Ts}/[model(T,_,_)]>>memberchk(T,Ts), M0, Ms), M=[model(Block,root,[])|Ms],
+       exclude({Ts}/[T-_]>>memberchk(T,Ts), V0, Vs), V=[Block-Dist|Vs], append(Added,Map0,Map)
+    ; M=M0, V=V0, Map=Map0 ).
+
+graph_formula(Map, F, G) :-
+    ( memberchk(F-G,Map) -> true
+    ; F=[H|Cs], (connective_head(H) ; H == 'Not') -> maplist(graph_formula(Map),Cs,Ds), sort(Ds,Es), G=[H|Es]
+    ; G=F ).
 
 graph_parameter(Scope, Ev, Exclude, model(Type, root, Facts), [Type-Dist], Prior) :-
     ( Facts == [] -> 'sk-part-prior'(['sk-key', Type, Scope], Ev, Exclude, Prior) ; Prior = 'sk-none' ),
@@ -148,6 +191,11 @@ graph_parameter(Scope, Ev, Exclude, model(Type, root, Facts), [Type-Dist], Prior
     ; foldl([[_T, _C, _P, T], T0, T1]>>'revision-merge-tv'(T0, T, T1), Facts,
             ['STV', 0.5, 0.0], ['STV', S, C]) ),
     'evidence-confidence-k'(K), event_node_dist(stored, S, C, K, Dist).
+graph_parameter(Scope, _, Exclude, model(Type, conditional(_, _, ['rule-truth', Truth], refined), _),
+                [branch(Type, 1)-D1, branch(Type, 0)-D0], Value) :-
+    'sk-value'(['sk-key', Truth, Scope], 'sk-any-filter', Exclude, Value),
+    Value = ['sk-val', [_, _, _, ['CTV', ['STV', S1, C1], ['STV', S0, C0]]], _, _],
+    'evidence-confidence-k'(K), event_node_dist(stored, S1, C1, K, D1), event_node_dist(stored, S0, C0, K, D0).
 graph_parameter(Scope, Ev, Exclude, model(Type, conditional(_, _, ['STV', S1, C1], Neg), _),
                 [branch(Type, 1)-D1, branch(Type, 0)-D0], Prior) :-
     'evidence-confidence-k'(K), event_node_dist(stored, S1, C1, K, D1),

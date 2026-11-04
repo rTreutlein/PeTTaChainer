@@ -154,7 +154,9 @@
 ;; (P alice) follows from (Q alice) by inverting r. The samples bob and carl
 ;; refine r's truth, and the inverted rule applies with it, both branches
 ;; learned: Bayes' rule over P's base rate with the refined likelihoods; the
-;; stored truth alone gives (STV 0.9393590195886672 0.023622745165936796).
+;; Count-law enumeration: P's Beta is (2.46,1.24), the rule branches'
+;; Betas are (5761.504,1441.81) and (721.216,6481), and qa's likelihood
+;; is 2881/3202. Bayes gives 0.890576799631; the graph reports its variance bound.
 
 !(set-rule-refinement refineInvKb true)
 !(compileadd refineInvKb (: r (Implication (P $x) (Q $x)) (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
@@ -166,7 +168,7 @@
 
 !(test
    (query 400 refineInvKb (: $p (P alice) $tv))
-   (: ((inverted r with cpu (prior (STV 0.8210526315789474 0.0021204939503554946))) qa) (P alice) (STV 0.9266167719065028 0.02683127865840225)))
+   (: (node (conjunction qa (by r cpu) (population-prior (P $_0)) (merge/revision (rule-axiom r) (implication-instance-fold cpu)))) (P alice) (STV 0.8905767996309657 0.0031242495874902842)))
 
 ;; --- A certain rule is not refined --------------------------------------------
 ;; Revision leaves a truth stated with confidence 1 unchanged, so the rule

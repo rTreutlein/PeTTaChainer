@@ -113,7 +113,11 @@ source_catalog_template(Type, Scope, Model) :-
           \+ ( source_catalog_named_prior(Name, Scope, Prior), Prior \== population ),
           forall(member(_-_-_-Negative-_, Roles), Negative == false),
           member(Id-Parent-TV-false-Admission, Roles),
-          source_catalog_admitted(Admission, Scope), ground(Parent-TV), !), Groups, Chosen),
+          source_catalog_admitted(Admission, Scope), ground(Parent),
+          ( ground(TV) -> true
+          ; var(TV), source_catalog_application(Id, Source, _, _, _, _, _),
+            source_catalog_descriptor(_, ['source-rule',_,_,A,B,['CTV'|_]|_], Source),
+            TV = ['CTV', ['rule-truth', ['RuleTruth', ['Implication', A, B]]], refined] ), !), Groups, Chosen),
       pairs_keys_values(Chosen, Rules, Branches),
       ( Branches = [Parent-['CTV',Pos,Neg]] -> true
       ; Pos = ['STV',1,1], maplist([_-['STV',S,C]]>>(S=:=1, C=:=1), Branches),

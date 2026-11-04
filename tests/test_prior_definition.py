@@ -313,7 +313,7 @@ class PriorDefinitionTests(unittest.TestCase):
         ])
         self.assertAlmostEqual(float(self.answer('(Cause now)').tv[1]), 9/31)
 
-    def test_learned_branches_pool_only_other_branch_observations(self):
+    def test_learned_graph_branches_read_their_stored_counts(self):
         self.h.set_evidence_confidence_k(1)
         self.h.set_rule_refinement(True)
         self.h._call('set-rule-change-hazard', [f'{self.h.kb} 0'])
@@ -326,14 +326,12 @@ class PriorDefinitionTests(unittest.TestCase):
         self.h.add_atoms_no_check(atoms + ['(: observation (B now) (STV 1 1))'])
         self.h._call('set-base-rate', [f'{self.h.kb} (A $t) (STV 0.5 0.5)'])
         a = self.answer('(A now)')
-        # The centre for .9 has only the ten negative-class observations,
-        # and conversely for .2. It never includes its own ten observations.
-        weight = 1 / (1/11 + 1/1.2) - 1
-        u = (9 + weight*.2) / (10 + weight)
-        v = (2 + weight*.9) / (10 + weight)
+        # Uniform axiom plus ten samples: Beta(10,2) and Beta(3,9).
+        # The configured symmetric root prior stays 1/2 under the count law.
+        u, v = 10/12, 3/12
         self.assertAlmostEqual(float(a.tv[1]), u/(u+v), places=7)
         proof = self.h.expand_proof(a.proof)
-        self.assertIn('inverted diagnostic', proof)
+        self.assertIn('rule-axiom diagnostic', proof)
         for private in ('rule-support', 'likelihood-read', 'ev-set', 'resolved-negative'):
             self.assertNotIn(private, proof)
 

@@ -31,11 +31,25 @@ one unsupported producer rejects the graph. It supports an acyclic graph with
 one explicit CTV source per conclusion, or a family of certain-positive rules.
 A family uses the disjunction of its distinct ground antecedents as its parent,
 with positive branch 1 and the conclusion's empty-root prior as fallback.
+Refined CTV sources read both branches from their current RuleTruth key through
+the ordinary reader with the caller's exclusions. These remain stored counts;
+the truth's proof and dependencies accompany the answer, and a later sample
+refreshes the parameter. With no samples refinement leaves the model unchanged.
 Every producer's rule identity accompanies the proof. Without observations,
 a family answers only when some root has source counts. Producer selection
 groups rule names in O(P log P), preserving installation order within each name.
-The graph admits at most twelve atoms and twelve
-parameters, and at most twenty-four visited statements during observation discovery. Other templates retain the
+Before enumeration, independent roots with identical occurrence paths as
+same-polarity literals of the same And/Or are folded into one product parameter.
+Paths cover the goal, reports and all conditional parents, so a separately read
+root cannot fold, nor can roots used together under different connectives or
+polarities. Products (complemented for Or) retain exact rational first and second
+moments; no Beta approximation is introduced. Original source proofs, exclusions,
+subscriptions and dependencies remain attached to the unfolded model. The
+polynomial kernel therefore returns the same strength and variance bound as
+full enumeration. This does not assert equality of the full posterior variance
+integral, which the kernel bounds using only those moments.
+The graph admits at most twelve atoms and twelve parameters after folding,
+and at most twenty-four atoms before folding and visited statements during observation discovery. Other templates retain the
 ordinary evaluator. Observed children outside a compound enter the same joint
 model. Shared parents are one event bit in the enumeration; given branches are
 not imported as independent marginal parameters. Empty root counts read `sk-part-prior`, including configured rates and cavity population counts.

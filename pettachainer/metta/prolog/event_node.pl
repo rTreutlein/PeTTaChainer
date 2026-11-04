@@ -1,5 +1,5 @@
 % Event-node semantics and numerical contracts: docs/metta/event_node_contract.md.
-:- module(event_node, [event_node_dist/5, event_node_moments/4, event_node_coupling/5, event_node_widen/6, dist_mean/2]).
+:- module(event_node, [event_node_dist/5, event_node_moments/4, event_node_coupling/5, event_node_widen/6, dist_mean/2, event_node_product/3]).
 :- autoload(library(simplex)).
 :- use_module(library(yall)).
 :- use_module(library(apply)).
@@ -39,11 +39,19 @@ scaled_term(Scale, t(C0, Lits, Gs), t(C, Lits, Gs)) :- C is C0 / Scale.
 dist_mean(point(X), X).
 dist_mean(bernoulli(M), M).
 dist_mean(beta(A, B), M) :- M is A / (A + B).
+dist_mean(moments(M, _), M).
+
+event_node_product(Dists, Complement, moments(M, M2)) :-
+    foldl({Complement}/[D, A-B, X-Y]>>(
+        parameter_moments(_-D, _-m(U, V)),
+        ( Complement == true -> X is A*(1-U), Y is B*(1-2*U+V)
+        ; X is A*U, Y is B*V )), Dists, 1-1, M-M2).
 
 % Rational arithmetic keeps polynomial cancellation exact, including small
 % endpoint complements and concentrated stationary interactions.
 parameter_moments(Id-D, Id-m(M, M2)) :-
-    ( D = beta(A0, B0)
+    ( D = moments(M, M2) -> true
+    ; D = beta(A0, B0)
     -> A is rational(A0), B is rational(B0), T is A + B,
        M is A rdiv T, M2 is (A * (A + 1)) rdiv (T * (T + 1))
     ; D = bernoulli(P) -> M is rational(P), M2 = M
