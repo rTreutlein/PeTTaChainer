@@ -1,0 +1,68 @@
+{
+  "kb": {
+    "event": true,
+    "name": "neutral-1",
+    "roots": {
+      "(O e)": [
+        1,
+        0.001,
+        "count"
+      ]
+    },
+    "rules": [
+      [
+        "rc",
+        "(O e)",
+        "(C e)",
+        "CTV",
+        [
+          0.9,
+          1
+        ],
+        [
+          0.1,
+          1
+        ]
+      ]
+    ],
+    "reports": [
+      [
+        "(C e)",
+        0.9,
+        0.9
+      ]
+    ],
+    "queries": [
+      "(O e)"
+    ],
+    "bases": {},
+    "raw": [],
+    "checks": [
+      "neutral"
+    ],
+    "reference": true,
+    "probe": []
+  },
+  "flag": {
+    "severity": "BLOCKER",
+    "invariant": "neutral",
+    "query": 0,
+    "expected": "same strength and answer availability",
+    "actual": [
+      0.8912891216043766,
+      0.9762111390395556
+    ]
+  },
+  "attempts": 1,
+  "one_minimal": true,
+  "settings": {
+    "budgets": [
+      100,
+      500
+    ],
+    "k": 800,
+    "threshold": 0.001,
+    "timeout": 45
+  },
+  "original": "neutral-1"
+}

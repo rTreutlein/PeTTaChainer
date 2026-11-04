@@ -1,0 +1,115 @@
+{
+  "kb": {
+    "event": true,
+    "name": "origins-7-1",
+    "roots": {
+      "(O3 e)": [
+        0.56,
+        0.01,
+        "view"
+      ],
+      "(O4 e)": [
+        0.48000000000000004,
+        0.01,
+        "view"
+      ],
+      "(O5 e)": [
+        0.4,
+        0.01,
+        "view"
+      ],
+      "(O6 e)": [
+        0.32000000000000006,
+        0.01,
+        "view"
+      ]
+    },
+    "rules": [
+      [
+        "rB3",
+        "(O3 e)",
+        "(B e)",
+        "FTV",
+        [
+          1,
+          1
+        ],
+        [
+          0.5,
+          0
+        ]
+      ],
+      [
+        "rB4",
+        "(O4 e)",
+        "(B e)",
+        "FTV",
+        [
+          1,
+          1
+        ],
+        [
+          0.5,
+          0
+        ]
+      ],
+      [
+        "rB5",
+        "(O5 e)",
+        "(B e)",
+        "FTV",
+        [
+          1,
+          1
+        ],
+        [
+          0.5,
+          0
+        ]
+      ],
+      [
+        "rB6",
+        "(O6 e)",
+        "(B e)",
+        "FTV",
+        [
+          1,
+          1
+        ],
+        [
+          0.5,
+          0
+        ]
+      ]
+    ],
+    "reports": [],
+    "queries": [
+      "(B e)"
+    ],
+    "bases": {},
+    "raw": [],
+    "checks": [],
+    "reference": true,
+    "probe": []
+  },
+  "flag": {
+    "severity": "BLOCKER",
+    "invariant": "overconfident_error",
+    "query": 0,
+    "expected": 0.9533248000000001,
+    "actual": 0.7269399419237443,
+    "claimed_sd": 0.09932541871968345
+  },
+  "attempts": 12,
+  "one_minimal": true,
+  "settings": {
+    "budgets": [
+      100,
+      500
+    ],
+    "k": 800,
+    "threshold": 0.001,
+    "timeout": 45
+  },
+  "original": "origins-7-1"
+}

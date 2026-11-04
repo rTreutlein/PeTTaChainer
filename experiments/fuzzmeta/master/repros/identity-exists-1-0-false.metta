@@ -1,0 +1,8 @@
+;; BLOCKER: false
+;; {"severity": "BLOCKER", "invariant": "false", "query": 0, "expected": 0, "actual": [1.0, 0.0562265722615577]}
+;; deletion minimal: True, trials: 1
+!(import! &self /nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.claude/worktrees/fuzzmeta/pettachainer/metta/petta_chainer)
+!(set-evidence-confidence-k 800)
+!(compileadd kb (: report0 (And (AnnouncedBy Split1 Apple) (AnnouncedOn Split1 Date20200730) (Member Split1 StockSplit)) (STV 1 0.9)))
+!(compileadd kb (: bridge (Implication (And (Member $e StockSplit) (Implemented $e)) (Not (Dilutes $e))) (STV 1 0.9)))
+!(query 500 kb (: $prf (Exists ($e) (And (AnnouncedBy $e Apple) (AnnouncedOn $e Date20200730) (Member $e StockSplit) (Implication (Implemented $e) (Not (Dilutes $e))))) $tv))

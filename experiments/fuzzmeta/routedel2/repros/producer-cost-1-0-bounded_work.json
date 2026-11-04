@@ -1,0 +1,62 @@
+{
+  "kb": {
+    "event": true,
+    "name": "producer-cost-1",
+    "roots": {},
+    "rules": [],
+    "reports": [],
+    "queries": [
+      "(A e)"
+    ],
+    "bases": {},
+    "raw": [],
+    "checks": [],
+    "reference": false,
+    "probe": [
+      16,
+      32,
+      64,
+      128
+    ]
+  },
+  "flag": {
+    "severity": "BLOCKER",
+    "invariant": "bounded_work",
+    "query": 0,
+    "expected": "doubling producers must not repeatedly quadruple catalog work",
+    "actual": [
+      {
+        "n": 16,
+        "inferences": 1273,
+        "seconds": 8.059533333330353e-05
+      },
+      {
+        "n": 32,
+        "inferences": 3513,
+        "seconds": 0.0001708673333333799
+      },
+      {
+        "n": 64,
+        "inferences": 11065,
+        "seconds": 0.0005016716666665921
+      },
+      {
+        "n": 128,
+        "inferences": 38457,
+        "seconds": 0.0016723519999999326
+      }
+    ]
+  },
+  "attempts": 4,
+  "one_minimal": true,
+  "settings": {
+    "budgets": [
+      100,
+      500
+    ],
+    "k": 800,
+    "threshold": 0.001,
+    "timeout": 45
+  },
+  "original": "producer-cost-1"
+}

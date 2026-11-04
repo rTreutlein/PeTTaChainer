@@ -1,0 +1,67 @@
+{
+  "kb": {
+    "event": true,
+    "name": "base-FTV-1",
+    "roots": {
+      "(O e)": [
+        0.8,
+        0.5,
+        "view"
+      ]
+    },
+    "rules": [
+      [
+        "ra",
+        "(O e)",
+        "(A e)",
+        "FTV",
+        [
+          1,
+          1
+        ],
+        [
+          0.5,
+          0
+        ]
+      ]
+    ],
+    "reports": [],
+    "queries": [
+      "(A e)"
+    ],
+    "bases": {
+      "(A e)": [
+        0.2,
+        1
+      ]
+    },
+    "raw": [],
+    "checks": [
+      "inactive"
+    ],
+    "reference": true,
+    "probe": []
+  },
+  "flag": {
+    "severity": "BLOCKER",
+    "invariant": "inactive",
+    "query": 0,
+    "expected": "same strength and answer availability",
+    "actual": [
+      0.8864878559605446,
+      0.872242185677984
+    ]
+  },
+  "attempts": 3,
+  "one_minimal": true,
+  "settings": {
+    "budgets": [
+      100,
+      500
+    ],
+    "k": 800,
+    "threshold": 0.001,
+    "timeout": 45
+  },
+  "original": "base-FTV-1"
+}

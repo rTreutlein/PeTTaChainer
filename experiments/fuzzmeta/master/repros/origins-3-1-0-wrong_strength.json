@@ -1,0 +1,76 @@
+{
+  "kb": {
+    "event": true,
+    "name": "origins-3-1",
+    "roots": {
+      "(O1 e)": [
+        0.7200000000000001,
+        0.01,
+        "view"
+      ],
+      "(O2 e)": [
+        0.64,
+        0.01,
+        "view"
+      ]
+    },
+    "rules": [
+      [
+        "rA1",
+        "(O1 e)",
+        "(A e)",
+        "FTV",
+        [
+          1,
+          1
+        ],
+        [
+          0.5,
+          0
+        ]
+      ],
+      [
+        "rA2",
+        "(O2 e)",
+        "(A e)",
+        "FTV",
+        [
+          1,
+          1
+        ],
+        [
+          0.5,
+          0
+        ]
+      ]
+    ],
+    "reports": [],
+    "queries": [
+      "(A e)"
+    ],
+    "bases": {},
+    "raw": [],
+    "checks": [],
+    "reference": true,
+    "probe": []
+  },
+  "flag": {
+    "severity": "BLOCKER",
+    "invariant": "wrong_strength",
+    "query": 0,
+    "expected": 0.9496,
+    "actual": 0.8413650923962147
+  },
+  "attempts": 7,
+  "one_minimal": true,
+  "settings": {
+    "budgets": [
+      100,
+      500
+    ],
+    "k": 800,
+    "threshold": 0.001,
+    "timeout": 45
+  },
+  "original": "origins-3-1"
+}

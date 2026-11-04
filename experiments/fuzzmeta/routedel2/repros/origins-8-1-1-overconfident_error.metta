@@ -1,0 +1,22 @@
+;; BLOCKER: overconfident_error
+;; {"severity": "BLOCKER", "invariant": "overconfident_error", "query": 0, "expected": 0.99928486125568, "actual": 0.7885474013232553, "claimed_sd": 0.059882542117972275}
+;; deletion minimal: True, trials: 15
+!(import! &self /nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.claude/worktrees/fuzzmeta/scratch/routedel2-3a990295/pettachainer/metta/petta_chainer)
+!(set-evidence-confidence-k 800)
+!(compileadd kb (: f0 (O0 e) (STV 0.8 0.01)))
+!(compileadd kb (: f1 (O1 e) (STV 0.7200000000000001 0.01)))
+!(compileadd kb (: f2 (O2 e) (STV 0.64 0.01)))
+!(compileadd kb (: f3 (O3 e) (STV 0.56 0.01)))
+!(compileadd kb (: f4 (O4 e) (STV 0.48000000000000004 0.01)))
+!(compileadd kb (: f5 (O5 e) (STV 0.4 0.01)))
+!(compileadd kb (: f6 (O6 e) (STV 0.32000000000000006 0.01)))
+!(compileadd kb (: f7 (O7 e) (STV 0.24 0.01)))
+!(compileadd kb (: rA0 (Implication (O0 e) (A e)) (FTV 1 1)))
+!(compileadd kb (: rA1 (Implication (O1 e) (A e)) (FTV 1 1)))
+!(compileadd kb (: rA2 (Implication (O2 e) (A e)) (FTV 1 1)))
+!(compileadd kb (: rA3 (Implication (O3 e) (A e)) (FTV 1 1)))
+!(compileadd kb (: rA4 (Implication (O4 e) (A e)) (FTV 1 1)))
+!(compileadd kb (: rA5 (Implication (O5 e) (A e)) (FTV 1 1)))
+!(compileadd kb (: rA6 (Implication (O6 e) (A e)) (FTV 1 1)))
+!(compileadd kb (: rA7 (Implication (O7 e) (A e)) (FTV 1 1)))
+!(query 500 kb (: $prf (A e) $tv))

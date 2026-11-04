@@ -1,0 +1,44 @@
+{
+  "kb": {
+    "event": true,
+    "name": "class-links-False-1",
+    "roots": {},
+    "rules": [],
+    "reports": [],
+    "queries": [
+      "(Member grace pilot)"
+    ],
+    "bases": {},
+    "raw": [
+      "(: trans (Implication (And (Inheritance $a $b) (Inheritance $b $c)) (Inheritance $a $c)) (STV 1 0.99))",
+      "(: cf (Member grace pilot) (STV 1 0.99))"
+    ],
+    "checks": [
+      "class-rule"
+    ],
+    "reference": false,
+    "probe": []
+  },
+  "flag": {
+    "severity": "BLOCKER",
+    "invariant": "class-rule",
+    "query": 0,
+    "expected": "inactive derived link preserves an existing classification",
+    "actual": [
+      1.0,
+      null
+    ]
+  },
+  "attempts": 5,
+  "one_minimal": true,
+  "settings": {
+    "budgets": [
+      100,
+      500
+    ],
+    "k": 800,
+    "threshold": 0.001,
+    "timeout": 45
+  },
+  "original": "class-links-False-1"
+}

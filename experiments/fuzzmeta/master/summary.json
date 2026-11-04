@@ -1,0 +1,39 @@
+{
+  "seconds": 71.08,
+  "mode": "quick",
+  "target": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.claude/worktrees/fuzzmeta/.venv/bin/python",
+  "runtime_paths": [
+    "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.claude/worktrees/fuzzmeta/pettachainer/__init__.py"
+  ],
+  "runtime_commits": {
+    "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.claude/worktrees/fuzzmeta/pettachainer/__init__.py": "b694e193387e5ef5d651eaefd863690f4f150319"
+  },
+  "fuzzer_sha256": "8e7d97cd23a4dca9fe1e88938cadb17110e141a2c3015f2835c902d06e8093ef",
+  "inputs_changed": false,
+  "seed": 1,
+  "cases": 19,
+  "worker_runs": 224,
+  "violations": {
+    "BLOCKER:wrong_strength": 18,
+    "BLOCKER:overconfident_variance": 2,
+    "BLOCKER:overconfident_error": 5,
+    "BLOCKER:neutral": 2,
+    "BLOCKER:flip": 3,
+    "BLOCKER:inactive": 4,
+    "BLOCKER:repeat": 7,
+    "BLOCKER:frechet": 4,
+    "BLOCKER:false": 2
+  },
+  "problog_cases": 3,
+  "problog_flagged": 0,
+  "settings": {
+    "budgets": [
+      100,
+      500
+    ],
+    "k": 800,
+    "threshold": 0.001,
+    "timeout": 45
+  },
+  "under_ten_minutes": true
+}
