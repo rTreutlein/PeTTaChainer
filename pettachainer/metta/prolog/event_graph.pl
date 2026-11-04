@@ -47,7 +47,8 @@ graph_plan(Key, Plan) :-
     term_hash(Key, Hash),
     ( event_graph_plan(Hash, PF, PG, PK, Cached), PF-PG-PK=Frame-Generation-Key -> true
     ; Key = ['sk-key', Goal, Scope],
-      graph_observations([Goal], Scope, Goal, Frame-Generation, [], [], Discovery),
+      node_formula(Goal, _, [], Seeds),
+      graph_observations([Goal|Seeds], Scope, Goal, Frame-Generation, [], [], Discovery),
       ( Discovery = observed(Observed, Watched), graph_model(Key, Observed, Watched, Frame-Generation, Model)
       -> Cached = Model ; Cached = none ),
       assertz(event_graph_plan(Hash, Frame, Generation, Key, Cached)) ),
@@ -64,7 +65,8 @@ graph_model(['sk-key', Goal, Scope], Observed, Watched, Stamp, graph(Models, Fac
         findall(Fact, ( member(model(_, conditional(_, _, _, _), Fs), Models), member(Fact, Fs) ), Reports),
         append(CompoundFacts, Reports, Factors0), sort(Factors0, Unique),
         exclude(graph_settled_factor(Models), Unique, Factors),
-        ( Factors \== [] ; memberchk(model(Goal, root, [_]), Models) ).
+        ( Factors \== [] ; memberchk(model(Goal, root, [_]), Models)
+        ; memberchk(model(_, conditional(_, _, _, base), _), Models), member(model(_, root, [_|_]), Models) ).
 
 % A compound already settled by its root inputs carries no information about
 % its remaining parts. Keep a zero-weight factor so contradictions still fail.
@@ -84,8 +86,7 @@ graph_fixed(T, Models, B) :-
     memberchk(model(T, root, Fs), Models), member([_, _, _, ['STV', S, C]], Fs), C >= 1,
     ( S =:= 0 -> B = 0 ; S =:= 1, B = 1 ).
 
-% Input snapshots are shared across goals, but never across an input epoch
-% or overlay. They contain raw sources and templates, not derived summaries.
+% Goals share snapshots of raw sources and templates within the same input epoch and overlay.
 graph_input(Type, Scope, Stamp, Input) :-
     Key = ['sk-key', Type, Scope], term_hash(Key, H),
     ( event_graph_input(H, IS, IK, Cached), IS-IK=Stamp-Key -> Input = Cached
@@ -126,11 +127,11 @@ graph_parameter(Scope, Ev, Exclude, model(Type, root, Facts), [Type-Dist], Prior
     ; foldl([[_T, _C, _P, T], T0, T1]>>'revision-merge-tv'(T0, T, T1), Facts,
             ['STV', 0.5, 0.0], ['STV', S, C]) ),
     'evidence-confidence-k'(K), event_node_dist(stored, S, C, K, Dist).
-graph_parameter(_, _, _, model(Type, conditional(_, _, ['STV', S1, C1], ['STV', S0, C0]), _),
-                [branch(Type, 1)-D1, branch(Type, 0)-D0], 'sk-none') :-
-    'evidence-confidence-k'(K),
-    event_node_dist(stored, S1, C1, K, D1), event_node_dist(stored, S0, C0, K, D0).
-
+graph_parameter(Scope, Ev, Exclude, model(Type, conditional(_, _, ['STV', S1, C1], Neg), _),
+                [branch(Type, 1)-D1, branch(Type, 0)-D0], Prior) :-
+    'evidence-confidence-k'(K), event_node_dist(stored, S1, C1, K, D1),
+    ( Neg == base -> graph_parameter(Scope, Ev, Exclude, model(Type, root, []), [_-D0], Prior)
+    ; Neg = ['STV', S0, C0], event_node_dist(stored, S0, C0, K, D0), Prior = 'sk-none' ).
 
 :- dynamic event_graph_memo/3.
 graph_answer(Models, Factors, Goal, Vars, TV) :-
@@ -178,7 +179,7 @@ graph_proof(Models, Factors, Scope, [node, [conjunction|Proofs]], Evidence, Deps
     maplist({Scope}/[Fact, Proof-Ev]>>( Fact = [Type|_], 'index-hash'(['sk-key', Type, Scope], H),
                               'sk-leaf-view'(H, Fact, ['sk-val', [_, _, Proof, _], Ev, _]) ), Facts, Leaves),
     findall(Proof-Ev,
-            ( member(model(Type, conditional(_, Id-Name, _, _), _), Models),
+            ( member(model(Type, conditional(_, Owners, _, _), _), Models), member(Id-Name, Owners),
               'rule-result-evidence'([Type, Scope, [by, Name, cpu], ['STV', 0.5, 0.0]], ['ev-set', 0], Ev),
               'next-search-id'(proof_id, Pid),
               'record-proof!'(Pid, Id, [by, Name, cpu], Ev, 0, [], Proof) ), Rules),

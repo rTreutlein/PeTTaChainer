@@ -643,7 +643,7 @@
 ;; bundle of each part that settles it alone; in Any mode one per part.
 (: compound-readings (-[semidet]-> KBContext Statement (List PremiseBundle)))
 (= (compound-readings $kc $compound)
-   (let* (($head (car-atom $compound)) ($parts (statement-children (cdr-atom $compound))))
+   (let* (($head (car-atom $compound)) ($parts (statement-children (list_to_set (cdr-atom $compound)))))
       (if (== (configured-compound-premise-mode $head) Any)
          (map-semidet (any-reading $kc $head) $parts)
          (cons (lower-all lower-part $kc $head $parts) (settlings lower-part $kc true $compound $parts)))))
@@ -667,7 +667,7 @@
       (if (compound-source? $key)
          (fold-semidet (child-producers-step $kc)
             (map-flat (reading-addition $kc $key) (compound-readings $kc $key))
-            (statement-children (cdr-atom $key)))
+            (statement-children (list_to_set (cdr-atom $key))))
          ())))
 
 ;; Every lowering of a rule's antecedent, the complete one first. Each conjunct

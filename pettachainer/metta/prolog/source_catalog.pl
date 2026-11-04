@@ -104,14 +104,22 @@ source_catalog_neighbours(Type, Scope, Neighbours) :-
     append(Parents,Children,Neighbours).
 
 source_catalog_template(Type, Scope, Model) :-
-    findall(Id-Role, (source_catalog_match(Type,Scope,Id,Role,_,_), Role=['forward-source'|_]), Producers),
+    findall(Name-(Id-Parent-TV-Negative-Admission),
+            source_catalog_match(Type,Scope,Id,['forward-source',Name,Parent,TV,Negative,Admission],_,_), Producers),
     ( Producers == [] -> Model=root
-    ; Producers=[_-['forward-source',Name,_,_,_,_]|_], ground(Name), Name \= [no_inverse|_],
-      forall(member(_-['forward-source',N,_,_,Negative,_],Producers), (N == Name, Negative == false)),
-      \+ ( source_catalog_named_prior(Name, Scope, Prior), Prior \== population ),
-      member(Id-['forward-source',_,Parent,['CTV',Pos,Neg],false,Admission],Producers),
-      source_catalog_admitted(Admission, Scope),
-      ground([Parent,Pos,Neg]), !, Model=conditional(Parent,Id-Name,Pos,Neg) ).
+    ; keysort(Producers, Sorted), group_pairs_by_key(Sorted, Groups),
+      maplist({Scope}/[Name-Roles,(Id-Name)-(Parent-TV)]>>(
+          ground(Name), Name \= [no_inverse|_],
+          \+ ( source_catalog_named_prior(Name, Scope, Prior), Prior \== population ),
+          forall(member(_-_-_-Negative-_, Roles), Negative == false),
+          member(Id-Parent-TV-false-Admission, Roles),
+          source_catalog_admitted(Admission, Scope), ground(Parent-TV), !), Groups, Chosen),
+      pairs_keys_values(Chosen, Rules, Branches),
+      ( Branches = [Parent-['CTV',Pos,Neg]] -> true
+      ; Pos = ['STV',1,1], maplist([_-['STV',S,C]]>>(S=:=1, C=:=1), Branches),
+        pairs_keys(Branches, Ps0), sort(Ps0, Ps),
+        ( Ps = [Parent] -> true ; Parent = ['Or'|Ps] ),
+        Neg = base ), Model=conditional(Parent,Rules,Pos,Neg) ).
 source_catalog_admitted(true, _).
 source_catalog_admitted(['raw-scopes', Scopes], Scope) :- maplist(=(Scope), Scopes).
 

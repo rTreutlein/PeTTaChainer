@@ -24,9 +24,17 @@ negative uses of the same canonical source are one factor, with polarity
 already represented by its stored strength. Node outputs never become reports.
 
 The graph reader discovers atomic and compound observations through live
-conclusion and premise indexes, without requiring an observed compound seed. All visible live producers must match the supported template;
+conclusion and premise indexes, starting with the goal and its formula atoms.
+An unobserved nested goal compound cannot hide its atoms' observations.
+All visible live producers must match the supported template;
 one unsupported producer rejects the graph. It supports an acyclic graph with
-one explicit CTV source per conclusion, with a ground Boolean antecedent, at most twelve atoms and twelve
+one explicit CTV source per conclusion, or a family of certain-positive rules.
+A family uses the disjunction of its distinct ground antecedents as its parent,
+with positive branch 1 and the conclusion's empty-root prior as fallback.
+Every producer's rule identity accompanies the proof. Without observations,
+a family answers only when some root has source counts. Producer selection
+groups rule names in O(P log P), preserving installation order within each name.
+The graph admits at most twelve atoms and twelve
 parameters, and at most twenty-four visited statements during observation discovery. Other templates retain the
 ordinary evaluator. Observed children outside a compound enter the same joint
 model. Shared parents are one event bit in the enumeration; given branches are
