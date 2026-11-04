@@ -46,6 +46,16 @@ class GraphFoldingTests(unittest.TestCase):
     def test_repeated_and_reordered_literals_remain_one_event(self):
         self.assertEqual(self.compare("['And',d,b,a,c,b,a]", "['And',a,b,c,d]"), 2)
 
+    def test_refined_proof_metadata_does_not_leave_the_numerical_cache_unindexed(self):
+        result = janus.query_once(
+            "graph_fold([model(a,root,[[a,s,_Source,['STV',0.5,0.5]]]),"
+            "model(r,conditional(a,[1-rule],['rule-truth',['RuleTruth',"
+            "['Implication',['P',_X],['Q',_X]]]],refined),[])],"
+            "[[r,s,_Report,['STV',1,1]]],a,"
+            "[a-beta(2,2),branch(r,1)-beta(3,2),branch(r,0)-beta(1,4)],_M,_F,_G,_V),"
+            "term_hash(_M-_F-_G-_V,_Hash),(integer(_Hash)->Indexed=1;Indexed=0)")
+        self.assertEqual(result['Indexed'], 1)
+
     def test_nineteen_part_refined_rule_has_a_constituent_and_joint_answer(self):
         values = []
         for refine in (False, True):

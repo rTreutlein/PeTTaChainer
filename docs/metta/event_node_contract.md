@@ -63,7 +63,9 @@ and observations; internal inferred marginals do not become primitive inputs.
 Rule-owner references retain withdrawal identity. Structural discovery and plans, including unsupported results, are cached by
 scope, overlay frame and input epoch. An epoch change retires that frame's older
 KB snapshots; skeleton row creation does not change source templates. Numerical
-results are keyed by the full model and sources. Caches clear with evaluation
+results are keyed by the Boolean structure, observations and resolved parameter
+moments. Proof metadata stays outside that key, so a refined rule's variables
+cannot leave the numerical hash unbound. Caches clear with evaluation
 forcing state.
 They hold source data rather than output proof DAGs. Population priors are read
 after plan lookup. A replacement must satisfy the caller's proof/TV filter and

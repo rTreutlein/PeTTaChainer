@@ -155,9 +155,9 @@ graph_fold(Models, Factors, Goal, Vars, Folded, Fs, G, Vs) :-
           forall(member(_-HB,Signature), HB == H-B) ), Pairs),
     keysort(Pairs, Sorted), group_pairs_by_key(Sorted, Blocks),
     foldl(graph_block, Blocks, state(Models,Vars,[]), state(Ms,Vs,Map)),
-    maplist({Map}/[model(T,P,F),model(T,Q,F)]>>(
-        P=conditional(A,R,U,V) -> graph_formula(Map,A,B), Q=conditional(B,R,U,V) ; Q=P), Ms, Folded),
-    maplist({Map}/[[T|Rest],[U|Rest]]>>graph_formula(Map,T,U), Factors, Fs),
+    maplist({Map}/[model(T,P,_),model(T,Q,[])]>>(
+        P=conditional(A,_,_,_) -> graph_formula(Map,A,B), Q=conditional(B,[],[],[]) ; Q=P), Ms, Folded),
+    maplist({Map}/[[T,_,_,TV],[U,[],[],TV]]>>graph_formula(Map,T,U), Factors, Fs),
     graph_formula(Map, Goal, G).
 
 graph_occurrence(T, F, Path, Signature) :-
