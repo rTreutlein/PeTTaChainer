@@ -163,7 +163,8 @@
 ;; rD observes it as C's effect; a premise is both only in a loop through C.
 ;; A false disjunct adds nothing to B's cause, so P(C | B) = 0.47 times D's
 ;; likelihood ratio 0.06 / 1 is exact: 0.0505 (before: the forward view's
-;; evidence contained the inversion's, and 0.47 was kept).
+;; evidence contained the inversion's, and 0.47 was kept). The settled step,
+;; reading B alone, stands for the complete one.
 !(set-complete-predicate f5loop C)
 !(set-complete-predicate f5loop D)
 !(compileadd f5loop (: rC (Implication (Or (B $x) (D $x)) (C $x)) (CTV (STV 0.47 1) (STV 0 1))))
@@ -173,7 +174,7 @@
 !(set-base-rate f5loop (B $x) (STV 0.781 1.0))
 !(set-base-rate f5loop (C $x) (STV 0.36707 1.0))
 !(test (query 2000 f5loop (: $prf (C a) $tv))
-   (: (factored-revision (by rC (conjunction obs-B-a obs-D-a)) (prior (STV 0.47 1.0)) (((inverted rD with cpu (prior (STV 0.36707 1.0))) obs-D-a))) (C a) (STV 0.050519527051236156 0.9999)))
+   (: (factored-revision (by rC (settled obs-B-a)) (prior (STV 0.47 1.0)) (((inverted rD with cpu (prior (STV 0.36707 1.0))) obs-D-a))) (C a) (STV 0.050519527051236156 0.9999)))
 
 ;; F4 in a loop. B <- (Or A D), D <- B, both complete, B observed true. The
 ;; completion onto A reads its sibling D apart from B: D's value is B's own,
@@ -283,12 +284,13 @@
    (let (: (node (conjunction obs-C-a obs-D-a (by rC cpu) (by rD cpu) (population-prior (A $_0)) (population-prior (B $_1)))) (A a) (STV $posterior-s $posterior-c)) (query 2000 f8sibling (: $prf (A a) $tv)) (posterior-tv-near? 0.2713282510359662 0.9999 (STV $posterior-s $posterior-c)))
    true)
 
-;; A settled step gives way to the complete step whatever order the views
-;; merge in. C <- (Or B F) with B true, D <- C certain, D observed false: C
+;; One of a settled step and its complete step gives way before the views
+;; merge. C <- (Or B F) with B true, D <- C certain, D observed false: C
 ;; is false, exact 0. The settled forward view (B true) merged first with
 ;; the inversion of rD, then met the complete step, which reads F through
 ;; E as well, as an overlap, and the more confident complete step was kept:
-;; 0.18 (fuzzer seed 4000032).
+;; 0.18 (fuzzer seed 4000032). The settled step now stands for the complete
+;; one.
 !(set-complete-predicate f8settled C)
 !(set-complete-predicate f8settled D)
 !(set-complete-predicate f8settled E)
@@ -302,4 +304,4 @@
 !(compileadd f8settled (: obs-D-a (D a) (STV 0 1)))
 !(compileadd f8settled (: obs-E-a (E a) (STV 0 1)))
 !(test (query 2000 f8settled (: $prf (C a) $tv))
-   (: (factored-revision (by rC (conjunction obs-B-a (by rF obs-E-a))) (prior (STV 0.18 1.0)) (((inverted rD with cpu (prior (STV 0.1272727272727273 0.2857142857142857))) obs-D-a))) (C a) (STV 0.0 0.9999)))
+   (: (factored-revision (by rC (settled obs-B-a)) (prior (STV 0.18 1.0)) (((inverted rD with cpu (prior (STV 0.1272727272727273 0.2857142857142857))) obs-D-a))) (C a) (STV 0.0 0.9999)))

@@ -21,6 +21,24 @@
 !(test (query 50 orKb (: $p (C t) $tv))
    (: (by r (settled a)) (C t) (STV 1.0 0.9999)))
 
+;; When (B t) is known too, the complete step reads it as well and reaches the
+;; same value, but the settled step stands for it: the complete step's
+;; evidence of B would make a reader that also reads B condition on it for
+;; nothing (#106 batch loss). The answer still follows A: false, C reads B.
+!(compileadd knownKb (: r (Implication (Or (A $t) (B $t)) (C $t)) (CTV (STV 0.9 1) (STV 0.1 1))))
+!(compileadd knownKb (: g (Implication (And (C $t) (B $t)) (G $t)) (CTV (STV 0.8 1) (STV 0.2 1))))
+!(compileadd knownKb (: a (A t) (STV 1 1)))
+!(compileadd knownKb (: b (B t) (STV 0.6 0.9)))
+!(compileadd knownKb (: a2 (A u) (STV 0 1)))
+!(compileadd knownKb (: b2 (B u) (STV 0.6 0.9)))
+
+!(test (query 50 knownKb (: $p (C t) $tv))
+   (: (by r (settled a)) (C t) (STV 0.9 0.9999)))
+!(test (query 50 knownKb (: $p (G t) $tv))
+   (: (by g (conjunction (by r (settled a)) b)) (G t) (STV 0.524 0.9697696477743236)))
+!(test (query 50 knownKb (: $p (C u) $tv))
+   (: (by r (conjunction a2 b2)) (C u) (STV 0.5800000000000001 0.9345299937662835)))
+
 ;; And: (D t) has no proof, (E t) is certain, so (Not (E t)) is certainly false
 ;; and the rule concludes by its negative branch.
 !(compileadd andKb (: r (Implication (And (D $t) (Not (E $t))) (F $t)) (CTV (STV 1 1) (STV 0.2 1))))

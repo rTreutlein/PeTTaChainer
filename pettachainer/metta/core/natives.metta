@@ -129,9 +129,8 @@
    ;; A proof that gives way to another: a connective's formula over its parts
    ;; (a conjunction, disjunction or conditioned reading) to a compound node's
    ;; joint posterior of the same key, which reads every part apart from the
-   ;; compound; a settled step to the complete
-   ;; step it settles, which reads the settling part with the compound's other
-   ;; parts.
+   ;; compound; a complete step to the settled step that decides it, which
+   ;; reads the settling part without the compound's other parts.
    (sk-step-proof Proof Proof)
    ;; The last rule application of a proof, with its premise proofs still
    ;; references (runtime_helpers.pl).

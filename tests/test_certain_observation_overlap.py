@@ -10,7 +10,9 @@ class CertainObservationOverlapTests(unittest.TestCase):
         # The t18 update reads blocked19 below a negated forward block proof,
         # through storm smoothing. The t19 update reads it directly. Given a
         # hard block observation, the updates are independent. Losing prod19
-        # leaves D19=.75 and D20=.575 instead of the exact 1 and .75.
+        # leaves D19=.75 and D20=.575 instead of the exact 1 and .75. No stock,
+        # so the fuel is the mine's, which a block stops; stock would settle
+        # Fuelled without reading the block. Exact by enumeration.
         h = PeTTaChainer()
         h.add_atoms_no_check([
             '(: persist-storm (Implication (And (NextPeriod $p $t) (Storm $p)) (Storm $t)) (CTV (STV 0.7 1) (STV 0.3 1)))',
@@ -22,13 +24,13 @@ class CertainObservationOverlapTests(unittest.TestCase):
             '(: d17 (Degraded plant t17) (STV 1 1))',
             '(: s17 (Storm t17) (STV 1 1))',
         ] + [f'(: next{t} (NextPeriod t{t-1} t{t}) (STV 1 1))' for t in (18, 19, 20)] + [x for t in (18, 19) for x in (
-            f'(: stocked{t} (Stocked t{t}) (STV 1 1))',
-            f'(: mine{t} (Producing mine t{t}) (STV 0 1))',
+            f'(: stocked{t} (Stocked t{t}) (STV 0 1))',
+            f'(: mine{t} (Producing mine t{t}) (STV 1 1))',
             f'(: prod{t} (Producing plant t{t}) (STV 0 1))',
         )] + ['(: blocked19 (Blocked rf t19) (STV 0 1))'])
         for statement in ('(Degraded plant $t)', '(Storm $t)'):
             h._call('set-base-rate', [f'{h.kb} {statement} (STV 0.3 0.9)'])
-        for period, exact in ((18, 1), (19, 1), (20, .75)):
+        for period, exact in ((18, 0.989579812386961), (19, 1), (20, .75)):
             with self.subTest(period=period):
                 row = h.query_many_refs([f'(: $p (Degraded plant t{period}) $tv)'], steps=1000)[0][0]
                 self.assertAlmostEqual(row.tv[1], exact, delta=1e-5)

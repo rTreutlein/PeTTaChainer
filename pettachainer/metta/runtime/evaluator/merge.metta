@@ -331,8 +331,8 @@
 ;; See docs/metta/overlap_conditioning.md and prior_factored_merge.md.
 (: sk-pair-facts (-[semidet]-> SkeletonModeReader Bool (List Number) SkFact EvidenceSet Number SkFact EvidenceSet Number SkeletonPairing))
 ;; Views merge as proofs do: an identical proof pools its evidence, a
-;; projection gives way to its full proof and a settled step to its complete
-;; one. Two views are compared by one relation over their evidence without the
+;; projection gives way to its full proof and a complete step to the settled
+;; step that decides it. Two views are compared by one relation over their evidence without the
 ;; certain facts (a certain fact is given, whoever reads it and in which role:
 ;; views sharing it are independent given it) and over the uncertain statements
 ;; both depend on:

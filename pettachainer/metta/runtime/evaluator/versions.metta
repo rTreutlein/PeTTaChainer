@@ -439,11 +439,11 @@
             ($complete (fold-semidet sk-cons-step () $complete))))))))
 
 ;; A view that gives way to another view of the key, a projection to its full
-;; proof or a settled step to the complete step it settles, adds nothing to
-;; it, so it is dropped before the views merge: merged first with a third
-;; view, it would stand for the complete step there (fuzzer seed 4000032: a
-;; settled forward view revised with an inversion, then met the complete step
-;; as an overlap and lost to it).
+;; proof or a complete step to the settled step that decides it, adds nothing
+;; to it, so it is dropped before the views merge: merged first with a third
+;; view, it would stand for the other there (fuzzer seed 4000032: a settled
+;; forward view revised with an inversion, then met the complete step as an
+;; overlap and lost to it).
 (: sk-gives-way-step (-[det]-> Proof Bool SkeletonValue Bool))
 (= (sk-gives-way-step $proof $found $other)
    (if $found true

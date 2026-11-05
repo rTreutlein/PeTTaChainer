@@ -118,7 +118,7 @@
 !(test (query 100 actKb (: $p (Assuming (Decide t) (P t)) $tv))
    (: (assuming (by rp (conjunction unfounded f))) (Assuming (Decide t) (P t)) (STV 0.3 0.9)))
 !(test (query 100 actKb (: $p (Assuming (S t) (P t)) $tv))
-   (: (assuming (by rp (conjunction (ctx proof 1) f))) (Assuming (S t) (P t)) (STV 1.0 0.9999)))
+   (: (assuming (by rp (settled (ctx proof 1)))) (Assuming (S t) (P t)) (STV 1.0 0.9999)))
 
 ;; A complete statement no rule concludes and no fact states is false to
 ;; every reader once its search settles, not only to a rule concluding a

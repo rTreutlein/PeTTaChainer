@@ -274,7 +274,9 @@
                 ($_reading false))))
           ($_joint false)))
       true
-   (if (settled-within? $prf-b $prf-a) true
+   ;; A settled step stands for its complete step: same value, without the
+   ;; other parts' evidence, which a reader of them would condition on.
+   (if (settled-within? $prf-a $prf-b) true
       ;; Applying an implication statement to its query's certain
       ;; assumption restates that statement's positive branch. This is
       ;; the same source even when a certain rule has no evidence id.

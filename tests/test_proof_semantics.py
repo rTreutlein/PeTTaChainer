@@ -48,6 +48,30 @@ class ProofSemanticsTests(unittest.TestCase):
         self.assertEqual(result['Stored'], 'true')
         self.assertEqual(result['Statement'], 'true')
 
+    def test_settled_step_stands_for_its_complete_step(self):
+        # Or(Stock, Driver) is certain through the stock alone. Its complete
+        # step also reads Driver, so a later premise reading Driver would
+        # clash with it; the settled step keeps the stock's support only.
+        self.chainer.add_atoms_no_check(['(: stock (Stock x) (STV 1 1))', '(: shared (Driver x) (STV 0.6 0.9))'])
+        result = janus.query_once(
+            "_Scope=[Kb,'MAIN','Nil'], _S=['Stock',x], _X=['Driver',x], _O=['Or',_S,_X], "
+            "'index-hash'(['sk-key',_S,_Scope],_SH), 'index-hash'(['sk-key',_X,_Scope],_XH), "
+            "'sk-leaf-view'(_SH,[_S,_Scope,stock,['STV',1,1]],['sk-val',_,_SE,_SD]), "
+            "'sk-leaf-view'(_XH,[_X,_Scope,shared,['STV',0.6,0.9]],['sk-val',_,_XE,_XD]), "
+            "'evidence-union'(_SE,_XE,_FE), 'deps-union'(_SD,_XD,_FD), "
+            "_Settled=['sk-val',[_O,_Scope,[settled,stock],['STV',1,1]],_SE,_SD], "
+            "_Full=['sk-val',[_O,_Scope,[conjunction,stock,shared],['STV',1,1]],_FE,_FD], "
+            "_Views=[_Settled,_Full], 'sk-standing-step'(_Views,[],_Settled,_K1), 'sk-standing-step'(_Views,_K1,_Full,_Kept), "
+            "_Kept=[['sk-val',[_,_,Proof,_],_,_]], "
+            "'sk-use-premise'(false,['sk-acc',[],_XE,_XD],[_O,_Scope,_,_],_Settled,_Read), "
+            "'sk-use-premise'(false,['sk-acc',[],_XE,_XD],[_O,_Scope,_,_],_Full,Clash), "
+            "_Read=[Accepted|_]",
+            {'Kb': self.chainer.kb},
+        )
+        self.assertEqual(result['Proof'], ['settled', 'stock'])
+        self.assertEqual(result['Accepted'], 'sk-acc')
+        self.assertEqual(result['Clash'], 'sk-fail')
+
     def test_record_captures_catalog_role_result_and_dependencies(self):
         h = self.chainer
         h.add_atoms_no_check([

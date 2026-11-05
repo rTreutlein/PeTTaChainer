@@ -72,8 +72,8 @@ belief quality: StationOps replay Brier 0.0444/0.0602/0.0640/0.0708 (master)
 went to 0.0502/0.0574/0.0958/0.0727 at budget 50, identical at budget 200,
 and SupplyNet timed stage 3 lost 2.6% of the unstocked production answers.
 For the same reason a settled step drives no search of its own
-(`term-confidence` scores `SettlesFormula` 0): it adds nothing beyond the
-complete step it gives way to.
+(`term-confidence` scores `SettlesFormula` 0): it reads the nodes other
+joins expand and the facts read at once.
 
 `AndFormula` and `OrFormula` are exact on the same inputs: a certain-false
 conjunct gives `(STV 0.0 1.0)` (before: confidence 0.99997 from the clipped
@@ -83,12 +83,20 @@ settled step agree.
 ## Interactions
 
 - Merging. Both a settled view and the complete view of the same step can
-  exist. Their evidence normally shows the complete one containing the
-  settled one, but a known statement under a condition, or an assumption
-  context, reads with no evidence, and the two would revise. So a settled
-  step gives way to the complete step it settles, as a compound's joint row
-  takes the place of the conjunction of its parts (`proof-dominates?`,
-  `settled-within?`).
+  exist with the same absorbing value. Their evidence normally shows the
+  complete one containing the settled one, but a known statement under a
+  condition, or an assumption context, reads with no evidence, and the two
+  would revise. So one gives way to the other before the views merge, and it
+  is the complete step that gives way to the settled step deciding it
+  (`proof-dominates?`, `settled-within?`): the complete step's other parts
+  add evidence the value does not depend on, and a reader that also reads
+  one of them would see the two overlap and condition on it for nothing.
+  SupplyNet #106 (Nov 5): with `FuelArrived` answered, the complete
+  `Or(StockedFuel, FuelArrived)` step carried the mine's production history
+  into the plant's production row, which clashed with its degradation
+  premise and spent a two-root batch's whole budget on conditioning, so the
+  mine read its population prior (.267) where it reads .95 alone; with the
+  settled step kept, both read .95, at b400 and b4000.
 - Self-support. A settled row depends on its part's key only; cycle
   exclusion applies to it as to any row. Settling to true needs a certain
   part, so a loop disjunct cannot settle its own Or: without stock, nothing

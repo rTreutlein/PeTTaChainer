@@ -701,10 +701,11 @@ A key's value merges its stored facts and one view per row:
   otherwise it is `(STV 0.5 0)`, or `(STV 0 0)` for a complete conclusion
   (`complete_predicates.md`). Modus ponens must preserve zero confidence
   when selecting an unknown branch, without its numerical confidence floor;
-- an identical proof pools its evidence; a settled step gives way to its
-  complete step, and a compound's joint row to the conjunction, disjunction or
-  conditioned view of the same parts, before the views merge, so neither
-  stands for its full proof in a merge with a third view. Joint rows exist for
+- an identical proof pools its evidence; a complete step gives way to the
+  settled step deciding it, which reads no evidence the value does not depend
+  on, and the conjunction, disjunction or conditioned view of a compound's
+  parts to its joint row, before the views merge, so neither stands for the
+  other in a merge with a third view. Joint rows exist for
   every order of every subset of two or more of a compound's (at most four)
   parts (`node-joint-goals`: up to 119 rows for four parts); within a
   conditioning branch on a compound pin, its parts are read in turn, each
@@ -918,7 +919,7 @@ rule added took evidence away. A part whose certain stored fact is its
 connective's absorbing value (a true disjunct, a false conjunct) settles the
 compound alone, through a producer, or for a conjunctive antecedent a rule
 variant, reading only that part, whose join builds a row only for such a
-part; its view gives way to the complete step's when both exist
+part; the complete step's view gives way to it when both exist
 (`connective_settling.md`). A completion reads its siblings and its
 consequence inline, a compound one through its connective over its parts,
 since no producer gives such a compound a key. Its consequence may be the

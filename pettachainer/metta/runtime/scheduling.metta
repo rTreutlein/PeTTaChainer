@@ -29,8 +29,7 @@
    (case $proof-term
       (((CPU $fun $args $res)
           (let $base (if (is-var $res) (cpu-expected-confidence $fun $args) (tv-confidence $res))
-             ;; A settled step adds nothing beyond the complete step it gives
-             ;; way to, so it drives no search of its own: it reads the
+             ;; A settled step drives no search of its own: it reads the
              ;; nodes other joins expand and the facts read at once.
              (if (== $fun SettlesFormula) 0.0 $base)))
        (($_type ($_kbid $_ctx $_vars) $prf $tv)
