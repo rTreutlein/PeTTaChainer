@@ -43,8 +43,7 @@ graph_plan(Key, Plan) :-
     ( event_graph_epoch(KB, Frame, Generation) -> true
     ; retractall(event_graph_epoch(KB, Frame, _)), assertz(event_graph_epoch(KB, Frame, Generation)),
       retractall(event_graph_plan(_, Frame, _, ['sk-key', _, [KB|_]], _)),
-      retractall(event_graph_input(_, Frame-_, ['sk-key', _, [KB|_]], _)),
-      retractall(event_graph_memo(_, _, _)) ),
+      retractall(event_graph_input(_, Frame-_, ['sk-key', _, [KB|_]], _)) ),
     term_hash(Key, Hash),
     ( event_graph_plan(Hash, PF, PG, PK, Cached), PF-PG-PK=Frame-Generation-Key -> true
     ; Key = ['sk-key', Goal, Scope],
@@ -209,7 +208,7 @@ graph_parameter(Scope, Ev, Exclude, model(Type, conditional(_, _, ['STV', S1, C1
     ( Neg == base -> graph_parameter(Scope, Ev, Exclude, model(Type, root, []), [_-D0], Prior)
     ; Neg = ['STV', S0, C0], event_node_dist(stored, S0, C0, K, D0), Prior = 'sk-none' ).
 
-:- dynamic event_graph_memo/3.
+:- dynamic event_graph_memo/4.
 % A computed answer is a free read. A key is admitted to the graph once a
 % query with budget needs or reads it, for one evaluation unit if it has a
 % model then; an admitted key's later answers refresh as the nodes a search
@@ -228,14 +227,15 @@ graph_admit(Key) :-
       ( graph_plan(Key, graph(_, _, _)) -> Left is B - 1, nb_setval(sk_eval_budget, Left) ; true ),
       assertz(event_graph_admitted(H, Key)) ).
 
+% Each key keeps its latest answer, reused while its numerical input is unchanged.
 graph_answer(Key, Models, Factors, Goal, Vars, TV) :-
-    Input = Models-Factors-Goal-Vars, term_hash(Input, Hash),
-    ( event_graph_memo(Hash, Stored, TV), Stored=Input -> true
+    Input = Models-Factors-Goal-Vars, term_hash(Key, Hash),
+    ( event_graph_memo(Hash, Key, Stored, TV), Stored=Input -> true
     ; \+ graph_admit(Key) -> TV = unpaid
     ; query_metric_increment('graph-evaluations', _),
       ( graph_moments(Models, Factors, Goal, Vars, TV) -> true
       ; TV = inconsistent, format(user_error, 'event-evidence-impossible: ~q~n', [Goal]) ),
-      assertz(event_graph_memo(Hash, Input, TV)) ).
+      retractall(event_graph_memo(Hash, Key, _, _)), assertz(event_graph_memo(Hash, Key, Input, TV)) ).
 
 graph_moments(Models, Factors, Goal, Vars, TV) :-
     graph_terms(Models, Factors, Goal, Vars, Terms),
@@ -287,5 +287,5 @@ graph_proof(Models, Factors, Scope, [node, [conjunction|Proofs]], Evidence, Deps
 
 % Cache lifecycle belongs to the graph; force-reset requests this operation.
 event_graph_reset :-
-    retractall(event_graph_memo(_,_,_)), retractall(event_graph_input(_,_,_,_)),
+    retractall(event_graph_input(_,_,_,_)),
     retractall(event_graph_epoch(_,_,_)), retractall(event_graph_plan(_,_,_,_,_)).

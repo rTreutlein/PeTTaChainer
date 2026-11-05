@@ -102,9 +102,14 @@ class GraphFoldingTests(unittest.TestCase):
         ])
         goals = [{0}, {12}, {20}, set(first), set(first) | set(second)]
         queries = [f'(: $p {conj(sorted(g)) if len(g) > 1 else f"(P{min(g)} now)"} $tv)' for g in goals]
-        # Budget zero computes no new posterior.
+        # Budget zero computes no new posterior, and an unchanged warm read reuses its answer.
+        h.set_query_metrics(True)
         self.assertEqual(h.query_many_refs(queries, steps=0), [[]] * len(goals))
         rows = h.query_many_refs(queries, steps=500)
+        for _ in range(2):
+            warm = h.query_many_refs(queries, steps=0)
+            self.assertEqual(h.last_query_metrics()['graph_evaluations'], 0)
+            self.assertEqual([[r.tv for r in rs] for rs in warm], [[r.tv for r in rs] for rs in rows])
         n = 800 * .1 / .9
         likelihood = [[(n*s+1)/(n+2) for s in pair] for pair in ((.1, .8), (.2, .7))]
         # Uniform roots: enumerate the all-true events of the membership classes.
