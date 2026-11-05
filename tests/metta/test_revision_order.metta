@@ -36,11 +36,12 @@
 ;; The views' counts differ by 10^-5 of themselves (the strength of a certain
 ;; fact is clipped off 1, which leaves it a variance of 10^-13), so the mean is
 ;; 0.6 to within 10^-6, and the same in every order.
-!(let $up (answer-strength up (C x))
-   (progn
-      (test (< (max (- $up 0.6) (- 0.6 $up)) 0.000001) true)
-      (test (near? (answer-strength down (C x)) $up) true)
-      (test (near? (answer-strength mixed (C x)) $up) true)))
+!(test
+   (let $up (answer-strength up (C x))
+      (data (< (max (- $up 0.6) (- 0.6 $up)) 0.000001)
+            (near? (answer-strength down (C x)) $up)
+            (near? (answer-strength mixed (C x)) $up)))
+   (true true true))
 
 ;; Two and three views: the weighted mean of the views, each read alone.
 ;; The view through the rule stated with confidence 0.6 weighs less.
@@ -64,9 +65,10 @@
 !(rule-view! three-cba r3 A3 a3 0.2 1)
 !(rule-view! three-cba r2 A2 a2 0.6 0.6)
 !(rule-view! three-cba r1 A1 a1 0.9 1)
-!(let* (($v1 (view g1)) ($v2 (view g2)) ($v3 (view g3)))
-   (progn
-      (test (near? (answer-strength two-ab (C x)) (weighted-mean ($v1 $v3))) true)
-      (test (near? (answer-strength two-ba (C x)) (weighted-mean ($v1 $v3))) true)
-      (test (near? (answer-strength three-abc (C x)) (weighted-mean ($v1 $v2 $v3))) true)
-      (test (near? (answer-strength three-cba (C x)) (weighted-mean ($v1 $v2 $v3))) true)))
+!(test
+   (let* (($v1 (view g1)) ($v2 (view g2)) ($v3 (view g3)))
+      (data (near? (answer-strength two-ab (C x)) (weighted-mean ($v1 $v3)))
+            (near? (answer-strength two-ba (C x)) (weighted-mean ($v1 $v3)))
+            (near? (answer-strength three-abc (C x)) (weighted-mean ($v1 $v2 $v3)))
+            (near? (answer-strength three-cba (C x)) (weighted-mean ($v1 $v2 $v3)))))
+   (true true true true))

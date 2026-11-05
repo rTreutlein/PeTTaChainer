@@ -271,7 +271,7 @@
    (Implication (Not (G)) (Y)) (STV 0.9 0.9)))
 ;; Read the judgment context itself: a public query also has independent
 ;; empirical instance evidence from g and y, which remains valid.
-!(let* ((($shape (premise-bundle ((: $_read-scope $_assumption $conclusion $_read-tv)) $_tv $_proof) $adds)
+!(test (let* ((($shape (premise-bundle ((: $_read-scope $_assumption $conclusion $_read-tv)) $_tv $_proof) $adds)
             (judgment-query-side unsupportedPopulationNegCtxKb Nil false
                (brand Statement (quote (G))) (brand Statement (quote (Y)))))
           ($_injected (collapse (once (inject-compiled-adds (map-flat mm2stmt $adds)))))
@@ -280,11 +280,12 @@
              (sk-value (sk-key $conclusion $shape) sk-any-filter ()))
           ($valid (and (=alpha $value (STV 0.0 0.0)) (== $ev (ev-set 0))))
           ($_cleared (clear-temp-query-adds)))
-   (test $valid true))
+      $valid)
+   true)
 
 ;; Prefix lookup may specialize a variable assumption to a ground reader.
 ;; That specialization must not turn its hypothetical individual into Fixed.
-!(let* (($a (quote (A $prototype)))
+!(test (let* (($a (quote (A $prototype)))
           ($b (quote (B $prototype)))
           ($vars (cons (brand Variable $prototype) ()))
           (($shape $_read $adds)
@@ -295,4 +296,5 @@
           ($valid (and (judgment-assumed-key? $a $shape)
              (not (judgment-assumed-key? $fixed $shape))))
           ($_cleared (clear-temp-query-adds)))
-   (test $valid true))
+      $valid)
+   true)

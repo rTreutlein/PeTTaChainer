@@ -60,7 +60,7 @@ Run from the worktree root.
 | MeTTa suite (strict det) | `scripts/test_metta.sh` |
 | Python suite (parallel) | `.venv/bin/python scripts/test_python.py` |
 | One Python test file | `.venv/bin/python -m unittest discover -s tests -p test_x.py` |
-| All gates | `scripts/verify.sh` (MeTTa lint, MeTTa, Python, import scaling, ConceptNet) |
+| All gates | `scripts/verify.sh` (MeTTa lint, MeTTa, Python, then import and judgment scaling, ConceptNet and the fuzzer gate at once) |
 | Benchmarks | `/nexus/Dev/OpenCog/bench/compare.sh master <worktree> --quick` |
 
 `scripts/test_metta.sh` and `scripts/test_python.py` each run
@@ -68,8 +68,10 @@ Run from the worktree root.
 runs both. Run them through the admission pool with a matching slot count,
 so they share the machine with other agents' jobs:
 `/nexus/Dev/OpenCog/bench/capped --slots 8 env PETTA_JOBS=8 scripts/verify.sh`.
-With 8 workers `verify.sh` takes about 3 minutes: Python suite about 110 s,
-MeTTa suite 30 s, ConceptNet 22 s, the two scaling checks 21 s, lint 2 s.
+With 8 workers `verify.sh` takes about 2.5 minutes: lint 2 s, MeTTa suite
+30 s, Python suite 90-105 s, then the four tail gates at once in about 40 s
+(fuzzer gate 38 s, ConceptNet 22 s, import scaling 21 s, judgment scaling
+14 s).
 
 Tests too slow for every run are marked
 `@unittest.skipUnless(os.environ.get("PETTACHAINER_NIGHTLY") == "1", ...)`
@@ -78,17 +80,22 @@ with `PETTACHAINER_NIGHTLY=1`; set it yourself when your change touches what
 they check, e.g. `/nexus/Dev/OpenCog/bench/capped env PETTACHAINER_NIGHTLY=1
 .venv/bin/python -m unittest discover -s tests -p test_deep_conditioning.py
 -k '*test_root_refinement_work_is_bounded_with_growing_history'` (about
-100 s). Today that is the one test.
+100 s). Today these are that test and the three known-gap expected failures
+of `test_repeated_queries.py`.
 
 `scripts/test_python.py` runs every `tests/**/test*.py` file in a process of
 its own, as `python -m unittest discover -s tests -p <file>` from the root,
 so a file loads exactly as under one serial `unittest discover -s tests`, but
 without state left by other files. A file that took more than its share of
 the previous run (total time over the worker count; today
-`test_deep_conditioning.py`) runs as one process per test, selected with
-`-k`. Its tests are listed afresh on every run. Units start longest first by
+`test_deep_conditioning.py` and `test_tv_calibration.py`) is split into
+parts of about half that share, each a group of its tests selected with `-k`
+and balanced by the tests' recorded durations, so the library load is paid
+per part, not per test. Its tests are listed afresh on every run, and a part
+fails unless it ran every test it selected. Units start longest first by
 the previous run's durations, kept in
-`~/.cache/pettachainer/python-test-seconds.json`, which only orders the work.
+`~/.cache/pettachainer/python-test-seconds.json`, which only orders and
+balances the work.
 unittest's exit status decides each unit: failures, errors and unexpected
 successes fail it, skips and expected failures do not. A failing unit's
 whole output, tracebacks included, is printed under its name, and the last
@@ -507,4 +514,10 @@ fuzzer run. Report the target commit/runtime path, seed, budgets, elapsed
 seconds, severity/invariant counts, and paths to `summary.md` and the shrunk
 JSON/MeTTa repros. Include whether each shrink reached a deletion fixed point
 or its trial limit. `--long` expands the seeded campaign for nightly use.
+`verify.sh` runs the same quick seed-1 campaign as its fuzzer gate
+(`--gate`): it fails on a BLOCKER outside master's known list
+(`KNOWN` in `tests/fuzz/run.py`) or on a known one that no longer occurs.
+A fix that closes a known BLOCKER deletes its entry. Rerun
+`scripts/fuzz_vs_problog.py --gate --jobs 8 --out scratch/fuzz-gate` for the
+repros of a failed gate.
 See [fuzzing.md](metta/fuzzing.md) for reference semantics and limits.

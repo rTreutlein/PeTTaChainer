@@ -51,7 +51,7 @@
 ;; Inspect the live private value: MAIN evidence/dependency identity survives
 ;; borrowing, the certain gate is read as a condition (given-ev), and the
 ;; assumed A is a dependency but no empirical evidence.
-!(let* (((compiled-query $goal $adds)
+!(test (let* (((compiled-query $goal $adds)
            (mm2compileQuery wrappedGate45 (: $p (Implication (A $x) (C $x)) $tv)))
         ($_injected (collapse (once (inject-compiled-adds $adds))))
         ($_answers (chainer 300 (typed-runtime-premise $goal)))
@@ -65,7 +65,8 @@
            (deps-has? $deps (index-hash (sk-key (AcceptSource S) (wrappedGate45 MAIN Nil))))))
         ($_cleared (clear-temp-query-adds))
         ($_contexts (sk-clear-contexts!)))
-   (test $valid true))
+      $valid)
+   true)
 
 ;; Query materialization must not publish a positive private judgment in MAIN.
 !(query-materialize 300 wrappedGate45 (: $p (Implication (A a) (C a)) $tv))

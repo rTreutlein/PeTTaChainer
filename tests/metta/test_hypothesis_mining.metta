@@ -271,9 +271,10 @@
 (: review-truths (-[det]-> Number Atom))
 (= (review-truths $steps)
    (collapse (let (hypothesis $_name $_implication $tv $_verdict) (review-hypotheses $steps pruneKb $goal) $tv)))
-!(let* (($before (review-truths 0))
+!(test (let* (($before (review-truths 0))
         ($_cases (map-flat add-case! ((42 1 1 0) (43 1 1 0) (44 1 1 0) (45 1 1 0)))))
-   (test (== (review-truths 0) $before) false))
+      (== (review-truths 0) $before))
+   false)
 
 ;; The review built open joins before withdrawal. A fresh time point must
 ;; extend only the surviving hypothesis, on both branches of its CTV.
@@ -327,9 +328,10 @@
 !(test (live-hypotheses linkLastKb)
    ((Implication (And (NextPeriod $_0 $_1) (F entity $_0)) (Y entity $_1))))
 ;; A repeated link must not count the outcome again or create another rule.
-!(let* (($before (hm-outcomes linkLastKb (Y entity $t)))
+!(test (let* (($before (hm-outcomes linkLastKb (Y entity $t)))
         ($_repeat (collapse (compileadd linkLastKb (: lx3-again (NextPeriod t2 t3) (STV 1 1))))))
-   (test (hm-outcomes linkLastKb (Y entity $t)) $before))
+      (=alpha (hm-outcomes linkLastKb (Y entity $t)) $before))
+   true)
 
 ;; A live conjunction must survive merging both of its general rules. The
 ;; first general rule wraps it in specializes; the second still sees the

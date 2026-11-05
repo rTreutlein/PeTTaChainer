@@ -24,7 +24,7 @@
 !(compileadd ev68Kb (: src_event (StockSplit Split1) (STV 1 0.9)))
 !(compileadd ev68Kb (: src_bridge (Implication
    (And (StockSplit $e) (Implemented $e)) (Not (Dilutes $e))) (STV 1 0.9)))
-!(let* (((compiled-query $goal $adds) (mm2compileQuery ev68Kb
+!(test (let* (((compiled-query $goal $adds) (mm2compileQuery ev68Kb
            (: $p (Implication (Implemented Split1) (Not (Dilutes Split1))) $tv)))
         ($_injected (collapse (once (inject-compiled-adds $adds))))
         ($_answers (chainer 300 (typed-runtime-premise $goal)))
@@ -33,7 +33,8 @@
         ($entries (evidence-entries $ev))
         ($same-evidence (== $ev (proof-ref-evidence $pid)))
         ($_cleared (clear-temp-query-adds)))
-   (test (data $same-evidence $entries) (true ((fact-ev (ev68Kb MAIN Nil) src_event (StockSplit Split1)) (rule-ev ev68Kb src_bridge)))))
+      (data $same-evidence $entries))
+   (true ((fact-ev (ev68Kb MAIN Nil) src_event (StockSplit Split1)) (rule-ev ev68Kb src_bridge))))
 
 ;; The same bridge reads a part of a compound world observation through the
 ;; compound's message. Its evidence is the observation, never node positions.
@@ -41,7 +42,7 @@
    (AnnouncedOn Split1 Date20200730) (Member Split1 StockSplit)) (STV 1 0.9)))
 !(compileadd ev68CompoundKb (: src_bridge (Implication
    (And (Member $e StockSplit) (Implemented $e)) (Not (Dilutes $e))) (STV 1 0.9)))
-!(let* (((compiled-query $goal $adds) (mm2compileQuery ev68CompoundKb
+!(test (let* (((compiled-query $goal $adds) (mm2compileQuery ev68CompoundKb
            (: $p (Implication (Implemented Split1) (Not (Dilutes Split1))) $tv)))
         ($_injected (collapse (once (inject-compiled-adds $adds))))
         ($_answers (chainer 300 (typed-runtime-premise $goal)))
@@ -50,9 +51,10 @@
         ($entries (evidence-entries $ev))
         ($same-evidence (== $ev (proof-ref-evidence $pid)))
         ($_cleared (clear-temp-query-adds)))
-   (test (data $same-evidence $entries) (true ((fact-ev (ev68CompoundKb MAIN Nil) src_event
+      (data $same-evidence $entries))
+   (true ((fact-ev (ev68CompoundKb MAIN Nil) src_event
       (And (AnnouncedBy Split1 Apple) (AnnouncedOn Split1 Date20200730) (StockSplit Split1)))
-      (rule-ev ev68CompoundKb src_bridge)))))
+      (rule-ev ev68CompoundKb src_bridge))))
 
 ;; A stated conditional and both double-negated applications are one source.
 ;; Revision with those applications used to inflate confidence to 0.870943.

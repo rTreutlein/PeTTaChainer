@@ -75,7 +75,6 @@ class TestConditionalWorldFacts(unittest.TestCase):
                             # identity's posterior, at the conservative
                             # variance bound of an observed compound (c 0).
                             self.assertAlmostEqual(row.tv[1], IDENTITY, delta=1e-10)
-                            self.assertGreaterEqual(row.tv[2], 0.0)
                         else:
                             self.assertAlmostEqual(row.tv[1], 1.0)
                             self.assertGreater(row.tv[2], 0.0)

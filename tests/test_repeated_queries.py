@@ -2,8 +2,10 @@
 
 Oracles for the work-queue core (bench/results/fresh-design/workqueue-design.md,
 section 7). The expected failures are master's known gaps; the step that closes
-one turns its test into an ordinary pass.
+one turns its test into an ordinary pass. They run nightly only: an expected
+failure gates nothing but an unexpected pass, which costs 40 s per verify.
 """
+import os
 import unittest
 
 from pettachainer import PeTTaChainer
@@ -25,10 +27,13 @@ def ask(h, goal, steps):
     return rows[0].tv if rows else None, metrics['row_computes'], metrics['conditioned_evaluations']
 
 
+# bench/nightly.sh sets PETTACHAINER_NIGHTLY=1.
+known_gap = unittest.skipUnless(os.environ.get("PETTACHAINER_NIGHTLY") == "1", "known gap; runs nightly")
 STORM_DEGRADES = '(: storm-deg (Implication (Storm $t) (Degraded plant $t)) (CTV (STV 0.3 1) (STV 0.05 1)))'
 
 
 class RepeatedQueryTests(unittest.TestCase):
+    @known_gap
     @unittest.expectedFailure  # work-queue steps 2 and 4: held readers of unpaid branch builds are staled after every query, then refreshed near the root by the next
     def test_budget_limited_root_goes_quiet(self):
         h = handler(4, extra=[STORM_DEGRADES])
@@ -36,6 +41,7 @@ class RepeatedQueryTests(unittest.TestCase):
         self.assertEqual({tv for tv, _, _ in answers}, {answers[0][0]})
         self.assertEqual(answers[-1][1:], (0, 0))
 
+    @known_gap
     @unittest.expectedFailure  # work-queue steps 2 and 4: each root stales readers another needs, and the t4 root claim repeats
     def test_round_robin_roots_go_quiet(self):
         h = handler(6)
@@ -78,6 +84,7 @@ class FactAdditionTests(unittest.TestCase):
             with self.subTest(omit=omit, extra=extra):
                 self.check_addition(4, 3000, omit, extra)
 
+    @known_gap
     @unittest.expectedFailure  # #110 M1, work-queue step 2: a deep reader of the new report is never refreshed
     def test_deep_report_addition(self):
         self.check_addition(4, 3000, ('rep-t1',))

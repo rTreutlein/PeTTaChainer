@@ -429,33 +429,6 @@ class TestIngestion(unittest.TestCase):
                     janus.PrologError, 'negated statement takes an STV'):
                 self.h.add_atom(f'(: notP (Not (P a)) {value})')
 
-    def test_variable_head_query_order_and_population_refinement(self):
-        # A variable-headed and a concrete rule give the same value, cold or
-        # warm and in either query order: independent KBs, then reversed.
-        for head in ('variable', 'concrete'):
-            rule = ('(Implication (And (Symmetric $r) ($r $x $y)) ($r $y $x))'
-                    if head == 'variable' else
-                    '(Implication (And (Symmetric Friend) (Friend $x $y)) (Friend $y $x))')
-            for goal in ('(Friend alice bob)', '(Friend alice $x)'):
-                with self.subTest(head=head, goal=goal):
-                    h = PeTTaChainer()
-                    h.add_atoms_no_check([
-                        f'(: symmetric {rule} (STV 0.9 0.9))',
-                        '(: tag (Symmetric Friend) (STV 0.9 0.9))',
-                        '(: edge (Friend bob alice) (STV 0.9 0.9))',
-                    ])
-                    other = '(Friend alice $x)' if goal == '(Friend alice bob)' else '(Friend alice bob)'
-                    # The negative branch reads the antecedent's composed prior
-                    # while its joint fold has no evidence (#142), so a cold
-                    # query already gives the converged value for both heads.
-                    for query, (strength, confidence) in ((goal, (0.8642193246799066, 0.02243916988834716)),
-                                                         (other, (0.8642193246799066, 0.02243916988834716)),
-                                                         (goal, (0.8642193246799066, 0.02243916988834716))):
-                        answer = h.query_many_refs([f'(: $p {query} $tv)'], steps=100)[0]
-                        self.assertEqual([a.statement for a in answer], [['Friend', 'alice', 'bob']])
-                        self.assertAlmostEqual(answer[0].tv[1], strength)
-                        self.assertAlmostEqual(answer[0].tv[2], confidence)
-
     def test_size_limit_replays_before_timed_worker_loads_large_knowledge(self):
         atom = '(: large (Payload ' + 'x' * 65536 + ') (STV 1 1))'
         self.h.set_max_term_bytes(len(atom))

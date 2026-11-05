@@ -5,9 +5,12 @@ A unit is a test file name under ``tests/`` (default pattern ``test*.py``),
 run as ``python -m unittest discover -s tests -p <name>`` from the repository
 root, so its tests load as under one serial ``unittest discover -s tests``,
 in a fresh process. A file that took more than its share of the previous run
-(total time over the worker count) runs as one unit per test instead,
-selected with ``-k``; its tests are listed afresh on every run, so new tests
-are never missed. unittest's exit status decides each unit: failures, errors
+(total time over the worker count) is split into parts of about half a share,
+each a group of its tests selected with ``-k`` and balanced by the tests'
+recorded durations. A part, not a test, pays the library load, so a file of
+many quick tests does not pay it per test. Its tests are listed afresh on
+every run, so new tests are never missed; a part fails unless it ran every
+test it selected. unittest's exit status decides each unit: failures, errors
 and unexpected successes fail it; skips and expected failures do not. A
 failing unit's full output, tracebacks included, is printed under its name.
 The run fails if any unit fails. With ``-v`` every unit runs verbose and
@@ -25,6 +28,7 @@ Run it through ``bench/capped --slots N`` with ``PETTA_JOBS=N``, like
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import subprocess
@@ -45,13 +49,13 @@ print("\\n".join(ids(unittest.defaultTestLoader.discover("tests", pattern=sys.ar
 """
 
 
-def run(name: str, test: str | None, metrics: Path | None, verbose: bool) -> tuple[int, float, str]:
+def run(name: str, tests: tuple[str, ...], metrics: Path | None, verbose: bool) -> tuple[int, float, str]:
     env = dict(os.environ)
     if metrics:
         env["PETTACHAINER_QUERY_METRICS_PATH"] = str(metrics)
     # A -k pattern without "*" matches as a substring; a leading "*" makes it
     # match this one test id.
-    select = ["-k", f"*{test}"] if test else []
+    select = [arg for test in tests for arg in ("-k", f"*{test}")]
     started = time.monotonic()
     done = subprocess.run(
         [sys.executable, "-m", "unittest", "discover", *(["-v"] if verbose else []),
@@ -59,7 +63,7 @@ def run(name: str, test: str | None, metrics: Path | None, verbose: bool) -> tup
         cwd=REPO, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT, text=True)
     status = done.returncode
-    if test and status == 0 and re.search(r"^Ran 0 tests", done.stdout, re.M):
+    if tests and status == 0 and not re.search(rf"^Ran {len(tests)} tests? in", done.stdout, re.M):
         status = 1
     return status, time.monotonic() - started, done.stdout
 
@@ -91,13 +95,25 @@ def main() -> int:
     names = sorted({path.name for path in (REPO / "tests").rglob("test*.py")})
     share = sum(previous.get(name, 0) for name in names) / int(jobs)
     units = []
+    estimate: dict[tuple[str, tuple[str, ...]], float] = {}
     for name in names:
         tests = tests_of(name) if previous.get(name, 0) > share else None
-        units += [(name, test) for test in tests] if tests else [(name, None)]
-    units.sort(key=lambda unit: -previous.get(unit[1] or unit[0], float("inf")))
+        if not tests:
+            units.append((name, ()))
+            estimate[units[-1]] = previous.get(name, float("inf"))
+            continue
+        # Longest first into the lightest part, by recorded test durations.
+        weight = {test: previous.get(test, 1.0) for test in tests}
+        parts = [[] for _ in range(min(len(tests), math.ceil(2 * previous[name] / share)))]
+        for test in sorted(tests, key=lambda test: -weight[test]):
+            min(parts, key=lambda part: sum(weight[t] for t in part)).append(test)
+        for part in parts:
+            units.append((name, tuple(sorted(part))))
+            estimate[units[-1]] = previous[name] * sum(weight[t] for t in part) / sum(weight.values())
+    units.sort(key=lambda unit: -estimate[unit])
     metrics_path = os.environ.get("PETTACHAINER_QUERY_METRICS_PATH")
     started = time.monotonic()
-    seconds: dict[tuple[str, str | None], float] = {}
+    seconds: dict[tuple[str, tuple[str, ...]], float] = {}
     failed = []
     totals: dict[str, int] = {}
     with tempfile.TemporaryDirectory(prefix="pettachainer-python-tests-") as scratch:
@@ -108,7 +124,9 @@ def main() -> int:
             for future in as_completed(futures):
                 unit = futures[future]
                 status, seconds[unit], output = future.result()
-                label = f"{unit[0]} {unit[1].split('.', 1)[1]}" if unit[1] else unit[0]
+                name, tests = unit
+                label = (f"{name} {tests[0].split('.', 1)[1]}" if len(tests) == 1 else
+                         f"{name} ({len(tests)} tests from {tests[0].split('.', 1)[1]})" if tests else name)
                 ran = re.findall(r"^Ran (\d+) tests? in", output, re.M)
                 verdict = output.rstrip().splitlines()[-1] if output.strip() else "no output"
                 totals["tests"] = totals.get("tests", 0) + sum(map(int, ran))
@@ -129,8 +147,9 @@ def main() -> int:
                     if metrics[unit].exists():
                         stream.write(metrics[unit].read_text(encoding="utf-8"))
     durations = dict(previous)
-    for (name, test), value in seconds.items():
-        durations[test or name] = value
+    for (name, tests), value in seconds.items():
+        if len(tests) == 1:
+            durations[tests[0]] = value
     for name in names:
         durations[name] = sum(value for (unit_name, _), value in seconds.items() if unit_name == name)
     DURATIONS.parent.mkdir(parents=True, exist_ok=True)

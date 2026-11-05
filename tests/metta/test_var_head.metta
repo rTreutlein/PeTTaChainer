@@ -32,6 +32,24 @@
    (query 100 openFirstKb (: $prf (Friend alice bob) $tv))
    (: (by sum_rel (conjunction tag f1)) (Friend alice bob) (STV 0.8642193246799066 0.02243916988834716)))
 
+;; The concrete rule the template specializes to gives the same answer, ground
+;; and open, cold and warm.
+!(compileadd concreteKb (: sym_friend (Implication (And (Symmetric Friend) (Friend $x $y)) (Friend $y $x)) (STV 0.9 0.9)))
+!(compileadd concreteKb (: tag (Symmetric Friend) (STV 0.9 0.9)))
+!(compileadd concreteKb (: f1 (Friend bob alice) (STV 0.9 0.9)))
+
+!(test
+   (query 100 concreteKb (: $prf (Friend alice bob) $tv))
+   (: (by sym_friend (conjunction tag f1)) (Friend alice bob) (STV 0.8642193246799066 0.02243916988834716)))
+
+!(test
+   (query 100 concreteKb (: $prf (Friend alice $x) $tv))
+   (: (by sym_friend (conjunction tag f1)) (Friend alice bob) (STV 0.8642193246799066 0.02243916988834716)))
+
+!(test
+   (query 100 concreteKb (: $prf (Friend alice bob) $tv))
+   (: (by sym_friend (conjunction tag f1)) (Friend alice bob) (STV 0.8642193246799066 0.02243916988834716)))
+
 ;; A variable-headed singleton antecedent is not mistaken for an `And` merely
 ;; because its head can unify with that symbol.
 !(compileadd directVariableHeadKb

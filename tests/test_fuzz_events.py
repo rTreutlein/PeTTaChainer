@@ -149,11 +149,11 @@ class EventGateTests(unittest.TestCase):
         from pathlib import Path
         from types import SimpleNamespace
         from unittest.mock import patch
-        from tests.fuzz.run import event_campaign
+        from tests.fuzz.run import KNOWN, event_campaign
         kb = next(k for k in event_cases() if 'identity-subset' in k.checks)
         with tempfile.TemporaryDirectory() as tmp:
             args = SimpleNamespace(out=Path(tmp), budgets='100,2000', k=None,
-                                   threshold=None, seed=1, long=False, jobs=1)
+                                   threshold=None, seed=1, long=False, jobs=1, gate=False)
             with patch('tests.fuzz.generator.event_cases', return_value=[kb]), \
                  patch('tests.fuzz.run.chainer', side_effect=lambda k, settings:
                        {'answers': {b: [[[1, .818, 'test']]] for b in settings.budgets}}), \
@@ -162,6 +162,16 @@ class EventGateTests(unittest.TestCase):
             summary = json.loads((args.out/'summary.json').read_text())
             self.assertEqual(summary['violations'], {'BLOCKER:identity-subset': 1})
             self.assertEqual(len(list((args.out/'repros').glob('*.metta'))), 1)
+            # The gate names the new BLOCKER and every known one that is gone.
+            args.gate = True
+            with patch('tests.fuzz.generator.event_cases', return_value=[kb]), \
+                 patch('tests.fuzz.run.chainer', side_effect=lambda k, settings:
+                       {'answers': {b: [[[1, .818, 'test']]] for b in settings.budgets}}), \
+                 patch('tests.fuzz.run.evaluate', return_value=[({}, {}, None)]*3):
+                self.assertEqual(event_campaign(args), 1)
+            gate = json.loads((args.out/'summary.json').read_text())['gate']
+            self.assertEqual(gate['new'], [[kb.name, 'identity-subset']])
+            self.assertEqual(gate['fixed'], sorted(map(list, KNOWN)))
 
     def test_cost_inferences_classify_quadratic_work(self):
         kb = next(k for k in event_cases() if k.probe)

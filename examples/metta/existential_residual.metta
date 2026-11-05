@@ -50,22 +50,19 @@
          (OtherWitnessEstimate fido))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-!(============================================================================)
-;; Direct existential claim E.
-!(query 200 existentialExampleKb
-   (: $proof
-      (ExistentialClaim
-         (And
-            (Cat (exists-slot 0))
-            (Chases fido (exists-slot 0))))
-      $tv))
+;; The strengths of the direct existential claim E, the enumerated
+;; disjunction D and the residual U; D can never exceed E.
+(: witness-strengths (-[nondet]-> Atom))
+(= (witness-strengths)
+   (let* (((: $_e-proof $_e-type (STV $e $_e-c)) (query 200 existentialExampleKb
+             (: $e-proof (ExistentialClaim (And (Cat (exists-slot 0)) (Chases fido (exists-slot 0)))) $e-tv)))
+          ((: $_d-proof $_d-type (STV $d $_d-c)) (query 300 existentialExampleKb
+             (: $d-proof (KnownWitnessDisjunction fido) $d-tv)))
+          ((: $_u-proof $_u-type (STV $u $_u-c)) (query 300 existentialExampleKb
+             (: $u-proof (OtherWitnessEstimate fido) $u-tv))))
+      (if (<= $d $e) ($d $u) (empty))))
 
-!(============================================================================)
-;; Enumerated disjunction D and residual U, with E = D or U.
-!(query 300 existentialExampleKb
-   (: $proof (KnownWitnessDisjunction fido) $tv))
-!(query 300 existentialExampleKb
-   (: $proof (OtherWitnessEstimate fido) $tv))
+!(test (let $before (witness-strengths) (change-state! existentialBefore $before)) true)
 
 ;; Knowledge addition refines the witness partition without retracting E or
 ;; either earlier residual proposition. Felix explains part of the previously
@@ -76,8 +73,8 @@
    (: fidoOftenChasesFelix
       (Chases fido felix) (STV 0.6 0.9)))
 
-!(============================================================================)
-!(query 300 existentialExampleKb
-   (: $proof (KnownWitnessDisjunction fido) $tv))
-!(query 300 existentialExampleKb
-   (: $proof (OtherWitnessEstimate fido) $tv))
+!(test
+   (let* ((($d0 $u0) (get-state existentialBefore))
+          (($d $u) (witness-strengths)))
+      (and (> (the Number $d) (the Number $d0)) (< (the Number $u) (the Number $u0))))
+   true)

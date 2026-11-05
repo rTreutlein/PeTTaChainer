@@ -29,7 +29,7 @@
 ;; evidence is exactly the MAIN observation and the source rule; the private
 ;; assumption occurs in the proof but is not empirical evidence. The MAIN
 ;; observation's dependency must survive borrowing for conditioning.
-!(let* (((compiled-query $goal $adds) (mm2compileQuery ke63Kb (: $p (Implication (Implemented Split1) (PreservesOwnership Split1)) $tv)))
+!(test (let* (((compiled-query $goal $adds) (mm2compileQuery ke63Kb (: $p (Implication (Implemented Split1) (PreservesOwnership Split1)) $tv)))
         ($_injected (collapse (once (inject-compiled-adds $adds))))
         ($_answers (chainer 300 (typed-runtime-premise $goal)))
         (($type $scope $_proof $_tv) $goal)
@@ -37,7 +37,8 @@
         ($valid (and (== $ev (evidence-set ((fact-ev (ke63Kb MAIN Nil) src_split (StockSplit Split1)) (rule-ev ke63Kb src_bridge))))
                      (deps-has? $deps (index-hash (sk-key (StockSplit Split1) (ke63Kb MAIN Nil))))))
         ($_cleared (clear-temp-query-adds)))
-   (test $valid true))
+      $valid)
+   true)
 
 ;; A condition in a different knowledge base cannot pin a private leaf.
 !(test (sk-pinned-step (sk-key (StockSplit Split1) (otherKe63Kb 987 Nil)) ()
@@ -47,7 +48,7 @@
 ;; Its own observation and negation remain unavailable even below another row.
 !(compileadd ke63Targets (: own_target (Target Split1) (STV 0.1 0.9)))
 !(compileadd ke63Targets (: other_target (Target Split2) (STV 0.7 0.9)))
-!(let* ((($scope $_read $adds)
+!(test (let* ((($scope $_read $adds)
            (judgment-query-side ke63Targets Nil false (brand Statement (Gate)) (brand Statement (Target Split1))))
         ($_injected (collapse (once (inject-compiled-adds (map-flat mm2stmt $adds)))))
         ($own (sk-leaf-facts (Target Split1) (the KBContext $scope) sk-any-filter))
@@ -55,14 +56,16 @@
         ($others (sk-leaf-facts (Target $event) (the KBContext $scope) sk-any-filter))
         ((($other-type $_other-scope $_other-proof $_other-tv)) $others)
         ($_cleared (clear-temp-query-adds)))
-   (test (data $own $negative $other-type) (() () (Target Split2))))
+      (data $own $negative $other-type))
+   (() () (Target Split2)))
 
 ;; An open target excludes all its ground instances without binding the query.
-!(let* (($target (brand Statement (Target $event)))
+!(test (let* (($target (brand Statement (Target $event)))
         (($scope $_read $adds)
            (judgment-query-side ke63Targets Nil false (brand Statement (Gate)) $target))
         ($_injected (collapse (once (inject-compiled-adds (map-flat mm2stmt $adds)))))
         ($facts (sk-leaf-facts (Target Split1) (the KBContext $scope) sk-any-filter))
         ($unbound (is-var $event))
         ($_cleared (clear-temp-query-adds)))
-   (test (data $facts $unbound) (() true)))
+      (data $facts $unbound))
+   (() true))

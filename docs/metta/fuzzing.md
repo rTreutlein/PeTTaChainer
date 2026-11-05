@@ -226,8 +226,12 @@ usually shows it.
 
 The same entry point, generator, worker transport and shrinker now support
 `--quick` (builder loop) and `--long` (nightly). The legacy feature/ProbLog
-mode remains available. Quick/long also run the ProbLog subset; neither is
-part of `verify.sh` because these campaigns deliberately expose open defects.
+mode remains available. Quick/long also run the ProbLog subset. Both exit 1
+while a defect remains. `--gate` runs the quick seed-1 campaign as a
+`verify.sh` gate: master's open BLOCKERs are listed in `KNOWN`
+(`tests/fuzz/run.py`), and the gate fails on any other BLOCKER, on a listed
+one that no longer occurs, or on a failing ProbLog differential. Known
+BLOCKERs are not shrunk in gate mode.
 
 ```bash
 ( unset DISPLAY; ulimit -v 16000000

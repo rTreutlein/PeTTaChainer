@@ -100,6 +100,7 @@ def main() -> None:
     parser.add_argument("--chainer", type=Path, help="target repository with its own repointed .venv")
     parser.add_argument("--quick", action="store_true", help="event + metamorphic builder gate (under ten minutes)")
     parser.add_argument("--long", action="store_true", help="nightly event + metamorphic campaign")
+    parser.add_argument("--gate", action="store_true", help="the quick campaign as the verify gate: fail on a BLOCKER outside tests/fuzz/run.py KNOWN or on a known one that no longer occurs")
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--n", type=int, default=50)
     parser.add_argument("--features", default=",".join(DEFAULT), help=f"comma-separated, 'all' or 'default'; known: {', '.join(FEATURES)}")
@@ -119,7 +120,7 @@ def main() -> None:
         target = args.chainer.resolve()
         run.CHAINER_PYTHON = str(target / '.venv/bin/python')
         os.environ['FUZZ_CHAINER_REPO'] = str(target)
-    if args.quick or args.long:
+    if args.quick or args.long or args.gate:
         from tests.fuzz.run import event_campaign
         if args.out is None:
             parser.error('--out is required')

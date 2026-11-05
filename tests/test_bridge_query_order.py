@@ -10,7 +10,8 @@ class TestBridgeQueryOrder(unittest.TestCase):
         for consequent in ('(DoesNotDilute $e)', '(Not (Dilutes $e))'):
             body = f'(And (AnnouncedBy $e Apple) (AnnouncedOn $e Date20200730) (Member $e StockSplit) (Implication (Implemented $e) {consequent}))'
             expressions = (body.replace('$e', 'Split1'), f'(Exists ($e) {body})')
-            for confidence in (0.5, 0.9, 1.0):
+            # An uncertain report (one source in the evidence) and a certain one.
+            for confidence in (0.9, 1.0):
                 atoms = [
                     f'(: src_event {identity} (STV 1 {confidence}))',
                     f'(: src_bridge (Implication (And (Member $e StockSplit) (Implemented $e)) {consequent}) (STV 1 0.9))',

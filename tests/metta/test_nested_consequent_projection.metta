@@ -118,7 +118,7 @@
    (true true))
 ;; Inspect the live judgment before the ordinary query bracket removes its
 ;; temporary context, so this checks semantic evidence rather than proof leaves.
-!(let* (((compilation-plan (: $ctx $proof $type $tv) $adds)
+!(test (let* (((compilation-plan (: $ctx $proof $type $tv) $adds)
             (compileQuery overlapProjectionKb (: $p
                (Implication (AcceptSource S) (Implication (A $x) (C $x))) $value)))
          ($_injected (collapse (once (inject-compiled-adds (map-flat mm2stmt $adds)))))
@@ -128,7 +128,8 @@
          ($entries (evidence-entries $ev))
          ($_cleared (clear-temp-query-adds))
          ($_contexts (sk-clear-contexts!)))
-   (test $entries ((rule-ev overlapProjectionKb shared))))
+      $entries)
+   ((rule-ev overlapProjectionKb shared)))
 
 ;; An explicit CTV projects both branches; the negative source judgment keeps
 ;; its stated branch instead of inventing an STV complement from populations.

@@ -54,34 +54,23 @@
       1)
    1)
 
+;; A rule row is (conclusion id premises), each statement (Type Scope Proof TV).
+;; The fold is a direct CPU premise of the rule,
 !(test
-   (match ccls_index ($ccls $id $args)
-      (if (= $ccls (: (kb $ctx $vars) (by foldRule cpu) (ScoreTotal $total) $tv))
-         (if (= $args
-                  ((CPU FoldAllCompiled $call $total)
-                   (CPU CTVModusPonensFormula
-                      ((STV 1.0 1.0)
-                       (CTV (STV 1.0 1.0) (STV 0.0 1.0)))
-                      $tv)))
-            ok
-            (empty))
-         (empty)))
-   ())
+   (match ccls_index
+      (((ScoreTotal $total) (kb $ctx $vars) (by foldRule cpu) $tv) $id
+       ((CPU FoldAllCompiled $call $total)
+        (CPU CTVModusPonensFormula ((STV 1.0 1.0) (CTV (STV 1.0 1.0) (STV 0.0 1.0))) $tv)))
+      ok)
+   ok)
 
+;; not a stored fact the rule reads.
 !(test
-   (match ccls_index ($ccls $id $args)
-      (if (= $ccls (: (kb $ctx $vars) (by foldRule $prem) (ScoreTotal $total) $tv))
-         (if (= $args
-                  ((: $_kb $_prf
-                      (CPU FoldAllCompiled $call $total)
-                      $_cpu-tv)
-                   (CPU CTVModusPonensFormula
-                      ($_cpu-tv
-                       (CTV (STV 1.0 1.0) (STV 0.0 1.0)))
-                      $tv)))
-            bad
-            (empty))
-         (empty)))
+   (match ccls_index
+      (((ScoreTotal $total) (kb $ctx $vars) (by foldRule $prem) $tv) $id
+       (((CPU FoldAllCompiled $call $total) $_kb $_prf $_cpu-tv)
+        (CPU CTVModusPonensFormula ($_cpu-tv (CTV (STV 1.0 1.0) (STV 0.0 1.0))) $tv)))
+      bad)
    ())
 
 !(test (query 30 kb (: $prf (ScoreTotal $x) $tv))
@@ -108,22 +97,12 @@
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
-   (match ccls_index ($ccls $id $args)
-      (if (= $ccls
-               (: (kb $ctx $vars)
-                  (by foldValueShapeRule cpu)
-                  (ScoreDist $dist)
-                  $tv))
-         (if (= $args
-                  ((CPU FoldAllCompiled $call $dist)
-                   (CPU CTVModusPonensFormula
-                      ((STV 1.0 1.0)
-                       (CTV (STV 1.0 1.0) (STV 0.0 1.0)))
-                      $tv)))
-            ok
-            (empty))
-         (empty)))
-   ())
+   (match ccls_index
+      (((ScoreDist $dist) (kb $ctx $vars) (by foldValueShapeRule cpu) $tv) $id
+       ((CPU FoldAllCompiled $call $dist)
+        (CPU CTVModusPonensFormula ((STV 1.0 1.0) (CTV (STV 1.0 1.0) (STV 0.0 1.0))) $tv)))
+      ok)
+   ok)
 
 !(compileadd kb
    (: avgShapeRule
@@ -132,22 +111,12 @@
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
-   (match ccls_index ($ccls $id $args)
-      (if (= $ccls
-               (: (kb $ctx $vars)
-                  (by avgShapeRule cpu)
-                  (AvgScoreDist $avgDist)
-                  $tv))
-         (if (= $args
-                  ((CPU FoldAllCompiled $call $avgDist)
-                   (CPU CTVModusPonensFormula
-                      ((STV 1.0 1.0)
-                       (CTV (STV 1.0 1.0) (STV 0.0 1.0)))
-                      $tv)))
-            ok
-            (empty))
-         (empty)))
-   ())
+   (match ccls_index
+      (((AvgScoreDist $avgDist) (kb $ctx $vars) (by avgShapeRule cpu) $tv) $id
+       ((CPU FoldAllCompiled $call $avgDist)
+        (CPU CTVModusPonensFormula ((STV 1.0 1.0) (CTV (STV 1.0 1.0) (STV 0.0 1.0))) $tv)))
+      ok)
+   ok)
 
 !(compileadd kb
    (: numFromCount
@@ -156,23 +125,14 @@
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
-   (match ccls_index ($ccls $id $args)
-      (if (= $ccls
-               (: (kb MAIN Nil)
-                  (conjunction $fact-prf cpu)
-                  (And (Count $name $n)
-                       (CPU NotEqual ($name MissingTotal) true))
-                  $tv))
-         (if (= $args
-                  ((: (kb MAIN Nil) $fact-prf
-                      (Count $name $n) $count-tv)
-                   (CPU NotEqual ($name MissingTotal) true)
-                   (CPU AndFormula
-                      ($count-tv (STV 1.0 1.0)) $tv)))
-            ok
-            (empty))
-         (empty)))
-   ())
+   (match ccls_index
+      (((And (Count $name $n) (Compute NotEqual ($name MissingTotal) -> true))
+        (kb $ctx $vars) (conjunction $fact-prf cpu) $tv) $id
+       (((Count $name $n) (kb $ctx $vars) $fact-prf $count-tv)
+        (CPU NotEqual ($name MissingTotal) true)
+        (CPU AndFormula ($count-tv (STV 1.0 1.0)) $tv)))
+      ok)
+   ok)
 
 !(compileadd kb
    (: foldDerivedRule

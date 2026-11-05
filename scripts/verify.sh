@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# All gates, one after another: MeTTa lint, the MeTTa suite
-# (scripts/test_metta.sh), the Python suite (scripts/test_python.py), import
-# and judgment scaling, and the ConceptNet query. Both suites run PETTA_JOBS
-# workers (default: the CPU count); run this through bench/capped --slots N
-# with PETTA_JOBS=N. A gate fails on its own failure or on a search abort in
-# its query metrics or log. The result is recorded for scripts/land.sh.
+# All gates: MeTTa lint, the MeTTa suite (scripts/test_metta.sh) and the
+# Python suite (scripts/test_python.py) one after another, then import and
+# judgment scaling, the ConceptNet query and the quick seed-1 fuzzer gate
+# (scripts/fuzz_vs_problog.py --gate) at once. The suites and the fuzzer run
+# PETTA_JOBS workers (default: the CPU count); run this through bench/capped
+# --slots N with PETTA_JOBS=N. A gate fails on its own failure or on a search
+# abort in its query metrics or log. The result is recorded for
+# scripts/land.sh.
 
 set -u
 
@@ -35,7 +37,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-gate_ids=(lint metta python import_scaling judgment_scaling conceptnet)
+gate_ids=(lint metta python import_scaling judgment_scaling conceptnet fuzz)
 declare -A gate_names=(
   [lint]='MeTTa lint'
   [metta]='MeTTa suite'
@@ -43,9 +45,8 @@ declare -A gate_names=(
   [import_scaling]='Import scaling'
   [judgment_scaling]='Judgment scaling'
   [conceptnet]='ConceptNet query'
+  [fuzz]='Fuzzer gate'
 )
-declare -A gate_status
-declare -A defect_status
 
 run_gate() {
   local gate_id=$1
@@ -55,6 +56,7 @@ run_gate() {
   local command_status=0
   local metric_status=0
   local metric_summary
+  local defect
 
   printf '\n== %s ==\n' "${gate_names[$gate_id]}"
   (
@@ -94,24 +96,24 @@ raise SystemExit(1 if aborts else 0)
 PY
     )
     metric_status=$?
-    defect_status[$gate_id]="$metric_summary"
+    defect="$metric_summary"
   else
     case $gate_id in
       metta)
-        defect_status[$gate_id]='every child log checked for aborts'
+        defect='every child log checked for aborts'
         ;;
       python)
-        defect_status[$gate_id]='metric stream missing'
+        defect='metric stream missing'
         metric_status=1
         ;;
       import_scaling)
-        defect_status[$gate_id]='no backward queries'
+        defect='no backward queries'
         ;;
       lint)
-        defect_status[$gate_id]='no queries'
+        defect='no queries'
         ;;
       *)
-        defect_status[$gate_id]='counter unavailable; abort marker scan'
+        defect='counter unavailable; abort marker scan'
         ;;
     esac
   fi
@@ -119,13 +121,15 @@ PY
   if grep -Fq 'backward-search-aborted' "$log_file"; then
     printf 'STRICT DEFECT FAILURE: backward-search-aborted was printed.\n' >&2
     metric_status=1
-    defect_status[$gate_id]="${defect_status[$gate_id]}; abort marker seen"
+    defect="$defect; abort marker seen"
   fi
 
+  # Files, not variables: the tail gates run in background subshells.
+  printf '%s\n' "$defect" >"$run_dir/$gate_id.defect"
   if (( command_status == 0 && metric_status == 0 )); then
-    gate_status[$gate_id]=PASS
+    echo PASS >"$run_dir/$gate_id.status"
   else
-    gate_status[$gate_id]=FAIL
+    echo FAIL >"$run_dir/$gate_id.status"
   fi
 }
 
@@ -137,16 +141,24 @@ started=$SECONDS
 run_gate lint "$repo_root/scripts/lint_metta.sh"
 run_gate metta "$repo_root/scripts/test_metta.sh"
 run_gate python "$python_bin" "$script_dir/test_python.py"
-run_gate import_scaling "$repo_root/scripts/check_import_scaling.sh"
-run_gate judgment_scaling "$python_bin" "$repo_root/scripts/check_judgment_scaling.py"
-run_gate conceptnet "$repo_root/benchmarks/metta/run_conceptnet_own_pet_query.sh"
+# The tail gates share nothing, so they run at once; each prints its
+# output when all are done.
+tail_gates=(import_scaling judgment_scaling conceptnet fuzz)
+run_gate import_scaling "$repo_root/scripts/check_import_scaling.sh" >"$run_dir/import_scaling.out" 2>&1 &
+run_gate judgment_scaling "$python_bin" "$repo_root/scripts/check_judgment_scaling.py" >"$run_dir/judgment_scaling.out" 2>&1 &
+run_gate conceptnet "$repo_root/benchmarks/metta/run_conceptnet_own_pet_query.sh" >"$run_dir/conceptnet.out" 2>&1 &
+run_gate fuzz "$python_bin" "$script_dir/fuzz_vs_problog.py" --gate --jobs "${PETTA_JOBS:-$(nproc)}" --out "$run_dir/fuzz" >"$run_dir/fuzz.out" 2>&1 &
+wait
+for gate_id in "${tail_gates[@]}"; do
+  cat "$run_dir/$gate_id.out"
+done
 
 conceptnet_log="$run_dir/conceptnet.log"
 conceptnet_summaries=$(grep -Ec 'CONCEPTNET_OWN_PET_RESULT_COUNT [0-9]+ RESULTS' "$conceptnet_log" || true)
 conceptnet_exact=$(grep -Ec 'CONCEPTNET_OWN_PET_RESULT_COUNT 2 RESULTS' "$conceptnet_log" || true)
 if (( conceptnet_summaries != 1 || conceptnet_exact != 1 )); then
   printf 'ConceptNet result-row check failed: expected one summary declaring 2 results.\n' >&2
-  gate_status[conceptnet]=FAIL
+  echo FAIL >"$run_dir/conceptnet.status"
 fi
 
 elapsed=$((SECONDS - started))
@@ -154,10 +166,10 @@ failed=0
 printf '\n%-18s %-6s %s\n' GATE STATUS 'STRICT DEFECT CHECK'
 printf '%-18s %-6s %s\n' '------------------' '------' '-------------------'
 for gate_id in "${gate_ids[@]}"; do
+  status=$(cat "$run_dir/$gate_id.status" 2>/dev/null || echo FAIL)
   printf '%-18s %-6s %s\n' \
-    "${gate_names[$gate_id]}" "${gate_status[$gate_id]}" \
-    "${defect_status[$gate_id]}"
-  if [[ ${gate_status[$gate_id]} != PASS ]]; then
+    "${gate_names[$gate_id]}" "$status" "$(cat "$run_dir/$gate_id.defect" 2>/dev/null)"
+  if [[ $status != PASS ]]; then
     failed=1
   fi
 done

@@ -347,9 +347,7 @@
 
 ;; A fact counted in several base rates is read without its values derived
 ;; through any of them: the rates read here are (Leak $u $z), (Leak $u z1) and
-;; (Leak u1 $z), and the exclusion holds each of them.
-(: excludes-one? (-[det]-> (List Number) Number Bool))
-(= (excludes-one? $folds $hash) (stored-list-member? $hash $folds))
+;; (Leak u1 $z), and the exclusion holds each of them, as an ordered set.
 !(compileadd ordKb (: sensor (Implication (Leak $u $z) (Alarm $u $z)) (CTV (STV 0.9 1.0) (STV 0.2 1.0))))
 !(compileadd ordKb (: narrow1 (Implication (Leak $u z1) (Seen1 $u)) (CTV (STV 0.9 1.0) (STV 0.2 1.0))))
 !(compileadd ordKb (: narrow2 (Implication (Leak u1 $z) (Seen2 $z)) (CTV (STV 0.9 1.0) (STV 0.2 1.0))))
@@ -362,9 +360,10 @@
 !(collapse (query 200 ordKb (: $p (Leak q z1) $tv)))
 !(collapse (query 200 ordKb (: $p (Leak u1 w) $tv)))
 !(test
-   (let $folds (forward-rate-folds (assemble-runtime-fact (Leak u1 z1) (ordKb MAIN Nil) l1 (STV 1.0 1.0)))
-      (map-flat (excludes-one? $folds) $folds))
-   (true true true))
+   (forward-rate-folds (assemble-runtime-fact (Leak u1 z1) (ordKb MAIN Nil) l1 (STV 1.0 1.0)))
+   ((index-hash (sk-fold (ordKb (Leak $_u z1) extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv)))
+    (index-hash (sk-fold (ordKb (Leak $_u $_z) extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv)))
+    (index-hash (sk-fold (ordKb (Leak u1 $_z) extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv)))))
 
 ;; A fact is excluded only from the rates it counts in: (Leak u1 z1) belongs to
 ;; the rate over (Leak $u z1), not to the one over (Leak $u z2), though both

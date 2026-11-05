@@ -13,6 +13,8 @@ import janus_swi as janus
 from pettachainer import PeTTaChainer
 
 
+# The world-write checks run at the exact (0) and the default divergence
+# threshold; the other checks at the exact one.
 class OverlayChecks:
     def setUp(self):
         self.h = PeTTaChainer()
@@ -38,6 +40,59 @@ class OverlayChecks:
             '(: cause-prior (Cause now) (STV 0.3 0.8))',
         ])
         handler._call("set-base-rate", [f"{handler.kb} (Cause $t) (STV 0.3 0.9)"])
+
+    def test_assumed_sample_keeps_instance_tally_local(self):
+        self.h._call("set-rule-refinement", [f"{self.h.kb} true"])
+        self.h._call("set-positive-only-predicate", [f"{self.h.kb} A"])
+        self.h.add_atoms_no_check([
+            '(: r (Implication (A $x) (B $x)) (STV 0.5 0.02))',
+            '(: a (A old) (STV 1 1))',
+            '(: b (B old) (STV 0 1))',
+        ])
+        goal = "(RuleTruth (Implication (A $x) (B $x)))"
+        before = self.answers(goal)[0].tv
+        changed = self.answers(f"(Assuming (B old) {goal})")[0].tv
+        self.assertNotEqual(changed, before)
+        self.assertEqual(janus.query_once("overlay_probe_main_leaks(Kb,Rows)",
+                                         {"Kb": self.h.kb})["Rows"], [])
+        local = janus.query_once("overlay_probe_local(Rows)")["Rows"]
+        self.assertTrue(any(space == "&sk_instance_tally" for space, _, _ in local))
+        self.assertEqual(self.answers(goal)[0].tv, before)
+
+    def test_each_of_22_contexts_receives_its_evaluation_allowance(self):
+        self.diagnostic(self.h)
+        self.strength("(Cause now)")
+        # Shared structure is already warm. Each context still needs its own
+        # induction update. The former shared remainder ran out after 17.
+        rows = self.h.query_many_refs(
+            ['(: $p (Assuming (Action now) (Cause now)) $tv)'] * 22,
+            steps=10,
+        )
+        self.assertEqual([len(group) for group in rows], [1] * 22)
+        for group in rows:
+            self.assertAlmostEqual(group[0].tv[1], .29393311641031633, delta=1e-6)
+
+    def test_assumed_member_updates_only_local_base_rate(self):
+        self.h.add_atoms_no_check([
+            '(: r (Implication (P $t) (Q $t)) (CTV (STV 0.8 1) (STV 0.1 1)))',
+            '(: old (P old) (STV 0 1))',
+            '(: observed (Q now) (STV 0.5 0.8))',
+        ])
+        self.strength("(P now)")
+        before = self.h._call("cached-base-rate", [f"{self.h.kb} (P $t)"])
+        self.strength("(Assuming (P now) (Q now))")
+        self.assertEqual(janus.query_once("overlay_probe_main_leaks(Kb,Rows)",
+                                         {"Kb": self.h.kb})["Rows"], [])
+        # MAIN has one false member; C adds one true member: 1 / 2.
+        local = janus.query_once("overlay_probe_local(Rows)")["Rows"]
+        self.assertTrue(any(space == "&base_rate_cache" and "['STV',0.5," in row
+                            for space, _, row in local), local)
+        self.assertTrue(any(space == "&forward_aggregate_state" for space, _, _ in local))
+        self.assertEqual(self.h._call("cached-base-rate", [f"{self.h.kb} (P $t)"]), before)
+
+
+class TestContextOverlay(OverlayChecks, unittest.TestCase):
+    threshold = 0
 
     def test_assumption_reaches_cause_through_induction(self):
         self.diagnostic(self.h)
@@ -169,55 +224,6 @@ class OverlayChecks:
             with self.assertRaises(ValueError):
                 self.h.set_context_reuse_threshold(invalid)
 
-    def test_assumed_sample_keeps_instance_tally_local(self):
-        self.h._call("set-rule-refinement", [f"{self.h.kb} true"])
-        self.h._call("set-positive-only-predicate", [f"{self.h.kb} A"])
-        self.h.add_atoms_no_check([
-            '(: r (Implication (A $x) (B $x)) (STV 0.5 0.02))',
-            '(: a (A old) (STV 1 1))',
-            '(: b (B old) (STV 0 1))',
-        ])
-        goal = "(RuleTruth (Implication (A $x) (B $x)))"
-        before = self.answers(goal)[0].tv
-        changed = self.answers(f"(Assuming (B old) {goal})")[0].tv
-        self.assertNotEqual(changed, before)
-        self.assertEqual(janus.query_once("overlay_probe_main_leaks(Kb,Rows)",
-                                         {"Kb": self.h.kb})["Rows"], [])
-        local = janus.query_once("overlay_probe_local(Rows)")["Rows"]
-        self.assertTrue(any(space == "&sk_instance_tally" for space, _, _ in local))
-        self.assertEqual(self.answers(goal)[0].tv, before)
-
-    def test_each_of_22_contexts_receives_its_evaluation_allowance(self):
-        self.diagnostic(self.h)
-        self.strength("(Cause now)")
-        # Shared structure is already warm. Each context still needs its own
-        # induction update. The former shared remainder ran out after 17.
-        rows = self.h.query_many_refs(
-            ['(: $p (Assuming (Action now) (Cause now)) $tv)'] * 22,
-            steps=10,
-        )
-        self.assertEqual([len(group) for group in rows], [1] * 22)
-        for group in rows:
-            self.assertAlmostEqual(group[0].tv[1], .29393311641031633, delta=1e-6)
-
-    def test_assumed_member_updates_only_local_base_rate(self):
-        self.h.add_atoms_no_check([
-            '(: r (Implication (P $t) (Q $t)) (CTV (STV 0.8 1) (STV 0.1 1)))',
-            '(: old (P old) (STV 0 1))',
-            '(: observed (Q now) (STV 0.5 0.8))',
-        ])
-        self.strength("(P now)")
-        before = self.h._call("cached-base-rate", [f"{self.h.kb} (P $t)"])
-        self.strength("(Assuming (P now) (Q now))")
-        self.assertEqual(janus.query_once("overlay_probe_main_leaks(Kb,Rows)",
-                                         {"Kb": self.h.kb})["Rows"], [])
-        # MAIN has one false member; C adds one true member: 1 / 2.
-        local = janus.query_once("overlay_probe_local(Rows)")["Rows"]
-        self.assertTrue(any(space == "&base_rate_cache" and "['STV',0.5," in row
-                            for space, _, row in local), local)
-        self.assertTrue(any(space == "&forward_aggregate_state" for space, _, _ in local))
-        self.assertEqual(self.h._call("cached-base-rate", [f"{self.h.kb} (P $t)"]), before)
-
     def test_context_answer_is_independent_of_main_query_history(self):
         # #128 (SupplyNet stage 4, t9): two closed reads of the stock shared
         # the bare proof name `unfounded` as one evidence item, so the plant's
@@ -285,10 +291,6 @@ class OverlayChecks:
         self.assertFalse(janus.query_once("context_entry(_,_,_,_,_)")["truth"])
         self.assertFalse(janus.query_once("context_seed(_,_,_)")["truth"])
         self.assertEqual(self.h._call("cached-base-rate", [f"{self.h.kb} (Cause $t)"]), ["((STV 0.3 0.9))"])
-
-
-class TestContextOverlay(OverlayChecks, unittest.TestCase):
-    threshold = 0
 
 
 class TestContextOverlayThreshold(OverlayChecks, unittest.TestCase):

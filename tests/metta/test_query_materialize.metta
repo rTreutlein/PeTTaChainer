@@ -43,13 +43,14 @@
 ;; The stated positive and negative branches were already stored privately.
 !(compileadd implicationMaterializeKb (: r (Implication (G) (Y))
    (CTV (STV 0.8 0.9) (STV 0.2 0.9))))
-!(let* (($before (list-len (collapse (match &kb
+!(test (let* (($before (list-len (collapse (match &kb
             ($_type (implicationMaterializeKb MAIN Nil) $_proof $_tv) true))))
           ((: $p $type (STV $s $c))
              (query-materialize 300 implicationMaterializeKb (: $q (Implication (G) (Y)) $tv)))
           ($after (list-len (collapse (match &kb
             ($_after-type (implicationMaterializeKb MAIN Nil) $_after-proof $_after-tv) true)))))
-   (test (and (== $s 0.8) (== $after $before)) true))
+      (and (== $s 0.8) (== $after $before)))
+   true)
 !(test (collapse (match &materialized_facts
    (materialized-row $_hash $_type (implicationMaterializeKb MAIN Nil) $_fact $_ev) true)) ())
 !(test (collapse (query 0 implicationMaterializeKb (: $p (Implication (G) (Y)) $tv)))

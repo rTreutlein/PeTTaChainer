@@ -333,6 +333,16 @@ def event_evaluate(kb, settings, execute):
     return {'kb': kb.to_json(), 'exact': exact, 'result': result, 'rows': rows, 'flags': flags, 'variants': variants}
 
 
+# Master's open BLOCKERs in the quick seed-1 lattice, (case, invariant): why.
+# With --gate the campaign fails on any other BLOCKER and on a listed one that
+# no longer occurs, so the fix that closes one removes it here.
+KNOWN = {
+    (f'leaf-report-{op}-1', 'flip'): 'a report on a compound over an STV rule consequent leaves the '
+                                     'premise at its prior .4 (unsupported STV model, ke2-review-codex.md)'
+    for op in ('And', 'Or', 'Not')
+}
+
+
 def event_campaign(args):
     """The event mode of the existing fuzzer; same worker and shrink module."""
     import time
@@ -372,6 +382,8 @@ def event_campaign(args):
     def process(kb):
         case = event_evaluate(kb, settings, execute)
         for index, flag in enumerate(case['flags']):
+            if args.gate and (kb.name, flag['invariant']) in KNOWN:
+                continue
             small, detail, attempts, minimal = shrink_event(kb, flag, settings, execute, 80 if args.long else 24)
             name = f'{kb.name}-{index}-{flag["invariant"]}'
             payload = {'kb': small.to_json(), 'flag': detail, 'attempts': attempts, 'one_minimal': minimal,
@@ -446,6 +458,10 @@ def event_campaign(args):
                'cases': len(cases), 'worker_runs': len(cache), 'violations': counts,
                'problog_cases': len(pl_results), 'problog_flagged': pl_bad,
                'settings': vars(settings), 'under_ten_minutes': seconds <= 600}
+    blockers = {(c['kb']['name'], f['invariant']) for c in cases for f in c['flags'] if f['severity'] == 'BLOCKER'}
+    if args.gate:
+        summary['gate'] = {'new': sorted(blockers - KNOWN.keys()), 'fixed': sorted(KNOWN.keys() - blockers)}
+        blockers = set(summary['gate']['new'] + summary['gate']['fixed'])
     (out/'cases.jsonl').write_text(''.join(json.dumps(c)+'\n' for c in cases))
     (out/'problog.json').write_text(json.dumps(pl_results, indent=1))
     (out/'summary.json').write_text(json.dumps(summary, indent=2))
@@ -453,7 +469,7 @@ def event_campaign(args):
              '| case | severity | invariant | expected | actual | repro |', '|---|---|---|---|---|---|']
     for c in cases:
         for f in c['flags']:
-            lines.append(f'| {c["kb"]["name"]} | {f["severity"]} | {f["invariant"]} | {f.get("expected", f.get("expected_at_least", ""))} | {f.get("actual", f.get("detail", ""))} | [repro](repros/{f["repro"]}.json) |')
+            lines.append(f'| {c["kb"]["name"]} | {f["severity"]} | {f["invariant"]} | {f.get("expected", f.get("expected_at_least", ""))} | {f.get("actual", f.get("detail", ""))} | {("[repro](repros/%s.json)" % f["repro"]) if "repro" in f else "known"} |')
     (out/'summary.md').write_text('\n'.join(lines)+'\n')
     print(json.dumps(summary, indent=2), flush=True)
-    return int(inputs_changed or any(f['severity'] == 'BLOCKER' for c in cases for f in c['flags']) or pl_bad > 0)
+    return int(inputs_changed or bool(blockers) or pl_bad > 0)

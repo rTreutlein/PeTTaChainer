@@ -141,14 +141,15 @@
     ((C x) (STV 0.9 0.9999000094583679))))
 ;; Positive reads of a forward-stored CTV retain its original evidence and
 ;; dependencies; the stored copy must not become a new observation.
-!(let* (($type (brand Statement (Implication (B x) (C x))))
+!(test (let* (($type (brand Statement (Implication (B x) (C x))))
         ($scope (kbctx forwardKb))
         ($key (sk-key $type $scope))
         ($hash (index-hash $key))
         (($fact $ev $deps) (match &sk_forward_stored ($hash $key $fact $ev $deps) (data $fact $ev $deps)))
         ($read (sk-read-fact (sk-filter $proof (STV $s $c)) $fact))
         ((sk-val $_read-fact $read-ev $read-deps) (sk-leaf-view $hash $read)))
-   (test ($read-ev $read-deps) ($ev $deps)))
+      (=alpha ($read-ev $read-deps) ($ev $deps)))
+   true)
 !(test (let (: $_proof $_type $tv)
    (query 0 forwardKb (: $p (Implication (B x) (C x)) $value)) $tv)
    (STV 0.9 0.999900009728684))
