@@ -12,7 +12,19 @@ variance s(1-s)/(n+1), represented as Beta(n s, n (1-s)). Shapes have a 1e-12
 lower bound; at zero confidence the propagated distribution is Bernoulli(s).
 
 In a conditional node, a root's stored counts are parameters. Each instantiated
-rule has separate parameters for its two branches. A stored report on a rule's
+rule has separate parameters for its two branches.
+
+Event bits and parameters have separate identities. A parameter is named by its
+estimate owner, never by its law: members whose empty root counts read one
+population prior share that population's rate, `population(pattern)` with the
+pattern alpha-renamed, and uses of one refined rule share its two branch rates,
+`rule(truth, branch)`. A statement's own counts, a stated application's
+branches and a uniform root stay local. Equal laws never merge owners; a
+repeated event is still one bit. The shared rate is the population centre the
+cavity reader returns (the count law of its tally; the ordinary reader's
+`bayes-prior-count` shrink is not applied here), so every member's rate is that
+centre. All reads of one graph use one cavity, so an owner has one law; a graph
+whose owner reads two laws is not built. A stored report on a rule's
 conclusion is an observation, rather than another parameter for that conclusion.
 An observation on event K multiplies each world by m when K holds and 1-m
 otherwise, with m = (n s + 1)/(n+2), or m = s at confidence one. Reports at
@@ -38,20 +50,24 @@ refreshes the parameter. With no samples refinement leaves the model unchanged.
 Every producer's rule identity accompanies the proof. Without observations,
 a family answers only when some root has source counts. Producer selection
 groups rule names in O(P log P), preserving installation order within each name.
-Before enumeration, independent roots with identical occurrence paths as
-same-polarity literals of the same And/Or are folded into one product parameter.
+Before enumeration, roots with identical occurrence paths as
+same-polarity literals of the same And/Or are folded into one block bit.
 Paths cover the goal, reports and all conditional parents, so a separately read
 root cannot fold, nor can roots used together under different connectives or
-polarities. Products (complemented for Or) retain exact rational first and second
-moments; no Beta approximation is introduced. Original source proofs, exclusions,
-subscriptions and dependencies remain attached to the unfolded model. The
-polynomial kernel therefore returns the same strength and variance bound as
-full enumeration. This does not assert equality of the full posterior variance
-integral, which the kernel bounds using only those moments.
+polarities. The block holds with the product of its parts' literals (all false
+for a complemented block), kept as an expression in their owners, so a rate a
+block shares with another block or a retained event keeps its powers. Original
+source proofs, exclusions, subscriptions and dependencies remain attached to the
+unfolded model. The polynomial kernel therefore returns the same strength and
+variance bound as full enumeration. This does not assert equality of the full
+posterior variance integral, which the kernel bounds.
 The graph admits at most twelve parameters after folding (one per folded atom
 and a second branch per conditional), checked when the plan is built. That
-bound governs enumeration, so overlapping reports with few occurrence
-signatures stay exact however many parts they share. Discovery and the unfolded
+bound governs enumeration and the polynomial alike: each bit contributes one of
+two factors (theta or 1-theta; a block's product or 1), so there are at most
+4,096 distinct monomials however often an owner recurs, and powers stay below
+twice the bit count. Overlapping reports with few occurrence signatures stay
+exact however many parts they share. Discovery and the unfolded
 model are only memory-guarded, at 256 visited statements and atoms. A key enters
 the graph once a query with budget needs or reads it, for one evaluation unit if
 it has a model then (a query's need admits its roots before evaluation spends
@@ -116,8 +132,10 @@ materialized values and forward copies.
 
 ## Posterior moments
 
-For independent parameters theta, terms are signed monomials
-`t(coefficient, literals, goal_ids)`. A literal selects theta_i or 1-theta_i.
+For independent parameters theta, terms are
+`t(coefficient, literals, goal_ids)`. A literal `Id-1` selects theta_Id and
+`Id-0` 1-theta_Id; a block literal `w(Literals)-1` is their product and
+`w(Literals)-0` its complement. One parameter may occur in several literals.
 Z sums all terms; N_g sums terms in which goal g holds. Coefficients are scaled
 by their largest absolute value. Zero normalization is inconsistent evidence
 and produces no answer.
@@ -125,18 +143,22 @@ and produces no answer.
 The parameter posterior is proportional to prior(theta) Z(theta). Its moments
 are:
 
-- s = E_prior[N_g]/E_prior[Z], exact by evaluation at the parameter means;
+- s = E_prior[N_g]/E_prior[Z];
 - V = E_prior[N_g^2/Z]/E_prior[Z] - s^2.
 
-The production kernel computes only closed-form polynomial moments. Literal
-terms are expanded into positive multilinear monomials, equal monomials are
-combined, and point parameters are folded into their coefficients. For each
-independent parameter, the first two moments are analytic: Beta(a,b) has
-mu=a/(a+b), m2=a(a+1)/((a+b)(a+b+1)); Bernoulli(p) has mu=m2=p.
-A pair of monomials contributes m2 for each shared parameter and mu for each
-parameter occurring in only one. Rational arithmetic over the supplied numeric
-inputs preserves polynomial cancellations and tiny endpoint variances; only
-the final square root and returned variance are floating point.
+The production kernel computes only closed-form polynomial moments. A monomial
+maps each parameter to its powers `c(T,F)` of theta and 1-theta; a literal adds
+one power, so negative literals are never expanded and independent parameters
+stay factored. Only a block's complement adds a monomial. Equal monomials are
+combined and point parameters are folded into their coefficients. Products add
+powers. A monomial's expectation is the product over its parameters of
+E[theta^T (1-theta)^F]: (a)_T (b)_F/(a+b)_(T+F) for Beta(a,b), from rising
+factorials up to twice the powers used; Bernoulli(p) gives p, 1-p, or 0 when
+both powers are positive. The strength is E[N]/E[Z] from the same polynomial,
+not N or Z at the parameter means, which repeated powers would bias. Rational
+arithmetic over the supplied numeric inputs preserves polynomial cancellations
+and tiny endpoint variances; only the final square root and returned variance
+are floating point.
 
 Let e=E[Z], s=E[N]/e, D=N-sZ, Q=E[D^2], T=Var(Z), and b=max(s,1-s), with
 expectations under the independent prior. The claimed variance is
@@ -159,7 +181,8 @@ by Cauchy-Schwarz. The Bernoulli variance is also an upper bound, so taking
 the smaller preserves conservativeness. This includes signed literal
 representations of valid event polynomials; it requires the event invariant
 0<=N<=Z, not nonnegative individual coefficients. It makes no independence
-assumption about the tilted posterior parameters.
+assumption about the tilted posterior parameters, nor about uses of one
+parameter.
 
 Separable messages retain their existing product-moment Beta parameter model
 and compile their affine likelihoods into this same polynomial kernel. Their

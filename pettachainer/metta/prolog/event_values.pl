@@ -157,8 +157,7 @@ literal_dist(Dists, ['Not', I], D) :- nth0(I, Dists, D0), complement_dist(D0, D)
 % Fold point parameters into the coefficient before polynomial moments. Worlds
 % with the same remaining monomial and goal can then be summed exactly.
 node_fixed_literal(Vars, Id-B, W0-L0, W-L) :-
-    memberchk(Id-Dist, Vars),
-    ( Dist = point(P)
+    ( memberchk(Id-point(P), Vars)
     -> ( B =:= 1 -> F = P ; F is 1 - P ), safe_log(F, LF), log_add(W0, LF, W), L = L0
     ; W = W0, L = [Id-B|L0] ).
 

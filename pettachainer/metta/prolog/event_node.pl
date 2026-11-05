@@ -1,12 +1,11 @@
 % Event-node semantics and numerical contracts: docs/metta/event_node_contract.md.
-:- module(event_node, [event_node_dist/5, event_node_moments/4, event_node_coupling/5, event_node_widen/6, dist_mean/2, event_node_product/3]).
+:- module(event_node, [event_node_dist/5, event_node_moments/4, event_node_coupling/5, event_node_widen/6, dist_mean/2]).
 :- autoload(library(simplex)).
 :- use_module(library(yall)).
 :- use_module(library(apply)).
 :- use_module(library(lists)).
 :- use_module(library(pairs)).
 :- use_module(library(assoc)).
-:- use_module(library(ordsets)).
 
 event_node_dist(_, S, C, _, point(S)) :- C >= 1.0, !.
 event_node_dist(stored, _, C, _, beta(1.0, 1.0)) :- C =< 0.0, !.
@@ -15,85 +14,127 @@ event_node_dist(view, S, C, _, bernoulli(S)) :- C =< 0.0, !.
 event_node_dist(view, S, C, K, beta(A, B)) :-
     N is K * C / (1 - C), A is max(1.0e-12, N * S), B is max(1.0e-12, N * (1 - S)).
 
-% Strength uses the existing multilinear evaluation. Confidence uses only
-% closed polynomial moments; the ratio bound is derived in the contract.
+% One polynomial gives strength and confidence. A literal Id-Bit reads theta
+% or 1-theta of parameter Id, and w(Literals)-Bit their product or its
+% complement. A parameter used repeatedly keeps its powers: a monomial maps
+% each parameter to c(T, F), its powers of theta and of 1-theta.
 event_node_moments(Vars, Terms0, Goals, Answers) :-
     foldl([t(C, _, _), M0, M]>>(M is max(M0, abs(C))), Terms0, 0.0, Scale),
     (   Scale =:= 0.0
     ->  Answers = inconsistent
-    ;   maplist(scaled_term(Scale), Terms0, Terms),
-        pairs_keys_values(Vars, Ids, Dists), maplist(dist_mean, Dists, Means),
-        pairs_keys_values(MuPairs, Ids, Means), list_to_assoc(MuPairs, Mu),
-        forms(Terms, Goals, Mu, Z0, Ns),
-        (   Z0 =< 0.0
-        ->  Answers = inconsistent
-        ;   maplist(constant_goal(Terms), Goals, Answers) -> true
-        ;   maplist(parameter_moments, Vars, Moments), list_to_assoc(Moments, Stats),
-            polynomial(Stats, Terms, Z),
-            polynomial_product(Stats, Z, [[]-1], EZ),
-            polynomial_product(Stats, Z, Z, EZ2),
-            ZVar is EZ2 - EZ * EZ,
-            maplist(polynomial_answer(Stats, Terms, Z, EZ, EZ2, ZVar, Z0), Goals, Ns, Answers) ) ).
+    ;   maplist(scaled_term(Scale), Terms0, Terms), list_to_assoc(Vars, Dists),
+        polynomial(Dists, Terms, Z),
+        maplist({Dists, Terms}/[Goal, N]>>( include({Goal}/[t(_, _, Hits)]>>memberchk(Goal, Hits), Terms, GoalTerms),
+                                           polynomial(Dists, GoalTerms, N) ), Goals, Ns),
+        foldl([P, L0, L]>>(length(P, LP), L is max(L0, LP)), [Z|Ns], 0, Largest),
+        % Paired moments visit every pair of monomials: refuse beyond 2^20 pairs.
+        (   Largest * Largest > 1 << 20
+        ->  Answers = unaffordable
+        ;   append([Z|Ns], Monomials), pairs_keys(Monomials, Keys), append(Keys, Uses),
+            findall(Id-Stat, ( member(Id-Dist, Vars), Dist \= point(_), parameter_stat(Uses, Id, Dist, Stat) ), Stats0),
+            list_to_assoc(Stats0, Stats),
+            expectation(Stats, Z, [[]-1], EZ),
+            (   EZ =< 0
+            ->  Answers = inconsistent
+            ;   maplist(constant_goal(Terms), Goals, Answers) -> true
+            ;   expectation(Stats, Z, Z, EZ2), ZVar is EZ2 - EZ * EZ,
+                maplist(polynomial_answer(Stats, Z, EZ, EZ2, ZVar), Ns, Answers) ) ) ).
 
 scaled_term(Scale, t(C0, Lits, Gs), t(C, Lits, Gs)) :- C is C0 / Scale.
 dist_mean(point(X), X).
 dist_mean(bernoulli(M), M).
 dist_mean(beta(A, B), M) :- M is A / (A + B).
-dist_mean(moments(M, _), M).
 
-event_node_product(Dists, Complement, moments(M, M2)) :-
-    foldl({Complement}/[D, A-B, X-Y]>>(
-        parameter_moments(_-D, _-m(U, V)),
-        ( Complement == true -> X is A*(1-U), Y is B*(1-2*U+V)
-        ; X is A*U, Y is B*V )), Dists, 1-1, M-M2).
+% E[theta^T (1-theta)^F] up to twice the powers used, so products of two
+% polynomials stay exact: for a Beta, rising factorials of a, b and a+b.
+parameter_stat(Uses, Id, Dist, Stat) :-
+    foldl({Id}/[I-c(U, G), T0-F0, T1-F1]>>( I == Id -> T1 is max(T0, U), F1 is max(F0, G) ; T1-F1 = T0-F0 ),
+          Uses, 0-0, T-F),
+    Tm is 2 * T, Fm is 2 * F, TFm is Tm + Fm,
+    (   Dist = beta(A0, B0)
+    ->  A is rational(A0), B is rational(B0), AB is A + B,
+        rising(A, Tm, RA), rising(B, Fm, RB), rising(AB, TFm, RAB), Stat = beta(RA, RB, RAB)
+    ;   Dist = bernoulli(P0), P is rational(P0), Stat = bernoulli(P) ).
 
-% Rational arithmetic keeps polynomial cancellation exact, including small
-% endpoint complements and concentrated stationary interactions.
-parameter_moments(Id-D, Id-m(M, M2)) :-
-    ( D = moments(M, M2) -> true
-    ; D = beta(A0, B0)
-    -> A is rational(A0), B is rational(B0), T is A + B,
-       M is A rdiv T, M2 is (A * (A + 1)) rdiv (T * (T + 1))
-    ; D = bernoulli(P) -> M is rational(P), M2 = M
-    ; D = point(P), M is rational(P), M2 is M * M ).
+rising(X, N, V) :-
+    findall(I, between(1, N, I), Is), foldl({X}/[I, [R|Rs], [R1, R|Rs]]>>(R1 is R * (X + I - 1)), Is, [1], Rev),
+    reverse(Rev, L), V =.. [r|L].
 
-% Expand negative literals, fold points, and collect equal positive monomials.
-polynomial(Stats, Terms, Poly) :-
+power(beta(RA, RB, RAB), T, F, X) :-
+    T1 is T + 1, F1 is F + 1, TF is T + F + 1,
+    arg(T1, RA, A), arg(F1, RB, B), arg(TF, RAB, C), X is A * B rdiv C.
+power(bernoulli(P), T, F, X) :- ( T > 0, F > 0 -> X = 0 ; T > 0 -> X = P ; F > 0 -> X is 1 - P ; X = 1 ).
+
+% Terms as signed monomials; equal monomials are collected. Points fold into
+% coefficients, so only an expression's complement adds a monomial.
+polynomial(Dists, Terms, Poly) :-
     findall(Key-C,
             ( member(t(C0, Lits, _), Terms), R is rational(C0),
-              foldl(expand_literal(Stats), Lits, [[]-R], Expanded),
-              member(Ids-C, Expanded), msort(Ids, Key) ), Pairs),
+              foldl(expand_literal(Dists), Lits, [[]-R], Expanded), member(Key-C, Expanded) ), Pairs),
+    collected(Pairs, P0),
+    findall(Id, ( gen_assoc(Id, Dists, Dist), Dist \= point(_) ), Ids),
+    foldl(complements, Ids, P0, Poly).
+
+collected(Pairs, Poly) :-
     keysort(Pairs, Sorted), group_pairs_by_key(Sorted, Groups),
     findall(Key-C, (member(Key-Cs, Groups), sum_list(Cs, C), C =\= 0), Poly).
 
-expand_literal(Stats, Id-Bit, P0, P) :-
-    get_assoc(Id, Stats, m(M, M2)),
-    (   M2 =:= M * M
-    ->  ( Bit =:= 1 -> X = M ; X is 1 - M ),
-        maplist({X}/[K-C0, K-C]>>(C is C0 * X), P0, P)
-    ;   Bit =:= 1
-    ->  maplist({Id}/[K-C, [Id|K]-C]>>true, P0, P)
-    ;   maplist({Id}/[K-C0, [Id|K]-C]>>(C is -C0), P0, Negative), append(P0, Negative, P) ).
+% theta + (1-theta) = 1: monomials alike but for one more theta against one
+% more 1-theta of parameter Id, at one coefficient, are one monomial. So
+% independent parameters stay factored: a full partition of them is one term.
+complements(Id, P0, P) :-
+    maplist({Id}/[K-C, (R-C)-E]>>( selectchk(Id-E, K, R) -> true ; E = c(0, 0), R = K ), P0, Split),
+    keysort(Split, Sorted), group_pairs_by_key(Sorted, Groups),
+    findall(K-C, ( member((R-C)-Es, Groups), complement_powers(Es, Ms), member(E, Ms),
+                   ( E == c(0, 0) -> K = R ; monomial_product(R, [Id-E], K) ) ), P1),
+    collected(P1, P).
 
-% E[fg]: a shared parameter contributes its second moment; all other
-% parameters contribute their means. This is exact for multilinear f and g.
-polynomial_product(Stats, A, B, E) :-
+complement_powers(Es, Ms) :-
+    (   select(c(T1, F), Es, Rest), T1 > 0, T is T1 - 1, F1 is F + 1, selectchk(c(T, F1), Rest, Rest1)
+    ->  complement_powers([c(T, F)|Rest1], Ms)
+    ;   Ms = Es ).
+
+expand_literal(Dists, w(Lits)-0, P0, P) :- !,
+    literal_factor(Dists, w(Lits)-1, C, M),
+    NC is -C, Complement is 1 - C,
+    ( M == [] -> Factor = [[]-Complement] ; Factor = [[]-1, M-NC] ),
+    findall(K-X, ( member(K0-X0, P0), member(K1-X1, Factor), monomial_product(K0, K1, K), X is X0 * X1 ), P).
+expand_literal(Dists, Lit, P0, P) :-
+    literal_factor(Dists, Lit, C, M),
+    maplist({C, M}/[K0-X0, K-X]>>( monomial_product(K0, M, K), X is X0 * C ), P0, P).
+
+% A literal that is one product: coefficient C times monomial M.
+literal_factor(Dists, w(Lits)-1, C, M) :- !,
+    foldl({Dists}/[L, C0-M0, C1-M1]>>( literal_factor(Dists, L, X, K), C1 is C0 * X, monomial_product(M0, K, M1) ),
+          Lits, 1-[], C-M).
+literal_factor(Dists, Id-Bit, C, M) :-
+    get_assoc(Id, Dists, Dist),
+    (   Dist = point(P0)
+    ->  P is rational(P0), M = [], ( Bit =:= 1 -> C = P ; C is 1 - P )
+    ;   C = 1, ( Bit =:= 1 -> M = [Id-c(1, 0)] ; M = [Id-c(0, 1)] ) ).
+
+monomial_product([], B, B) :- !.
+monomial_product(A, [], A) :- !.
+monomial_product([I-c(T1, F1)|As], [J-c(T2, F2)|Bs], M) :-
+    compare(Order, I, J),
+    (   Order == (=) -> T is T1 + T2, F is F1 + F2, M = [I-c(T, F)|Ms], monomial_product(As, Bs, Ms)
+    ;   Order == (<) -> M = [I-c(T1, F1)|Ms], monomial_product(As, [J-c(T2, F2)|Bs], Ms)
+    ;   M = [J-c(T2, F2)|Ms], monomial_product([I-c(T1, F1)|As], Bs, Ms) ).
+
+% E[AB] under the independent parameter laws: each product monomial is a
+% product over its parameters of their power moments.
+expectation(Stats, A, B, E) :-
     foldl({Stats, B}/[Ka-Ca, E0, E1]>>
           foldl({Stats, Ka, Ca}/[Kb-Cb, V0, V]>>
-                ( Product is Ca * Cb, ord_union(Ka, Kb, Union), ord_intersection(Ka, Kb, Shared),
-                  foldl({Stats, Shared}/[Id, W0, W]>>
-                        ( get_assoc(Id, Stats, m(M, M2)),
-                          ( memberchk(Id, Shared) -> W is W0 * M2 ; W is W0 * M ) ),
-                        Union, Product, Weight),
+                ( monomial_product(Ka, Kb, K),
+                  foldl({Stats}/[Id-c(T, F), W0, W]>>( get_assoc(Id, Stats, S), power(S, T, F, X), W is W0 * X ),
+                        K, Ca * Cb, Weight),
                   V is V0 + Weight ), B, E0, E1), A, 0, E).
 
-polynomial_answer(Stats, Terms, Z, EZ, EZ2, ZVar, Z0, Goal, N0, a(S, V, Kind)) :-
-    S is N0 / Z0,
-    include({Goal}/[t(_, _, Hits)]>>memberchk(Goal, Hits), Terms, GoalTerms),
-    polynomial(Stats, GoalTerms, N),
-    polynomial_product(Stats, N, [[]-1], EN),
-    polynomial_product(Stats, N, N, EN2), polynomial_product(Stats, N, Z, ENZ),
-    Center is EN rdiv EZ,
+polynomial_answer(Stats, Z, EZ, EZ2, ZVar, N, a(S, V, Kind)) :-
+    expectation(Stats, N, [[]-1], EN),
+    expectation(Stats, N, N, EN2), expectation(Stats, N, Z, ENZ),
+    Center is EN rdiv EZ, S is float(Center),
     Q is EN2 - 2 * Center * ENZ + Center * Center * EZ2,
     Bound is (Q + max(Center, 1 - Center) * sqrt(ZVar * Q)) / (EZ * EZ),
     V is float(min(Center * (1 - Center), Bound)),
@@ -103,20 +144,6 @@ polynomial_answer(Stats, Terms, Z, EZ, EZ2, ZVar, Z0, Goal, N0, a(S, V, Kind)) :
 constant_goal(Terms, Goal, a(S, 0.0, exact)) :-
     ( forall(member(t(C, _, Hits), Terms), (C =:= 0 ; memberchk(Goal, Hits))) -> S = 1.0
     ; forall(member(t(C, _, Hits), Terms), (C =:= 0 ; \+ memberchk(Goal, Hits))), S = 0.0 ).
-
-% Z and each goal's N at the parameters Theta (an assoc).
-forms(Terms, Goals, Theta, Z, Ns) :-
-    maplist([_, 0.0]>>true, Goals, Zero),
-    foldl(add_term(Goals, Theta), Terms, 0.0-Zero, Z-Ns).
-
-add_term(Goals, Theta, t(Coef, Lits, Gs), Z0-N0, Z-N) :-
-    foldl(lit_value(Theta), Lits, Coef, W),
-    Z is Z0 + W,
-    maplist({Gs, W}/[Goal, A, B]>>( memberchk(Goal, Gs) -> B is A + W ; B = A ), Goals, N0, N).
-
-lit_value(Theta, Id-Bit, P0, P) :-
-    get_assoc(Id, Theta, X),
-    ( Bit =:= 1 -> P is P0 * X ; P is P0 * (1 - X) ).
 
 event_node_coupling(Ps, _, _, _, interval(0.0, 1.0)) :- length(Ps, J), J > 4, !.
 event_node_coupling(Ps, Pairs, Lambdas0, Goal, Result) :-

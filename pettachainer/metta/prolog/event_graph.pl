@@ -17,11 +17,12 @@
         'premise-evidence-overlap?'(Ev, Evidence, false),
         'evidence-union'(Ev, Evidence, Cavity),
         maplist(graph_parameter(Scope, Cavity, Exclude), Models, Groups, Priors),
-        append(Groups, Vars),
-        graph_fold(Models, Factors, Goal, Vars, Folded, FoldedFactors, FoldedGoal, FoldedVars),
+        append(Groups, Uses), pairs_keys_values(Uses, Ids, Laws), pairs_keys(Laws, Owners),
+        pairs_keys_values(Bindings, Ids, Owners), sort(Laws, Params), pairs_keys(Params, Keys), sort(Keys, Keys),
+        graph_fold(Models, Factors, Goal, Bindings, Folded, FoldedFactors, FoldedGoal, FoldedBindings),
         findall(P-D, member(['sk-val', [_, _, P, _], _, D], Priors), PDs),
         pairs_keys_values(PDs, Ps, Ds), append(Proofs, Ps, All), 'deps-join'([D0|Ds], Deps),
-        graph_answer(Key, Folded, FoldedFactors, FoldedGoal, FoldedVars, TV), TV \== unpaid,
+        graph_answer(Key, Folded, FoldedFactors, FoldedGoal, FoldedBindings-Params, TV), TV \== unpaid,
         ( TV == inconsistent
         -> 'sk-open-filter?'(Filter, true), Candidate = 'sk-none'
         ; TV = ['STV', S, _], (S =:= 0 ; S =:= 1),
@@ -73,11 +74,14 @@ graph_model(['sk-key', Goal, Scope], Observed, Watched, Stamp, graph(Models, Fac
         ; member(model(_, conditional(Parent, _, _, base), _), Models), node_formula(Parent, _, [], As),
           member(A, As), memberchk(model(A, root, [_|_]), Models) ),
         % Enumeration is bounded after folding: twelve parameters, one per folded
-        % atom and a second branch per conditional, so also twelve atoms.
+        % atom and a second branch per conditional whose parent can vary, so also
+        % twelve atoms. A certain root outside the blocks is not enumerated.
         graph_blocks(Models, Factors, Goal, Blocks),
-        foldl([_-Ts, N0, N]>>(length(Ts, L), N is N0 + L - 1), Blocks, 0, Folded),
+        pairs_values(Blocks, Tss), append(Tss, Blocked), length(Blocks, NB),
+        include({Models, Blocked}/[model(T, M, _)]>>( M = conditional(P, _, _, _) -> \+ graph_fixed(P, Models, _)
+                                                    ; \+ memberchk(T, Blocked), \+ graph_fixed(T, Models, _) ), Models, Varying),
         include([model(_, conditional(_, _, _, _), _)]>>true, Models, Conditionals),
-        length(Models, NM), length(Conditionals, NC), NM - Folded + NC =< 12.
+        length(Varying, NV), length(Conditionals, NC), NV + NB + NC =< 12.
 
 % A compound already settled by its root inputs carries no information about
 % its remaining parts. Keep a zero-weight factor so contradictions still fail.
@@ -160,9 +164,9 @@ graph_blocks(Models, Factors, Goal, Blocks) :-
     keysort(Pairs, Sorted), group_pairs_by_key(Sorted, Groups),
     include([_-[_,_|_]]>>true, Groups, Blocks).
 
-graph_fold(Models, Factors, Goal, Vars, Folded, Fs, G, Vs) :-
+graph_fold(Models, Factors, Goal, Bindings, Folded, Fs, G, Bs) :-
     graph_blocks(Models, Factors, Goal, Blocks),
-    foldl(graph_block, Blocks, state(Models,Vars,[]), state(Ms,Vs,Map)),
+    foldl(graph_block, Blocks, state(Models,Bindings,[]), state(Ms,Bs,Map)),
     maplist({Map}/[model(T,P,_),model(T,Q,[])]>>(
         P=conditional(A,_,_,_) -> graph_formula(Map,A,B), Q=conditional(B,[],[],[]) ; Q=P), Ms, Folded),
     maplist({Map}/[[T,_,_,TV],[U,[],[],TV]]>>graph_formula(Map,T,U), Factors, Fs),
@@ -175,11 +179,12 @@ graph_occurrence(T, F, Path, Signature) :-
       ; C == ['Not',T] -> Signature=Path-(H-0)
       ; graph_occurrence(T,C,[I|Path],Signature) ) ).
 
-graph_block([_-(H-B)|_]-Ts, state(M0,V0,Map0), state([model(Block,root,[])|Ms],[Block-Dist|Vs],Map)) :-
+% A block's bit holds with the product of its parts' literals, kept in their
+% parameters: a parameter read elsewhere, or twice, keeps its powers.
+graph_block([_-(H-B)|_]-Ts, state(M0,V0,Map0), state([model(Block,root,[])|Ms],[Block-w(Lits)|Vs],Map)) :-
     Block=block(Ts),
-    findall(D, (member(T,Ts),memberchk(T-D,V0)), Dists),
-    ( (H-B == 'And'-0 ; H-B == 'Or'-1) -> Complement=true ; Complement=false ),
-    event_node_product(Dists, Complement, Dist),
+    ( (H-B == 'And'-0 ; H-B == 'Or'-1) -> Bit=0 ; Bit=1 ),
+    findall(O-Bit, (member(T,Ts),memberchk(T-O,V0)), Lits),
     ( H == 'Or' -> Replacement=['Not',Block] ; Replacement=Block ),
     findall(T-R, (member(T,Ts),( B=:=0 -> R=['Not',Replacement] ; R=Replacement )), Added),
     exclude({Ts}/[model(T,_,_)]>>memberchk(T,Ts), M0, Ms),
@@ -190,23 +195,32 @@ graph_formula(Map, F, G) :-
     ; F=[H|Cs], (connective_head(H) ; H == 'Not') -> maplist(graph_formula(Map),Cs,Ds), sort(Ds,Es), G=[H|Es]
     ; G=F ).
 
-graph_parameter(Scope, Ev, Exclude, model(Type, root, Facts), [Type-Dist], Prior) :-
+% Each use maps an event bit to its parameter's owner and law. Members read
+% from one population prior share its rate; uses of one refined rule share
+% its branch rates. Every read has the same cavity, so an owner has one law.
+% A statement's own counts and an application's stated branches stay local.
+graph_parameter(Scope, Ev, Exclude, model(Type, root, Facts), [Type-(Owner-Dist)], Prior) :-
     ( Facts == [] -> 'sk-part-prior'(['sk-key', Type, Scope], Ev, Exclude, Prior) ; Prior = 'sk-none' ),
     ( Facts == [], Prior == 'sk-none', Scope = [KB|_], 'positive-only-pattern?'(KB, Type, true) -> fail ; true ),
-    ( Prior = ['sk-val', [_, _, _, TV], _, _] -> TV = ['STV', S, C]
+    ( Prior = ['sk-val', [_, _, Proof, TV], _, _] -> TV = ['STV', S, C],
+      'sk-step-proof'(Proof, ['population-prior', Pattern]), graph_owner(population(Pattern), Owner)
     ; foldl([[_T, _C, _P, T], T0, T1]>>'revision-merge-tv'(T0, T, T1), Facts,
-            ['STV', 0.5, 0.0], ['STV', S, C]) ),
+            ['STV', 0.5, 0.0], ['STV', S, C]), Owner = Type ),
     'evidence-confidence-k'(K), event_node_dist(stored, S, C, K, Dist).
 graph_parameter(Scope, _, Exclude, model(Type, conditional(_, _, ['rule-truth', Truth], refined), _),
-                [branch(Type, 1)-D1, branch(Type, 0)-D0], Value) :-
+                [branch(Type, 1)-(O1-D1), branch(Type, 0)-(O0-D0)], Value) :-
     'sk-value'(['sk-key', Truth, Scope], 'sk-any-filter', Exclude, Value),
     Value = ['sk-val', [_, _, _, ['CTV', ['STV', S1, C1], ['STV', S0, C0]]], _, _],
+    graph_owner(rule(Truth, 1), O1), graph_owner(rule(Truth, 0), O0),
     'evidence-confidence-k'(K), event_node_dist(stored, S1, C1, K, D1), event_node_dist(stored, S0, C0, K, D0).
 graph_parameter(Scope, Ev, Exclude, model(Type, conditional(_, _, ['STV', S1, C1], Neg), _),
-                [branch(Type, 1)-D1, branch(Type, 0)-D0], Prior) :-
+                [branch(Type, 1)-(branch(Type, 1)-D1), branch(Type, 0)-Law0], Prior) :-
     'evidence-confidence-k'(K), event_node_dist(stored, S1, C1, K, D1),
-    ( Neg == base -> graph_parameter(Scope, Ev, Exclude, model(Type, root, []), [_-D0], Prior)
-    ; Neg = ['STV', S0, C0], event_node_dist(stored, S0, C0, K, D0), Prior = 'sk-none' ).
+    ( Neg == base -> graph_parameter(Scope, Ev, Exclude, model(Type, root, []), [_-Law0], Prior)
+    ; Neg = ['STV', S0, C0], event_node_dist(stored, S0, C0, K, D0), Law0 = branch(Type, 0)-D0, Prior = 'sk-none' ).
+
+% Alpha-renamed patterns name one owner.
+graph_owner(Term, Owner) :- copy_term_nat(Term, Owner), numbervars(Owner, 0, _).
 
 :- dynamic event_graph_memo/4.
 % A computed answer is a free read. A key is admitted to the graph once a
@@ -237,18 +251,22 @@ graph_answer(Key, Models, Factors, Goal, Vars, TV) :-
       ; TV = inconsistent, format(user_error, 'event-evidence-impossible: ~q~n', [Goal]) ),
       retractall(event_graph_memo(Hash, Key, _, _)), assertz(event_graph_memo(Hash, Key, Input, TV)) ).
 
-graph_moments(Models, Factors, Goal, Vars, TV) :-
-    graph_terms(Models, Factors, Goal, Vars, Terms),
-    event_node_moments(Vars, Terms, [1], [a(S, V0, Kind)]),
-    ( Kind == bound -> V = bound ; V = V0 ),
-    'evidence-confidence-k'(K), node_stv(K, S, V, TV).
+graph_moments(Models, Factors, Goal, Bindings-Params, TV) :-
+    graph_terms(Models, Factors, Goal, Bindings, Params, Terms),
+    event_node_moments(Params, Terms, [1], Answers),
+    % Unaffordable paired moments are refused like unpaid work.
+    ( Answers == unaffordable -> TV = unpaid
+    ; Answers = [a(S, V0, Kind)], ( Kind == bound -> V = bound ; V = V0 ),
+      'evidence-confidence-k'(K), node_stv(K, S, V, TV) ).
 
-graph_terms(Models, Factors, Goal, Vars, Terms) :-
+graph_terms(Models, Factors, Goal, Bindings, Params, Terms) :-
     findall(LW-Lits-Hits,
-            ( maplist([model(T, _, _), T-B]>>member(B, [0, 1]), Models, Bits),
+            ( maplist({Bindings, Params}/[model(T, M, _), T-B]>>(
+                  M == root, memberchk(T-O, Bindings), memberchk(O-point(P), Params), (P =:= 0 ; P =:= 1)
+                  -> B is integer(P) ; member(B, [0, 1]) ), Models, Bits),
               foldl(graph_factor(Bits), Factors, 0.0, LF), LF \== ninf,
-              maplist(graph_literal(Bits), Models, All),
-              foldl(node_fixed_literal(Vars), All, LF-[], LW-Lits), LW \== ninf,
+              maplist({Bits, Bindings}/[M, O-B]>>( graph_literal(Bits, M, Id-B), memberchk(Id-O, Bindings) ), Models, All),
+              foldl(node_fixed_literal(Params), All, LF-[], LW-Lits), LW \== ninf,
               ( graph_holds(Goal, Bits) -> Hits = [1] ; Hits = [] ) ), Worlds),
     Worlds \== [],
     foldl([LW-_-_, M0, M]>>(M is max(M0, LW)), Worlds, -1.0e300, Top),

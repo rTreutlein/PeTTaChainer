@@ -373,4 +373,4 @@
 !(compileadd refKb (: b-q (B q) (STV 1 1)))
 !(compileadd refKb (: c-q (C q) (STV 1 1)))
 !(test (query 2000 refKb (: $prf (A q) $tv))
-   (: (node (conjunction b-q c-q (by rC cpu) (population-prior (A $_0)) (merge/revision (implication-instance-fold cpu) (rule-axiom rC)))) (A q) (STV 0.8750000000025522 0.34294333601756133)))
+   (: (node (conjunction b-q c-q (by rC cpu) (population-prior (A $_0)) (merge/revision (implication-instance-fold cpu) (rule-axiom rC)))) (A q) (STV 0.8750000000025521 0.34294333601756155)))

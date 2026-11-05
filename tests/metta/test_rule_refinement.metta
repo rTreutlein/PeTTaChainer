@@ -168,7 +168,7 @@
 
 !(test
    (query 400 refineInvKb (: $p (P alice) $tv))
-   (: (node (conjunction qa (by r cpu) (population-prior (P $_0)) (merge/revision (rule-axiom r) (implication-instance-fold cpu)))) (P alice) (STV 0.8905767996309657 0.0031242495874902842)))
+   (: (node (conjunction qa (by r cpu) (population-prior (P $_0)) (merge/revision (rule-axiom r) (implication-instance-fold cpu)))) (P alice) (STV 0.8905767996309656 0.003124249587490288)))
 
 ;; --- A certain rule is not refined --------------------------------------------
 ;; Revision leaves a truth stated with confidence 1 unchanged, so the rule

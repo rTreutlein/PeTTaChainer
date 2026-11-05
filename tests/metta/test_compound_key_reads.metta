@@ -104,7 +104,7 @@
 !(compileadd orderKb (: x2 (X j) (STV 0.3 0.9)))
 !(compileadd orderKb (: a2 (A j) (STV 0.6 0.9)))
 !(compileadd orderKb (: b2 (B j) (STV 0.2 0.9)))
-!(test (let (: $_p $_t $tv) (query 2000 orderKb (: $p (V k) $tv)) $tv) (STV 0.5911997456448431 0.7999663161978653))
+!(test (let (: $_p $_t $tv) (query 2000 orderKb (: $p (V k) $tv)) $tv) (STV 0.5911997456448432 0.7999663161978652))
 !(test
    (posterior-tv-near? 0.7823994912896864 0.41289069125729083 (let (: $_p $_t $tv) (query 2000 orderKb (: $p (Or (A k) (B k)) $tv)) $tv))
    true)
@@ -123,7 +123,7 @@
 !(test
    (posterior-tv-near? 0.7823994912896864 0.41289069125729083 (let (: $_p $_t $tv) (query 2000 order2Kb (: $p (Or (A k) (B k)) $tv)) $tv))
    true)
-!(test (let (: $_p $_t $tv) (query 2000 order2Kb (: $p (V k) $tv)) $tv) (STV 0.5911997456448431 0.7999663161978653))
+!(test (let (: $_p $_t $tv) (query 2000 order2Kb (: $p (V k) $tv)) $tv) (STV 0.5911997456448432 0.7999663161978652))
 
 ;; A completion's consequence is no view derived from the compound it
 ;; completes. Here r1 and r2 read the Or, y observes Y, and rya concludes A.

@@ -12,22 +12,35 @@ class GraphFoldingTests(unittest.TestCase):
     def setUpClass(cls):
         cls.h = PeTTaChainer()
 
-    def compare(self, parents, goal, extra='[]', width=4):
+    def compare(self, parents, goal, extra='[]', width=4, owners=None):
+        """Folded and unfolded graphs agree. owners maps a root to a shared parameter owner."""
         roots = list('abcdefghi'[:width])
+        owners = owners or {}
         models = ','.join([f'model({t},root,[])' for t in roots] + [
             f"model(r{i},conditional({p},[],['STV',0.8,0.4],['STV',0.1,0.6]),[])" for i, p in enumerate(parents)])
         reports = ','.join(f"[r{i},s,rep{i},['STV',0.9,0.8]]" for i in range(len(parents)))
-        variables = ','.join([f'{t}-beta({i+1},{i+2})' for i, t in enumerate(roots)] + [
+        bindings = ','.join([f'{t}-{owners.get(t, t)}' for t in roots] + [
+            f'branch(r{i},{b})-branch(r{i},{b})' for i in range(len(parents)) for b in (1, 0)])
+        laws = {owners.get(t, t): f'beta({i+1},{i+2})' for i, t in reversed(list(enumerate(roots)))}
+        params = ','.join([f'{o}-{d}' for o, d in sorted(laws.items())] + [
             f'branch(r{i},1)-beta(3,2),branch(r{i},0)-beta(1,4)' for i in range(len(parents))])
-        case = f'input([{models}],[{reports}|{extra}],{goal},[{variables}])'
+        case = f'input([{models}],[{reports}|{extra}],{goal},[{bindings}],[{params}])'
         out = janus.query_once(
-            'term_string(input(_M,_F,_G,_V),Text),graph_moments(_M,_F,_G,_V,Before),'
-            'graph_fold(_M,_F,_G,_V,_Ms,_Fs,_Gs,_Vs),'
-            'graph_moments(_Ms,_Fs,_Gs,_Vs,After),length(_Ms,Size)', {'Text': case})
+            'term_string(input(_M,_F,_G,_B,_P),Text),graph_moments(_M,_F,_G,_B-_P,Before),'
+            'graph_fold(_M,_F,_G,_B,_Ms,_Fs,_Gs,_Bs),'
+            'graph_moments(_Ms,_Fs,_Gs,_Bs-_P,After),length(_Ms,Size)', {'Text': case})
         self.assertTrue(out['truth'])
         for a, b in zip(out['Before'][1:], out['After'][1:]):
             self.assertAlmostEqual(a, b, delta=1e-12)
         return out['Size']
+
+    def test_shared_owners_fold_like_full_enumeration(self):
+        # One population rate under every root: a goal literal outside the block, and two blocks.
+        shared = dict.fromkeys('abcdefg', 'p')
+        self.assertEqual(self.compare(["['And',a,b,c,d]"], 'a', owners=shared), 3)
+        self.assertEqual(self.compare(["['Or',['Not',b],['Not',c],d]"], 'r0', owners=shared), 4)
+        first, second = "['And',a,b,c,d,e]", "['And',c,d,e,f,g]"
+        self.assertEqual(self.compare([first, second], 'f', width=7, owners=shared), 6)
 
     def test_signed_and_or_blocks_match_full_world_enumeration(self):
         for head, negative in itertools.product(('And', 'Or'), (False, True)):
@@ -62,7 +75,7 @@ class GraphFoldingTests(unittest.TestCase):
             "model(r,conditional(a,[1-rule],['rule-truth',['RuleTruth',"
             "['Implication',['P',_X],['Q',_X]]]],refined),[])],"
             "[[r,s,_Report,['STV',1,1]]],a,"
-            "[a-beta(2,2),branch(r,1)-beta(3,2),branch(r,0)-beta(1,4)],_M,_F,_G,_V),"
+            "[a-a,branch(r,1)-rule(t,1),branch(r,0)-rule(t,0)],_M,_F,_G,_V),"
             "term_hash(_M-_F-_G-_V,_Hash),(integer(_Hash)->Indexed=1;Indexed=0)")
         self.assertEqual(result['Indexed'], 1)
 

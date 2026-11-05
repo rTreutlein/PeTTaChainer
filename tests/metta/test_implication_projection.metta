@@ -100,7 +100,7 @@
                (conditionals ($sibling-mean $sibling-variance) (0.0 0.0)))
             (conjunction b c)) A (STV $answer-s $answer-c))
       (query 100 evidenceKb (: $prf A $tv))
-      (and (posterior-tv-near? 0.9087531046647177 0.5094337286104271 (STV $answer-s $answer-c))
+      (and (posterior-tv-near? 0.9087531046647177 0.5094337286135985 (STV $answer-s $answer-c))
            (and (< (abs-math (- (the Number $sibling-mean) 0.9022625815702248)) 1e-12)
                 (< (abs-math (- (the Number $sibling-variance) 1.192811113370773e-05)) 1e-12))))
    true)

@@ -70,9 +70,9 @@
    (query 300 ev68ExplicitKb (: $p (Exists ($e) (And
       (AnnouncedBy $e Apple) (AnnouncedOn $e Date20200730) (Member $e StockSplit)
       (Implication (Implemented $e) (Not (Dilutes $e))))) $value)) $tv)
-   (STV 0.9990288568257489 0.0))
+   (STV 0.9990288568257488 0.0))
 !(test (let (: $_proof $_statement $tv)
    (query 300 ev68ExplicitKb (: $p (Exists ($e) (And
       (AnnouncedBy $e Apple) (AnnouncedOn $e Date20200730) (Member $e StockSplit)
       (Implication (Implemented $e) (Not (Dilutes $e))))) $value)) $tv)
-   (STV 0.9990288568257489 0.0))
+   (STV 0.9990288568257488 0.0))
