@@ -33,24 +33,28 @@
 ;; The public answers of a canonical root from those of its query root: each
 ;; negation complements the answer, negates its proof and wraps its public
 ;; statement; a ForAll answer is its rule's answer under the written binder.
-;; query-root reads the root's value unconstrained, so each public answer is
-;; matched here against the written statement and truth-value pattern
-;; together, keeping the variables they share; the match is a test on copies
-;; and binds nothing in the answer. A computation row answers no negation.
+;; Each public answer is matched against the written statement and
+;; truth-value pattern together, keeping the variables they share; the match
+;; is a test on copies and binds nothing in the answer. A computation row
+;; answers no negation.
 (: canonical-results (-[semidet]-> AnnotatedStatement (List RuntimeResult) (List RuntimeResult)))
-(= (canonical-results (: $_prf $type $tv) $results)
+(= (canonical-results (: $prf $type $tv) $results)
    (if (head-is? $type Not)
       (negated-results $type $tv
          (canonical-results (: $_inner-proof (car-atom (cdr-atom $type)) $_inner-tv) $results))
-      (foldr-flat (written-step $type $tv) ()
+      (foldr-flat (written-step $prf $type $tv) ()
          (if (head-is? $type ForAll) (map-semidet (forall-result $type) $results) $results))))
 
-(: written-step (-[det]-> Atom Atom RuntimeResult (List RuntimeResult) (List RuntimeResult)))
-(= (written-step $type $tv $result $kept)
+;; A reference proof (query-many-refs) is not matched: the read matched the
+;; written proof pattern against the proof it refers to.
+(: written-step (-[det]-> Atom Atom Atom RuntimeResult (List RuntimeResult) (List RuntimeResult)))
+(= (written-step $prf $type $tv $result $kept)
    (case $result (
       ((CPU $_fun $_args $_res) (cons $result $kept))
-      (($result-type $_kbctx $_proof $result-tv)
-         (if (= (copy_term (data $type $tv)) (copy_term (data $result-type $result-tv))) (cons $result $kept) $kept)))))
+      (($result-type $_kbctx $proof $result-tv)
+         (if (= (copy_term (data $prf $type (numeric-tv (the TV $tv))))
+                (copy_term (data (if (head-is? $proof proof-ref) $_any $proof) $result-type (numeric-tv (the TV $result-tv)))))
+            (cons $result $kept) $kept)))))
 
 ;; A written Member answers in its written form.
 (: written-results (-[semidet]-> Statement AnnotatedStatement (List RuntimeResult) (List RuntimeResult)))
@@ -64,7 +68,7 @@
       ((CPU $_fun $_args $_res) $kept)
       (($type $kbctx $proof $result-tv)
          (let $not-tv (NotFormula (the STVType $result-tv))
-            (if (= (copy_term (data $written $tv)) (copy_term (data (Not $type) $not-tv)))
+            (if (= (copy_term (data $written (numeric-tv (the TV $tv)))) (copy_term (data (Not $type) (numeric-tv $not-tv))))
                (cons (brand RuntimeResult (data (Not $type) $kbctx (negated $proof) $not-tv)) $kept)
                $kept))))))
 
@@ -72,19 +76,6 @@
 ;; over a parameter list, not over a function result.
 (: negated-results (-[det]-> Atom Atom (List RuntimeResult) (List RuntimeResult)))
 (= (negated-results $written $tv $results) (foldr-flat (negated-step $written $tv) () $results))
-
-;; A stored source's value reads its row (fact-source) or is named by it
-;; (unfounded); anything else the chainer computed. A computed point
-;; (confidence 1 from points) is reported at .9999, the zero-variance
-;; confidence of docs/metta/event_node_contract.md; a source keeps its stated 1.
-(: public-tv (-[det]-> Proof TV TV))
-(= (public-tv $proof $tv)
-   (if (if (is-expr $proof) (not (head-is? $proof fact-source)) false)
-      (case $tv (
-         ((STV $s $c) (if (>= $c 1.0) (STV $s 0.9999) $tv))
-         ((CTV (STV $s $c) $neg) (if (>= $c 1.0) (CTV (STV $s 0.9999) $neg) $tv))
-         ($_other $tv)))
-      $tv))
 
 ;; A result's value as published, its proof expanded if asked, each shared
 ;; subproof printed once.

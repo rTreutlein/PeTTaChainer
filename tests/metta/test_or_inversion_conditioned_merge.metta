@@ -63,14 +63,14 @@
             (LocalProblem current)
             (ProblemDependency current))
          $tv))
-   (: (factored-revision (conjunction localPrior dependencyPrior) (prior (STV 0.5199995299237528 0.9140621948732192)) ((by (bi-backward problemDefinition) ((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455297462 0.0036293575266414437))) currentAlarm)))) (Or (LocalProblem current) (ProblemDependency current)) (STV 0.9069765852904983 0.969201295422956)))
+   (: (factored-revision (conjunction localPrior dependencyPrior) (prior (STV 0.5199995299237528 0.9140621948732192)) ((by (bi-backward problemDefinition) ((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455297462 0.0036293575266414437))) currentAlarm)))) (Or (LocalProblem current) (ProblemDependency current)) (STV 0.9069765852904983 0.9692012954228434)))
 
 ;; The general Problem estimate can use both the definition and the alarm.
 ;; The base rates count the whole population, including the derived alarm.
 !(test
    (query 5000 orInversionConditionedMergeKb
       (: $proof (Problem current) $tv))
-   (: (factored-revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) (prior (STV 0.5199995299237528 0.9140621948732192)) (((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455297462 0.0036293575266414437))) currentAlarm))) (Problem current) (STV 0.9069765852904983 0.969201295422956)))
+   (: (factored-revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) (prior (STV 0.5199995299237528 0.9140621948732192)) (((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455297462 0.0036293575266414437))) currentAlarm))) (Problem current) (STV 0.9069765852904983 0.9692012954228434)))
 
 ;; LocalProblem is the event graph's posterior: the certain definition and the
 ;; alarm's likelihoods over the two stored roots, whose counts are read at
@@ -95,9 +95,9 @@
 !(compileadd atomEqKb (: h1Problem (Problem h1) (STV 1.0 1.0)))
 !(compileadd atomEqKb (: h2Problem (Problem h2) (STV 0.0 1.0)))
 !(test (query 2000 atomEqKb (: $proof (Local current) $tv))
-   (: (factored-revision (by srcRule src) (prior (STV 0.52 1.0)) ((by (bi-backward problemDefinition) ((inverted problemRaisesAlarm with cpu (prior (STV 0.50625 0.0037359900373599006))) currentAlarm)))) (Local current) (STV 0.9069767441860467 0.9999)))
+   (: (factored-revision (by srcRule src) (prior (STV 0.52 1.0)) ((by (bi-backward problemDefinition) ((inverted problemRaisesAlarm with cpu (prior (STV 0.50625 0.0037359900373599006))) currentAlarm)))) (Local current) (STV 0.9069767441860467 0.99999999999994)))
 !(test (query 2000 atomEqKb (: $proof (Problem current) $tv))
-   (: (factored-revision (by (bi-forward problemDefinition) (by srcRule src)) (prior (STV 0.52 1.0)) (((inverted problemRaisesAlarm with cpu (prior (STV 0.50625 0.0037359900373599006))) currentAlarm))) (Problem current) (STV 0.9069767441860467 0.9999)))
+   (: (factored-revision (by (bi-forward problemDefinition) (by srcRule src)) (prior (STV 0.52 1.0)) (((inverted problemRaisesAlarm with cpu (prior (STV 0.50625 0.0037359900373599006))) currentAlarm))) (Problem current) (STV 0.9069767441860467 0.99999999999994)))
 
 ;; The carry needs only a certain rule from Problem to Local, and an inversion
 ;; of Local's own leaves it as it is.
@@ -108,7 +108,7 @@
 !(compileadd impEqKb (: h1Problem (Problem h1) (STV 1.0 1.0)))
 !(compileadd impEqKb (: h2Problem (Problem h2) (STV 0.0 1.0)))
 !(compileadd impEqKb (: f1 (Implication (Problem current) (Local current)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
-!(test (let (: $_p $_t $tv) (query 2000 impEqKb (: $proof (Local current) $tv)) $tv) (STV 0.9069767441860467 0.9999))
+!(test (let (: $_p $_t $tv) (query 2000 impEqKb (: $proof (Local current) $tv)) $tv) (STV 0.9069767441860467 0.99999999999994))
 !(compileadd localAlarmKb (: src (Src current) (STV 1.0 1.0)))
 !(compileadd localAlarmKb (: srcRule (Implication (Src current) (Local current)) (CTV (STV 0.52 1.0) (STV 0.52 1.0))))
 !(compileadd localAlarmKb (: problemRaisesAlarm (Implication (Problem $unit) (Alarm $unit)) (CTV (STV 0.9 1.0) (STV 0.1 1.0))))
@@ -117,7 +117,7 @@
 !(compileadd localAlarmKb (: h2Problem (Problem h2) (STV 0.0 1.0)))
 !(compileadd localAlarmKb (: pd (BiImplication (Local current) (Problem current)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 !(compileadd localAlarmKb (: localAlarm (Implication (Local $u) (Alarm $u)) (CTV (STV 0.9 1.0) (STV 0.1 1.0))))
-!(test (let (: $_p $_t $tv) (query 2000 localAlarmKb (: $proof (Local current) $tv)) $tv) (STV 0.9069767441860465 0.9999))
+!(test (let (: $_p $_t $tv) (query 2000 localAlarmKb (: $proof (Local current) $tv)) $tv) (STV 0.9069767441860465 0.999999999999955))
 
 ;; Implications both ways: each carries the other's inversion.
 !(compileadd twoWayKb (: src (Src current) (STV 1.0 1.0)))
@@ -128,7 +128,7 @@
 !(compileadd twoWayKb (: h2Problem (Problem h2) (STV 0.0 1.0)))
 !(compileadd twoWayKb (: f1 (Implication (Problem current) (Local current)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 !(compileadd twoWayKb (: f2 (Implication (Local current) (Problem current)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
-!(test (let (: $_p $_t $tv) (query 2000 twoWayKb (: $proof (Local current) $tv)) $tv) (STV 0.9069767441860465 0.9999))
+!(test (let (: $_p $_t $tv) (query 2000 twoWayKb (: $proof (Local current) $tv)) $tv) (STV 0.9036009002250562 0.9999999999999536))
 
 ;; Current behaviour, as on master: two certain equivalences between Local and
 ;; Problem, a second BiImplication or the reverse one, give Local two

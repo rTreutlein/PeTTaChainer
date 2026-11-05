@@ -22,23 +22,15 @@
 ;; negation: its root reads s's canonical key, so it answers wherever s does,
 ;; at budget zero from a stored or materialized value too. A query of
 ;; (ForAll params rule) is the judgment of its rule (#142). The root is of
-;; the canonical statement, a written (Member x P) read as (P x) (#96). The
-;; written truth-value pattern selects the root's values, except that a
-;; written confidence .9999, which a computed point (confidence 1) is
-;; published at, is left open: the public answer is matched against the
-;; written pattern (canonical-results).
-(: root-read-tv (-[det]-> Atom Atom))
-(= (root-read-tv $tv)
-   (if (is-var $tv) $tv
-      (case $tv (((STV $s $c) (if (== $c 0.9999) (STV $s $_point) $tv)) ($_other $tv)))))
-
+;; the canonical statement, a written (Member x P) read as (P x) (#96). Its
+;; truth-value pattern selects published values (sk-pattern-matches?).
 (: query-root (-[det]-> AnnotatedStatement AnnotatedStatement))
 (= (query-root (: $prf $type $tv))
    (if (head-is? $type Not)
       (let ($key $_odd) (canon $type) (: $key-proof $key $key-tv))
       (if (head-is? $type ForAll)
-         (: $prf (brand Statement (car-atom (cdr-atom (cdr-atom $type)))) (root-read-tv $tv))
-         (: $prf $type (root-read-tv $tv)))))
+         (: $prf (brand Statement (car-atom (cdr-atom (cdr-atom $type)))) $tv)
+         (: $prf $type $tv))))
 
 ;; Each source statement is copied before compilation so variables cannot
 ;; become shared between roots in a batch. Compiler alternatives remain in

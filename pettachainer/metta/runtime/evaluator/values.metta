@@ -144,10 +144,7 @@
 ;; is view a's link plus view b's link over b's prior. Its link-scale variance
 ;; is a's, at least a's prior's, plus b's over b's prior: over one prior that
 ;; adds each view's update to the prior's variance once, and a view in the
-;; base rate's place keeps its own variance, however uncertain the rate. An
-;; update with no variance of its own (point likelihoods) differs from its
-;; prior's only by the rounding of their confidence round trips, which is no
-;; variance: a point stays a point.
+;; base rate's place keeps its own variance, however uncertain the rate.
 (: sk-link (-[det]-> Atom Number Number))
 (= (sk-link $link $p)
    (let $c (ideal-clip $p)
@@ -164,10 +161,8 @@
 (: sk-factored-tv (-[det]-> Atom Number Number Number Number Number Number Number Number STVType))
 (= (sk-factored-tv $link $spa $cpa $spb $cpb $sa $ca $sb $cb)
    (let* (($x (- (+ (sk-link $link $sa) (sk-link $link $sb)) (sk-link $link $spb)))
-          ($vb (sk-link-var $link $sb $cb))
-          ($update (- $vb (sk-link-var $link $spb $cpb)))
           ($v (+ (max (sk-link-var $link $sa $ca) (sk-link-var $link $spa $cpa))
-                 (if (<= $update (* 0.000000001 $vb)) 0.0 $update)))
+                 (max 0.0 (- (sk-link-var $link $sb $cb) (sk-link-var $link $spb $cpb)))))
           ;; Clip the log/variance calculation, not an exact posterior mean.
           ($s (if (== $link odds)
                  (if (or (certain-at? 0.0 $sa $ca) (certain-at? 0.0 $sb $cb)) 0.0

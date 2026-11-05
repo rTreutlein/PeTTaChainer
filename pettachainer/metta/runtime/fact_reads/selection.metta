@@ -32,6 +32,28 @@
       ((sk-filter $want-proof $want-tv)
          (let $read (sk-read-fact $filter $fact)
             (sk-pattern-matches? $want-proof $want-tv (copy_term $read)))))))
+;; A stored source's value reads its row (fact-source) or is named by it
+;; (unfounded); anything else the chainer computed. A computed point
+;; (confidence 1 from points) is reported at .9999, the zero-variance
+;; confidence of docs/metta/event_node_contract.md; a source keeps its stated 1.
+;; A truth value with its numbers as floats, so a written 1 matches a computed
+;; 1.0; variables stay as they are.
+(: numeric-tv (-[det]-> TV TV))
+(= (numeric-tv $tv)
+   (if (is-var $tv) $tv
+      (case $tv (
+         ((STV $s $c) (STV (if (is-var $s) $s (* 1.0 $s)) (if (is-var $c) $c (* 1.0 $c))))
+         ($_other $tv)))))
+
+(: public-tv (-[det]-> Proof TV TV))
+(= (public-tv $proof $tv)
+   (if (if (is-expr $proof) (not (head-is? $proof fact-source)) false)
+      (case $tv (
+         ((STV $s $c) (if (>= $c 1.0) (STV $s 0.9999) $tv))
+         ((CTV (STV $s $c) $neg) (if (>= $c 1.0) (CTV (STV $s 0.9999) $neg) $tv))
+         ($_other $tv)))
+      $tv))
+
 (: sk-pattern-matches? (-[det]-> Proof TV SkFact Bool))
 (= (sk-pattern-matches? $want-proof $want-tv ($type ($_kb $ctx $_vars) $got-proof $got-tv))
    ;; Executable Assuming seeds wake their applications, but supply no
@@ -43,7 +65,8 @@
            (if (head-is? $want-proof derived-implication)
               (let $step (sk-step-proof $got-proof) (head-is? $step by))
               (= (sk-full-proof $got-proof) $want-proof)))
-      (if (is-var $want-tv) true (= $got-tv $want-tv))
+      (if (is-var $want-tv) true
+         (if (= $got-tv $want-tv) true (= (numeric-tv (public-tv $got-proof $got-tv)) (numeric-tv $want-tv))))
       false)))
 (: sk-leaf-facts (-[det]-> Statement KBContext SkeletonFilter (List SkFact)))
 (= (sk-leaf-facts $type $kbctx $filter)
