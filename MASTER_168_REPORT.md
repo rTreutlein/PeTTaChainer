@@ -22,10 +22,18 @@ kernel shared with #106 (dp-106.md R1.3).
   - otherwise the statement, or `branch(Type,P)`.
   The graph checks that each owner has exactly one law. Folded blocks keep `w(literals)` expressed in their
   owners, instead of using product moments.
-- **The cap counts what is enumerated.** The 12-bit cap itself is unchanged.
-  - A certain root outside any block counts 0, because its bit is fixed from its point law.
-  - A conditional whose parent is certain counts 1 instead of 2.
+- **The cap counts what is enumerated** (cp4). The 12-bit cap itself is unchanged.
+  - One predicate, `graph_choices`, gives each bit's values, and both the bill and the enumerator use it.
+  - A bit is fixed when a certain observation on it decides it, or when its law is a certain endpoint. For a
+    root, that law comes from its revised sources (`graph_revised` plus `graph_fixed_law`), the same law its
+    parameter gets.
+  - The cap bills the bits that can still vary, with a block counting as one bit. That bounds both the worlds
+    and the monomials at 4,096.
   - As a result, refined 6- and 10-use KBs are now admitted.
+  - cp3 had a bug here: the bill fixed any root with a certain endpoint source, while the parameter revised all
+    sources. Two sources STV 1 1 and STV .2 1 revise to the point .6, so the bit was billed as fixed but
+    enumerated as varying, giving 2^24 worlds. Now `stress_certain_counts` is exact at (27/29)^n for every n up
+    to 12, in at most 0.3 s (new public test).
 
 ## Which latent is shared (review item 2)
 
@@ -46,9 +54,11 @@ kernel shared with #106 (dp-106.md R1.3).
   - b0 plan/input construction.
 - **Partition stress:** 12 independent owners answer in 0.30 s with exact s and V (base 4.0 s; cp1 timed out).
 - **verify.sh:** 7/7 PASS.
-- **compare --quick and --full against master:** both PASS. The only accuracy change is a 1e-17 shift in
-  fuzz/supplynet.
-- **Canary:** see below.
+- **compare --quick and --full against master (cp4):** both PASS.
+  - Accuracy changed in two cases: supplynet stage 1 b100 s3 (error .004954 → .005123, under the flag
+    threshold; Brier .01046 → .01031) and fuzz (−3e-18).
+  - The supplynet move comes from billing by bits, which admits more graphs.
+- **Canary** (`compare.sh anchor --canary`): PASS at cp3 and at cp4.
 
 ## Moved test values
 
@@ -66,7 +76,7 @@ fold test with shared owners.
 
 ## Limits
 
-- **Net core tokens +1,227 (cl100k).** This is over #168's +800 ceiling and inside the shared #106/#168 +4,000
+- **Net core tokens about +1,408 (cl100k).** This is over #168's +800 ceiling and inside the shared #106/#168 +4,000
   ceiling (R1.5). No admission system was added.
 - **Inherited follow-ups, left alone:**
   - The cavity reader takes the first prior fold in installation order. A ground pattern such as `(P a0)` then

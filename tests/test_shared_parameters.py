@@ -124,6 +124,21 @@ class SharedPopulationRateTests(unittest.TestCase):
                 if not informative:
                     self.assertAlmostEqual(tv[2], float(confidence(p, moment(3, 3, 2 * n) - p * p)), delta=1e-9)
 
+    def test_revised_certain_sources_are_billed_as_their_law(self):
+        # Two certain sources revise to the point .6: a varying bit, not a fixed one. Each
+        # certain report fixes its own bit, so twelve pairs enumerate twelve bits:
+        # P(A_i | B_i) = .54/.58 = 27/29, independent across pairs.
+        n = 12
+        roots = [f'(A{i} now)' for i in range(n)]
+        h = PeTTaChainer()
+        h.set_evidence_confidence_k(K)
+        h.add_atoms_no_check([a for i, r in enumerate(roots) for a in (
+            f'(: one{i} {r} (STV 1 1))', f'(: fraction{i} {r} (STV 0.2 1))',
+            f'(: rule{i} (Implication {r} (B{i} now)) (CTV (STV 0.9 1) (STV 0.1 1)))',
+            f'(: report{i} (B{i} now) (STV 1 1))')])
+        [[tv]] = answers(h, ['(And ' + ' '.join(roots) + ')'])
+        self.assertAlmostEqual(tv[1], float(F(27, 29) ** n), delta=1e-12)
+
     def test_equal_shapes_and_repeated_events_do_not_alias(self):
         # Two populations with equal Beta(2,2) laws stay independent: s=1/4, V=11/400.
         h = PeTTaChainer()

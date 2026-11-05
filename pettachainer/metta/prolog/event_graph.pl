@@ -73,15 +73,14 @@ graph_model(['sk-key', Goal, Scope], Observed, Watched, Stamp, graph(Models, Fac
         ( Factors \== [] ; memberchk(model(Goal, root, [_]), Models)
         ; member(model(_, conditional(Parent, _, _, base), _), Models), node_formula(Parent, _, [], As),
           member(A, As), memberchk(model(A, root, [_|_]), Models) ),
-        % Enumeration is bounded after folding: twelve parameters, one per folded
-        % atom and a second branch per conditional whose parent can vary, so also
-        % twelve atoms. A certain root outside the blocks is not enumerated.
+        % Enumeration is bounded after folding: at most twelve bits that can
+        % vary, so 4,096 worlds and as many monomials. A block is one bit.
         graph_blocks(Models, Factors, Goal, Blocks),
         pairs_values(Blocks, Tss), append(Tss, Blocked), length(Blocks, NB),
-        include({Models, Blocked}/[model(T, M, _)]>>( M = conditional(P, _, _, _) -> \+ graph_fixed(P, Models, _)
-                                                    ; \+ memberchk(T, Blocked), \+ graph_fixed(T, Models, _) ), Models, Varying),
-        include([model(_, conditional(_, _, _, _), _)]>>true, Models, Conditionals),
-        length(Varying, NV), length(Conditionals, NC), NV + NB + NC =< 12.
+        include({Models, Blocked, Factors}/[model(T, M, _)]>>(
+                    \+ memberchk(T, Blocked), ( M == root, graph_fixed(T, Models, B) -> true ; true ),
+                    graph_choices(T, B, Factors, [_, _]) ), Models, Varying),
+        length(Varying, NV), NV + NB =< 12.
 
 % A compound already settled by its root inputs carries no information about
 % its remaining parts. Keep a zero-weight factor so contradictions still fail.
@@ -97,9 +96,23 @@ graph_fixed(['And'|Ts], Models, B) :- !,
 graph_fixed(['Or'|Ts], Models, B) :- !,
     ( member(T, Ts), graph_fixed(T, Models, 1) -> B = 1
     ; maplist({Models}/[T]>>graph_fixed(T, Models, 0), Ts), B = 0 ).
+% A root is fixed when the law of its revised sources is a certain endpoint:
+% the law its parameter has, so the cap bills what the enumerator expands.
 graph_fixed(T, Models, B) :-
-    memberchk(model(T, root, Fs), Models), member([_, _, _, ['STV', S, C]], Fs), C >= 1,
-    ( S =:= 0 -> B = 0 ; S =:= 1, B = 1 ).
+    memberchk(model(T, root, Fs), Models), Fs \== [], graph_revised(Fs, ['STV', S, C]),
+    'evidence-confidence-k'(K), event_node_dist(stored, S, C, K, Law), graph_fixed_law(Law, B).
+
+graph_fixed_law(point(P), B) :- ( P =:= 0 -> B = 0 ; P =:= 1, B = 1 ).
+
+% A bit's values: one when a certain observation on it or its law (Fixed)
+% decides it, else both. The cap bills and the enumerator expands these.
+graph_choices(T, Fixed, Factors, Bs) :-
+    (   member([F, _, _, ['STV', S, C]], Factors), F == T, C >= 1, (S =:= 0 ; S =:= 1) -> B is integer(S), Bs = [B]
+    ;   nonvar(Fixed) -> Bs = [Fixed]
+    ;   Bs = [0, 1] ).
+
+graph_revised(Facts, TV) :-
+    foldl([[_T, _C, _P, T], T0, T1]>>'revision-merge-tv'(T0, T, T1), Facts, ['STV', 0.5, 0.0], TV).
 
 % Goals share snapshots of raw sources and templates within the same input epoch and overlay.
 graph_input(Type, Scope, Stamp, Input) :-
@@ -204,8 +217,7 @@ graph_parameter(Scope, Ev, Exclude, model(Type, root, Facts), [Type-(Owner-Dist)
     ( Facts == [], Prior == 'sk-none', Scope = [KB|_], 'positive-only-pattern?'(KB, Type, true) -> fail ; true ),
     ( Prior = ['sk-val', [_, _, Proof, TV], _, _] -> TV = ['STV', S, C],
       'sk-step-proof'(Proof, ['population-prior', Pattern]), graph_owner(population(Pattern), Owner)
-    ; foldl([[_T, _C, _P, T], T0, T1]>>'revision-merge-tv'(T0, T, T1), Facts,
-            ['STV', 0.5, 0.0], ['STV', S, C]), Owner = Type ),
+    ; graph_revised(Facts, ['STV', S, C]), Owner = Type ),
     'evidence-confidence-k'(K), event_node_dist(stored, S, C, K, Dist).
 graph_parameter(Scope, _, Exclude, model(Type, conditional(_, _, ['rule-truth', Truth], refined), _),
                 [branch(Type, 1)-(O1-D1), branch(Type, 0)-(O0-D0)], Value) :-
@@ -261,9 +273,9 @@ graph_moments(Models, Factors, Goal, Bindings-Params, TV) :-
 
 graph_terms(Models, Factors, Goal, Bindings, Params, Terms) :-
     findall(LW-Lits-Hits,
-            ( maplist({Bindings, Params}/[model(T, M, _), T-B]>>(
-                  M == root, memberchk(T-O, Bindings), memberchk(O-point(P), Params), (P =:= 0 ; P =:= 1)
-                  -> B is integer(P) ; member(B, [0, 1]) ), Models, Bits),
+            ( maplist({Bindings, Params, Factors}/[model(T, M, _), T-B]>>(
+                  ( M == root, memberchk(T-O, Bindings), memberchk(O-Law, Params), graph_fixed_law(Law, F) -> true ; true ),
+                  graph_choices(T, F, Factors, Bs), member(B, Bs) ), Models, Bits),
               foldl(graph_factor(Bits), Factors, 0.0, LF), LF \== ninf,
               maplist({Bits, Bindings}/[M, O-B]>>( graph_literal(Bits, M, Id-B), memberchk(Id-O, Bindings) ), Models, All),
               foldl(node_fixed_literal(Params), All, LF-[], LW-Lits), LW \== ninf,
