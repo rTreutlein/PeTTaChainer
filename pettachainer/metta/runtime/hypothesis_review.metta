@@ -49,23 +49,26 @@
 (: hm-strength (-[det]-> Atom Number))
 (= (hm-strength $tv) (case $tv (((STV $s $_c) $s) ((CTV (STV $s1 $_c1) $_neg) $s1) ($_none 0.5))))
 
-;; |s - p| beyond hm-z standard errors of p over n observations. Clamp
-;; only its variance estimate, never the comparison center: identical rates
-;; at 0 or 1 must remain identical even after many observations.
+;; |s - p| beyond hm-z standard errors of p over the n = c k/(1 - c)
+;; observations of confidence c > 0; a point has none. Clamp only its variance
+;; estimate, never the comparison center: identical rates at 0 or 1 must remain
+;; identical even after many observations. Sample counts are compared as the
+;; confidences they give (count-confidence), which a point exceeds.
 (: hm-differs? (-[det]-> Number Number Number Bool))
-(= (hm-differs? $s $p $n)
+(= (hm-differs? $s $p $c)
    (let $q (min 0.95 (max 0.05 $p))
-      (> (abs-math (- $s $p)) (* (hm-z) (sqrt-math (/ (* $q (- 1 $q)) $n))))))
+      (> (abs-math (- $s $p))
+         (* (hm-z) (sqrt-math (/ (* (* $q (- 1 $q)) (- 1 $c)) (* $c (evidence-confidence-k))))))))
 
 (: hm-decision (-[semidet]-> KB (List HmReviewed) HmReviewed Atom))
 (= (hm-decision $kb $reviewed (hm-reviewed $_name $antecedent $consequent $born $truth))
-   (let* (($n (confidence-to-count (hm-confidence $truth)))
+   (let* (($c (hm-confidence $truth))
           ($s (hm-strength $truth))
           ($rule (Implication $antecedent $consequent)))
-      (if (< $n (hm-min-samples))
+      (if (< $c (count-confidence (hm-min-samples)))
          (< (- (hm-outcomes $kb $consequent) $born) (hm-max-opportunities))
-         (if (hm-informative? $truth $s $n)
-            (fold-semidet (hm-screen $kb $rule $s $n) true $reviewed)
+         (if (hm-informative? $truth $s $c)
+            (fold-semidet (hm-screen $kb $rule $s $c) true $reviewed)
             false))))
 
 ;; Whether the strength differs from the consequent's probability without
@@ -75,21 +78,21 @@
 ;; matching-to-sample agent's rewards come mostly from the contexts it
 ;; believes in), and a tally that started late reads near 0.5.
 (: hm-informative? (-[det]-> Atom Number Number Bool))
-(= (hm-informative? $truth $s $n)
+(= (hm-informative? $truth $s $c)
    (case $truth (
-      ((CTV $_pos (STV $s0 $c0)) (if (>= (confidence-to-count $c0) 1) (hm-differs? $s $s0 $n) true))
+      ((CTV $_pos (STV $s0 $c0)) (if (>= $c0 (count-confidence 1)) (hm-differs? $s $s0 $c) true))
       ($_stv true))))
 
 ;; Screening compares a specific rule with a live syntactic generalization.
 ;; Return one screening reason.
 (: hm-screen (-[det]-> KB Atom Number Number Atom HmReviewed Atom))
-(= (hm-screen $kb $rule $s $n $decision (hm-reviewed $name $antecedent $consequent $_born $truth))
+(= (hm-screen $kb $rule $s $c $decision (hm-reviewed $name $antecedent $consequent $_born $truth))
    (if (== $decision true)
       (let* (($general (Implication $antecedent $consequent))
              ($phash (hm-pattern-hash $kb $consequent)))
          (if (if (hypothesis-generalizes? $general $rule)
                  (space-row-present? &hm_live ($phash $kb $_stored $name $_antecedent $_born)) false)
-            (let $p (hm-strength $truth) (if (hm-differs? $s $p $n) true (screen $general)))
+            (let $p (hm-strength $truth) (if (hm-differs? $s $p $c) true (screen $general)))
             true))
       $decision))
 
@@ -142,10 +145,10 @@
              ($current (hm-read 0 $kb () (the (List HmReviewed) $candidates)))
              ($value (if (== $live ()) sk-none (sk-value $key sk-any-filter ()))))
          (collapse (let* (((hm-reviewed $name $a $c $_born $truth) (superpose $current))
-                          ($n (confidence-to-count (hm-confidence $truth))))
+                          ($conf (hm-confidence $truth)))
             (if (case $value (
                    ((sk-val ($_type $_ctx $_proof $general-tv) $_ev $_deps)
-                      (if (>= $n (hm-min-samples)) (hm-differs? (hm-strength $truth) (hm-strength $general-tv) $n) false))
+                      (if (>= $conf (count-confidence (hm-min-samples))) (hm-differs? (hm-strength $truth) (hm-strength $general-tv) $conf) false))
                    ($_none true)))
                (let* (($_watch (remove-data-rows! &hm_screened (quote ($hash $kb $_stored $name $_rule))))
                       ($rule (Implication $a $c))

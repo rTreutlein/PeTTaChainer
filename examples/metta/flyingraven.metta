@@ -28,9 +28,9 @@
 !(test
    (collapse (query 60 flyingRavenKb (: $prf (Member Pingu flies) $tv)))
    ((: (merge/revision (negated (by penguinsDoNotFly pinguPenguin)) (by birdFlies (by penguinBird pinguPenguin)))
-       (Member Pingu flies) (STV 0.10007216199275315 0.9084036784088747))))
+       (Member Pingu flies) (STV 0.10007216199199977 0.9084036784095707))))
 
 !(test
    (collapse (query 200 flyingRavenKb (: $prf (Member Pingu flies) $tv)))
    ((: (merge/revision (negated (by penguinsDoNotFly pinguPenguin)) (by birdFlies (by penguinBird pinguPenguin)))
-       (Member Pingu flies) (STV 0.10007216199275315 0.9084036784088747))))
+       (Member Pingu flies) (STV 0.10007216199199977 0.9084036784095707))))

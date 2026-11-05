@@ -31,7 +31,7 @@
    (: (by inheritanceToGoal
          (implication-instance-fold cpu))
       (Member Goal Supported)
-      (STV 0.8 0.0012484394506833685)))
+      (STV 0.8 0.0012484394506866417)))
 
 ;; Making the same fold available below a stored rule must not admit a
 ;; self-supporting member sample.

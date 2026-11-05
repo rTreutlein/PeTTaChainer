@@ -112,7 +112,7 @@
           ((sk-run $left $taken) (sk-forward-loop! 0 (fold-flat (sk-carried-step false) $own $carried) $first))
           ($_carry (sk-carry! $kb (bounded-agenda-target-size) $left))
           ($_off (change-state! sk_forward_run 0))
-          ($results (fold-semidet sk-key-result () $taken))
+          ($results (map-flat public-forward-fact (fold-semidet sk-key-result () $taken)))
           ($_inferred (inference-add! $started)))
       $results))
 

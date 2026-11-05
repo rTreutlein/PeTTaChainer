@@ -19,7 +19,7 @@
              (by cInheritsD (by aInheritsC (ctx proof 0)))
              (by bInheritsD (by aInheritsB (ctx proof 0)))))
        (Inheritance A D)
-       (STV 0.5 0.010716021787382275))))
+       (STV 0.5 0.010716021787382696))))
 
 
 
@@ -51,4 +51,4 @@
             (by cImpliesD (by aImpliesC (ctx proof 1)))
             (by bImpliesD (by aImpliesB (ctx proof 1)))))
       (Implication (A $_1139496) (D $_1139496))
-      (STV 0.125 0.9692294378874315)))
+      (STV 0.125 0.969229438135757)))

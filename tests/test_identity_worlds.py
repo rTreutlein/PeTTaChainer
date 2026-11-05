@@ -52,7 +52,7 @@ class TestIdentityWorlds(unittest.TestCase):
     def test_known_false_identity_supports_no_judgment(self):
         q, i = self.tvs([f'(: report {I} (STV 1 0.9))', BRIDGE, f'(: contra (Not {I}) (STV 1 1))'], Q)
         self.assertEqual([tv[1] for tv in q + i], [0.0, 0.0])
-        self.assertEqual(q[0][2], 1.0)
+        self.assertEqual(q[0][2], 0.9999)
 
     def test_computed_world_key_beside_certain_judgment(self):
         # E and the judgment are certain, so Q = I = the world atom's posterior.

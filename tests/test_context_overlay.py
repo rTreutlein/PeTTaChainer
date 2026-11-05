@@ -128,7 +128,7 @@ class TestContextOverlay(OverlayChecks, unittest.TestCase):
             rows = self.answers('(Assuming (Exists ($x) (P $x)) (Exists ($z) (P $z)))')
             self.assertEqual(len(rows), 1, rows)
             self.assertEqual(rows[0].statement[2][0], 'Exists')
-            self.assertEqual(rows[0].tv, ['STV', 1.0, 1.0])
+            self.assertEqual(rows[0].tv, ['STV', 1.0, 0.9999])
         self.assertEqual(self.answers('(Exists ($x) (P $x))'), [])
         self.assertEqual(self.answers('(P $x)'), [])
         self.assertEqual(janus.query_once('overlay_probe_main_leaks(Kb,Rows)', {'Kb': self.h.kb})['Rows'], [])
@@ -214,7 +214,10 @@ class TestContextOverlay(OverlayChecks, unittest.TestCase):
 
     def test_threshold_is_replayed_by_timed_worker(self):
         self.h.add_atoms_no_check([
-            '(: (no_inverse effect) (Implication (Action now) (Effect now)) (STV 1 1))',
+            # A point's change (the assumption's) is unbounded and passes any
+            # threshold, so the block shows one finite hop later.
+            '(: (no_inverse cause) (Implication (Action now) (Cause now)) (STV 1 0.9))',
+            '(: (no_inverse effect) (Implication (Cause now) (Effect now)) (STV 1 0.9))',
         ])
         self.h.set_context_reuse_threshold(1e100)
         query = '(: $p (Assuming (Action now) (Effect now)) $tv)'
@@ -266,7 +269,7 @@ class TestContextOverlay(OverlayChecks, unittest.TestCase):
         assumed = "(And (FuelVia rf t9) (InService mine t9) (InService power-plant t9) (InService plant-a t9) (InService plant-b t9))"
         decide = lambda handler: [a.tv for a in handler.query_many_refs(
             [f"(: $p (Assuming {assumed} (Producing power-plant t9)) $tv)"], steps=200)[0]]
-        self.assertEqual(decide(plant(PeTTaChainer())), [["STV", 0.95, 0.9998999947967693]])
+        self.assertEqual(decide(plant(PeTTaChainer())), [["STV", 0.95, 0.9999]])
         main_goals = ["(Degraded power-plant t8)", "(Degraded power-plant t9)", "(Producing power-plant t9)",
                       "(Fuelled power-plant t9)", "(Storm east t8)", "(InService power-plant $x)"]
         rng = random.Random(128)
@@ -276,7 +279,7 @@ class TestContextOverlay(OverlayChecks, unittest.TestCase):
             for goal in history:
                 handler.query_many_refs([f"(: $p {goal} $tv)"], steps=200)
             with self.subTest(history=history):
-                self.assertEqual(decide(handler), [["STV", 0.95, 0.9998999947967693]])
+                self.assertEqual(decide(handler), [["STV", 0.95, 0.9999]])
 
     def test_cleanup_keeps_only_assumption_independent_main_work(self):
         self.diagnostic(self.h)

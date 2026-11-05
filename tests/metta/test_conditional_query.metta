@@ -13,7 +13,7 @@
       (: $prf (Implication (And (Value x 12) (Cost x 5) (Value y 9) (Cost y 2)) (Net x $n)) (STV $s $c)))
    (: (conditional-implication (by (no_inverse net) (conjunction (ctx proof 0) (ctx proof 0 1) cpu)))
       (Implication (And (Value x 12) (Cost x 5) (Value y 9) (Cost y 2)) (Net x 7))
-      (STV 1.0 0.9996001597861454)))
+      (STV 1.0 0.9999)))
 
 !(test
    (let $answers

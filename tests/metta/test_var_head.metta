@@ -63,4 +63,4 @@
    (query 20 directVariableHeadKb (: $proof (Observed alice) $tv))
    (: (by genericUnary dogAlice)
       (Observed alice)
-      (STV 1.0 0.9998000399670116)))
+      (STV 1.0 0.9999)))

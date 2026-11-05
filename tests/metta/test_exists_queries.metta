@@ -57,13 +57,13 @@
 !(test
    (let $answers (collapse (query 1000 simple_exists_witness (: $p (Exists ($x) (P $x)) $tv)))
       (if (== (list-count $answers) 1)
-         (fold-flat (exists-answer-matches (Exists ($x) (P $x)) 1 1) true $answers)
+         (fold-flat (exists-answer-matches (Exists ($x) (P $x)) 1 0.9999) true $answers)
          false))
    true)
 !(test
    (let $answers (collapse (query 1000 simple_exists_witness (: $p (Exists ($x) (P $x)) $tv)))
       (if (== (list-count $answers) 1)
-         (fold-flat (exists-answer-matches (Exists ($x) (P $x)) 1 1) true $answers)
+         (fold-flat (exists-answer-matches (Exists ($x) (P $x)) 1 0.9999) true $answers)
          false))
    true)
 
@@ -324,13 +324,13 @@
 !(test
    (let $answers (collapse (query 1000 distinct_vars_may_alias (: $p (Exists ($x $y) (Pair $x $y)) $tv)))
       (if (== (list-count $answers) 1)
-         (fold-flat (exists-answer-matches (Exists ($x $y) (Pair $x $y)) 1 1) true $answers)
+         (fold-flat (exists-answer-matches (Exists ($x $y) (Pair $x $y)) 1 0.9999) true $answers)
          false))
    true)
 !(test
    (let $answers (collapse (query 1000 distinct_vars_may_alias (: $p (Exists ($x $y) (Pair $x $y)) $tv)))
       (if (== (list-count $answers) 1)
-         (fold-flat (exists-answer-matches (Exists ($x $y) (Pair $x $y)) 1 1) true $answers)
+         (fold-flat (exists-answer-matches (Exists ($x $y) (Pair $x $y)) 1 0.9999) true $answers)
          false))
    true)
 
@@ -366,8 +366,8 @@
 ;; derived_rule
 !(compileadd derived_rule (: src_facilityRecordedFloodInspectionPolicyS1 (Implication (Exists ($flood) (And (Member $facility Facility) (Member $flood Flood) (RecordedFlood $facility $flood) (During $flood S1))) (RequiresInspectionDuring $facility S1)) (STV 1.0 1.0)))
 !(compileadd derived_rule (: next (Implication (RequiresInspectionDuring $s S1) (Notify $s)) (CTV (STV 1 1) (STV 0 1))))
-!(test (exists-answer-matches (Implication (Exists ($f) (And (Member $s Facility) (Member $f Flood) (RecordedFlood $s $f) (During $f S1))) (Notify $s)) 1 0.9997667210595396 true (query 1000 derived_rule (: $p (Implication (Exists ($f) (And (Member $s Facility) (Member $f Flood) (RecordedFlood $s $f) (During $f S1))) (Notify $s)) $tv))) true)
-!(test (exists-answer-matches (Implication (Exists ($f) (And (Member $s Facility) (Member $f Flood) (RecordedFlood $s $f) (During $f S1))) (Notify $s)) 1 0.9997667210595396 true (query 1000 derived_rule (: $p (Implication (Exists ($f) (And (Member $s Facility) (Member $f Flood) (RecordedFlood $s $f) (During $f S1))) (Notify $s)) $tv))) true)
+!(test (exists-answer-matches (Implication (Exists ($f) (And (Member $s Facility) (Member $f Flood) (RecordedFlood $s $f) (During $f S1))) (Notify $s)) 1 0.9999 true (query 1000 derived_rule (: $p (Implication (Exists ($f) (And (Member $s Facility) (Member $f Flood) (RecordedFlood $s $f) (During $f S1))) (Notify $s)) $tv))) true)
+!(test (exists-answer-matches (Implication (Exists ($f) (And (Member $s Facility) (Member $f Flood) (RecordedFlood $s $f) (During $f S1))) (Notify $s)) 1 0.9999 true (query 1000 derived_rule (: $p (Implication (Exists ($f) (And (Member $s Facility) (Member $f Flood) (RecordedFlood $s $f) (During $f S1))) (Notify $s)) $tv))) true)
 
 ;; universal_sharing_wrong
 !(compileadd universal_sharing_wrong (: src_facilityRecordedFloodInspectionPolicyS1 (Implication (Exists ($flood) (And (Member $facility Facility) (Member $flood Flood) (RecordedFlood $facility $flood) (During $flood S1))) (RequiresInspectionDuring $facility S1)) (STV 1.0 1.0)))
@@ -405,8 +405,8 @@
    true)
 
 ;; assuming_exists
-!(test (exists-answer-matches (Assuming (Exists ($x) (P $x)) (Exists ($z) (P $z))) 1 1 true (query 1000 assuming_exists (: $p (Assuming (Exists ($x) (P $x)) (Exists ($z) (P $z))) $tv))) true)
-!(test (exists-answer-matches (Assuming (Exists ($x) (P $x)) (Exists ($z) (P $z))) 1 1 true (query 1000 assuming_exists (: $p (Assuming (Exists ($x) (P $x)) (Exists ($z) (P $z))) $tv))) true)
+!(test (exists-answer-matches (Assuming (Exists ($x) (P $x)) (Exists ($z) (P $z))) 1 0.9999 true (query 1000 assuming_exists (: $p (Assuming (Exists ($x) (P $x)) (Exists ($z) (P $z))) $tv))) true)
+!(test (exists-answer-matches (Assuming (Exists ($x) (P $x)) (Exists ($z) (P $z))) 1 0.9999 true (query 1000 assuming_exists (: $p (Assuming (Exists ($x) (P $x)) (Exists ($z) (P $z))) $tv))) true)
 
 ;; assuming_no_leak
 !(test (collapse (query 1000 assuming_exists (: $p (Exists ($x) (P $x)) $tv))) ())
@@ -425,13 +425,13 @@
 !(test
    (let $answers (collapse (query 1000 late (: $p (Exists ($x) (P $x)) $tv)))
       (if (== (list-count $answers) 1)
-         (fold-flat (exists-answer-matches (Exists ($x) (P $x)) 1 1) true $answers)
+         (fold-flat (exists-answer-matches (Exists ($x) (P $x)) 1 0.9999) true $answers)
          false))
    true)
 !(test
    (let $answers (collapse (query 1000 late (: $p (Exists ($x) (P $x)) $tv)))
       (if (== (list-count $answers) 1)
-         (fold-flat (exists-answer-matches (Exists ($x) (P $x)) 1 1) true $answers)
+         (fold-flat (exists-answer-matches (Exists ($x) (P $x)) 1 0.9999) true $answers)
          false))
    true)
 
@@ -673,13 +673,13 @@
 !(test
    (let $answers (collapse (query 1000 certain_witness (: $p (Exists ($x) (P $x)) $tv)))
       (if (== (list-count $answers) 1)
-         (fold-flat (exists-answer-matches (Exists ($x) (P $x)) 1 1) true $answers)
+         (fold-flat (exists-answer-matches (Exists ($x) (P $x)) 1 0.9999) true $answers)
          false))
    true)
 !(test
    (let $answers (collapse (query 1000 certain_witness (: $p (Exists ($x) (P $x)) $tv)))
       (if (== (list-count $answers) 1)
-         (fold-flat (exists-answer-matches (Exists ($x) (P $x)) 1 1) true $answers)
+         (fold-flat (exists-answer-matches (Exists ($x) (P $x)) 1 0.9999) true $answers)
          false))
    true)
 

@@ -110,7 +110,7 @@
    (let* (((: $_p $_type (STV $first $_c)) (query 100 priorOrderA (: $p (Win new) $tv)))
           ((: $_q $_other (STV $second $_d)) (query 100 priorOrderB (: $p (Win new) $tv))))
       (data $first $second))
-   (0.99 0.99))
+   (0.9899999999999999 0.9899999999999999))
 
 ;; A forward copy leaves the KB when its supporting rule is withdrawn.
 !(compileadd forwardRetireKb (: f-old (Implication (A $t) (B $t)) (STV 0.9 1)))

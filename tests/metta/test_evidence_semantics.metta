@@ -51,7 +51,7 @@
       (: $prf (Implication (A $x) (D $x)) $tv)
       (query 100 evKb (: $prf (Implication (A $x) (D $x)) $tv))
       $tv)
-   (STV 0.125 0.9692294378874315))
+   (STV 0.125 0.969229438135757))
 
 ; --- Derivations sharing an uncertain implication do not merge ---
 

@@ -43,7 +43,7 @@
           (by propagateUpstreamFailure
              (conjunction feederFeedsPress feederDefect)))
       (Or (Defective press) (UpstreamFailure press))
-      (STV 0.8200000000000001 0.9318166197352297)))
+      (STV 0.8200000000000001 0.9318166197712551)))
 
 !(test
    (query 150 machineForwardKb
@@ -54,7 +54,7 @@
              (by propagateUpstreamFailure
                 (conjunction feederFeedsPress feederDefect))))
       (NoOutput press)
-      (STV 0.8200000000000001 0.9318166193205277)))
+      (STV 0.8200000000000001 0.9318166197712551)))
 
 ;; -------------------------------------------------------------------------
 ;; Reverse direction: the local press defect is deliberately absent. Starting
@@ -105,7 +105,7 @@
    (: ((inverted failureStopsOutput with cpu (prior (STV 0.8199991919212325 0.99)))
           observedPressStopped)
       (Or (Defective press) (UpstreamFailure press))
-      (STV 0.82 0.8999999996128824)))
+      (STV 0.82 0.9)))
 
 ;; Bayes' rule over the press's defect rate (0.418, from one stored fact, so
 ;; the answer carries little confidence) with P(NoOutput | defect) = 1 and
@@ -119,4 +119,4 @@
              (by propagateUpstreamFailure (conjunction feederFeedsPress feederDefect))
              observedPressStopped))
       (Defective press)
-      (STV 0.5857142857142857 0.006822439134954615)))
+      (STV 0.5857142857142857 0.006822439134963406)))

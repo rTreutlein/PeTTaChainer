@@ -26,4 +26,4 @@
                   $query-tv))))
       ($proof $pattern $extractor $init $total $tv))
    ((foldall-proof (factored-revision (by qToScore qFact) (prior (STV 0.4 0.8999999399792307)) (((reported with cpu (prior (STV 0.5 0.0))) directScore))))
-      (Score $_x $_n) $_n 0 1 (STV 1.0 1.0)))
+      (Score $_x $_n) $_n 0 1 (STV 1.0 0.9999)))

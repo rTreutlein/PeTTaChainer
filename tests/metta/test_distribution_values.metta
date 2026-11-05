@@ -75,11 +75,11 @@
          (CTVModusPonensFormula
             (DistGreaterThanFormula (the Distribution $cnt) 1)
             (CTV (STV 1.0 0.75) (STV 0.0 1.0)))
-	         (and (and (> $s 0.2499) (< $s 0.2501)) (== $c 0.9998998986564899))))
+	         (and (and (> $s 0.2499) (< $s 0.2501)) (== $c 0.9999998889352892))))
    true)
 
 !(test
    (let (: $prf (CntKidIn room2 $cnt) $tv) (query 40 kb (: $prf (CntKidIn room2 $cnt) $tv))
       (let (STV $s $c) (CTVModusPonensFormula (DistGreaterThanFormula (the Distribution $cnt) 1) (CTV (STV 1.0 0.75) (STV 0.0 1.0)))
-	         (and (and (> $s 0.0599) (< $s 0.0601)) (== $c 0.9998999871691416))))
+	         (and (and (> $s 0.0599) (< $s 0.0601)) (== $c 0.9999999787322875))))
    true)

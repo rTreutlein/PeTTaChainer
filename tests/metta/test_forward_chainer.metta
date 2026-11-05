@@ -50,14 +50,14 @@
 ;; Edge B C, which was never a seed.
 !(test
    (result-for (Path A C) (forward-chain 50 fwdkb (test-selected-facts fwdkb (Edge A B))))
-   (((by (no_inverse pathStep) (conjunction (by edgeToPath edgeAB) edgeBC)) (STV 1.0 0.9996001597861454))))
+   (((by (no_inverse pathStep) (conjunction (by edgeToPath edgeAB) edgeBC)) (STV 1.0 0.9999))))
 
 ;; Taking the same seed again changes nothing, so nothing is built.
 !(test (forward-chain 50 fwdkb (test-selected-facts fwdkb (Edge A B))) ())
 
 ;; A forward result is the value a backward query reads for the statement.
 !(test (query-for fwdkb (Path A C))
-   (((by (no_inverse pathStep) (conjunction (by edgeToPath edgeAB) edgeBC)) (STV 1.0 0.9996001597861454))))
+   (((by (no_inverse pathStep) (conjunction (by edgeToPath edgeAB) edgeBC)) (STV 1.0 0.9999))))
 
 ;; A rule concluding its own premise supports itself, and derives nothing.
 !(compileadd loopkb (: seedLoop (Loop Start) (STV 1.0 1.0)))
@@ -145,7 +145,7 @@
    (case (result-for (Share u1) (forward-chain 50 shareFwdKb (test-selected-facts shareFwdKb (Leak u1)))) (
       ((cons ($_proof $tv) ()) $tv)
       ($_other ())))
-   (STV 0.25 0.9999320001831821))
+   (STV 0.25 0.9999))
 
 ;; A key whose value rests on less than one observation's worth of evidence is
 ;; not built on. The minimum is configurable.
@@ -178,10 +178,10 @@
             (forward-chain 50 cycleFwdKb
                (append-flat (test-selected-facts cycleFwdKb (CycA)) (test-selected-facts cycleFwdKb (CycC)))))
       (((cons ($_proof (STV $s $_c)) ()) $s)))
-   0.5999995999998666)
+   0.6)
 !(test
    (case (query-for cycleFwdKb (CycA)) (((cons ($_proof (STV $s $_c)) ()) $s)))
-   0.5999995999998666)
+   0.6)
 
 ;; A statement's stored facts leave out a forward run's copies also when the
 ;; reader is open: the copy of (P a) is found under its own key, so (P $x)
@@ -209,4 +209,4 @@
 !(test
    (result-for (LateH k)
       (forward-chain 1000 latekb (append-flat (test-selected-facts latekb (LateA k)) (test-selected-facts latekb (LateB k)))))
-   (((by lateH (conjunction lateA (by lateM lateB))) (STV 0.3204666 0.9999133911760584))))
+   (((by lateH (conjunction lateA (by lateM lateB))) (STV 0.3204666 0.9999))))

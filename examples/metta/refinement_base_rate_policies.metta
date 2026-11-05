@@ -58,7 +58,7 @@
    (:
       (factored-revision
          (by telemetryAssessment correlatedTelemetry)
-         (prior (STV 1.0 0.9499097466997943))
+         (prior (STV 1.0 0.95))
          (((reported with cpu (prior (STV 0.5 0.0))) existingAssessment)))
       (ServiceAtRisk incident42)
       (STV 1.0 0.7)))
@@ -68,7 +68,7 @@
    (:
       (factored-revision
          (by telemetryAssessment correlatedTelemetry)
-         (prior (STV 1.0 0.9499097466997943))
+         (prior (STV 1.0 0.95))
          (((reported with cpu (prior (STV 0.5 0.0))) existingAssessment)))
       (ServiceAtRisk incident42)
       (STV 1.0 0.7)))

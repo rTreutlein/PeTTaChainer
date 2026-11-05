@@ -12,4 +12,4 @@
 
 !(test
    (query 1 netKb (: $prf (Net x $n) $tv))
-   (: (by (no_inverse net) (conjunction v1 c1 cpu)) (Net x 7) (STV 1.0 0.9996001597861454)))
+   (: (by (no_inverse net) (conjunction v1 c1 cpu)) (Net x 7) (STV 1.0 0.9999)))

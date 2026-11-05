@@ -10,13 +10,16 @@ from pettachainer import PeTTaChainer
 K = 800
 
 
+# A confidence of 1 is a point mass: no finite count, variance 0.
 def count(confidence):
-    return K * confidence / (1 - (confidence if confidence < 1 else .9999))
+    return K * confidence / (1 - confidence)
 
 
 def variance(strength, confidence):
     if confidence <= 0:
         return 1 / 12
+    if confidence >= 1:
+        return 0.0
     s = min(.999999, max(.000001, strength))
     return s * (1 - s) / (count(confidence) + 1)
 
@@ -28,6 +31,8 @@ def modus_ponens(antecedent, positive, negative=(.5, 0)):
     s = a * p + (1 - a) * n
     va, vp, vn = variance(a, ac), variance(p, pc), variance(n, nc)
     v = a*a*vp + (1-a)**2*vn + (p-n)**2*va + va*(vp+vn)
+    if v <= 0:
+        return s, 1.0
     clipped = min(.999999, max(.000001, s))
     maxvar = clipped * (1 - clipped)
     observations = maxvar / min(v, maxvar) - 1
@@ -36,7 +41,7 @@ def modus_ponens(antecedent, positive, negative=(.5, 0)):
 
 def node_stv(strength, var):
     if var <= 0:
-        return strength, .9999
+        return strength, 1.0
     clipped = max(.000001, min(.999999, strength))
     maxvar = clipped * (1 - clipped)
     observations = maxvar / min(var, maxvar) - 1
@@ -58,8 +63,7 @@ def jeffrey_part(prediction, siblings=2):
     def posterior(p, f1, f0, ps):
         pp = p * f1 + (1 - p) * f0
         n_parts = max(0.0, pp * (1 - pp) / parts_var - 1)
-        n_rule = K * pc / (1 - pc)
-        pstar = (n_parts * pp + n_rule * ps) / (n_parts + n_rule)
+        pstar = ps if pc >= 1 else (n_parts * pp + count(pc) * ps) / (n_parts + count(pc))
         return pstar * p * f1 / pp + (1 - pstar) * p * (1 - f1) / (1 - pp)
 
     inputs = [(p, vp), (f1, v1), (f0, v0), (ps, variance(ps, pc))]
@@ -76,6 +80,9 @@ def jeffrey_part(prediction, siblings=2):
 
 
 def revise(values):
+    points = [s for s, c in values if c >= 1]
+    if points:
+        return sum(points) / len(points), 1.0
     weights = [count(c) for _, c in values]
     total = sum(weights)
     return sum(s*n for (s, _), n in zip(values, weights)) / total, total / (total + K)

@@ -182,7 +182,7 @@
 
 !(test
    (query 400 certainRuleKb (: $p (B b) $tv))
-   (: (by ab a2) (B b) (STV 0.8 0.9998995657056552)))
+   (: (by ab a2) (B b) (STV 0.8 0.999999555617917)))
 !(test
    (collapse (query 400 certainRuleKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)))
    ())

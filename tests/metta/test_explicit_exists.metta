@@ -16,7 +16,7 @@
    (query 100 explicitExistsKb (: $prf (T) $tv))
    (: (by pExistsToT (disjunction pa pb))
       (T)
-      (STV 0.9199999999999999 0.7123799943294165)))
+      (STV 0.9199999999999999 0.7123799949180818)))
 
 ;; The binder scopes over the complete And body.  A Parent and Doctor proof
 ;; must therefore agree on one child; evidence about different children does
@@ -47,7 +47,7 @@
           (disjunction
              (conjunction aliceBob bobDoctor)))
       (HasDoctorChild alice)
-      (STV 1.0 0.999700089898053)))
+      (STV 1.0 0.9999)))
 
 !(test
    (query 100 explicitExistsJoinKb
@@ -75,7 +75,7 @@
    (: (by generateExplicit aliceSeed)
       (ExistentialClaim
          (GeneratedBy alice (exists-slot 0)))
-      (STV 1.0 0.9998000399670116)))
+      (STV 1.0 0.9999)))
 
 ;; The claim does not assert that one syntactically new object is the witness.
 !(test
@@ -121,7 +121,7 @@
          $tv))
    (: (by aggregatedGenerate (disjunction observedP))
       (ExistentialClaim (Generated (exists-slot 0)))
-      (STV 1.0 0.9998000399670116)))
+      (STV 1.0 0.9999)))
 
 ;; The same conclusion-only treatment applies to the implicit implication
 ;; syntax, independently of whether an Exists wrapper was written.
@@ -141,7 +141,7 @@
    (: (by generateImplicit bobSeed)
       (GeneratedBy bob
          (exists generateImplicit 0 (bob)))
-      (STV 1.0 0.9998000399670116)))
+      (STV 1.0 0.9999)))
 
 ;; Ordinary premise variables remain universally quantified. With disjoint
 ;; variables, inversion therefore consumes B($b) and introduces a stable
@@ -164,7 +164,7 @@
 !(test
    (query 20 disjointInverseKb
       (: $proof (A (exists a_b 0 (beta))) $tv))
-   (: ((inverted a_b with cpu (prior (STV 0.5 0.5))) observedB) (A (exists a_b 0 (beta))) (STV 1.0 1.0e-06)))
+   (: ((inverted a_b with cpu (prior (STV 0.5 0.5))) observedB) (A (exists a_b 0 (beta))) (STV 1.0 1.0000000000000828e-06)))
 
 !(test
    (query 10 explicitExistsKb
@@ -268,17 +268,17 @@
          (And
             (Cat (exists-slot 0))
             (Chases fido (exists-slot 0))))
-      (STV 0.95 0.899999998460563)))
+      (STV 0.95 0.9)))
 
 !(test
    (query 300 existentialResidualKb
       (: $proof (KnownWitnessDisjunction fido) $tv))
-   (: (by exposeKnownWitnesses (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna))) (KnownWitnessDisjunction fido) (STV 0.0494 0.9010944430631548)))
+   (: (by exposeKnownWitnesses (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna))) (KnownWitnessDisjunction fido) (STV 0.0494 0.9010944446302941)))
 
 !(test
    (query 300 existentialResidualKb
       (: $proof (OtherWitnessEstimate fido) $tv))
-   (: (by exposeOtherWitness (conjunction (by dogChasesCat fidoDog) (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna)))) (OtherWitnessEstimate fido) (STV 0.9051491256731928 0.04096823867399199)))
+   (: (by exposeOtherWitness (conjunction (by dogChasesCat fidoDog) (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna)))) (OtherWitnessEstimate fido) (STV 0.9051491256754173 0.040968238702730225)))
 
 ;; Adding a stronger known witness leaves the direct existential proof intact,
 ;; increases D, and refines the residual estimate downward.
@@ -291,12 +291,12 @@
 !(test
    (query 300 existentialResidualKb
       (: $proof (KnownWitnessDisjunction fido) $tv))
-   (: (by exposeKnownWitnesses (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna) (conjunction felixCat fidoOftenChasesFelix))) (KnownWitnessDisjunction fido) (STV 0.61976 0.9043600865076092)))
+   (: (by exposeKnownWitnesses (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna) (conjunction felixCat fidoOftenChasesFelix))) (KnownWitnessDisjunction fido) (STV 0.61976 0.9043600866911633)))
 
 !(test
    (query 300 existentialResidualKb
       (: $proof (OtherWitnessEstimate fido) $tv))
-   (: (by exposeOtherWitness (conjunction (by dogChasesCat fidoDog) (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna) (conjunction felixCat fidoOftenChasesFelix)))) (OtherWitnessEstimate fido) (STV 0.5863654773302238 0.0032500038674315303)))
+   (: (by exposeOtherWitness (conjunction (by dogChasesCat fidoDog) (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna) (conjunction felixCat fidoOftenChasesFelix)))) (OtherWitnessEstimate fido) (STV 0.5863654773326346 0.0032500038679859487)))
 
 ;; The witness fold keeps one view per grounded output group. The outer
 ;; strength floor has a separate view per group. A zero-budget

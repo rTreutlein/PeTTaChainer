@@ -10,13 +10,13 @@
 !(compileadd existsKb (: seen (Exists ($y) (Saw alice $y)) (STV 0.7 1)))
 !(compileadd existsKb (: none (Not (Exists ($y) (Met alice $y))) (STV 0.8 1)))
 !(test (let (: $proof $_statement $tv) (query 100 existsKb (: $p (Exists ($y) (Saw alice $y)) $tv)) (data $proof $tv))
-   (data seen (STV 0.7 1)))
+   (data seen (STV 0.7 0.9999)))
 !(test (let (: $proof $_statement $tv) (query 100 existsKb (: $p (Exists ($y) (Met alice $y)) $tv)) (data $proof $tv))
-   (data none (STV 0.19999999999999996 1)))
+   (data none (STV 0.19999999999999996 0.9999)))
 ;; Not (Exists ...) is the complement of the existential judgment, answered
 ;; with its public statement.
 !(test (query 100 existsKb (: $p (Not (Exists ($y) (Saw alice $y))) $tv))
-   (: (negated seen) (Not (Exists ($_0) (Saw alice $_0))) (STV 0.30000000000000004 1)))
+   (: (negated seen) (Not (Exists ($_0) (Saw alice $_0))) (STV 0.30000000000000004 0.9999)))
 
 ;; So is the negation of a quantified implication.
 !(compileadd quantKb (: saw (Implication (Exists ($y) (Saw $x $y)) (Seen $x)) (STV 0.8 0.9)))
@@ -33,9 +33,9 @@
 !(compileadd notNotKb (: g (G a) (STV 0.74 1)))
 !(compileadd notNotKb (: r (Implication (G $x) (Not (Not (A $x)))) (CTV (STV 0.66 1) (STV 0.33 1))))
 !(test (query 100 notNotKb (: $p (A a) $tv))
-   (: (by r g) (A a) (STV 0.5742 0.9999350619568963)))
+   (: (by r g) (A a) (STV 0.5742 0.9999)))
 !(test (query 100 notNotKb (: $p (Not (Not (A a))) $tv))
-   (: (negated (negated (by r g))) (Not (Not (A a))) (STV 0.5742 0.9999350619568963)))
+   (: (negated (negated (by r g))) (Not (Not (A a))) (STV 0.5742 0.9999)))
 
 ;; A compound's message to a negated child concludes the child's statement.
 ;; The certain (And (A a) (Not (B a))) at .6 is Pearl evidence (.6, .4) on its

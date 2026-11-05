@@ -67,4 +67,4 @@
 ;; is 0.25 of 4. Before, the history's rows took the allowance at this
 ;; budget, P t1 got no value, and the fold had none for its member.
 !(test (query 8 histKb (: $p (Assuming (And (Decision t1) (On t1)) (Value t1 $g)) $tv))
-   (: (assuming (by (no_inverse value) (conjunction (ctx proof 0) (foldall-proof (by (no_inverse out) (conjunction val (by runs (conjunction (negated (by persist (conjunction next-t1 d-h12))) (ctx proof 0 1))))))))) (Assuming (And (Decision t1) (On t1)) (Value t1 1.0)) (STV 1.0 0.999700089898053)))
+   (: (assuming (by (no_inverse value) (conjunction (ctx proof 0) (foldall-proof (by (no_inverse out) (conjunction val (by runs (conjunction (negated (by persist (conjunction next-t1 d-h12))) (ctx proof 0 1))))))))) (Assuming (And (Decision t1) (On t1)) (Value t1 1.0)) (STV 1.0 0.9999)))

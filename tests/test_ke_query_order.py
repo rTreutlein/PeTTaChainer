@@ -19,14 +19,13 @@ class KEQueryOrderTests(unittest.TestCase):
                 result = json.loads(run.stdout.splitlines()[-1])
                 proofs = result["proofs"]
                 self.assertEqual(len(proofs), 1, result)
-                # The gated conjunction is read conditioned on the gated compound:
-                # given it true its parts are certain; given it false they are
-                # read jointly from its node, so the mixture's confidence is a
-                # little under the compound's own .99967.
+                # The gated conjunction is read conditioned on the gated compound,
+                # a point: given it true its parts are certain, so the answer
+                # is a computed point.
                 tv = re.search(r"\(STV ([^ ]+) ([^)]+)\)\)$", proofs[0])
                 self.assertIsNotNone(tv, proofs)
                 self.assertEqual(float(tv[1]), 1.)
-                self.assertAlmostEqual(float(tv[2]), .9984709284253547, delta=1e-12)
+                self.assertEqual(float(tv[2]), .9999)
                 self.assertEqual(set(re.findall(r"src_[0-9a-f]+", proofs[0])), {
                     "src_d2acc8331d260378be524a14", "src_acb3faeae7e53c5cf8a75bc7",
                     "src_6c4b43ffc9cfdd9f6cc82137",

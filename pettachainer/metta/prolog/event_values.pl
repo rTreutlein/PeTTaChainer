@@ -341,7 +341,7 @@ positive_tv(['CTV', ['STV', S, C], _], S, C).
 
 node_stv(K, S, V, TV) :- ( V == bound -> Max = 0.0 ; Max is S * (1 - S) ), node_stv(K, S, V, Max, TV).
 node_stv(_, S, bound, _, ['STV', S, 0.0]) :- !.
-node_stv(_, S, V, _, ['STV', S, 0.9999]) :- V =< 0.0, !.
+node_stv(_, S, V, _, ['STV', S, 1.0]) :- V =< 0.0, !.
 node_stv(K, S, V, Max, ['STV', S, C]) :-
     ( V >= Max -> C = 0.0
     ; Sc is min(1 - 1.0e-6, max(1.0e-6, S)),

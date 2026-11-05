@@ -32,15 +32,25 @@
 
 ;; The public answers of a canonical root from those of its query root: each
 ;; negation complements the answer, negates its proof and wraps its public
-;; statement, and the written truth-value pattern constrains the complemented
-;; value; a ForAll answer is its rule's answer under the written binder. A
-;; computation row answers no statement.
+;; statement; a ForAll answer is its rule's answer under the written binder.
+;; query-root reads the root's value unconstrained, so each public answer is
+;; matched here against the written statement and truth-value pattern
+;; together, keeping the variables they share; the match is a test on copies
+;; and binds nothing in the answer. A computation row answers no negation.
 (: canonical-results (-[semidet]-> AnnotatedStatement (List RuntimeResult) (List RuntimeResult)))
 (= (canonical-results (: $_prf $type $tv) $results)
    (if (head-is? $type Not)
-      (negated-results $tv
+      (negated-results $type $tv
          (canonical-results (: $_inner-proof (car-atom (cdr-atom $type)) $_inner-tv) $results))
-      (if (head-is? $type ForAll) (map-semidet (forall-result $type) $results) $results)))
+      (foldr-flat (written-step $type $tv) ()
+         (if (head-is? $type ForAll) (map-semidet (forall-result $type) $results) $results))))
+
+(: written-step (-[det]-> Atom Atom RuntimeResult (List RuntimeResult) (List RuntimeResult)))
+(= (written-step $type $tv $result $kept)
+   (case $result (
+      ((CPU $_fun $_args $_res) (cons $result $kept))
+      (($result-type $_kbctx $_proof $result-tv)
+         (if (= (copy_term (data $type $tv)) (copy_term (data $result-type $result-tv))) (cons $result $kept) $kept)))))
 
 ;; A written Member answers in its written form.
 (: written-results (-[semidet]-> Statement AnnotatedStatement (List RuntimeResult) (List RuntimeResult)))
@@ -48,29 +58,48 @@
    (let $answers (canonical-results (: $prf $type $tv) $results)
       (if (== $type $written) $answers (foldr-flat (member-step $written) () $answers))))
 
-(: negated-step (-[det]-> Atom RuntimeResult (List RuntimeResult) (List RuntimeResult)))
-(= (negated-step $tv $result $kept)
+(: negated-step (-[det]-> Atom Atom RuntimeResult (List RuntimeResult) (List RuntimeResult)))
+(= (negated-step $written $tv $result $kept)
    (case $result (
       ((CPU $_fun $_args $_res) $kept)
       (($type $kbctx $proof $result-tv)
          (let $not-tv (NotFormula (the STVType $result-tv))
-            (if (= (copy_term $tv) $not-tv)
+            (if (= (copy_term (data $written $tv)) (copy_term (data (Not $type) $not-tv)))
                (cons (brand RuntimeResult (data (Not $type) $kbctx (negated $proof) $not-tv)) $kept)
                $kept))))))
 
 ;; The results arrive as a parameter: the determinism checker proves a fold
 ;; over a parameter list, not over a function result.
-(: negated-results (-[det]-> Atom (List RuntimeResult) (List RuntimeResult)))
-(= (negated-results $tv $results) (foldr-flat (negated-step $tv) () $results))
+(: negated-results (-[det]-> Atom Atom (List RuntimeResult) (List RuntimeResult)))
+(= (negated-results $written $tv $results) (foldr-flat (negated-step $written $tv) () $results))
 
-;; A chainer result's proof refers to stored proofs (sk-root-results);
-;; expanding it prints each shared subproof once.
-(: expand-result (-[det]-> RuntimeResult RuntimeResult))
-(= (expand-result $result)
+;; A stored source's value reads its row (fact-source) or is named by it
+;; (unfounded); anything else the chainer computed. A computed point
+;; (confidence 1 from points) is reported at .9999, the zero-variance
+;; confidence of docs/metta/event_node_contract.md; a source keeps its stated 1.
+(: public-tv (-[det]-> Proof TV TV))
+(= (public-tv $proof $tv)
+   (if (if (is-expr $proof) (not (head-is? $proof fact-source)) false)
+      (case $tv (
+         ((STV $s $c) (if (>= $c 1.0) (STV $s 0.9999) $tv))
+         ((CTV (STV $s $c) $neg) (if (>= $c 1.0) (CTV (STV $s 0.9999) $neg) $tv))
+         ($_other $tv)))
+      $tv))
+
+;; A result's value as published, its proof expanded if asked, each shared
+;; subproof printed once.
+(: published-result (-[det]-> Bool RuntimeResult RuntimeResult))
+(= (published-result $expand? $result)
    (case $result (
       ((CPU $_fun $_args $_res) $result)
       (($type $kbctx $proof $tv)
-         (brand RuntimeResult (data $type $kbctx (sk-full-proof (brand Proof $proof)) $tv))))))
+         (brand RuntimeResult
+            (data $type $kbctx (if $expand? (sk-full-proof (brand Proof $proof)) $proof)
+               (public-tv (brand Proof $proof) (the TV $tv))))))))
+
+;; A forward result keeps its stored proof reference.
+(: public-forward-fact (-[det]-> (Statement KBContext Proof TV) (Statement KBContext Proof TV)))
+(= (public-forward-fact ($type $kbctx $proof $tv)) (assemble-runtime-fact $type $kbctx $proof (public-tv $proof $tv)))
 
 (: expand-proof (-[nondet]-> Proof Proof))
 (= (expand-proof $proof) (externalize-query-proof (sk-full-proof $proof)))
@@ -124,8 +153,7 @@
          (pretty-results
             (map-flat externalize-proof-structure
                (written-results $written $canonical
-                  (map-flat public-query-result
-                     (if $expand? (map-flat expand-result $results) $results))))))
+                  (map-flat public-query-result (map-flat (published-result $expand?) $results))))))
       (present-query-plan-results $expand? $roots $rest-results)))
 
 (: query-plan-runtime-goal

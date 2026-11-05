@@ -75,27 +75,22 @@
    (execution-numerical-change? $threshold $before $after))
 
 
-;; How far a value moved: the KL divergence of its new Beta from its old one.
+;; How far a value moved: the KL divergence of its new Beta from its old one,
+;; each read from its n observations; no value is Beta(1, 1). A point has no
+;; Beta: unless it stayed the same point it moved infinitely far, so its change
+;; outranks every finite one.
 (: sk-change (-[det]-> SkeletonValue SkeletonValue Number))
 (= (sk-change $new $old)
-   (let* ((($a1 $b1) (sk-value-beta $new)) (($a2 $b2) (sk-value-beta $old)))
-      (beta_kl $a1 $b1 $a2 $b2)))
+   (let* (((STV $s1 $c1) (sk-value-stv $new)) ((STV $s2 $c2) (sk-value-stv $old)))
+      (if (< (max $c1 $c2) 1.0)
+         (let* (($n1 (confidence-to-count $c1)) ($n2 (confidence-to-count $c2)))
+            (beta_kl (+ (* $s1 $n1) 1.0) (+ (* (- 1.0 $s1) $n1) 1.0)
+               (+ (* $s2 $n2) 1.0) (+ (* (- 1.0 $s2) $n2) 1.0)))
+         (if (if (>= (min $c1 $c2) 1.0) (== (* 1.0 $s1) (* 1.0 $s2)) false) 0.0 1.0e300))))
 
-
-;; --- Change -----------------------------------------------------------------
-
-;; A value read as a Beta distribution over its strength, from its n
-;; observations; no value is Beta(1, 1).
-(: sk-value-beta (-[det]-> SkeletonValue (Number Number)))
-(= (sk-value-beta $value)
+(: sk-value-stv (-[det]-> SkeletonValue STVType))
+(= (sk-value-stv $value)
    (case $value (
       ((sk-val ($_type $_kbctx $_proof $tv) $_ev $_deps)
-         (case $tv (
-            ((STV $s $c) (sk-beta-of $s $c))
-            ((CTV (STV $s $c) $_negative) (sk-beta-of $s $c))
-            ($_other (data 1.0 1.0)))))
-      ($_none (data 1.0 1.0)))))
-
-(: sk-beta-of (-[det]-> Number Number (Number Number)))
-(= (sk-beta-of $s $c)
-   (let $n (confidence-to-count $c) (data (+ (* $s $n) 1.0) (+ (* (- 1.0 $s) $n) 1.0))))
+         (case $tv (((STV $s $c) (STV $s $c)) ((CTV (STV $s $c) $_negative) (STV $s $c)) ($_other (STV 0.5 0.0)))))
+      ($_none (STV 0.5 0.0)))))

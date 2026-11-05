@@ -33,7 +33,7 @@
 ;; One sample observed, two anticipated and missed: 1 in 3, confidence 3/4,
 ;; as with the false facts stated by hand.
 !(test (let (: $prf $t $tv) (query 200 anticipateKb (: $prf (RuleTruth (Implication (And (NextPeriod $t $u) (Ball right $t) (Did right $t)) (Ball equal $u))) $tv)) $tv)
-   (STV 0.33379324087543416 0.7505551012635442))
+   (STV 0.3337930287176089 0.750611069596577))
 ;; An observed statement keeps its fact: d2's equal was seen, and nothing
 ;; else is stated for it.
 !(test (collapse (match &kb ((Ball equal d2) (anticipateKb $_c $_v) $_p $tv) $tv)) ((STV 1 1)))

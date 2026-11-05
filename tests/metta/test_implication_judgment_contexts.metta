@@ -18,7 +18,7 @@
 !(test (collapse (let
    (: (conditioned source $when-true $when-false) $type $answer-tv)
    (query 300 hypoSharedKb (: $q (And (Meta R) (Implication (Gate $x) (Outcome $x))) $tv)) $answer-tv))
-   ((STV 0.48 0.935982976832851)))
+   ((STV 0.48 0.936003199840008)))
 !(test (let (: $p $type (STV $s $c))
    (query 300 hypoSharedKb (: $q (And (Implication (Gate $x) (Outcome $x)) (Meta R)) $tv)) $s)
    0.48)

@@ -38,14 +38,15 @@
                   (if (== $head $wildcard) (cons $head ()) (cons $head (cons $wildcard ()))))))))
       ($_fold ()))))
 
-;; A key whose value rests on less than the minimum evidence is not built on.
-;; An implication's value is read by its positive branch, as its Beta is.
+;; A key whose value rests on less than the minimum evidence is not built on;
+;; a point rests on unlimited evidence. An implication's value is read by its
+;; positive branch, as its Beta is.
 (: sk-forward-weak? (-[semidet]-> SkeletonKey Bool))
 (= (sk-forward-weak? $key)
    (case (sk-key-value $key) (
       ((sk-val ($_type $_kbctx $_proof $tv) $_ev $_deps)
          (let $read (case $tv (((CTV $pos $_neg) $pos) ($_stv $tv)))
-            (< (confidence-to-count (tv-confidence $read)) (forward-min-evidence))))
+            (let $c (tv-confidence $read) (if (>= $c 1.0) false (< (confidence-to-count $c) (forward-min-evidence))))))
       ($_none true))))
 
 ;; --- The run ----------------------------------------------------------------

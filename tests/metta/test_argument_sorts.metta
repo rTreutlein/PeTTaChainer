@@ -17,7 +17,7 @@
 !(compileadd sortEvent (: r1 (R ev1) (STV 1 1)))
 !(compileadd sortEvent (: rw (Implication (R $e) (W $e)) (CTV (STV 0.9 1) (STV 0.2 1))))
 !(compileadd sortEvent (: sw (Implication (S $e) (W $e)) (CTV (STV 0.8 1) (STV 0.25 1))))
-!(test (query 2000 sortEvent (: $p (S ev1) $tv)) (: (population-prior (S $_0)) (S ev1) (STV 0.4 1)))
+!(test (query 2000 sortEvent (: $p (S ev1) $tv)) (: (population-prior (S $_0)) (S ev1) (STV 0.4 0.9999)))
 !(set-base-rate sortUndeclared (S $e) (STV 0.4 1))
 !(set-base-rate sortUndeclared (R $e) (STV 0.3 1))
 !(compileadd sortUndeclared (: t1 (Time ev1 d1) (STV 1 1)))
@@ -25,7 +25,7 @@
 !(compileadd sortUndeclared (: rw (Implication (R $e) (W $e)) (CTV (STV 0.9 1) (STV 0.2 1))))
 !(compileadd sortUndeclared (: sw (Implication (S $e) (W $e)) (CTV (STV 0.8 1) (STV 0.25 1))))
 !(test (query 2000 sortUndeclared (: $p (S ev1) $tv))
-   (: ((inverted sw with cpu (prior (STV 0.4 1))) (by rw r1)) (S ev1) (STV 0.62786029706945 0.9998672046805047)))
+   (: ((inverted sw with cpu (prior (STV 0.4 1))) (by rw r1)) (S ev1) (STV 0.62786029706945 0.9999)))
 
 ;; Only ingested facts and rules sort constants, never a query: asking about
 ;; a role, or assuming one, leaves the event an aggregate, and its later
@@ -34,16 +34,16 @@
 !(collapse (query 200 sortEvent (: $p (Time ev6 d6) $tv)))
 !(collapse (query 200 sortEvent (: $p (Assuming (Time ev6 d6) (R ev6)) $tv)))
 !(test (query 2000 sortEvent (: $p (S ev6) $tv))
-   (: ((inverted sw with cpu (prior (STV 0.4 1))) (by rw r6)) (S ev6) (STV 0.62786029706945 0.9998672046805047)))
+   (: ((inverted sw with cpu (prior (STV 0.4 1))) (by rw r6)) (S ev6) (STV 0.62786029706945 0.9999)))
 
 ;; D1: a kind is read when a row is computed. S ev2, queried before its role
 ;; fact, stays an aggregate; state an event's roles before querying it.
 !(compileadd sortEvent (: r2 (R ev2) (STV 1 1)))
 !(test (query 2000 sortEvent (: $p (S ev2) $tv))
-   (: ((inverted sw with cpu (prior (STV 0.4 1))) (by rw r2)) (S ev2) (STV 0.62786029706945 0.9998672046805047)))
+   (: ((inverted sw with cpu (prior (STV 0.4 1))) (by rw r2)) (S ev2) (STV 0.62786029706945 0.9999)))
 !(compileadd sortEvent (: t2 (Time ev2 d2) (STV 1 1)))
 !(test (query 2000 sortEvent (: $p (S ev2) $tv))
-   (: ((inverted sw with cpu (prior (STV 0.4 1))) (by rw r2)) (S ev2) (STV 0.62786029706945 0.9998672046805047)))
+   (: ((inverted sw with cpu (prior (STV 0.4 1))) (by rw r2)) (S ev2) (STV 0.62786029706945 0.9999)))
 
 ;; The kind: a declared Stage or Time position, a stage-making constant, or a
 ;; variable the rule's sorts make one; a compound with a stage part (#139).
@@ -69,7 +69,7 @@
 !(compileadd sortRule (: r1 (R e1) (STV 1 1)))
 !(compileadd sortRule (: rw (Implication (R $e) (W $e)) (CTV (STV 0.9 1) (STV 0.2 1))))
 !(compileadd sortRule (: aw (Implication (And (Agent $e $x) (S $e)) (W $e)) (CTV (STV 0.8 1) (STV 0.25 1))))
-!(test (query 2000 sortRule (: $p (S e1) $tv)) (: (population-prior (S $_0)) (S e1) (STV 0.4 1)))
+!(test (query 2000 sortRule (: $p (S e1) $tv)) (: (population-prior (S $_0)) (S e1) (STV 0.4 0.9999)))
 !(set-base-rate sortRuleUndeclared (S $e) (STV 0.4 1))
 !(set-base-rate sortRuleUndeclared (R $e) (STV 0.3 1))
 !(compileadd sortRuleUndeclared (: a1 (Agent e1 Bob) (STV 1 1)))
@@ -77,7 +77,7 @@
 !(compileadd sortRuleUndeclared (: rw (Implication (R $e) (W $e)) (CTV (STV 0.9 1) (STV 0.2 1))))
 !(compileadd sortRuleUndeclared (: aw (Implication (And (Agent $e $x) (S $e)) (W $e)) (CTV (STV 0.8 1) (STV 0.25 1))))
 !(test (query 2000 sortRuleUndeclared (: $p (S e1) $tv))
-   (: ((antecedent-completion aw 1 with cpu (prior (STV 0.4 1))) (conjunction a1 (by rw r1))) (S e1) (STV 0.62786029706945 0.9998672046805047)))
+   (: ((antecedent-completion aw 1 with cpu (prior (STV 0.4 1))) (conjunction a1 (by rw r1))) (S e1) (STV 0.62786029706945 0.9999)))
 
 ;; #139: a compound of stages is a stage. Q t1 predicts W, which is no
 ;; evidence about (Or (R t1) (S t1)): no answer, where the aggregate abduced
@@ -94,7 +94,7 @@
 !(compileadd sortCompound (: w2 (W t2) (STV 1 1)))
 !(test (collapse (query 2000 sortCompound (: $p (Or (R t1) (S t1)) $tv))) ())
 !(test (query 2000 sortCompound (: $p (Or (R t2) (S t2)) $tv))
-   (: ((inverted rsw with cpu (prior (STV 0.58 0.9999206959442694))) w2) (Or (R t2) (S t2)) (STV 0.925531914893617 0.9999147706674222)))
+   (: ((inverted rsw with cpu (prior (STV 0.58 1.0))) w2) (Or (R t2) (S t2)) (STV 0.925531914893617 0.9999)))
 !(set-predicate-time sortConj C 1 0)
 !(set-predicate-time sortConj O 1 0)
 !(set-base-rate sortConj (C $x) (STV 0.5 1))
@@ -121,11 +121,11 @@
 !(compileadd sortTime (: q3 (Q t3) (STV 1 1)))
 !(compileadd sortTime (: w2 (W t2) (STV 1 1)))
 !(test (query 2000 sortTime (: $p (L t1) $tv))
-   (: (population-prior (L $_0)) (L t1) (STV 0.4 1)))
+   (: (population-prior (L $_0)) (L t1) (STV 0.4 0.9999)))
 !(test (query 2000 sortTime (: $p (L t2) $tv))
-   (: ((inverted lw with cpu (prior (STV 0.4 1))) w2) (L t2) (STV 0.8571428571428572 0.9998374408757003)))
+   (: ((inverted lw with cpu (prior (STV 0.4 1))) w2) (L t2) (STV 0.8571428571428572 0.9999)))
 !(test (query 2000 sortTime (: $p (L t3) $tv))
-   (: ((inverted lw with cpu (prior (STV 0.4 1))) (by qw q3)) (L t3) (STV 0.7783251231527094 0.9998738296388164)))
+   (: ((inverted lw with cpu (prior (STV 0.4 1))) (by qw q3)) (L t3) (STV 0.7783251231527094 0.9999)))
 !(set-bayes-prior-count 0.2)
 
 ;; Mining's place in time is the position set-predicate-time names, also

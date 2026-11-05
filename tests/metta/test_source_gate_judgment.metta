@@ -37,15 +37,15 @@
    (: (conditional-implication ((node-jeffrey 1
       (by (by rule accepted) (ctx proof $ctx)) $prediction $conditionals) cpu)) $type (STV $s $c))
    (query 300 unwrappedGate45 (: $p (Implication (A $x) (C $x)) $value))
-      (data (< (abs-math (- $s 0.8657957244652751)) 0.000000000001)
-            (< (abs-math (- $c 0.04001674008863015)) 0.000000000001))))
+      (data (< (abs-math (- $s 0.8657957244655582)) 0.000000000001)
+            (< (abs-math (- $c 0.04001674007901856)) 0.000000000001))))
    ((true true)))
 !(test (collapse (let
    (: (conditional-implication ((node-jeffrey 1
       (by (by rule accepted) (ctx proof $ctx)) $prediction $conditionals) cpu)) $type (STV $s $c))
    (query 300 unwrappedGate45 (: $p (Implication (A $x) (C $x)) $value))
-      (data (< (abs-math (- $s 0.8657957244652751)) 0.000000000001)
-            (< (abs-math (- $c 0.04001674008863015)) 0.000000000001))))
+      (data (< (abs-math (- $s 0.8657957244655582)) 0.000000000001)
+            (< (abs-math (- $c 0.04001674007901856)) 0.000000000001))))
    ((true true)))
 
 ;; Inspect the live private value: MAIN evidence/dependency identity survives

@@ -74,7 +74,7 @@
    ())
 
 !(test (query 30 kb (: $prf (ScoreTotal $x) $tv))
-   (: (by foldRule (foldall-proof prf prf prf)) (ScoreTotal 6) (STV 1.0 0.9998000399670116)))
+   (: (by foldRule (foldall-proof prf prf prf)) (ScoreTotal 6) (STV 1.0 0.9999)))
 
 !(compileadd kb
    (: foldZeroRule
@@ -83,7 +83,7 @@
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 10 kb (: $prf (Count MissingTotal $x) $tv))
-   (: (by foldZeroRule cpu) (Count MissingTotal 42) (STV 1.0 0.9998000399670116)))
+   (: (by foldZeroRule cpu) (Count MissingTotal 42) (STV 1.0 0.9999)))
 
 !(compileadd kb
    (: foldValueShapeRule
@@ -141,7 +141,7 @@
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 30 kb (: $prf (DerivedTotal $x) $tv))
-   (: (by foldDerivedRule (foldall-proof (by numFromCount (conjunction prf cpu)) (by numFromCount (conjunction prf cpu)) (by numFromCount (conjunction prf cpu)))) (DerivedTotal 6) (STV 1.0 0.9998000399670116)))
+   (: (by foldDerivedRule (foldall-proof (by numFromCount (conjunction prf cpu)) (by numFromCount (conjunction prf cpu)) (by numFromCount (conjunction prf cpu)))) (DerivedTotal 6) (STV 1.0 0.9999)))
 
 !(compileadd kb
    (: dogsInHouseRule
@@ -157,7 +157,7 @@
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 30 kb (: $prf (Cardinality (DogsIn house1) $x) $tv))
-   (: (by dogsInHouseRule (conjunction prf1 (foldall-proof (conjunction prf4 prf8) (conjunction prf5 prf10)))) (Cardinality (DogsIn house1) 5) (STV 1.0 0.999700089898053)))
+   (: (by dogsInHouseRule (conjunction prf1 (foldall-proof (conjunction prf4 prf8) (conjunction prf5 prf10)))) (Cardinality (DogsIn house1) 5) (STV 1.0 0.9999)))
 
 !(compileadd kb
    (: apbisc (Implication (And (Count A $a) (Count B $b) (Compute + ($a $b) -> $c)) (Count C $c)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))

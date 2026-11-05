@@ -37,7 +37,7 @@
    ((query-result 0
        (: (conjunction batch-a batch-b)
           (And (BatchA) (BatchB))
-          (STV 0.5 0.7999999999359401)))
+          (STV 0.5 0.8)))
     (query-result 1 (: batch-a (BatchA) (STV 1.0 1.0)))))
 
 !(compileadd sharedBatchKb
@@ -93,13 +93,13 @@
           (: $prf (SummedSingleRoot) $tv))))
    ((query-result 0
        (: (by summed-shared-left summed-shared-fact)
-          (SummedSharedLeft) (STV 1.0 0.19999604037636698)))
+          (SummedSharedLeft) (STV 1.0 0.2)))
     (query-result 1
        (: (by summed-shared-right summed-shared-fact)
-          (SummedSharedRight) (STV 1.0 0.19999604037636698)))
+          (SummedSharedRight) (STV 1.0 0.2)))
     (query-result 2
        (: (by summed-single summed-single-fact)
-          (SummedSingleRoot) (STV 1.0 0.2999911278320848)))))
+          (SummedSingleRoot) (STV 1.0 0.30000000000000004)))))
 
 ;; Two alternative rules from one root are not two independent consumers; with
 ;; stored facts reaching the joins directly this budget answers both roots, and
@@ -132,10 +132,10 @@
        (: (merge/revision
              (by duplicate-shared-first duplicate-shared-fact)
              (by duplicate-shared-second duplicate-shared-fact))
-          (DuplicateSharedRoot) (STV 1.0 0.3333279443759391)))
+          (DuplicateSharedRoot) (STV 1.0 0.3333333333333333)))
     (query-result 1
        (: (by duplicate-single duplicate-single-fact)
-          (DuplicateSingleRoot) (STV 1.0 0.2999913061574112)))))
+          (DuplicateSingleRoot) (STV 1.0 0.30000000000000004)))))
 
 ;; Roots share one priority order and an answered root is not rescored by its
 ;; marginal value; stored facts reach the joins without expansions, so this
@@ -166,10 +166,10 @@
           (: $prf (RefreshSecondRoot) $tv))))
    ((query-result 0
        (: (merge/revision (by refresh-slow refresh-slow-fact) (by refresh-fast refresh-fast-fact))
-          (RefreshFirstRoot) (STV 1.0 0.9999029644052249)))
+          (RefreshFirstRoot) (STV 1.0 0.9999)))
     (query-result 1
        (: (by refresh-medium refresh-medium-fact)
-          (RefreshSecondRoot) (STV 1.0 0.9998059476404358)))))
+          (RefreshSecondRoot) (STV 1.0 0.9999)))))
 
 ;; A zero-budget batch reads what earlier searches found for both roots.
 !(test
@@ -192,7 +192,7 @@
       (query-many 20 refreshedDemandKb
          ((: $prf (RefreshFirstRoot) $tv)
           (: $prf (RefreshSecondRoot) $tv))))
-   ((query-result 0 (: (merge/revision (by refresh-slow refresh-slow-fact) (by refresh-fast refresh-fast-fact)) (RefreshFirstRoot) (STV 1.0 0.9999029644052249))) (query-result 1 (: (by refresh-medium refresh-medium-fact) (RefreshSecondRoot) (STV 1.0 0.9998059476404358)))))
+   ((query-result 0 (: (merge/revision (by refresh-slow refresh-slow-fact) (by refresh-fast refresh-fast-fact)) (RefreshFirstRoot) (STV 1.0 0.9999))) (query-result 1 (: (by refresh-medium refresh-medium-fact) (RefreshSecondRoot) (STV 1.0 0.9999)))))
 
 !(compileadd materializeBatchKb
    (: materialize-batch-seed

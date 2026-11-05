@@ -3,42 +3,35 @@
 
 ;; Issue #43: project a consequent conjunct before exporting its nested
 ;; implication. The first query is cold; repeat it at the same 300-step budget.
-;; C is read off the predicted (And (B $x) (C $x)) by its Jeffrey update, B
-;; with no value (its read, the cpu token, found none) and C at the uniform
-;; prior. The update moves K to its prediction revised with the parts' own
-;; estimate, P* = (20/7 .25 + n 1)/(20/7 + n) (the parts' 1/4 at its exact
-;; variance 7/144) with n = 800 c/(1 - c) for the
-;; prediction's c = .99983, so C = P* + (1 - P*)(1/3) = 1 - 3e-7: a
-;; prediction short of certain never makes its part certain. Its variance
-;; 1.17e-13 against s(1 - s) = 2.98e-7 (unrounded) gives n = 2.55e6 and
-;; c = n/(n + 800) = .99969.
+;; The rule is certain, so its prediction of (And (B $x) (C $x)) is a point:
+;; certainly true, it is a hard observation of K, read by a node message, and
+;; C is certain too (a computed point, reported at .9999).
 !(compileadd projectedKb (: rule
    (Implication (AcceptSource S)
       (And (Metadata S) (Implication (A $x) (And (B $x) (C $x)))))
    (STV 1 1)))
 !(test
-   (posterior-tv-near? 0.9999997023811048 0.9999065647289087 (let (: (conditional-implication ((node-jeffrey 1 (by (consequent-projection $source $child rule) (conjunction $gate $a)) $prediction $conditionals) cpu)) $type $tv) (query 300 projectedKb (: $p (Implication (AcceptSource S) (Implication (A $x) (C $x))) $value)) $tv))
+   (posterior-tv-near? 1.0 0.9999 (let (: (conditional-implication (node-message 1 (by (consequent-projection $source $child rule) (conjunction $gate $a)) cpu $likelihood)) $type $tv) (query 300 projectedKb (: $p (Implication (AcceptSource S) (Implication (A $x) (C $x))) $value)) $tv))
    true)
 !(test
-   (posterior-tv-near? 0.9999997023811048 0.9999065647289087 (let (: (conditional-implication ((node-jeffrey 1 (by (consequent-projection $source $child rule) (conjunction $gate $a)) $prediction $conditionals) cpu)) $type $tv) (query 300 projectedKb (: $p (Implication (AcceptSource S) (Implication (A $x) (C $x))) $value)) $tv))
+   (posterior-tv-near? 1.0 0.9999 (let (: (conditional-implication (node-message 1 (by (consequent-projection $source $child rule) (conjunction $gate $a)) cpu $likelihood)) $type $tv) (query 300 projectedKb (: $p (Implication (AcceptSource S) (Implication (A $x) (C $x))) $value)) $tv))
    true)
 ;; A bound instance also works; $x remains the inner rule's variable.
 !(test
-   (posterior-tv-near? 0.9999997023811048 0.9999065647289087 (let (: (conditional-implication $proof) $type $tv) (query 300 projectedKb (: $p (Implication (AcceptSource S) (Implication (A a) (C a))) $value)) $tv))
+   (posterior-tv-near? 1.0 0.9999 (let (: (conditional-implication $proof) $type $tv) (query 300 projectedKb (: $p (Implication (AcceptSource S) (Implication (A a) (C a))) $value)) $tv))
    true)
 
-;; Both controls from the report still compose with ordinary And elimination,
-;; each a little short of 1 as above.
+;; Both controls from the report still compose with ordinary And elimination.
 !(compileadd unwrappedKb (: rule
    (Implication (AcceptSource S) (Implication (A $x) (And (B $x) (C $x))))
    (STV 1 1)))
 !(test (let (: (conditional-implication $proof) $type (STV $s $c))
    (query 300 unwrappedKb (: $p
-      (Implication (AcceptSource S) (Implication (A $x) (C $x))) $value)) $s) 0.9999997023811048)
+      (Implication (AcceptSource S) (Implication (A $x) (C $x))) $value)) $s) 1.0)
 !(compileadd plainProjectionKb (: rule
    (Implication (A $x) (And (B $x) (C $x))) (STV 1 1)))
 !(test (let (: (conditional-implication $proof) $type (STV $s $c))
-   (query 300 plainProjectionKb (: $p (Implication (A $x) (C $x)) $value)) $s) 0.9999997619048654)
+   (query 300 plainProjectionKb (: $p (Implication (A $x) (C $x)) $value)) $s) 1.0)
 
 ;; The gate cannot be replaced, or dropped from the requested implication.
 !(test (collapse (query 300 projectedKb (: $p
@@ -61,7 +54,7 @@
 !(test (let (: (conditional-implication $proof) $type (STV $s $c))
    (query 300 deeperProjectionKb (: $p
       (Implication (AcceptSource S)
-         (Implication (A $x) (Implication (D $x) (C $x)))) $value)) $s) 0.9999996428573533)
+         (Implication (A $x) (Implication (D $x) (C $x)))) $value)) $s) 1.0)
 !(test (collapse (query 300 deeperProjectionKb (: $p (C a) $tv))) ())
 
 ;; Two paths through the same uncertain rule must carry the same evidence,
@@ -79,7 +72,7 @@
 !(test (let (: (conditional-implication $proof) $type (STV $s $c))
    (query 300 overlapProjectionKb (: $p
       (Implication (AcceptSource S) (Implication (A $x) (C $x))) $tv))
-   (data $s (< $c 0.6))) (0.8655786350145539 true))
+   (data $s (< $c 0.6))) (0.8655786350148368 true))
 ;; A variable an implication conjunct binds is universal, never a Skolem
 ;; witness, even with no outer variable to depend on (#142): the projected
 ;; conditional answers at the rule's strength. Skolemised, its key held an
@@ -88,7 +81,7 @@
 !(compileadd boundConjunctKb (: g (G) (STV 1 1)))
 !(test (let (: (conditional-implication $_proof) $_type $tv)
    (query 300 boundConjunctKb (: $p (Implication (A $x) (B $x)) $tv)) $tv)
-   (STV 0.9 0.8901098896813074))
+   (STV 0.9 0.8901098901098902))
 
 ;; A sibling of a conclusion's implication part is read apart from that part:
 ;; judged from the same rule, it would divide P(X and M) by itself and make M
@@ -143,11 +136,11 @@
 !(test (let (: (conditional-implication $proof) $type (STV $s $c))
    (query 300 ctvProjectionKb (: $p
       (Implication (AcceptSource S) (Implication (A $x) (C $x))) $tv))
-   (data $s (< $c 0.6))) (0.8655786350142479 true))
+   (data $s (< $c 0.6))) (0.8655786350148368 true))
 !(test (let (: (conditional-implication $proof) $type (STV $s $c))
    (query 300 ctvProjectionKb (: $p
       (Implication (Not (AcceptSource S)) (Implication (A $x) (C $x))) $tv))
-   (data $s (< $c 0.5))) (0.46725146198833034 true))
+   (data $s (< $c 0.5))) (0.46725146198830414 true))
 
 ;; Withdrawing the actual source retires projected support even after warm reads.
 !(withdraw-named-rules! rule)
@@ -164,7 +157,7 @@
       (And (Metadata S) (Implication (A $x) (And (B $x) (C $x)))))
    (STV 0.8 0.6)))
 !(test (let (: $proof $type (STV $s $c))
-   (query-materialize 300 withdrawnProjectionKb (: $p (C a) $tv)) $s) 0.8655786350145539)
+   (query-materialize 300 withdrawnProjectionKb (: $p (C a) $tv)) $s) 0.8655786350148368)
 !(withdraw-named-rules! main-projection)
 !(test (collapse (query 300 withdrawnProjectionKb (: $p (C a) $tv))) ())
 !(test (kb-facts (brand Statement (C a)) (kbctx withdrawnProjectionKb)) ())
@@ -179,7 +172,7 @@
          (And (Reviewed S) (Implication (A $x) (And (B $x) (C $x))))))
    (STV 0.8 0.6)))
 !(test (let (: $proof $type (STV $s $c))
-   (query-materialize 300 withdrawnDeepKb (: $p (C a) $tv)) $s) 0.8653076352851138)
+   (query-materialize 300 withdrawnDeepKb (: $p (C a) $tv)) $s) 0.8653076352853966)
 !(withdraw-named-rules! deep-projection)
 !(test (collapse (query 300 withdrawnDeepKb (: $p (C a) $tv))) ())
 !(test (kb-facts (brand Statement (C a)) (kbctx withdrawnDeepKb)) ())

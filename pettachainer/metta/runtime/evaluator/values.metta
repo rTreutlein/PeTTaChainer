@@ -144,7 +144,10 @@
 ;; is view a's link plus view b's link over b's prior. Its link-scale variance
 ;; is a's, at least a's prior's, plus b's over b's prior: over one prior that
 ;; adds each view's update to the prior's variance once, and a view in the
-;; base rate's place keeps its own variance, however uncertain the rate.
+;; base rate's place keeps its own variance, however uncertain the rate. An
+;; update with no variance of its own (point likelihoods) differs from its
+;; prior's only by the rounding of their confidence round trips, which is no
+;; variance: a point stays a point.
 (: sk-link (-[det]-> Atom Number Number))
 (= (sk-link $link $p)
    (let $c (ideal-clip $p)
@@ -161,8 +164,10 @@
 (: sk-factored-tv (-[det]-> Atom Number Number Number Number Number Number Number Number STVType))
 (= (sk-factored-tv $link $spa $cpa $spb $cpb $sa $ca $sb $cb)
    (let* (($x (- (+ (sk-link $link $sa) (sk-link $link $sb)) (sk-link $link $spb)))
+          ($vb (sk-link-var $link $sb $cb))
+          ($update (- $vb (sk-link-var $link $spb $cpb)))
           ($v (+ (max (sk-link-var $link $sa $ca) (sk-link-var $link $spa $cpa))
-                 (max 0.0 (- (sk-link-var $link $sb $cb) (sk-link-var $link $spb $cpb)))))
+                 (if (<= $update (* 0.000000001 $vb)) 0.0 $update)))
           ;; Clip the log/variance calculation, not an exact posterior mean.
           ($s (if (== $link odds)
                  (if (or (certain-at? 0.0 $sa $ca) (certain-at? 0.0 $sb $cb)) 0.0
@@ -354,8 +359,9 @@
 ;; uncertain view over another prior, or updating nothing, that is independent
 ;; of it: that view, including a stored target belief, takes the base rate's
 ;; place as the instance's prior. The update contributes its likelihood ratio,
-;; not another estimate to revise with the prior. A certain view stays as it
-;; is. Anything else is left to the
+;; not another estimate to revise with the prior. A decided view (strength 0
+;; or 1 at confidence 1) stays as it is; a point probability between them is
+;; still an instance's prior that observations update. Anything else is left to the
 ;; rules below, and so are two certain views that contradict each other.
 ;; Stored reports describe the instance's evidence, while an independent
 ;; forward view predicts it. Revise reports first, then apply their
@@ -405,7 +411,8 @@
                 ;; support below: conditioning still needs it. The update's
                 ;; neutral prior is the base an inversion reads the report
                 ;; under (sk-prior-update-of).
-                ($tv (if $endpoint (STV $s $c)
+                ;; A prediction certain of the reported endpoint stays certain.
+                ($tv (if $endpoint (STV $s (if (certain-at? (* 1.0 $s) $sp $cp) 1.0 $c))
                         (let (STV $posterior $confidence) (sk-factored-tv odds $sp $cp 0.5 1 $sp $cp $s $c)
                            (STV (if (<= $sp 0.0) 0.0 (if (>= $sp 1.0) 1.0 $posterior)) $confidence))))
                 ($update (brand Proof ((reported with cpu (prior (STV 0.5 0.0))) $report))))
@@ -468,7 +475,7 @@
                             (if (same-proof? $base-a $base-b)
                                (if (< (abs-math (- (the Number $spa) (the Number $spb))) 0.000000000001) (if (< (abs-math (- (the Number $cpa) (the Number $cpb))) 0.000000000001) (if (== $parts-a ()) false (if (== $parts-b ()) false (if (if $population-a (if $independent false true) false) false (not (sk-sources-meet? $parts-a $parts-b))))) false) false)
                                (if $population-b
-                                  (if (< $ca 1.0) $independent false)
+                                  (if (if (< $ca 1.0) true (> (* $sa (- 1.0 $sa)) 0.0)) $independent false)
                                   false)))
                         (let* (((STV $combined-s $combined-c)
                                     (sk-factored-tv odds (the Number $spa) (the Number $cpa)

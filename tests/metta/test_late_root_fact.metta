@@ -26,4 +26,4 @@
 !(test (collapse (query 300 cycle79Kb (: $p (A a) $tv)))
        ((: seed (A a) (STV 1 0.8))))
 !(test (collapse (query 300 cycle79Kb (: $p (B a) $tv)))
-       ((: (by (no_inverse ab) seed) (B a) (STV 1 0.7999359651197002))))
+       ((: (by (no_inverse ab) seed) (B a) (STV 1 0.8))))

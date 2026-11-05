@@ -2,13 +2,15 @@
 ;; runtime/fact_reads/selection. Construction consumes those indexed facts.
 
 ;; A ground statement stored with confidence 1 is certain: no other proof
-;; could change its value. Borrowed world facts cannot retire private search:
-;; the judgment may find an assumption-dependent alternative to select instead.
+;; could change its value. A frozen key's summary is a derived view stored as a
+;; fact: at confidence 1 it is a probability known exactly, which observations
+;; still update. Borrowed world facts cannot retire private search: the
+;; judgment may find an assumption-dependent alternative to select instead.
 (: sk-certain-step (-[det]-> Bool SkFact Bool))
 (= (sk-certain-step $seen ($_type ($_kb $ctx $_vars) $proof $tv))
    (if $seen true
       (if (if (== $ctx MAIN) true (assumption-proof? $proof))
-         (case $tv (((STV $_s $c) (>= $c 1.0)) ($_other false))) false)))
+         (case $tv (((STV $_s $c) (if (>= $c 1.0) (not (head-is? $proof forgotten)) false)) ($_other false))) false)))
 (: sk-certain? (-[det]-> Statement (List SkFact) Bool))
 (= (sk-certain? $type $facts)
    (if (== (extract-vars $type) ()) (fold-flat sk-certain-step false $facts) false))

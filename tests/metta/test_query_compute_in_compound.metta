@@ -9,7 +9,7 @@
 ;; A compound root is its conjunction, read through the key's producer (#142).
 !(test
    (query 50 queryComputeKb (: $prf (And (P $x) (Compute + ($x 1) $y) (P $y)) $tv))
-   ((: (conjunction p1 cpu p2) (And (P 1) (Compute + (1 1) 2) (P 2)) (STV 1.0 0.999700089898053)) (: (conjunction p2 cpu p3) (And (P 2) (Compute + (2 1) 3) (P 3)) (STV 1.0 0.999700089898053))))
+   ((: (conjunction p1 cpu p2) (And (P 1) (Compute + (1 1) 2) (P 2)) (STV 1.0 0.9999)) (: (conjunction p2 cpu p3) (And (P 2) (Compute + (2 1) 3) (P 3)) (STV 1.0 0.9999))))
 
 !(compileadd queryNotCompoundKb (: tallAlice (Tall alice) (STV 0.9 0.5)))
 
@@ -33,4 +33,4 @@
    (query 300 implicationComputeKb
       (: $p (And (P $x) (Compute + ($x 1) $y) (P $y)
          (Implication (G) (Y))) $value)) $tv))
-   ((STV 0.8 0.8999999990276973)))
+   ((STV 0.8 0.9)))

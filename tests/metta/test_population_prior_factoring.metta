@@ -81,4 +81,4 @@
 !(set-base-rate sharedKb (Storm $reg) (STV 0.3 0.9))
 !(set-base-rate sharedKb (Blocked r2 $reg) (STV 0.261 0.9))
 !(compileadd sharedKb (: l2 (Late s2 north) (STV 1.0 1.0)))
-!(test (query 100 sharedKb (: $p (Blocked r2 north) $tv)) (: (merge/revision (by block2 ((inverted lateS with cpu (prior (STV 0.30000555540123885 0.9))) l2)) ((inverted late2 with cpu (prior (STV 0.26100663870448043 0.9))) l2)) (Blocked r2 north) (STV 0.7231034858822245 0.9701587228190831)))
+!(test (query 100 sharedKb (: $p (Blocked r2 north) $tv)) (: (merge/revision (by block2 ((inverted lateS with cpu (prior (STV 0.30000555540123885 0.9))) l2)) ((inverted late2 with cpu (prior (STV 0.26100663870448043 0.9))) l2)) (Blocked r2 north) (STV 0.7231034860633285 0.9701587229343089)))

@@ -15,11 +15,11 @@
 !(compileadd orKb (: a (A t) (STV 1 1)))
 
 !(test (query 50 orKb (: $p (Or (A t) (B t)) $tv))
-   (: (settled a) (Or (A t) (B t)) (STV 1.0 1.0)))
+   (: (settled a) (Or (A t) (B t)) (STV 1.0 0.9999)))
 ;; (A t) true leaves (B t) undetermined, so nothing gives (B t) a value and
 ;; the complete rule application has none: the settled step is the answer.
 !(test (query 50 orKb (: $p (C t) $tv))
-   (: (by r (settled a)) (C t) (STV 1.0 0.9998000399670116)))
+   (: (by r (settled a)) (C t) (STV 1.0 0.9999)))
 
 ;; And: (D t) has no proof, (E t) is certain, so (Not (E t)) is certainly false
 ;; and the rule concludes by its negative branch.
@@ -28,7 +28,7 @@
 
 !(test (query 50 andKb (: $p (And (E t) (D t)) $tv)) ())
 !(test (query 50 andKb (: $p (F t) $tv))
-   (: (by r (settled (negated e))) (F t) (STV 0.2 0.9999000095990804)))
+   (: (by r (settled (negated e))) (F t) (STV 0.2 0.9999)))
 
 ;; Only certainty settles: an uncertain disjunct, or a certain-false one in an
 ;; Or, leaves the compound waiting for its other parts.
@@ -45,7 +45,7 @@
 !(compileadd openKb (: a (A t) (STV 1 1)))
 
 !(test (query 50 openKb (: $p (C t v) $tv))
-   (: (by r (settled a)) (C t v) (STV 1.0 0.9998000399670116)))
+   (: (by r (settled a)) (C t v) (STV 1.0 0.9999)))
 !(test (query 50 openKb (: $p (C t $u) $tv)) ())
 !(test (query 50 openKb (: $p (Or (A t) (B t $u)) $tv)) ())
 
@@ -74,9 +74,9 @@
 !(compileadd stockedKb (: s (StockedFuel t) (STV 1 1)))
 
 !(test (query 200 stockedKb (: $p (Producing power t) $tv))
-   (: (by runs-power (conjunction (by fuelled (settled s)) (negated dp))) (Producing power t) (STV 1.0 0.9996001597861454)))
+   (: (by runs-power (conjunction (by fuelled (settled s)) (negated dp))) (Producing power t) (STV 1.0 0.9999)))
 !(test (query 200 stockedKb (: $p (Producing mine t) $tv))
-   (: (by runs-mine (conjunction (by runs-power (conjunction (by fuelled (settled s)) (negated dp))) (negated dm))) (Producing mine t) (STV 1.0 0.9994003594095786)))
+   (: (by runs-mine (conjunction (by runs-power (conjunction (by fuelled (settled s)) (negated dp))) (negated dm))) (Producing mine t) (STV 1.0 0.9999)))
 
 ;; Without stock nothing but the loop could fuel the plant. The plant is in
 ;; fact not running (the least fixed point), but the chainer is open-world:
@@ -107,4 +107,4 @@
 !(compileadd mineDownKb (: s (StockedFuel t) (STV 0 1)))
 
 !(test (query 200 mineDownKb (: $p (Producing power t) $tv))
-   (: (by runs-power (conjunction (by fuelled (conjunction s (by fuel-arrives (conjunction (by runs-mine (settled (negated dm))) (negated bf))))) (negated dp))) (Producing power t) (STV 0.0 0.9994003594095784)))
+   (: (by runs-power (conjunction (by fuelled (conjunction s (by fuel-arrives (conjunction (by runs-mine (settled (negated dm))) (negated bf))))) (negated dp))) (Producing power t) (STV 0.0 0.9999)))

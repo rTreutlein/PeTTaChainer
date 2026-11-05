@@ -20,10 +20,10 @@
 ;; Stored facts reach a waiting join without an expansion, so two steps expand
 ;; Goal and B and read A.
 !(test (query 2 bwdOnlyKb (: $p (Goal) $tv))
-   (: (by r2 (by r1 a0)) (Goal) (STV 1.0 0.999700089898053)))
+   (: (by r2 (by r1 a0)) (Goal) (STV 1.0 0.9999)))
 
 !(test (query 4 bwdOnlyKb (: $p (Goal) $tv))
-   (: (by r2 (by r1 a0)) (Goal) (STV 1.0 0.999700089898053)))
+   (: (by r2 (by r1 a0)) (Goal) (STV 1.0 0.9999)))
 
 !(test
    (query 100 bwdOnlyKb
@@ -45,7 +45,7 @@
 
 !(test
    (query 20 transitiveClosedKb (: $p (Provable (→ (PropP) (PropT))) $tv))
-   (: (by ax-tr (conjunction given-imp2 given-imp1)) (Provable (→ (PropP) (PropT))) (STV 1.0 0.999700089898053)))
+   (: (by ax-tr (conjunction given-imp2 given-imp1)) (Provable (→ (PropP) (PropT))) (STV 1.0 0.9999)))
 
 !(compileadd openImplicationKb (: r1 (Implication (A) (B)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
@@ -93,7 +93,7 @@
 ;; Implication while compiling this rule.
 !(test
    (query 100 openVariableConclusionImplicationKb (: $p (Implication (Tall $x) (Female $x)) $tv))
-   (: (merge/revision (conditional-implication (merge/revision (by copyPredicate (conjunction tallAlice femaleAlice (ctx proof 0))) (by copyPredicate (conjunction tallMary femaleMary (ctx proof 0))))) (implication-instance-fold cpu)) (Implication (Tall $_0) (Female $_0)) (STV 0.8100239739628896 0.6786287374397676)))
+   (: (merge/revision (conditional-implication (merge/revision (by copyPredicate (conjunction tallAlice femaleAlice (ctx proof 0))) (by copyPredicate (conjunction tallMary femaleMary (ctx proof 0))))) (implication-instance-fold cpu)) (Implication (Tall $_0) (Female $_0)) (STV 0.8100239739628672 0.678628737641955)))
 
 ;; The open identity holds at (STV 1, 1). The judgment read selects its STV
 ;; producers before merging, so the exact conditional identity stands alone.
@@ -104,8 +104,8 @@
 ;; answers either (#142).
 !(test
    (collapse
-      (query 100 openVariableConclusionImplicationKb (: $proof (Implication ($p $x) ($p $x)) (STV 1.0 1.0))))
-   ((: (conditional-implication (ctx proof 1)) (Implication ($_0 $_1) ($_0 $_1)) (STV 1.0 1.0))))
+      (query 100 openVariableConclusionImplicationKb (: $proof (Implication ($p $x) ($p $x)) (STV 1.0 0.9999))))
+   ((: (conditional-implication (ctx proof 1)) (Implication ($_0 $_1) ($_0 $_1)) (STV 1.0 0.9999))))
 
 !(test
    (query 100 openVariableConclusionImplicationKb
@@ -127,7 +127,7 @@
 
 !(test
    (query 100 existentialDisjunctionKb (: $prf (T) $tv))
-   (: (by pToT (disjunction pa pb)) (T) (STV 0.9199999999999999 0.7123799943294165)))
+   (: (by pToT (disjunction pa pb)) (T) (STV 0.9199999999999999 0.7123799949180818)))
 
 !(compileadd composeKb (: a0 (A) (STV 1.0 1.0)))
 
@@ -136,7 +136,7 @@
 !(compileadd composeKb (: r2 (Implication (B) (Goal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (let $_ (forward-chain 1 composeKb (test-selected-facts composeKb (A))) (query 2 composeKb (: $p (Goal) $tv)))
-   (: (by r2 (by r1 a0)) (Goal) (STV 1.0 0.999700089898053)))
+   (: (by r2 (by r1 a0)) (Goal) (STV 1.0 0.9999)))
 
 !(compileadd composeKbShort (: a0 (A) (STV 1.0 1.0)))
 
@@ -149,7 +149,7 @@
 !(test
    (let $_ (forward-chain 1 composeKbShort (test-selected-facts composeKbShort (A)))
       (query 1 composeKbShort (: $p (Goal) $tv)))
-   (: (by r2 (by r1 a0)) (Goal) (STV 1.0 0.999700089898053)))
+   (: (by r2 (by r1 a0)) (Goal) (STV 1.0 0.9999)))
 
 !(compileadd independentKb (: x (X) (STV 1.0 1.0)))
 
@@ -160,7 +160,7 @@
 !(compileadd independentKb (: rc (Implication (And (A) (B)) (C)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 100 independentKb (: $p (C) $tv))
-   (: (by rc (conjunction (by ra x) b)) (C) (STV 1.0 0.9996001597861454)))
+   (: (by rc (conjunction (by ra x) b)) (C) (STV 1.0 0.9999)))
 
 !(compileadd derivedAndRuleKb (: yearsRule (Implication (YearsExp $p 10) (IndustryVeteran $p)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
@@ -176,11 +176,11 @@
 
 !(test
    (query 50 derivedAndRuleKb (: $p (Expert kebede) $tv))
-   (: (by expertRule (conjunction (by yearsRule yearsFact) mgmtFact)) (Expert kebede) (STV 1.0 0.9497292914682098)))
+   (: (by expertRule (conjunction (by yearsRule yearsFact) mgmtFact)) (Expert kebede) (STV 1.0 0.95)))
 
 !(test
    (query 50 derivedAndRuleKb (: $p (SeniorExpert kebede) $tv))
-   (: (by seniorRule (conjunction (by expertRule (conjunction (by yearsRule yearsFact) mgmtFact)) ethicsFact)) (SeniorExpert kebede) (STV 1.0 0.9495489046959086)))
+   (: (by seniorRule (conjunction (by expertRule (conjunction (by yearsRule yearsFact) mgmtFact)) ethicsFact)) (SeniorExpert kebede) (STV 1.0 0.95)))
 
 ;; A nested conjunction reads as the flat one (#142): the same rule with a
 ;; flat antecedent answers the same judgment.
@@ -192,4 +192,4 @@
    (: copyPredicate (Implication (And ($p1 $x) ($p2 $x) ($p1 $y)) ($p2 $y)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 !(test (let (: $_proof $_statement $tv)
       (query 100 flatCopyKb (: $p (Implication (Tall $x) (Female $x)) $tv)) $tv)
-   (STV 0.8100239739628896 0.6786287374397676))
+   (STV 0.8100239739628672 0.678628737641955))

@@ -31,7 +31,7 @@ class TestFunctionalPredicates(unittest.TestCase):
         h.add_atom('(: other (At bat right t1) (STV 1 1))')
         h.add_atom('(: later (At ball right t2) (STV 1 1))')
         self.assertEqual(h.query_many_refs(['(: $p (At ball left t1) $tv)'], steps=0)[0][0].tv,
-                         ['STV', 1, 1])
+                         ['STV', 1, 0.9999])
         other = PeTTaChainer()
         other.set_functional_predicate('At', 3, (1, 3))
         other.add_atom('(: independent (At ball right t1) (STV 1 1))')

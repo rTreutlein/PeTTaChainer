@@ -44,7 +44,7 @@
 ;; A Member conclusion with a class variable concludes the predicate key.
 !(compileadd memberConcl (: a (Adopts bob rex Dog) (STV 1 1)))
 !(compileadd memberConcl (: r (Implication (Adopts $y $x $c) (Member $x $c)) (STV 0.9 0.9)))
-!(test (query 300 memberConcl (: $p (Dog rex) $tv)) (: (by r a) (Dog rex) (STV 0.9 0.8999999997809282)))
+!(test (query 300 memberConcl (: $p (Dog rex) $tv)) (: (by r a) (Dog rex) (STV 0.9 0.9)))
 
 ;; A negated Member fact is stored on the class key; a Member written inside a
 ;; negation answers in its written shape.
@@ -72,7 +72,7 @@
 ;; argument that a rule concludes.
 !(compileadd memberKnown (: f (Member rex Dog) (STV 1 0.9)))
 !(compileadd memberKnown (: r (Implication (KnownExistential ($y) (Member $y Dog)) (HasDog)) (STV 1 1)))
-!(test (query 200 memberKnown (: $p (HasDog) $tv)) (: (by r (disjunction f)) (HasDog) (STV 1.0 0.9641959178258354)))
+!(test (query 200 memberKnown (: $p (HasDog) $tv)) (: (by r (disjunction f)) (HasDog) (STV 1.0 0.9642889027765378)))
 !(set-rule-refinement memberTruth true)
 !(compileadd memberTruth (: r (Implication (Member $x Dog) (Barks $x)) (STV 0.9 0.9)))
 !(compileadd memberTruth (: f1 (Dog rex) (STV 1 1)))
@@ -83,8 +83,8 @@
    (STV 0.9000138869601445 0.9000124984376953))
 !(compileadd memberClaims (: c (Claims bob (Member rex Dog)) (STV 1 1)))
 !(compileadd memberClaims (: r (Implication (Claims $p $s) $s) (STV 0.9 0.9)))
-!(test (query 200 memberClaims (: $p (Member rex Dog) $tv)) (: (by r c) (Member rex Dog) (STV 0.9 0.8999999997809282)))
-!(test (query 200 memberClaims (: $p (Dog rex) $tv)) (: (by r c) (Dog rex) (STV 0.9 0.8999999997809282)))
+!(test (query 200 memberClaims (: $p (Member rex Dog) $tv)) (: (by r c) (Member rex Dog) (STV 0.9 0.9)))
+!(test (query 200 memberClaims (: $p (Dog rex) $tv)) (: (by r c) (Dog rex) (STV 0.9 0.9)))
 
 ;; A class naming a connective, computation or internal key is rejected, in a
 ;; fact and in a query.

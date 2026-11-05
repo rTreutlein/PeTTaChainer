@@ -19,7 +19,7 @@ class CompletionRecipeTests(unittest.TestCase):
         self.assertEqual(len(answers), 1)
         # Master 80ea5628: both C reads admit the inversion of cd from d.
         # Sibling exclusions instead suppress the completion, returning A's prior.
-        self.assertEqual(answers[0].tv, ['STV', 0.5010040747520484, 0.9667304990543287])
+        self.assertEqual(answers[0].tv, ['STV', 0.5010040747520484, 0.9668118669535684])
 
     def test_rule_recipe_is_ground_and_inputs_share_refined_truth(self):
         h = PeTTaChainer()

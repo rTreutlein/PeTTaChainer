@@ -60,17 +60,17 @@
 ;; The explicit negative statement reads its stated conditional directly.
 !(test (collapse (let (: $p $type $tv)
    (query 300 reviewerConjKb (: $q (And (M) (Implication (Not (G)) (Y))) $value)) $tv))
-   ((STV 0.9 0.8999999992707871)))
+   ((STV 0.9 0.9)))
 !(compileadd reviewerConjKb (: r (Implication (G) (Y))
    (CTV (STV 0.8 0.9) (STV 0.2 0.9))))
 ;; rn contributes nothing under G; the stated r is exactly 0.8.
 !(test (collapse (let (: $p $type $tv)
    (query 300 reviewerConjKb (: $q (And (M) (Implication (G) (Y))) $value)) $tv))
-   ((STV 0.8 0.8999999996758992)))
+   ((STV 0.8 0.9)))
 ;; Under Not G, independent rn=0.9 and r's negative branch=0.2 revise.
 !(test (collapse (let (: $p $type $tv)
    (query 300 reviewerConjKb (: $q (And (M) (Implication (Not (G)) (Y))) $value)) $tv))
-   ((STV 0.5499999999999999 0.947368420942915)))
+   ((STV 0.5499999999999999 0.9473684210526316)))
 
 ;; Both M and the derived Gate -> Y statement depend on world g. Condition
 ;; that shared source once: P(Not G)*0.9=0.45, rather than 0.5*0.45=0.225.
@@ -83,7 +83,7 @@
    (Implication (Not (G)) (M)) (CTV (STV 1 1) (STV 0 1))))
 !(test (collapse (let (: (conditioned g $positive $negative) $type $tv)
    (query 300 sharedGivenConjKb (: $q (And (M) (Implication (Gate) (Y))) $value)) $tv))
-   ((STV 0.45 0.9166609536894368)))
+   ((STV 0.45 0.9166685956343603)))
 
 ;; CTV rule storage stays internal even for an explicit answer selector.
 !(test (collapse (query 300 reviewerConjKb
@@ -127,7 +127,7 @@
          (conjunction (by (no_inverse metadata) (given false)) (by outer (given false))))
       (And (Meta R) (Implication (Gate R) (Outcome x))) $tv)
    (query 300 sharedConjKb (: $p (And (Meta R) (Implication (Gate R) (Outcome x))) $value)) $tv))
-   ((STV 0.48 0.9359829770008133)))
+   ((STV 0.48 0.936003199840008)))
 !(test (collapse (let (: $p (And (Implication (Gate R) (Outcome x)) (Meta R)) $tv)
    (query 300 sharedConjKb (: $q (And (Implication (Gate R) (Outcome x)) (Meta R)) $value)) $tv))
-   ((STV 0.48 0.9359829770008133)))
+   ((STV 0.48 0.936003199840008)))

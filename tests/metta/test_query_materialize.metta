@@ -8,7 +8,7 @@
 
 !(test
    (query 4 materializeKb (: $p (Goal) $tv))
-   (: (by r2 (by r1 a0)) (Goal) (STV 1.0 0.999700089898053)))
+   (: (by r2 (by r1 a0)) (Goal) (STV 1.0 0.9999)))
 
 !(test
    (collapse (match &kb ((B) (materializeKb MAIN Nil) $_prf $_tv) true))
@@ -20,7 +20,7 @@
 
 !(test
    (query-materialize 4 materializeKb (: $p (Goal) $tv))
-   (: (by r2 (by r1 a0)) (Goal) (STV 1.0 0.999700089898053)))
+   (: (by r2 (by r1 a0)) (Goal) (STV 1.0 0.9999)))
 
 !(test
    (not (== (collapse (match &kb ((B) (materializeKb MAIN Nil) $_prf $_tv) true)) ()))
@@ -32,11 +32,11 @@
 
 !(test
    (query 1 materializeKb (: $p (B) $tv))
-   (: (by r1 a0) (B) (STV 1.0 0.9998000399670116)))
+   (: (by r1 a0) (B) (STV 1.0 0.9999)))
 
 !(test
    (query 1 materializeKb (: $p (Goal) $tv))
-   (: (by r2 (by r1 a0)) (Goal) (STV 1.0 0.999700089898053)))
+   (: (by r2 (by r1 a0)) (Goal) (STV 1.0 0.9999)))
 
 ;; Positive implication judgments live in a private query context. Even an
 ;; explicit materialization request must not persist one as a world fact.

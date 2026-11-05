@@ -22,15 +22,15 @@
 
 !(test
    (query 60 implicationPremiseKb (: $prf (C) $tv))
-   (: (by ab_c (merge/revision a_b (total-implication (by a_b (ctx proof 0)) (by a_b (ctx proof 1))))) (C) (STV 1.0 0.9998000399670116)))
+   (: (by ab_c (merge/revision a_b (total-implication (by a_b (ctx proof 0)) (by a_b (ctx proof 1))))) (C) (STV 1.0 0.9999)))
 
 !(test
    (query 60 implicationPremiseKb (: $prf (Implication (Not (Dog)) (Dog)) $tv))
-   (: (conditional-implication (ctx proof 2)) (Implication (Not (Dog)) (Dog)) (STV 0.0 1.0)))
+   (: (conditional-implication (ctx proof 2)) (Implication (Not (Dog)) (Dog)) (STV 0.0 0.9999)))
 
 !(test
-   (query 60 implicationPremiseKb (: $prf (Implication (Not (Dog)) (Not (Dog))) (STV 1.0 1.0)))
-   (: (conditional-implication (negated (ctx proof 3))) (Implication (Not (Dog)) (Not (Dog))) (STV 1.0 1.0)))
+   (query 60 implicationPremiseKb (: $prf (Implication (Not (Dog)) (Not (Dog))) (STV 1.0 0.9999)))
+   (: (conditional-implication (negated (ctx proof 3))) (Implication (Not (Dog)) (Not (Dog))) (STV 1.0 0.9999)))
 
 !(compileadd multiPremiseImplicationQueryKb
    (: ab_c
@@ -47,7 +47,7 @@
 
 !(test
    (query 60 implicationPremiseKb (: $prf (Implication (And (Implication (A) (B)) (A)) (B)) $tv))
-   (: (conditional-implication (merge/revision (by a_b (ctx proof 5 1)) (by (ctx proof 5) (ctx proof 5 1)))) (Implication (And (Implication (A) (B)) (A)) (B)) (STV 1.0 0.9999000099865026)))
+   (: (conditional-implication (merge/revision (by a_b (ctx proof 5 1)) (by (ctx proof 5) (ctx proof 5 1)))) (Implication (And (Implication (A) (B)) (A)) (B)) (STV 1.0 0.9999)))
 
 !(set-context-polymorphic-facts kbRelativeImplicationQueryKb true)
 
@@ -90,7 +90,7 @@
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 30 biImplicationKb (: $prf (B) $tv))
-   (: (by (bi-forward a_iff_b) a) (B) (STV 1.0 0.9998000399670116)))
+   (: (by (bi-forward a_iff_b) a) (B) (STV 1.0 0.9999)))
 
 !(compileadd biImplicationKb (: b (B2) (STV 1.0 1.0)))
 
@@ -102,7 +102,7 @@
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 30 biImplicationKb (: $prf (A2) $tv))
-   (: (by (bi-backward a2_iff_b2) b) (A2) (STV 1.0 0.9998000399670116)))
+   (: (by (bi-backward a2_iff_b2) b) (A2) (STV 1.0 0.9999)))
 
 !(test
    (query 60 biImplicationKb
@@ -111,7 +111,7 @@
             (A)
             (B))
          $tv))
-   (: (bidirectional (by (bi-forward a_iff_b) (ctx proof 6)) (by (bi-backward a_iff_b) (ctx proof 7))) (BiImplication (A) (B)) (STV 1.0 0.9996001597861455)))
+   (: (bidirectional (by (bi-forward a_iff_b) (ctx proof 6)) (by (bi-backward a_iff_b) (ctx proof 7))) (BiImplication (A) (B)) (STV 1.0 0.9999)))
 
 !(test
    (query 60 implicationPremiseKb
@@ -129,11 +129,11 @@
 
 !(test
    (query 20 negConclusionKb (: $prf (B) $tv))
-   (: (negated (by a_not_b a)) (B) (STV 0.0 0.9998000399670116)))
+   (: (negated (by a_not_b a)) (B) (STV 0.0 0.9999)))
 
 !(test
    (query 20 negConclusionKb (: $prf (Not (B)) $tv))
-   (: (negated (negated (by a_not_b a))) (Not (B)) (STV 1.0 0.9998000399670116)))
+   (: (negated (negated (by a_not_b a))) (Not (B)) (STV 1.0 0.9999)))
 
 ;; BiImplication already emits both directions.  Even when enough historical
 ;; evidence exists to calculate Bayesian inverses, each direction must remain
@@ -160,4 +160,4 @@
       (: $proof (OneWayA current) $tv))
    (: (by (bi-backward aIffB) currentB)
       (OneWayA current)
-      (STV 0.8 0.8999999997518513)))
+      (STV 0.8 0.9)))

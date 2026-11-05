@@ -158,17 +158,17 @@
 
 ;; What searching a fold's members is worth: a user base rate is never
 ;; refolded; an estimate by what one more member could add to its confidence,
-;; since every member costs at least one expansion; a fold without an estimate
-;; by its join.
+;; since every member costs at least one expansion (nothing to a point); a fold
+;; without an estimate by its join.
 (: sk-fold-child-score (-[semidet]-> $args Number (List BaseRateEntry) Number))
 (= (sk-fold-child-score $args $join-score $entries)
    (case $entries (
       (() $join-score)
       ((cons $entry $_rest)
          (if (base-rate-entry-user? $entry) 0.0
-            (let* (($confidence (tv-confidence (base-rate-entry-tv $entry)))
-                   ($count (confidence-to-count $confidence)))
-               (* $join-score (- (count-confidence (+ $count 1.0)) $confidence))))))))
+            (let $confidence (tv-confidence (base-rate-entry-tv $entry))
+               (if (>= $confidence 1.0) 0.0
+                  (* $join-score (- (count-confidence (+ (confidence-to-count $confidence) 1.0)) $confidence)))))))))
 
 (: sk-leaf-answer-step (-[semidet]-> SkPattern Atom SkFact Atom))
 (= (sk-leaf-answer-step $node $_acc $fact) (sk-add-answer! $node (sk-fact-key $fact)))

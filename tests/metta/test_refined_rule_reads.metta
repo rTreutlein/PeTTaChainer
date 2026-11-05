@@ -41,7 +41,7 @@
 ;; one sample, with both rule proofs retained and confidence capped by the
 ;; smaller input (docs/metta/overlap_conditioning.md, "Sample twins").
 !(test (query 200 earlyKb (: $p (B new) $tv))
-   (: (combination revision (prior no-evidence) ((by hA anew) (by hC cnew))) (B new) (STV 0.0012594458438287151 0.8004031993891181)))
+   (: (combination revision (prior no-evidence) ((by hA anew) (by hC cnew))) (B new) (STV 0.0012594458438287151 0.8004032258064516)))
 
 ;; An observed but uncertain consequent is a sample of the rule, and the rule
 ;; still applies to it: B new's own sample is left out of the truth hA applies
@@ -61,12 +61,12 @@
 !(compileadd softKb (: anew (A new) (STV 1 1)))
 !(compileadd softKb (: bnew (B new) (STV 0.6 0.5)))
 !(test (query 200 softKb (: $p (B new) $tv))
-   (: (factored-revision (by hA anew) (prior (STV 0.0016778523489932888 0.7506297030989233)) (((reported with cpu (prior (STV 0.5 0.0))) bnew))) (B new) (STV 0.0025146689019279155 0.6213466593358833)))
+   (: (factored-revision (by hA anew) (prior (STV 0.0016778523489932888 0.7506297229219142)) (((reported with cpu (prior (STV 0.5 0.0))) bnew))) (B new) (STV 0.0025146689019279155 0.6213456857827292)))
 ;; The truth itself counts every sample.
 !(test (let (: $p $t $tv) (query 200 softKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv)
    (STV 0.08690647482014388 0.7782754759238522))
 !(test (query 200 softKb (: $p (B new) $tv))
-   (: (factored-revision (by hA anew) (prior (STV 0.0016778523489932888 0.7506297030989233)) (((reported with cpu (prior (STV 0.5 0.0))) bnew))) (B new) (STV 0.0025146689019279155 0.6213466593358833)))
+   (: (factored-revision (by hA anew) (prior (STV 0.0016778523489932888 0.7506297229219142)) (((reported with cpu (prior (STV 0.5 0.0))) bnew))) (B new) (STV 0.0025146689019279155 0.6213456857827292)))
 
 ;; A rule's truth is a parameter: a value through the rule depends on its
 ;; truth's key, not on the instances it was learned from. Learned storm
@@ -128,7 +128,7 @@
          stormKb
          (: $prf (RuleTruth (Implication (And (NextPeriod $p $t) (Storm $p)) (Storm $t))) $tv))
       $tv)
-   (STV 0.5 0.45062436849986953))
+   (STV 0.5 0.4506726457399103))
 !(test
    (let
       (: $prf $t $tv)
@@ -146,7 +146,7 @@
 !(compileadd stormKb (: next-t2 (NextPeriod t1 t2) (STV 1 1)))
 !(compileadd stormKb (: blocked-t2 (Blocked r1 t2) (STV 1 1)))
 !(test (let (: $prf $t $tv) (query 100 stormKb (: $prf (Storm t2) $tv)) $tv)
-   (STV 0.919920574124224 0.17261476870701056))
+   (STV 0.9199205717026513 0.17261477924773125))
 
 ;; Read the full internal CTV after scheduling a public STV query below.
 ;; These pins protect learned negative branches used by modus ponens.

@@ -214,7 +214,7 @@
       (: $prf $type $tv)
       (query 200 threeKb (: $prf (Implication (And (P $t) (Q $t) (R $t)) (G $t)) $tv))
       $tv)
-   (STV 1.0 0.66659999333266))
+   (STV 1.0 0.6666666666666666))
 !(set-rule-refinement threeRuleKb true)
 ;; A refined three-part rule learns from its instances (t2's third conjunct
 ;; at 0.9 weighs its negative sample 0.9), instead of keeping its axiom.
@@ -229,7 +229,7 @@
 !(compileadd threeRuleKb (: g2 (G t2) (STV 0 1)))
 !(test
    (let (: $prf $type $tv) (query 200 threeRuleKb (: $prf (RuleTruth (Implication (And (P $t) (Q $t) (R $t)) (G $t))) $tv)) $tv)
-   (STV 0.5261572985341251 0.6563102709435056))
+   (STV 0.526176626123744 0.6563693162096494))
 
 ;; A query's rules leave with it, deferred joins included: a later query's
 ;; rule may take the same id, and resuming the old join with it failed the

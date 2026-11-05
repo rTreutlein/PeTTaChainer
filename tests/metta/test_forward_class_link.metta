@@ -103,7 +103,7 @@
    (: specialB (Implication (Special $x) (Member $x B)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 !(test
    (query 100 derivedLinkKb (: $p (Inheritance A B) $tv))
-   (: (implication-instance-fold cpu) (Inheritance A B) (STV 1.0 0.0024935168810108843)))
+   (: (implication-instance-fold cpu) (Inheritance A B) (STV 1.0 0.0024937655860349127)))
 
 ;; Order does not matter: the link is stationary, so its estimate is the
 ;; plain frequency of its samples, whatever order they arrive in.
@@ -131,10 +131,10 @@
    (collapse (match &kb ((Special c) (derivedCopyKb MAIN Nil) $p $tv) (assemble-stored-runtime-fact (Special c) (derivedCopyKb MAIN Nil) $p $tv))))
 !(test
    (query 1 derivedCopyKb (: $proof (Inheritance Human Mortal) $tv))
-   (: (implication-instance-fold cpu) (Inheritance Human Mortal) (STV 0.5999733368850825 0.0037357419513899073)))
+   (: (implication-instance-fold cpu) (Inheritance Human Mortal) (STV 0.6 0.0037359900373599006)))
 !(test
    (query 5 derivedCopyKb (: $proof (Inheritance Human Mortal) $tv))
-   (: (implication-instance-fold cpu) (Inheritance Human Mortal) (STV 0.5999733368850825 0.0037357419513899073)))
+   (: (implication-instance-fold cpu) (Inheritance Human Mortal) (STV 0.6 0.0037359900373599006)))
 !(compileadd derivedCopyUnregisteredKb (: ah (Member a Human) (STV 1.0 1.0)))
 !(compileadd derivedCopyUnregisteredKb (: am (Member a Mortal) (STV 0.8 1.0)))
 !(compileadd derivedCopyUnregisteredKb (: bh (Member b Human) (STV 1.0 1.0)))
@@ -146,10 +146,10 @@
    (collapse (match &kb ((Special c) (derivedCopyUnregisteredKb MAIN Nil) $p $tv) (assemble-stored-runtime-fact (Special c) (derivedCopyUnregisteredKb MAIN Nil) $p $tv))))
 !(test
    (query 1 derivedCopyUnregisteredKb (: $proof (Inheritance Human Mortal) $tv))
-   (: (implication-instance-fold cpu) (Inheritance Human Mortal) (STV 0.5999733368850825 0.0037357419513899073)))
+   (: (implication-instance-fold cpu) (Inheritance Human Mortal) (STV 0.6 0.0037359900373599006)))
 !(test
    (query 5 derivedCopyUnregisteredKb (: $proof (Inheritance Human Mortal) $tv))
-   (: (implication-instance-fold cpu) (Inheritance Human Mortal) (STV 0.5999733368850825 0.0037357419513899073)))
+   (: (implication-instance-fold cpu) (Inheritance Human Mortal) (STV 0.6 0.0037359900373599006)))
 
 ;; A forward copy derived through the link's own stated rule is left out of
 ;; the link's samples; the sample is then still to be computed, not read from
@@ -174,4 +174,4 @@
    (: (merge/revision hm (implication-instance-fold cpu)) (Inheritance Human Mortal) (STV 0.8987531172069825 0.5006242197253433)))
 !(test
    (query 500 excludedCopyKb (: $p (Inheritance Human Mortal) $tv))
-   (: (merge/revision hm (implication-instance-fold cpu)) (Inheritance Human Mortal) (STV 0.8988791778080661 0.5009356832233829)))
+   (: (merge/revision hm (implication-instance-fold cpu)) (Inheritance Human Mortal) (STV 0.898879202988792 0.5009357454772302)))

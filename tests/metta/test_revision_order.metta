@@ -2,12 +2,10 @@
 
 ;; Revision adds evidence counts, so the views of one statement merge to the
 ;; mean of their strengths weighted by their counts, whatever the order the
-;; search finds them in. Views near certainty keep their counts: a view through
-;; a rule and a fact both stated with confidence 1 is derived, not stated, and
-;; has the most confident derived count (confidence 0.9999). When confidences
-;; of 0.9999 and above were all read as that count, a merged view weighed as
-;; much as each further view: 0.9, 0.7, 0.5 and 0.3 gave 0.475 or 0.725
-;; depending on the order instead of their mean 0.6.
+;; search finds them in. A view through a rule and a fact both stated with
+;; confidence 1 is a point, which has no finite count: points weigh alike, so
+;; 0.9, 0.7, 0.5 and 0.3 give their mean 0.6 in every order (pairwise
+;; averaging gave 0.475 or 0.725 depending on the order).
 
 (= (near? $x $y) (< (max (- $x $y) (- $y $x)) 0.000000001))
 (= (answer-strength $kb $goal)
@@ -16,7 +14,7 @@
 ;; A merged confidence converts back to the count it came from.
 !(test (near? (/ (confidence-to-count (count-confidence 16000000.0)) 16000000.0) 1.0) true)
 
-;; Four views at confidence 0.9999 merge to their mean in every order.
+;; Four point views merge to their mean in every order.
 (= (rule-view! $kb $rule $antecedent $fact $s $c)
    (progn
       (compileadd $kb (: $rule (Implication ($antecedent $x) (C $x)) (CTV (STV $s $c) (STV 0.1 $c))))
@@ -33,9 +31,6 @@
 !(rule-view! mixed r1 A1 a1 0.9 1)
 !(rule-view! mixed r4 A4 a4 0.3 1)
 !(rule-view! mixed r2 A2 a2 0.7 1)
-;; The views' counts differ by 10^-5 of themselves (the strength of a certain
-;; fact is clipped off 1, which leaves it a variance of 10^-13), so the mean is
-;; 0.6 to within 10^-6, and the same in every order.
 !(test
    (let $up (answer-strength up (C x))
       (data (< (max (- $up 0.6) (- 0.6 $up)) 0.000001)
@@ -43,18 +38,8 @@
             (near? (answer-strength mixed (C x)) $up)))
    (true true true))
 
-;; Two and three views: the weighted mean of the views, each read alone.
-;; The view through the rule stated with confidence 0.6 weighs less.
-!(rule-view! g1 r1 A1 a1 0.9 1)
-!(rule-view! g2 r2 A2 a2 0.6 0.6)
-!(rule-view! g3 r3 A3 a3 0.2 1)
-(= (view $kb)
-   (let (: $_p $_type (STV $s $c)) (query 100 $kb (: $p (C x) $tv))
-      ($s (confidence-to-count $c))))
-(= (weighted-mean (($s1 $n1) ($s2 $n2)))
-   (/ (+ (* $s1 $n1) (* $s2 $n2)) (+ $n1 $n2)))
-(= (weighted-mean (($s1 $n1) ($s2 $n2) ($s3 $n3)))
-   (/ (+ (* $s1 $n1) (+ (* $s2 $n2) (* $s3 $n3))) (+ $n1 (+ $n2 $n3))))
+;; Two and three views. Two points merge to their mean, 0.55; a finite view
+;; (the rule stated with confidence 0.6) does not move them, in either order.
 !(rule-view! two-ab r1 A1 a1 0.9 1)
 !(rule-view! two-ab r3 A3 a3 0.2 1)
 !(rule-view! two-ba r3 A3 a3 0.2 1)
@@ -66,9 +51,8 @@
 !(rule-view! three-cba r2 A2 a2 0.6 0.6)
 !(rule-view! three-cba r1 A1 a1 0.9 1)
 !(test
-   (let* (($v1 (view g1)) ($v2 (view g2)) ($v3 (view g3)))
-      (data (near? (answer-strength two-ab (C x)) (weighted-mean ($v1 $v3)))
-            (near? (answer-strength two-ba (C x)) (weighted-mean ($v1 $v3)))
-            (near? (answer-strength three-abc (C x)) (weighted-mean ($v1 $v2 $v3)))
-            (near? (answer-strength three-cba (C x)) (weighted-mean ($v1 $v2 $v3)))))
+   (data (near? (answer-strength two-ab (C x)) 0.55)
+         (near? (answer-strength two-ba (C x)) 0.55)
+         (near? (answer-strength three-abc (C x)) 0.55)
+         (near? (answer-strength three-cba (C x)) 0.55))
    (true true true true))

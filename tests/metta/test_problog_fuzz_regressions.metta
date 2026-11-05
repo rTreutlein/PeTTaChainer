@@ -20,7 +20,7 @@
 !(set-base-rate f1loop (C $x) (STV 0.1029 1.0))
 !(set-base-rate f1loop (D $x) (STV 0.09261 1.0))
 !(test (query 2000 f1loop (: $prf (D a) $tv))
-   (: (by rD (by rC (conjunction obs-A-a unfounded))) (D a) (STV 0.12852000000000002 0.9999359466218718)))
+   (: (by rD (by rC (conjunction obs-A-a unfounded))) (D a) (STV 0.12852000000000002 0.9999)))
 
 ;; The same pin in a plain chain A -> B -> C over complete B, C, with A an
 ;; unobserved root: the inversion of rC read C's pin and answered 0.054
@@ -89,7 +89,7 @@
 !(set-base-rate f2settled (D $x) (STV 0.62768 1.0))
 !(set-base-rate f2settled (E $x) (STV 0.542805262 1.0))
 !(test (query 2000 f2settled (: $prf (B b) $tv))
-   (: (population-prior (B $_0)) (B b) (STV 0.73 1.0)))
+   (: (population-prior (B $_0)) (B b) (STV 0.73 0.9999)))
 
 ;; A known disjunct conditions the completion of an Or antecedent: with
 ;; A = 0, P(B | C) is Bayes' rule over B's prior, exact 0.0178 (before: the
@@ -173,7 +173,7 @@
 !(set-base-rate f5loop (B $x) (STV 0.781 1.0))
 !(set-base-rate f5loop (C $x) (STV 0.36707 1.0))
 !(test (query 2000 f5loop (: $prf (C a) $tv))
-   (: (factored-revision (by rC (conjunction obs-B-a obs-D-a)) (prior (STV 0.4700001199996264 0.9999000099103349)) (((inverted rD with cpu (prior (STV 0.36707 1.0))) obs-D-a))) (C a) (STV 0.050519550158662 0.9999055996924524)))
+   (: (factored-revision (by rC (conjunction obs-B-a obs-D-a)) (prior (STV 0.47 1.0)) (((inverted rD with cpu (prior (STV 0.36707 1.0))) obs-D-a))) (C a) (STV 0.050519527051236156 0.9999)))
 
 ;; F4 in a loop. B <- (Or A D), D <- B, both complete, B observed true. The
 ;; completion onto A reads its sibling D apart from B: D's value is B's own,
@@ -186,7 +186,7 @@
 !(compileadd f4loop (: obs-B-a (B a) (STV 1 1)))
 !(set-base-rate f4loop (A $x) (STV 0.65 1.0))
 !(test (query 2000 f4loop (: $prf (A a) $tv))
-   (: ((antecedent-completion rB 0 with cpu (prior (STV 0.65 1.0))) (conjunction (by rD unfounded) obs-B-a)) (A a) (STV 1.0 0.9998435619422289)))
+   (: ((antecedent-completion rB 0 with cpu (prior (STV 0.65 1.0))) (conjunction (by rD unfounded) obs-B-a)) (A a) (STV 1.0 0.9999)))
 
 ;; F6. A loop B <- (Or A C), C <- B over a soft A, read by D outside it.
 ;; Complete statements always have a value once settled, so rD is not dormant
@@ -200,7 +200,7 @@
 !(compileadd f6or (: obs-A-a (A a) (STV 0.3 1)))
 !(set-base-rate f6or (A $x) (STV 0.21 1.0))
 !(test (query 2000 f6or (: $prf (D a) $tv))
-   (: (by rD (by rC (by rB (conjunction obs-A-a unfounded)))) (D a) (STV 0.27853120000000003 0.9999067892043876)))
+   (: (by rD (by rC (by rB (conjunction obs-A-a unfounded)))) (D a) (STV 0.27853120000000003 0.9999)))
 
 ;; An And loop C <- (And A B), B <- (Or A C) over a soft A: B and C are A.
 ;; C's row reads A and B's closed value, which derives from A: the closed
@@ -215,7 +215,7 @@
 !(compileadd f6and (: obs-A-a (A a) (STV 0.7 1)))
 !(set-base-rate f6and (A $x) (STV 0.47 1.0))
 !(test (query 2000 f6and (: $prf (D a) $tv))
-   (: (conditioned obs-A-a (by rD (conjunction (by rC (conjunction (given true) (by rB (conjunction (given true) unfounded)))) (given true))) (by rD (conjunction (by rC (conjunction (given false) (by rB (conjunction (given false) unfounded)))) (given false)))) (D a) (STV 0.311 0.9999428792044968)))
+   (: (conditioned obs-A-a (by rD (conjunction (by rC (conjunction (given true) (by rB (conjunction (given true) unfounded)))) (given true))) (by rD (conjunction (by rC (conjunction (given false) (by rB (conjunction (given false) unfounded)))) (given false)))) (D a) (STV 0.311 0.9999)))
 
 ;; F7. Premises of one rule application that read one uncertain statement
 ;; are conditioned on it, though the evidence they name is a certain fact
@@ -234,7 +234,7 @@
 !(set-base-rate f7reuse (E $x) (STV 0.24958696 1.0))
 !(test (query 2000 f7reuse (: $prf (E b) $tv))
    (: (by rE (conditioned (by rB obs-A-b) (conjunction (by rC (given true)) (given true)) (conjunction (by rC (given false)) (given false))))
-      (E b) (STV 0.27428800000000003 0.9999179931943128)))
+      (E b) (STV 0.27428800000000003 0.9999)))
 
 ;; Two premises derived from one statement, E <- (And C D) with C <- B and
 ;; D <- B: exact P(E) = 0.2264, independent 0.17936.
@@ -248,7 +248,7 @@
 !(set-base-rate f7common (C $x) (STV 0.45 1.0))
 !(set-base-rate f7common (D $x) (STV 0.4 1.0))
 !(set-base-rate f7common (E $x) (STV 0.3 1.0))
-!(test (let (: $prf $s $tv) (query 2000 f7common (: $prf (E b) $tv)) $tv) (STV 0.2264 0.9999493792805473))
+!(test (let (: $prf $s $tv) (query 2000 f7common (: $prf (E b) $tv)) $tv) (STV 0.2264 0.9999))
 
 ;; F5. A root in a loop of complete predicates, observed only through the
 ;; loop: B <- (Or A D), D <- (Or A B), A an unobserved root, D observed
@@ -264,7 +264,7 @@
 !(set-base-rate f5root (A $x) (STV 0.18 1.0))
 !(set-base-rate f5root (B $x) (STV 0.0846 1.0))
 !(set-base-rate f5root (D $x) (STV 0.18 1.0))
-!(test (let (: $prf $s $tv) (query 2000 f5root (: $prf (A a) $tv)) $tv) (STV 0.0 0.999895192324321))
+!(test (let (: $prf $s $tv) (query 2000 f5root (: $prf (A a) $tv)) $tv) (STV 0.0 0.9999))
 
 ;; F8. Two completions onto A through different observations: rC's of C
 ;; false, and rD's of D true, which reads C as a sibling. rD's antecedent
@@ -302,4 +302,4 @@
 !(compileadd f8settled (: obs-D-a (D a) (STV 0 1)))
 !(compileadd f8settled (: obs-E-a (E a) (STV 0 1)))
 !(test (query 2000 f8settled (: $prf (C a) $tv))
-   (: (factored-revision (by rC (conjunction obs-B-a (by rF obs-E-a))) (prior (STV 0.18000127999516105 0.9999000099770509)) (((inverted rD with cpu (prior (STV 0.12727658600505792 0.2856930494608916))) obs-D-a))) (C a) (STV 0.0 0.9998688820932553)))
+   (: (factored-revision (by rC (conjunction obs-B-a (by rF obs-E-a))) (prior (STV 0.18 1.0)) (((inverted rD with cpu (prior (STV 0.1272727272727273 0.2857142857142857))) obs-D-a))) (C a) (STV 0.0 0.9999)))

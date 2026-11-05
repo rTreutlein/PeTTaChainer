@@ -17,11 +17,11 @@
 !(compileadd lateKb (: rx (Implication (Or (A $t) (B $t)) (X $t)) (CTV (STV 0.9 1) (STV 0.1 1))))
 !(compileadd lateKb (: b (B k) (STV 0.8 0.9)))
 !(compileadd lateKb (: a1 (A k) (STV 0.2 0.5)))
-!(test (let (: $_p $_t $tv) (query 2000 lateKb (: $p (Q2 k) $tv)) $tv) (STV 0.6044480000000001 0.9929795979369043))
+!(test (let (: $_p $_t $tv) (query 2000 lateKb (: $p (Q2 k) $tv)) $tv) (STV 0.6044480000000001 0.9930340836384924))
 !(compileadd lateKb (: a2 (A k) (STV 0.95 0.9)))
 !(compileadd lateKb (: a3 (A k) (STV 0.05 0.9)))
-!(test (let (: $_p $_t $tv) (query 2000 lateKb (: $p (Q k) $tv)) $tv) (STV 0.6523873684210526 0.9965332951355196))
-!(test (let (: $_p $_t $tv) (query 2000 lateKb (: $p (Q k) $tv)) $tv) (STV 0.6523873684210526 0.9965332951355196))
+!(test (let (: $_p $_t $tv) (query 2000 lateKb (: $p (Q k) $tv)) $tv) (STV 0.6523873684210526 0.9965947262536551))
+!(test (let (: $_p $_t $tv) (query 2000 lateKb (: $p (Q k) $tv)) $tv) (STV 0.6523873684210526 0.9965947262536551))
 
 ;; A late certain stock in MAIN reaches the plant through the Or key the
 ;; same way.
@@ -38,10 +38,10 @@
 !(compileadd lateStockKb (: p0 (Producing t0) (STV 0 1)))
 !(compileadd lateStockKb (: d (Degraded t1) (STV 0.05 1)))
 !(compileadd lateStockKb (: ins (InService t1) (STV 1 1)))
-!(test (let (: $_p $_t $tv) (query 350 lateStockKb (: $p (Outcome t1 $v) $tv)) $tv) (STV 0.0 0.9994393142192537))
+!(test (let (: $_p $_t $tv) (query 350 lateStockKb (: $p (Outcome t1 $v) $tv)) $tv) (STV 0.0 0.9999))
 !(compileadd lateStockKb (: st (StockedFuel t1) (STV 1 1)))
-!(test (let (: $_p $_t $tv) (query 450 lateStockKb (: $p (Outcome t1 $v) $tv)) $tv) (STV 0.95 0.9998999985907656))
-!(test (let (: $_p $_t $tv) (query 450 lateStockKb (: $p (Producing t1) $tv)) $tv) (STV 0.95 0.9999000023952644))
+!(test (let (: $_p $_t $tv) (query 450 lateStockKb (: $p (Outcome t1 $v) $tv)) $tv) (STV 0.95 0.9999))
+!(test (let (: $_p $_t $tv) (query 450 lateStockKb (: $p (Producing t1) $tv)) $tv) (STV 0.95 0.9999))
 
 ;; Assuming worlds in turn, each reaching the plant through the Or key's
 ;; producer row: a world assuming the stock never reads the stock of a world
@@ -59,14 +59,14 @@
 !(compileadd worldsKb (: p0 (Producing t0) (STV 0 1)))
 !(compileadd worldsKb (: d (Degraded t1) (STV 0.05 1)))
 !(test (let (: $_p $_t $tv) (query 450 worldsKb (: $p (Assuming (And (StockedFuel t1) (InService t1) (Repairing t1)) (Outcome t1 $v)) $tv)) $tv)
-   (STV 0.95 0.9998999985907656))
+   (STV 0.95 0.9999))
 !(test (let (: $_p $_t $tv) (query 450 worldsKb (: $p (Assuming (InService t1) (Outcome t1 $v)) $tv)) $tv)
-   (STV 0.0 0.9994393142192537))
+   (STV 0.0 0.9999))
 !(test (query 450 worldsKb (: $p (Assuming (FuelArrived t1) (Outcome t1 $v)) $tv)) ())
 !(test (let (: $_p $_t $tv) (query 450 worldsKb (: $p (Assuming (And (StockedFuel t1) (InService t1) (Repairing t1)) (Outcome t1 $v)) $tv)) $tv)
-   (STV 0.95 0.9998999985907656))
+   (STV 0.95 0.9999))
 !(test (let (: $_p $_t $tv) (query 450 worldsKb (: $p (Assuming (InService t1) (Outcome t1 $v)) $tv)) $tv)
-   (STV 0.0 0.9994393142192537))
+   (STV 0.0 0.9999))
 
 ;; Two rules read the Or. Each excludes its own conclusion, X or Y, at its own
 ;; read; the producer row shared by both excludes neither. Excluding both
@@ -78,8 +78,8 @@
 !(compileadd readersKb (: a (A k) (STV 0.4 0.5)))
 !(compileadd readersKb (: b (B k) (STV 0.3 0.9)))
 !(compileadd readersKb (: (no_inverse r2) (Implication (Or (A $t) (B $t)) (Y $t)) (CTV (STV 0.8 1) (STV 0.2 1))))
-!(test (let (: $_p $_t $tv) (query 2000 readersKb (: $p (X k) $tv)) $tv) (STV 0.7937704918032787 0.8330989840344495))
-!(test (let (: $_p $_t $tv) (query 2000 readersKb (: $p (Or (A k) (B k)) $tv)) $tv) (STV 0.8672131147540985 0.6920277209019271))
+!(test (let (: $_p $_t $tv) (query 2000 readersKb (: $p (X k) $tv)) $tv) (STV 0.7937704918032787 0.8331346175941209))
+!(test (let (: $_p $_t $tv) (query 2000 readersKb (: $p (Or (A k) (B k)) $tv)) $tv) (STV 0.8672131147540985 0.6920372940176395))
 
 ;; Without a fact of A, its only view is through y: excluding both readers'
 ;; conclusions left X and the Or no answer.
@@ -88,8 +88,8 @@
 !(compileadd readers2Kb (: y (Y k) (STV 0.95 0.9)))
 !(compileadd readers2Kb (: b (B k) (STV 0.3 0.9)))
 !(compileadd readers2Kb (: (no_inverse r2) (Implication (Or (A $t) (B $t)) (Y $t)) (CTV (STV 0.8 1) (STV 0.2 1))))
-!(test (let (: $_p $_t $tv) (query 2000 readers2Kb (: $p (X k) $tv)) $tv) (STV 0.8243999999999999 0.992505763448683))
-!(test (let (: $_p $_t $tv) (query 2000 readers2Kb (: $p (Or (A k) (B k)) $tv)) $tv) (STV 0.9055 0.9805614408032333))
+!(test (let (: $_p $_t $tv) (query 2000 readers2Kb (: $p (X k) $tv)) $tv) (STV 0.8243999999999999 0.992573949927829))
+!(test (let (: $_p $_t $tv) (query 2000 readers2Kb (: $p (Or (A k) (B k)) $tv)) $tv) (STV 0.9055 0.9806063902763618))
 
 ;; V reads the Or as the Or answers, X's observation included through rx's
 ;; inversion, in whatever order the queries come: the Or's graph posterior
@@ -104,7 +104,7 @@
 !(compileadd orderKb (: x2 (X j) (STV 0.3 0.9)))
 !(compileadd orderKb (: a2 (A j) (STV 0.6 0.9)))
 !(compileadd orderKb (: b2 (B j) (STV 0.2 0.9)))
-!(test (let (: $_p $_t $tv) (query 2000 orderKb (: $p (V k) $tv)) $tv) (STV 0.5911997456448431 0.7999302208335874))
+!(test (let (: $_p $_t $tv) (query 2000 orderKb (: $p (V k) $tv)) $tv) (STV 0.5911997456448431 0.7999663161978653))
 !(test
    (posterior-tv-near? 0.7823994912896864 0.41289069125729083 (let (: $_p $_t $tv) (query 2000 orderKb (: $p (Or (A k) (B k)) $tv)) $tv))
    true)
@@ -123,7 +123,7 @@
 !(test
    (posterior-tv-near? 0.7823994912896864 0.41289069125729083 (let (: $_p $_t $tv) (query 2000 order2Kb (: $p (Or (A k) (B k)) $tv)) $tv))
    true)
-!(test (let (: $_p $_t $tv) (query 2000 order2Kb (: $p (V k) $tv)) $tv) (STV 0.5911997456448431 0.7999302208335874))
+!(test (let (: $_p $_t $tv) (query 2000 order2Kb (: $p (V k) $tv)) $tv) (STV 0.5911997456448431 0.7999663161978653))
 
 ;; A completion's consequence is no view derived from the compound it
 ;; completes. Here r1 and r2 read the Or, y observes Y, and rya concludes A.
@@ -138,6 +138,6 @@
 !(compileadd consequenceKb (: a (A k) (STV 0.4 0.5)))
 !(compileadd consequenceKb (: b (B k) (STV 0.3 0.9)))
 !(compileadd consequenceKb (: r2 (Implication (Or (A $t) (B $t)) (Y $t)) (CTV (STV 0.8 1) (STV 0.2 1))))
-!(test (let (: $_p $_t $tv) (query 2000 consequenceKb (: $p (X k) $tv)) $tv) (STV 0.7577269944980254 0.8634521690129491))
+!(test (let (: $_p $_t $tv) (query 2000 consequenceKb (: $p (X k) $tv)) $tv) (STV 0.7577269944980254 0.8634780467586617))
 !(test (let (: $_p $_t $tv) (query 2000 consequenceKb (: $p (A k) $tv)) $tv) (STV 0.560039770239416 0.49342278189196137))
 !(test (let (: $_p $_t $tv) (query 2000 consequenceKb (: $p (Or (A k) (B k)) $tv)) $tv) (STV 0.8221587431225318 0.7632249553719406))

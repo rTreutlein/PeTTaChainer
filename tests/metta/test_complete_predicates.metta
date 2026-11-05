@@ -15,9 +15,9 @@
 !(compileadd offKb (: d (Deg t) (STV 0 1)))
 
 !(test (query 100 offKb (: $p (P t) $tv))
-   (: (by rp (conjunction s (by rm (conjunction unfounded (negated d))))) (P t) (STV 0.0 0.9996001597861454)))
+   (: (by rp (conjunction s (by rm (conjunction unfounded (negated d))))) (P t) (STV 0.0 0.9999)))
 !(test (query 100 offKb (: $p (M t) $tv))
-   (: (by rm (conjunction (by rp (conjunction s unfounded)) (negated d))) (M t) (STV 0.0 0.9996001597861454)))
+   (: (by rm (conjunction (by rp (conjunction s unfounded)) (negated d))) (M t) (STV 0.0 0.9999)))
 
 ;; Undeclared, the same KB is open-world: the loop's only proof is circular,
 ;; and there is no answer.
@@ -39,9 +39,9 @@
 !(compileadd onKb (: d (Deg t) (STV 0 1)))
 
 !(test (query 100 onKb (: $p (P t) $tv))
-   (: (by rp (settled s)) (P t) (STV 1.0 0.9998000399670116)))
+   (: (by rp (settled s)) (P t) (STV 1.0 0.9999)))
 !(test (query 100 onKb (: $p (M t) $tv))
-   (: (by rm (conjunction (by rp (settled s)) (negated d))) (M t) (STV 1.0 0.9996001597861454)))
+   (: (by rm (conjunction (by rp (settled s)) (negated d))) (M t) (STV 1.0 0.9999)))
 
 ;; Uncertain stock: P has the stock's strength, OrFormula(0.9, 0), and M the
 ;; same through P.
@@ -53,9 +53,9 @@
 !(compileadd partKb (: d (Deg t) (STV 0 1)))
 
 !(test (query 100 partKb (: $p (P t) $tv))
-   (: (by rp (conjunction s (by rm (conjunction unfounded (negated d))))) (P t) (STV 0.9 0.8999999992437459)))
+   (: (by rp (conjunction s (by rm (conjunction unfounded (negated d))))) (P t) (STV 0.9 0.9)))
 !(test (query 100 partKb (: $p (M t) $tv))
-   (: (by rm (conjunction (by rp (conjunction s unfounded)) (negated d))) (M t) (STV 0.9 0.8999999977853199)))
+   (: (by rm (conjunction (by rp (conjunction s unfounded)) (negated d))) (M t) (STV 0.9 0.9)))
 
 ;; An uncertain degradation leaves P at the stock's strength and lowers M:
 ;; 0.9 times P(not degraded) = 0.9 * 0.7.
@@ -67,9 +67,9 @@
 !(compileadd degKb (: d (Deg t) (STV 0.3 0.9)))
 
 !(test (query 100 degKb (: $p (P t) $tv))
-   (: (by rp (conjunction s (by rm (conjunction unfounded (negated d))))) (P t) (STV 0.9 0.8999999992437459)))
+   (: (by rp (conjunction s (by rm (conjunction unfounded (negated d))))) (P t) (STV 0.9 0.9)))
 !(test (query 100 degKb (: $p (M t) $tv))
-   (: (by rm (conjunction (by rp (conjunction s unfounded)) (negated d))) (M t) (STV 0.63 0.9073568643833784)))
+   (: (by rm (conjunction (by rp (conjunction s unfounded)) (negated d))) (M t) (STV 0.63 0.9073568647156783)))
 
 ;; An open predicate in the body stays open: with (S t) unknown, nothing is
 ;; concluded, false or otherwise.
@@ -104,7 +104,7 @@
 !(test (query 1 deepKb (: $p (G t) $tv)) ())
 !(test (query 2 deepKb (: $p (G t) $tv)) ())
 !(test (query 3 deepKb (: $p (G t) $tv))
-   (: (by rg (by rk (by r1 (by r2 (by r3 b))))) (G t) (STV 1 0.9994003594095785)))
+   (: (by rg (by rk (by r1 (by r2 (by r3 b))))) (G t) (STV 1 0.9999)))
 
 ;; An Assuming query's context holds the world's facts and rules with its
 ;; assumptions, so its complete statements read closed as the main context's
@@ -116,9 +116,9 @@
 !(compileadd actKb (: f (F t) (STV 0.3 0.9)))
 
 !(test (query 100 actKb (: $p (Assuming (Decide t) (P t)) $tv))
-   (: (assuming (by rp (conjunction unfounded f))) (Assuming (Decide t) (P t)) (STV 0.3 0.8999999995871378)))
+   (: (assuming (by rp (conjunction unfounded f))) (Assuming (Decide t) (P t)) (STV 0.3 0.9)))
 !(test (query 100 actKb (: $p (Assuming (S t) (P t)) $tv))
-   (: (assuming (by rp (conjunction (ctx proof 1) f))) (Assuming (S t) (P t)) (STV 1.0 0.9998000399670116)))
+   (: (assuming (by rp (conjunction (ctx proof 1) f))) (Assuming (S t) (P t)) (STV 1.0 0.9999)))
 
 ;; A complete statement no rule concludes and no fact states is false to
 ;; every reader once its search settles, not only to a rule concluding a
@@ -132,7 +132,7 @@
 !(test (query 100 repairKb (: $p (Not (R t1)) $tv))
    (: (negated unfounded) (Not (R t1)) (STV 1.0 1.0)))
 !(test (query 100 repairKb (: $p (B t1) $tv))
-   (: (by rb (conjunction a1 (negated unfounded))) (B t1) (STV 0.8 0.999900009386623)))
+   (: (by rb (conjunction a1 (negated unfounded))) (B t1) (STV 0.8 0.9999)))
 
 ;; A closed read's unfounded statement has no evidence (#128). Evidence read
 ;; off a proof term once named a fact by the bare leaf `unfounded`, so two
@@ -181,9 +181,9 @@
       $tv))
 !(test (stage4-kb stage4Fresh) true)
 !(test (stage4-kb stage4Warm) true)
-!(test (stage4-tv stage4Fresh 200) (STV 0.95 0.9998999947967693))
+!(test (stage4-tv stage4Fresh 200) (STV 0.95 0.9999))
 !(test (let $_degraded (collapse (query 50 stage4Warm (: $prf (Degraded power-plant t8) $tv))) (stage4-tv stage4Warm 50))
-   (STV 0.95 0.9998999947967693))
+   (STV 0.95 0.9999))
 
 ;; An STV rule's unknown negative branch is false for a complete conclusion
 ;; (#126): F and O hold only by their sufficient causes, so the conjunction
@@ -216,6 +216,6 @@
 !(compileadd stockKb (: p0 (Producing t0) (STV 0 1)))
 !(compileadd stockKb (: d (Degraded t1) (STV 0.05 1)))
 !(test (let (: $_p $_t $tv) (query 350 stockKb (: $p (Assuming (InService t1) (Outcome t1 $v)) $tv)) $tv)
-   (STV 0.0 0.9994393142192537))
+   (STV 0.0 0.9999))
 !(test (let (: $_p $_t $tv) (query 450 stockKb (: $p (Assuming (And (StockedFuel t1) (InService t1) (Repairing t1)) (Outcome t1 $v)) $tv)) $tv)
-   (STV 0.95 0.9998999985907656))
+   (STV 0.95 0.9999))

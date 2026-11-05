@@ -82,7 +82,7 @@ class EventReviewRegressionTests(unittest.TestCase):
         self.assertEqual(row.tv[1:], [1.0, .9999])
         out = self.graph_read(h)
         self.assertNotEqual(out, 'fallback')
-        self.assertEqual(out[1][3], ['STV', 1.0, .9999])
+        self.assertEqual(out[1][3], ['STV', 1.0, 1.0])
 
     def test_configured_zero_root_prior_is_not_uniform(self):
         h = PeTTaChainer()
@@ -93,7 +93,7 @@ class EventReviewRegressionTests(unittest.TestCase):
         h._call('set-base-rate', [f'{h.kb} (A $x) (STV 0 1)'])
         row, = h.query_many_refs(['(: $p (A a) $tv)'], steps=1000)[0]
         self.assertEqual(row.tv[1:], [0.0, .9999])
-        self.assertEqual(self.graph_read(h)[1][3], ['STV', 0.0, .9999])
+        self.assertEqual(self.graph_read(h)[1][3], ['STV', 0.0, 1.0])
         self.assertIn('population-prior', h.expand_proof(row.proof))
 
     def test_empirical_root_prior_matches_the_cavity_reader(self):
@@ -135,7 +135,7 @@ class EventReviewRegressionTests(unittest.TestCase):
             " copy_term(_Out,Out),term_variables(Out,_Vars),maplist(=(test_variable),_Vars)",
             {'Kb': h.kb})
         self.assertTrue(result['truth'])
-        self.assertEqual(result['TV'], ['STV', 0.0, .9999])
+        self.assertEqual(result['TV'], ['STV', 0.0, 1.0])
         self.assertEqual(result['Out'], 'no-event-model')
         self.assertEqual(self.graph_read(h)[1][3], result['TV'])
 

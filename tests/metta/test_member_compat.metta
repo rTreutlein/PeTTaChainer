@@ -50,11 +50,7 @@
 
 !(test
    (query 100 memberDerivedKb (: $prf (Inheritance Human Mortal) $tv))
-   (: (merge/revision
-         (conditional-implication (by seedMortal ((inverted seedHuman with cpu (prior (STV 0.9166666666666667 0.0012484394506866417))) (ctx proof 1))))
-         (implication-instance-fold cpu))
-      (Inheritance Human Mortal)
-      (STV 0.8 0.9999000096082692)))
+   (: (conditional-implication (by seedMortal ((inverted seedHuman with cpu (prior (STV 0.9166666666666667 0.0012484394506866417))) (ctx proof 1)))) (Inheritance Human Mortal) (STV 0.8 0.9999)))
 
 ;; A written rule between the two classes is the link itself, revised with
 ;; the instances.

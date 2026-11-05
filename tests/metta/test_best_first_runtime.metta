@@ -46,7 +46,7 @@
 ;; confidence comes from that class; the general rule is only its prior.
 !(test
    (query 10 kb (: $prf (SwitchGoal) $tv))
-   (: (specializes (by ruleHighThenDrop (conjunction weakFact baseFact)) (by ruleStable baseFact) (STV 1.0 0.09887551209794267) (STV 1.0 0.699950950923023)) (SwitchGoal) (STV 1.0 0.09887551209794267)))
+   (: (specializes (by ruleHighThenDrop (conjunction weakFact baseFact)) (by ruleStable baseFact) (STV 1.0 0.09887651214618275) (STV 1.0 0.7000000000000001)) (SwitchGoal) (STV 1.0 0.09887651214618275)))
 
 !(test
    (query 30 kb
@@ -58,16 +58,16 @@
 ;; Completed answers survive the per-query search reset. A zero-budget query
 ;; can therefore read the durable proof without expanding a new frontier.
 !(test (query 0 kb (: $prf (SwitchGoal) $tv))
-   (: (specializes (by ruleHighThenDrop (conjunction weakFact baseFact)) (by ruleStable baseFact) (STV 1.0 0.09887551209794267) (STV 1.0 0.699950950923023)) (SwitchGoal) (STV 1.0 0.09887551209794267)))
+   (: (specializes (by ruleHighThenDrop (conjunction weakFact baseFact)) (by ruleStable baseFact) (STV 1.0 0.09887651214618275) (STV 1.0 0.7000000000000001)) (SwitchGoal) (STV 1.0 0.09887651214618275)))
 
 !(test (query 4 kb (: $prf (SwitchGoal) $tv))
-   (: (specializes (by ruleHighThenDrop (conjunction weakFact baseFact)) (by ruleStable baseFact) (STV 1.0 0.09887551209794267) (STV 1.0 0.699950950923023)) (SwitchGoal) (STV 1.0 0.09887551209794267)))
+   (: (specializes (by ruleHighThenDrop (conjunction weakFact baseFact)) (by ruleStable baseFact) (STV 1.0 0.09887651214618275) (STV 1.0 0.7000000000000001)) (SwitchGoal) (STV 1.0 0.09887651214618275)))
 
 !(test (query 7 kb (: $prf (SwitchGoal) $tv))
-   (: (specializes (by ruleHighThenDrop (conjunction weakFact baseFact)) (by ruleStable baseFact) (STV 1.0 0.09887551209794267) (STV 1.0 0.699950950923023)) (SwitchGoal) (STV 1.0 0.09887551209794267)))
+   (: (specializes (by ruleHighThenDrop (conjunction weakFact baseFact)) (by ruleStable baseFact) (STV 1.0 0.09887651214618275) (STV 1.0 0.7000000000000001)) (SwitchGoal) (STV 1.0 0.09887651214618275)))
 
 !(test (query 100 kb (: $prf (SwitchGoal) $tv))
-   (: (specializes (by ruleHighThenDrop (conjunction weakFact baseFact)) (by ruleStable baseFact) (STV 1.0 0.09887551209794267) (STV 1.0 0.699950950923023)) (SwitchGoal) (STV 1.0 0.09887551209794267)))
+   (: (specializes (by ruleHighThenDrop (conjunction weakFact baseFact)) (by ruleStable baseFact) (STV 1.0 0.09887651214618275) (STV 1.0 0.7000000000000001)) (SwitchGoal) (STV 1.0 0.09887651214618275)))
 
 ;; A completed non-root proof is a frontier input for a later bounded search.
 ;; Two steps suffice for the new root plus its new CPU formula because the
@@ -129,7 +129,7 @@
          (by weakRule weakInput)
          (by strongRule strongInput))
       (StrengthPriorityGoal)
-      (STV 0.5000000000000001 0.9999500022873964)))
+      (STV 0.5 0.9999)))
 
 !(compileadd chainedPriorityKb (: weakEvidence (WeakEvidence) (STV 0.2 1.0)))
 
@@ -150,7 +150,7 @@
             (by weakToA weakEvidence)
             (by strongToA strongEvidence)))
       (ChainedPriorityGoal)
-      (STV 0.18356377859367617 0.9999790301681647)))
+      (STV 0.41000000000000003 0.9999)))
 
 !(compileadd priorityNegKb (: highInput (HighInput) (STV 0.9 1.0)))
 
@@ -167,7 +167,7 @@
          (by highNegRule (negated highInput))
          (by lowNegRule (negated lowInput)))
       (NegPriorityGoal)
-      (STV 0.5 0.9999500020443653)))
+      (STV 0.5 0.9999)))
 
 !(compileadd incumbentPriorityKb (: directB (IncumbentB) (STV 1.0 0.9)))
 
@@ -196,7 +196,7 @@
       (CTV (STV 1.0 0.7) (STV 0.0 1.0))))
 
 !(test (query 2 incumbentPriorityKb (: $prf (IncumbentGoal) $tv))
-   (: (by bToGoal (factored-revision (by aToB directA) (prior (STV 1.0 0.9998000399670116)) (((reported with cpu (prior (STV 0.5 0.0))) directB)))) (IncumbentGoal) (STV 1.0 0.8918896597655677)))
+   (: (by bToGoal (factored-revision (by aToB directA) (prior (STV 1.0 1.0)) (((reported with cpu (prior (STV 0.5 0.0))) directB)))) (IncumbentGoal) (STV 1.0 0.99)))
 
 !(test (query 7 incumbentPriorityKb (: $prf (IncumbentGoal) $tv))
    (:
@@ -205,11 +205,11 @@
             bToGoal
             (factored-revision
                (by aToB directA)
-               (prior (STV 1.0 0.9998000399670116))
+               (prior (STV 1.0 1.0))
                (((reported with cpu (prior (STV 0.5 0.0))) directB))))
          (by dToGoal (by cToD directC)))
       (IncumbentGoal)
-      (STV 1.0 0.9039912235037112)))
+      (STV 1.0 0.9901152601848553)))
 
 !(test
    (query 7 incumbentPriorityKb
@@ -248,17 +248,4 @@
 
 !(test
    (query 3 refinementValueKb (: $prf (RefinementValueGoal) $tv))
-   (:
-      (factored-revision
-         (merge/revision
-            (by
-               expensiveRootRefinement
-               (conjunction
-                  expensiveRefinementSeed1
-                  expensiveRefinementSeed2
-                  expensiveRefinementSeed3))
-            (by cheapRootRefinement cheapRefinementSeed))
-         (prior (STV 1.0 0.9996031687808146))
-         (((reported with cpu (prior (STV 0.5 0.0))) incumbentValueRoot)))
-      (RefinementValueGoal)
-      (STV 1.0 0.9)))
+   (: (factored-revision (by expensiveRootRefinement (conjunction expensiveRefinementSeed1 expensiveRefinementSeed2 expensiveRefinementSeed3)) (prior (STV 1.0 1.0)) (((reported with cpu (prior (STV 0.5 0.0))) incumbentValueRoot))) (RefinementValueGoal) (STV 1.0 0.9999)))

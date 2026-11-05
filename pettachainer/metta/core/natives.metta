@@ -322,7 +322,8 @@
    (execution-open-slice! Number EvaluationSlice)
    (execution-close-slice! EvaluationSlice EvaluationTier Number)
    (execution-open-frame! (List Number) (Number Number))
-   (retain-query-proof! (Number AnnotatedStatement) Bool)))
+   (retain-query-proof! (Number AnnotatedStatement) Bool)
+   (public-forward-fact (Statement KBContext Proof TV) (Statement KBContext Proof TV))))
 !(declare-forward! -[semidet]-> (
    (execution-close-frame! Number Number (List Number) (List Number))
    (context-cold-merged Number SkeletonKey SkeletonFilter SkeletonMerged)

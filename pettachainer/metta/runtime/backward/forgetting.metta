@@ -8,7 +8,8 @@
 ;; the run has been.
 
 ;; Epochs a key may stay idle before it is frozen (0: never), and the factor
-;; a summary's observation count is multiplied by. Process-wide.
+;; a summary's observation count is multiplied by; a point has no finite count
+;; and stays a point. Process-wide.
 !(change-state! forgetting_horizon 0)
 !(change-state! forgetting_decay 1.0)
 
@@ -20,7 +21,8 @@
 (= (sk-decayed-tv $tv)
    (case $tv (
       ((STV $s $c)
-         (STV $s (count-confidence (* (search-id-value forgetting_decay) (confidence-to-count $c)))))
+         (if (>= $c 1.0) $tv
+            (STV $s (count-confidence (* (search-id-value forgetting_decay) (confidence-to-count $c))))))
       ($_other $tv))))
 
 (: sk-premise-hashes-step (-[det]-> (List Number) (List SkPattern) (List Number)))

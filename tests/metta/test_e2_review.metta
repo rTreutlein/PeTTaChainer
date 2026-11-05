@@ -93,10 +93,10 @@
 !(compileadd jointOrderKb (: s S (STV 1.0 1.0)))
 !(compileadd jointOrderKb (: r (Implication S (And A B C)) (CTV (STV 0.9 0.9) (STV 0.2 0.9))))
 !(test
-   (posterior-tv-near? 0.9139069085402459 0.14919732113904566 (let (: $_p (And A B) $tv) (query 100 jointOrderKb (: $p (And A B) $tv)) $tv))
+   (posterior-tv-near? 0.9139069085421017 0.1491973211523703 (let (: $_p (And A B) $tv) (query 100 jointOrderKb (: $p (And A B) $tv)) $tv))
    true)
 !(test
-   (posterior-tv-near? 0.9139069085402459 0.14919732113904566 (let (: $_p (And B A) $tv) (query 100 jointOrderKb (: $p (And B A) $tv)) $tv))
+   (posterior-tv-near? 0.9139069085421017 0.1491973211523703 (let (: $_p (And B A) $tv) (query 100 jointOrderKb (: $p (And B A) $tv)) $tv))
    true)
 
 ;; A prediction at .5 is not neutral for a joint reader: K = And(A, B, C) at .5
@@ -104,7 +104,7 @@
 !(compileadd halfKb (: s S (STV 1.0 1.0)))
 !(compileadd halfKb (: r (Implication S (And A B C)) (STV 0.5 0.9)))
 !(test (let (: $_p (And A B) $tv) (query 100 halfKb (: $p (And A B) $tv)) $tv)
-   (STV 0.5712452783267684 0.02080511773903594))
+   (STV 0.5712452783268234 0.020805117739052907))
 
 ;; At the variance bound s(1 - s) the confidence is 0: four observed
 ;; compounds' messages on A with uncertain siblings are five dimensions, past

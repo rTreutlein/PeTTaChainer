@@ -105,11 +105,11 @@
 ;; .8757: (.8 .7 + 13.3 .8757)/14.1 = .8657.
 !(test
    (let (: (jeffrey-update (population-prior (A $_x))
-              ((node-jeffrey 0 ((inverted addOne with cpu (prior (STV 0.6599999999940221 0.000999000998814564))) observed-b-three)
-                 (prediction (STV 0.8756835083726222 0.016391821879727795)) (conditionals (1.0 0.0) (0.0 0.0))) cpu))
+              ((node-jeffrey 0 ((inverted addOne with cpu (prior (STV 0.6599999999999998 0.0009990009990009992))) observed-b-three)
+                 (prediction (STV 0.8756835083745458 0.016391821881426412)) (conditionals (1.0 0.0) (0.0 0.0))) cpu))
            (A 2) $tv)
       (query 300 computeInverseKb (: $proof (A 2) $tv)) $tv)
-   (STV 0.86573821579449 0.016957568892897037))
+   (STV 0.8657382157972932 0.016957568887540946))
 
 ;; The same reversible computation remains executable when inversion is
 ;; disabled. The observations above demonstrate that its reverse would
@@ -131,7 +131,7 @@
    (query 300 noInverseComputeKb (: $proof (B 2) $tv))
    (: (by (no_inverse addOne) (conjunction a-one cpu))
       (B 2)
-      (STV 0.59 0.8725449129775122)))
+      (STV 0.59 0.8725449130531222)))
 !(test
    (query 300 noInverseComputeKb (: $proof (A 2) $tv))
    ())

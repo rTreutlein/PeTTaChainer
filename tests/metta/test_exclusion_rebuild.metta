@@ -41,7 +41,7 @@
        (deps-within? (the Number $deps) (deps-union (deps-key $mh) (deps-key $bh)))
        (deps-meet? (cons $xh ()) (the Number $deps))
        (== $ev (evidence-set (cons (fact-evidence-entry (historyKb MAIN Nil) mf (M a)) ())))))
-   ((by (no_inverse mb) mf) (STV 1 0.7999359651197002) true false true))
+   ((by (no_inverse mb) mf) (STV 1 0.8) true false true))
 !(test (search-id-value sk_eval_budget) 0)
 
 ;; A settled branch survives an unrelated query and serves a stronger cut
@@ -89,7 +89,7 @@
 
 !(compileadd historyKb (: (no_inverse bx) (Implication (B $x) (X $x)) (CTV (STV 1 1) (STV 0 1))))
 !(test (query 200 historyKb (: $p (X a) $tv))
-   (: (factored-revision (by (no_inverse bx) (by (no_inverse mb) mf)) (prior (STV 1 0.7998719404737348)) (((reported with cpu (prior (STV 0.5 0.0))) xf))) (X a) (STV 1 0.8)))
+   (: (factored-revision (by (no_inverse bx) (by (no_inverse mb) mf)) (prior (STV 1 0.8)) (((reported with cpu (prior (STV 0.5 0.0))) xf))) (X a) (STV 1 0.8)))
 
 ;; An unpaid branch belongs to bx's read of B, not to mb's valid ordinary
 ;; view. Hold bx during evaluation; stale it only after answers are read.
@@ -112,7 +112,7 @@
             ($held $before $owner (space-row-present? &sk_stale ($xh $xr))))))
    (true false false true))
 !(test (query 200 historyKb (: $p (X a) $tv))
-   (: (factored-revision (by (no_inverse bx) (by (no_inverse mb) mf)) (prior (STV 1 0.7998719404737348)) (((reported with cpu (prior (STV 0.5 0.0))) xf))) (X a) (STV 1 0.8)))
+   (: (factored-revision (by (no_inverse bx) (by (no_inverse mb) mf)) (prior (STV 1 0.8)) (((reported with cpu (prior (STV 0.5 0.0))) xf))) (X a) (STV 1 0.8)))
 
 ;; Branch proofs and cuts are roots of both collectors.
 !(stored-refs-gc!)

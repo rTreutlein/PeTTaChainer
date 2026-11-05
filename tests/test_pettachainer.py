@@ -70,10 +70,10 @@ class TestPeTTaChainer(unittest.TestCase):
         expected = {
             1: [('STV', 0.9199999999999999, 0.024390243902439025),
                 ('STV', 0.9199999999999999, 0.024390243902439025),
-                ('STV', 0.9199999999999999, 0.024390243902204452)],
+                ('STV', 0.9199999999999999, 0.024390243902439025)],
             0: [('STV', 0.31999999999999995, 0.024390243902439025),
                 ('STV', 0.31999999999999995, 0.024390243902439025),
-                ('STV', 0.31999999999999995, 0.02439024390240102)],
+                ('STV', 0.31999999999999995, 0.024390243902439025)],
         }
         for outcome, tvs in expected.items():
             with self.subTest(outcome=outcome):
@@ -138,7 +138,7 @@ class TestPeTTaChainer(unittest.TestCase):
                 self.assertEqual(
                     result,
                     ["(: (by rp (conjunction s (by rm (conjunction unfounded (negated d))))) "
-                     "(P t) (STV 0.0 0.9996001597861454))"],
+                     "(P t) (STV 0.0 0.9999))"],
                 )
 
     def test_evidence_confidence_k_applies_in_process_and_to_timed_queries(self):
@@ -311,8 +311,10 @@ class TestPeTTaChainer(unittest.TestCase):
                 handler.add_atoms_no_check([
                     "(: low (LowInput) (STV 0.0 1.0))",
                     "(: high (HighInput) (STV 1.0 1.0))",
+                    # Finite branches: a point view would stand alone in
+                    # the merged answer, hiding the other rule.
                     "(: lowRule (Implication (LowInput) (PriorityGoal)) "
-                    "(CTV (STV 1.0 0.9) (STV 0.0 1.0)))",
+                    "(CTV (STV 1.0 0.9) (STV 0.0 0.9)))",
                     "(: highRule (Implication (HighInput) (PriorityGoal)) "
                     "(CTV (STV 1.0 0.8) (STV 0.0 1.0)))",
                 ])
@@ -894,7 +896,7 @@ class TestPeTTaChainer(unittest.TestCase):
         )
 
         self.assertEqual(uncertain, [])
-        self.assertEqual(settled, ["(: (settled c) (Or (C) (B)) (STV 1.0 1.0))"])
+        self.assertEqual(settled, ["(: (settled c) (Or (C) (B)) (STV 1.0 0.9999))"])
 
     def test_stv_rule_query_patterns_preserve_variable_headed_terms(self):
         rules = [

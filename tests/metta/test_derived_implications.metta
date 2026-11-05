@@ -25,15 +25,15 @@
 !(compileadd flatKb (: r (Implication (And (A $x) (B $x)) (C $x)) (STV 0.9 1.0)))
 
 !(test (query 20 nestedKb (: $p (C x) $tv))
-   (: (by (by r a) b) (C x) (STV 0.9 0.9999000094583679)))
+   (: (by (by r a) b) (C x) (STV 0.9 0.9999)))
 !(test (query 20 flatKb (: $p (C x) $tv))
-   (: (by r (conjunction a b)) (C x) (STV 0.9 0.999900009458368)))
+   (: (by r (conjunction a b)) (C x) (STV 0.9 0.9999)))
 
 ;; Query the derived implication's positive judgment as an STV. Its internal
 ;; negative storage branch still participates in modus ponens below.
 !(test
    (query 20 nestedKb (: $p (Implication (B x) (C x)) $tv))
-   (: (by r a) (Implication (B x) (C x)) (STV 0.9 0.999900009728684)))
+   (: (by r a) (Implication (B x) (C x)) (STV 0.9 0.9999)))
 
 ;; Uncertain antecedents, with base rates from (A y), (B y), (C y): the same
 ;; strength as the flat rule, a b p + (1 - a b) n, for any a and b. The
@@ -63,12 +63,12 @@
 ;; proof applies the nested rule step by step, (by (by r A) B).
 !(test
    (query 20 nestedRatesKb (: $p (Implication (A x) (Implication (B x) (C x))) $tv))
-   (: (merge/revision r (implication-instance-fold cpu)) (Implication (A x) (Implication (B x) (C x))) (STV 0.9 0.9000112464854617)))
+   (: (merge/revision r (implication-instance-fold cpu)) (Implication (A x) (Implication (B x) (C x))) (STV 0.9000000000000001 0.9000112487345174)))
 !(test
    (query 20 nestedRatesKb (: $p (Implication (And (A x) (B x)) (C x)) $tv))
-   (: (merge/revision (conditional-implication (by (by r (ctx proof 2)) (ctx proof 2 1))) (implication-instance-fold cpu)) (Implication (And (A x) (B x)) (C x)) (STV 0.9000000000000001 0.900011245581929)))
+   (: (merge/revision (conditional-implication (by (by r (ctx proof 2)) (ctx proof 2 1))) (implication-instance-fold cpu)) (Implication (And (A x) (B x)) (C x)) (STV 0.9000000000000001 0.9000112487345174)))
 !(test (query 20 nestedRatesKb (: $p (Implication (A x) (Implication (B x) (C x))) (STV $s $c)))
-   (: (merge/revision r (implication-instance-fold cpu)) (Implication (A x) (Implication (B x) (C x))) (STV 0.9 0.9000112464854617)))
+   (: (merge/revision r (implication-instance-fold cpu)) (Implication (A x) (Implication (B x) (C x))) (STV 0.9000000000000001 0.9000112487345174)))
 
 ;; Three levels, A → (B → (C → D)), against (A ∧ B ∧ C) → D:
 ;; q = 0.8 · 0.6 · 0.7, then q · 0.9 + (1-q) · 0.5 = 0.6344.
@@ -83,9 +83,9 @@
 !(compileadd flat3Kb (: r (Implication (And (A $x) (B $x) (C $x)) (D $x)) (STV 0.9 1.0)))
 
 !(test (query 30 nested3Kb (: $p (D x) $tv))
-   (: (by (by (by r a) b) c) (D x) (STV 0.6344 0.018229331547207916)))
+   (: (by (by (by r a) b) c) (D x) (STV 0.6344 0.01822933320589421)))
 !(test (query 30 flat3Kb (: $p (D x) $tv))
-   (: (by r (conjunction a b c)) (D x) (STV 0.6344000000000001 0.006595964253962663)))
+   (: (by r (conjunction a b c)) (D x) (STV 0.6344000000000001 0.006595964523123705)))
 ;; The query of a three-level nested implication is the exported query's.
 ;; Actual-work conditioning (#74) lets the exported fold settle at budget 30;
 ;; master reaches this same complete proof at budget 2000.
@@ -94,7 +94,7 @@
    (: r (Implication (A x) (Implication (B x) (Implication (C x) (D x)))) (STV 0.9 1.0)))
 !(test
    (query 30 nested3Kb (: $p (Implication (And (A x) (B x) (C x)) (D x)) $tv))
-   (: (merge/revision (conditional-implication (by (by (by r (ctx proof 5)) (ctx proof 5 1)) (ctx proof 5 2))) (implication-instance-fold cpu)) (Implication (And (A x) (B x) (C x)) (D x)) (STV 0.9 0.9999000092005444)))
+   (: (conditional-implication (by (by (by r (ctx proof 5)) (ctx proof 5 1)) (ctx proof 5 2))) (Implication (And (A x) (B x) (C x)) (D x)) (STV 0.9 0.9999)))
 
 ;; A CTV (p, n) on a nested rule is its exported rule's CTV:
 ;; a b p + (1 - a b) n = 0.48 · 0.9 + 0.52 · 0.2 = 0.536.
@@ -119,7 +119,7 @@
 !(compileadd storedKb (: s (Implication (B x) (C x)) (CTV (STV 0.7 0.5) (STV 0.1 0.5))))
 
 !(test (query 20 storedKb (: $p (C x) $tv))
-   (: (by s b) (C x) (STV 0.7 0.499999999956991)))
+   (: (by s b) (C x) (STV 0.7 0.5)))
 
 !(compileadd storedKb (: r (Implication (A $x) (Implication (B $x) (C $x))) (CTV (STV 0.9 0.9) (STV 0.2 0.9))))
 !(compileadd storedFlatKb (: a (A x) (STV 1.0 1.0)))
@@ -128,17 +128,17 @@
 !(compileadd storedFlatKb (: r (Implication (And (A $x) (B $x)) (C $x)) (CTV (STV 0.9 0.9) (STV 0.2 0.9))))
 
 !(test (query 20 storedKb (: $p (C x) $tv))
-   (: (specializes (by (by r a) b) (by s b) (STV 0.9 0.8999999991176936) (STV 0.7 0.499999999956991)) (C x) (STV 0.8999944944588267 0.8999999991176936)))
+   (: (specializes (by (by r a) b) (by s b) (STV 0.9 0.9) (STV 0.7 0.5)) (C x) (STV 0.8999944944588806 0.9)))
 !(test (query 20 storedFlatKb (: $p (C x) $tv))
-   (: (specializes (by r (conjunction a b)) (by s b) (STV 0.9 0.8999999991176935) (STV 0.7 0.499999999956991)) (C x) (STV 0.8999944944588266 0.8999999991176935)))
+   (: (specializes (by r (conjunction a b)) (by s b) (STV 0.9 0.9) (STV 0.7 0.5)) (C x) (STV 0.8999944944588806 0.9)))
 
 ;; Forward chaining: taking a derives the statement, taking it joins b.
 !(compileadd forwardKb (: a (A x) (STV 1.0 1.0)))
 !(compileadd forwardKb (: b (B x) (STV 1.0 1.0)))
 !(compileadd forwardKb (: r (Implication (A $x) (Implication (B $x) (C $x))) (STV 0.9 1.0)))
 !(test (result-values (forward-chain 20 forwardKb (selected-facts forwardKb (A x))))
-   (((Implication (B x) (C x)) (CTV (STV 0.9 0.999900009728684) (STV 0.5 0.0)))
-    ((C x) (STV 0.9 0.9999000094583679))))
+   (((Implication (B x) (C x)) (CTV (STV 0.9 0.9999) (STV 0.5 0.0)))
+    ((C x) (STV 0.9 0.9999))))
 ;; Positive reads of a forward-stored CTV retain its original evidence and
 ;; dependencies; the stored copy must not become a new observation.
 !(test (let* (($type (brand Statement (Implication (B x) (C x))))
@@ -152,9 +152,9 @@
    true)
 !(test (let (: $_proof $_type $tv)
    (query 0 forwardKb (: $p (Implication (B x) (C x)) $value)) $tv)
-   (STV 0.9 0.999900009728684))
+   (STV 0.9 0.9999))
 !(test (query 0 forwardKb (: $p (C x) $tv))
-   (: (by (by r a) b) (C x) (STV 0.9 0.9999000094583679)))
+   (: (by (by r a) b) (C x) (STV 0.9 0.9999)))
 
 ;; A knowledge base whose rules conclude no implication gets no statement rule.
 !(compileadd plainKb (: a (A x) (STV 0.8 0.9)))
@@ -216,9 +216,9 @@
 !(compileadd openFlatKb (: fr (From x y) (STV 0.9 0.9)))
 !(compileadd openFlatKb (: r (Implication (And (G R) (A $a) (F $f) (From $a $f)) (C $a)) (STV 0.9 1.0)))
 !(test (query 30 openKb (: $p (C x) $tv))
-   (: (by (by r g) (conjunction a f fr)) (C x) (STV 0.788 0.029767978784662013)))
+   (: (by (by r g) (conjunction a f fr)) (C x) (STV 0.788 0.02976800559196231)))
 !(test (query 30 openFlatKb (: $p (C x) $tv))
-   (: (by r (conjunction g a f fr)) (C x) (STV 0.788 0.029767978784662016)))
+   (: (by r (conjunction g a f fr)) (C x) (STV 0.788 0.02976800559196231)))
 ;; Its nested query, the gate a condition as above.
 !(compileadd openGateKb (: r (Implication (G R) (Implication (And (A $a) (F $f) (From $a $f)) (C $a))) (STV 1 0.9)))
 !(test

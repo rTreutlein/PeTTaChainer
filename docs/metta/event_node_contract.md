@@ -169,7 +169,11 @@ reference error labels and distributions are in `git show c3ee6d01:experiments/c
 
 ## Output and unknown dependence
 
-An exact zero variance is reported at confidence .9999. A claimed bound, or
+An exact zero variance is a point: internally confidence 1, so later
+computations, caches, materialized and forward copies keep it exact. The
+public answer boundary (`public-tv` in `runtime/presentation.metta`) reports
+a computed point at confidence .9999; a stored source keeps its stated 1.
+A written truth-value pattern matches the reported value. A claimed bound, or
 variance at least s(1-s), is reported at confidence zero. Otherwise
 n = clip(s, 1e-6, 1-1e-6)(1-clip(s, 1e-6, 1-1e-6))/V - 1 and c = n/(n+800),
 the inverse of the public ideal-var decoder. The bound test still uses the

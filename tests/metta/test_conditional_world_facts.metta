@@ -6,10 +6,10 @@
 !(compileadd ke63Kb (: src_bridge (Implication (And (StockSplit $e) (Implemented $e)) (PreservesOwnership $e)) (STV 1 0.9)))
 !(test (collapse (let (: (conditional-implication (by src_bridge (conjunction src_split (ctx proof $ctx)))) $_statement $tv)
    (query 300 ke63Kb (: $p (Implication (Implemented Split1) (PreservesOwnership Split1)) $value)) $tv))
-   ((STV 1.0 0.8709372443124922)))
+   ((STV 1.0 0.8709625388003415)))
 !(test (collapse (let (: (conditional-implication (by src_bridge (conjunction src_split (ctx proof $ctx)))) $_statement $tv)
    (query 300 ke63Kb (: $p (Implication (Implemented Split1) (PreservesOwnership Split1)) $value)) $tv))
-   ((STV 1.0 0.8709372443124922)))
+   ((STV 1.0 0.8709625388003415)))
 !(test (collapse (query 300 ke63Kb (: $p (Implemented Split1) $tv))) ())
 !(test (collapse (query 300 ke63Kb (: $p (PreservesOwnership Split1) $tv))) ())
 

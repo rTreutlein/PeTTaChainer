@@ -63,14 +63,14 @@
             (LocalProblem current)
             (ProblemDependency current))
          $tv))
-   (: (factored-revision (conjunction localPrior dependencyPrior) (prior (STV 0.5199995299237528 0.9140621948732192)) ((by (bi-backward problemDefinition) ((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455289852 0.003629357526433342))) currentAlarm)))) (Or (LocalProblem current) (ProblemDependency current)) (STV 0.9069765852904983 0.969129085157964)))
+   (: (factored-revision (conjunction localPrior dependencyPrior) (prior (STV 0.5199995299237528 0.9140621948732192)) ((by (bi-backward problemDefinition) ((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455297462 0.0036293575266414437))) currentAlarm)))) (Or (LocalProblem current) (ProblemDependency current)) (STV 0.9069765852904983 0.969201295422956)))
 
 ;; The general Problem estimate can use both the definition and the alarm.
 ;; The base rates count the whole population, including the derived alarm.
 !(test
    (query 5000 orInversionConditionedMergeKb
       (: $proof (Problem current) $tv))
-   (: (factored-revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) (prior (STV 0.5199995299237518 0.9140621947055227)) (((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455289852 0.003629357526433342))) currentAlarm))) (Problem current) (STV 0.906976585290498 0.9691290859469237)))
+   (: (factored-revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) (prior (STV 0.5199995299237528 0.9140621948732192)) (((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455297462 0.0036293575266414437))) currentAlarm))) (Problem current) (STV 0.9069765852904983 0.969201295422956)))
 
 ;; LocalProblem is the event graph's posterior: the certain definition and the
 ;; alarm's likelihoods over the two stored roots, whose counts are read at
@@ -95,9 +95,9 @@
 !(compileadd atomEqKb (: h1Problem (Problem h1) (STV 1.0 1.0)))
 !(compileadd atomEqKb (: h2Problem (Problem h2) (STV 0.0 1.0)))
 !(test (query 2000 atomEqKb (: $proof (Local current) $tv))
-   (: (factored-revision (by srcRule src) (prior (STV 0.5199999995 0.9999000099990001)) ((by (bi-backward problemDefinition) ((inverted problemRaisesAlarm with cpu (prior (STV 0.5062495703411769 0.003735865981753913))) currentAlarm)))) (Local current) (STV 0.9069767440170363 0.9998893381888581)))
+   (: (factored-revision (by srcRule src) (prior (STV 0.52 1.0)) ((by (bi-backward problemDefinition) ((inverted problemRaisesAlarm with cpu (prior (STV 0.50625 0.0037359900373599006))) currentAlarm)))) (Local current) (STV 0.9069767441860467 0.9999)))
 !(test (query 2000 atomEqKb (: $proof (Problem current) $tv))
-   (: (factored-revision (by (bi-forward problemDefinition) (by srcRule src)) (prior (STV 0.5199999994999991 0.9999000097983993)) (((inverted problemRaisesAlarm with cpu (prior (STV 0.5062495703411769 0.003735865981753913))) currentAlarm))) (Problem current) (STV 0.906976744017036 0.9998893390306737)))
+   (: (factored-revision (by (bi-forward problemDefinition) (by srcRule src)) (prior (STV 0.52 1.0)) (((inverted problemRaisesAlarm with cpu (prior (STV 0.50625 0.0037359900373599006))) currentAlarm))) (Problem current) (STV 0.9069767441860467 0.9999)))
 
 ;; The carry needs only a certain rule from Problem to Local, and an inversion
 ;; of Local's own leaves it as it is.
@@ -108,7 +108,7 @@
 !(compileadd impEqKb (: h1Problem (Problem h1) (STV 1.0 1.0)))
 !(compileadd impEqKb (: h2Problem (Problem h2) (STV 0.0 1.0)))
 !(compileadd impEqKb (: f1 (Implication (Problem current) (Local current)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
-!(test (let (: $_p $_t $tv) (query 2000 impEqKb (: $proof (Local current) $tv)) $tv) (STV 0.9069767440170361 0.9998893381890228))
+!(test (let (: $_p $_t $tv) (query 2000 impEqKb (: $proof (Local current) $tv)) $tv) (STV 0.9069767441860467 0.9999))
 !(compileadd localAlarmKb (: src (Src current) (STV 1.0 1.0)))
 !(compileadd localAlarmKb (: srcRule (Implication (Src current) (Local current)) (CTV (STV 0.52 1.0) (STV 0.52 1.0))))
 !(compileadd localAlarmKb (: problemRaisesAlarm (Implication (Problem $unit) (Alarm $unit)) (CTV (STV 0.9 1.0) (STV 0.1 1.0))))
@@ -117,7 +117,7 @@
 !(compileadd localAlarmKb (: h2Problem (Problem h2) (STV 0.0 1.0)))
 !(compileadd localAlarmKb (: pd (BiImplication (Local current) (Problem current)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 !(compileadd localAlarmKb (: localAlarm (Implication (Local $u) (Alarm $u)) (CTV (STV 0.9 1.0) (STV 0.1 1.0))))
-!(test (let (: $_p $_t $tv) (query 2000 localAlarmKb (: $proof (Local current) $tv)) $tv) (STV 0.9069767440170363 0.999889338244343))
+!(test (let (: $_p $_t $tv) (query 2000 localAlarmKb (: $proof (Local current) $tv)) $tv) (STV 0.9069767441860465 0.9999))
 
 ;; Implications both ways: each carries the other's inversion.
 !(compileadd twoWayKb (: src (Src current) (STV 1.0 1.0)))
@@ -128,7 +128,7 @@
 !(compileadd twoWayKb (: h2Problem (Problem h2) (STV 0.0 1.0)))
 !(compileadd twoWayKb (: f1 (Implication (Problem current) (Local current)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 !(compileadd twoWayKb (: f2 (Implication (Local current) (Problem current)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
-!(test (let (: $_p $_t $tv) (query 2000 twoWayKb (: $proof (Local current) $tv)) $tv) (STV 0.9029692616043835 0.9999528999802401))
+!(test (let (: $_p $_t $tv) (query 2000 twoWayKb (: $proof (Local current) $tv)) $tv) (STV 0.9069767441860465 0.9999))
 
 ;; Current behaviour, as on master: two certain equivalences between Local and
 ;; Problem, a second BiImplication or the reverse one, give Local two
@@ -141,7 +141,7 @@
 !(compileadd dupEqKb (: h2Problem (Problem h2) (STV 0.0 1.0)))
 !(compileadd dupEqKb (: pd (BiImplication (Local current) (Problem current)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 !(compileadd dupEqKb (: pd2 (BiImplication (Local current) (Problem current)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
-!(test (let (: $_p $_t $tv) (query 2000 dupEqKb (: $proof (Local current) $tv)) $tv) (STV 0.5200009875095359 0.9999000102573048))
+!(test (let (: $_p $_t $tv) (query 2000 dupEqKb (: $proof (Local current) $tv)) $tv) (STV 0.52 0.9999))
 !(compileadd revEqKb (: src (Src current) (STV 1.0 1.0)))
 !(compileadd revEqKb (: srcRule (Implication (Src current) (Local current)) (CTV (STV 0.52 1.0) (STV 0.52 1.0))))
 !(compileadd revEqKb (: problemRaisesAlarm (Implication (Problem $unit) (Alarm $unit)) (CTV (STV 0.9 1.0) (STV 0.1 1.0))))
@@ -150,7 +150,7 @@
 !(compileadd revEqKb (: h2Problem (Problem h2) (STV 0.0 1.0)))
 !(compileadd revEqKb (: pd (BiImplication (Local current) (Problem current)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 !(compileadd revEqKb (: pdr (BiImplication (Problem current) (Local current)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
-!(test (let (: $_p $_t $tv) (query 2000 revEqKb (: $proof (Local current) $tv)) $tv) (STV 0.5200009875095359 0.9999000102573048))
+!(test (let (: $_p $_t $tv) (query 2000 revEqKb (: $proof (Local current) $tv)) $tv) (STV 0.52 0.9999))
 
 ;; A premise with a variable the conclusion lacks is one of many instances,
 ;; with a population prior of its own: (P $x $y) -> (Q $x) is no equivalence,
@@ -166,7 +166,7 @@
 !(compileadd coverKb (: g3 (Q h5) (STV 0.0 1.0)))
 !(compileadd coverKb (: al1 (Al k y1) (STV 1.0 1.0)))
 !(compileadd coverKb (: alq (Alq k) (STV 1.0 1.0)))
-!(test (let (: $_p $_t $tv) (query 2000 coverKb (: $p (Q k) $tv)) $tv) (STV 0.9863685918674778 0.06974122484843895))
+!(test (let (: $_p $_t $tv) (query 2000 coverKb (: $p (Q k) $tv)) $tv) (STV 0.9863685932388222 0.06974134408240949))
 
 ;; An assumed rule is compiled for its world only and registers no
 ;; equivalence, so worlds leave the registry as it was.

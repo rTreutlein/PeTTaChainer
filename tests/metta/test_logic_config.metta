@@ -19,7 +19,7 @@
 ;; A certain-true disjunct settles the Or without a proof of the other.
 !(test
    (query 20 plnLogicKb (: $prf (Or (A) (B)) $tv))
-   (: (settled a) (Or (A) (B)) (STV 1.0 1.0)))
+   (: (settled a) (Or (A) (B)) (STV 1.0 0.9999)))
 
 ;; The observed (And (A) (B)) at (1, .9) is Pearl evidence at its mean m =
 ;; 7201/7202 (exact only at confidence 1): with A unknown, lambda1 = .5 and
@@ -52,7 +52,7 @@
 
 !(test
    (query 20 predicateLogicKb (: $prf (Or (A) (B)) $tv))
-   (: (Orintroduction a) (Or (A) (B)) (STV 1.0 1.0)))
+   (: (Orintroduction a) (Or (A) (B)) (STV 1.0 0.9999)))
 
 ;; An open compound query must keep the complete child shape available to the
 ;; conclusion index. Both alternatives remain reachable without falling back
@@ -75,7 +75,7 @@
 
 !(test
    (query 20 plnAfterSwitchKb (: $prf (Or (A) (B)) $tv))
-   (: (settled a) (Or (A) (B)) (STV 1.0 1.0)))
+   (: (settled a) (Or (A) (B)) (STV 1.0 0.9999)))
 
 !(clear-logic-config)
 !(set-logic-name CustomLogic)
@@ -85,7 +85,7 @@
 
 !(test
    (query 20 customEitherKb (: $prf (Either (A) (B)) $tv))
-   (: (Eitherintroduction a) (Either (A) (B)) (STV 1.0 1.0)))
+   (: (Eitherintroduction a) (Either (A) (B)) (STV 1.0 0.9999)))
 
 !(clear-logic-config)
 !(set-logic-name NoOrLogic)

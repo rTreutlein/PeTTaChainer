@@ -27,11 +27,11 @@
 
 !(test
    (query 10 mathkb (: (by (no_inverse ax-k) cpu) (Provable (→ $𝜑 (→ $𝜓 $𝜑))) $tv))
-   (: (by (no_inverse ax-k) cpu) (Provable (→ $𝜑 (→ $𝜓 $𝜑))) (STV 1.0 0.9998000399670116)))
+   (: (by (no_inverse ax-k) cpu) (Provable (→ $𝜑 (→ $𝜓 $𝜑))) (STV 1.0 0.9999)))
 
 !(test
    (query 10 mathkb (: (by (no_inverse ax-k) cpu) (Provable (→ a (→ b a))) $tv))
-   (: (by (no_inverse ax-k) cpu) (Provable (→ a (→ b a))) (STV 1.0 0.9998000399670116)))
+   (: (by (no_inverse ax-k) cpu) (Provable (→ a (→ b a))) (STV 1.0 0.9999)))
 
 !(test
    (query 1 mathkb (: ax-id (Provable (→ a a)) $tv))
@@ -39,4 +39,4 @@
 
 !(test
    (query 20 mathkb (: $prf (Provable (PropQ)) $tv))
-   (: (by mp (conjunction given-imp given-p)) (Provable (PropQ)) (STV 1.0 0.999700089898053)))
+   (: (by mp (conjunction given-imp given-p)) (Provable (PropQ)) (STV 1.0 0.9999)))

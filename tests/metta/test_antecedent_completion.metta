@@ -235,7 +235,7 @@
 !(compileadd sharedKb (: wet-d (Wet d) (STV 1 1)))
 ;; The completion holds no evidence through its given sibling outdoor-d, so it
 ;; and the inversion both hold wet-d alone: one estimate.
-!(test (query 2000 sharedKb (: $proof (Rain d) $tv)) (: ((antecedent-completion wet 1 with cpu (prior (STV 0.30000555540123885 0.9))) (conjunction outdoor-d wet-d)) (Rain d) (STV 0.6585425339841672 0.8936005994767838)))
+!(test (query 2000 sharedKb (: $proof (Rain d) $tv)) (: ((antecedent-completion wet 1 with cpu (prior (STV 0.30000555540123885 0.9))) (conjunction outdoor-d wet-d)) (Rain d) (STV 0.6585425339841672 0.893674446396304)))
 
 ;; A sibling the completion conditions on is no observation of it. B is
 ;; derived from A (0.8, 0.2) and C from A and B (0.9, 0.1); b shows B and C.
@@ -262,7 +262,7 @@
 !(compileadd predictedKb (: n1 (Next a b) (STV 1 1)))
 !(compileadd predictedKb (: s1 (Serv b) (STV 1 1)))
 !(set-base-rate predictedKb (Pred $p) (STV 0.3 0.9))
-!(test (query 100 predictedKb (: $prf (Pred a) $tv)) (: ((antecedent-completion persist 1 with cpu (prior (STV 0.30000555540123885 0.9))) (conjunction n1 (by fresh s1))) (Pred a) (STV 0.17238749429474426 0.9870844211399957)))
+!(test (query 100 predictedKb (: $prf (Pred a) $tv)) (: ((antecedent-completion persist 1 with cpu (prior (STV 0.30000555540123885 0.9))) (conjunction n1 (by fresh s1))) (Pred a) (STV 0.17238749429474426 0.9871398777918331)))
 
 ;; The mine runs exactly when the power plant runs and the mine is not
 ;; degraded. With the plant running and the mine off, the mine is degraded:
@@ -319,7 +319,7 @@
 !(compileadd chainKb (: plant-on (Producing plant t5) (STV 1 1)))
 !(compileadd chainKb (: mine-off (Producing mine t5) (STV 0 1)))
 !(test (query 2000 chainKb (: $prf (Degraded mine t6) $tv))
-   (: (by persist (conjunction next-t6 (factored-revision (by persist (conjunction next-t5 degraded-t4)) (prior (STV 0.10000001000004669 0.99990000952965)) (((antecedent-completion runs-mine 1 with cpu (prior (STV 0.25000694425154857 0.9))) (conjunction plant-on mine-off)))))) (Degraded mine t6) (STV 0.7499980499318961 0.9998999906297061)))
+   (: (by persist (conjunction next-t6 (factored-revision (by persist (conjunction next-t5 degraded-t4)) (prior (STV 0.1 1.0)) (((antecedent-completion runs-mine 1 with cpu (prior (STV 0.25000694425154857 0.9))) (conjunction plant-on mine-off)))))) (Degraded mine t6) (STV 0.75 0.9999)))
 
 ;; A backup feed's independent production prediction supports PLN induction.
 ;; With the plant on, P(Producing mine | Degraded) = 0 and its complement
@@ -332,7 +332,7 @@
 !(compileadd predictionKb (: mine-t4 (Producing mine t4) (STV 1 1)))
 !(compileadd predictionKb (: plant-on (Producing plant t5) (STV 1 1)))
 !(compileadd predictionKb (: backup-t5 (Backup t5) (STV 1 1)))
-!(test (query 2000 predictionKb (: $prf (Degraded mine t5) $tv)) (: ((antecedent-completion runs-mine 1 with cpu (prior (STV 0.25000694425154857 0.9))) (conjunction plant-on (by backup backup-t5))) (Degraded mine t5) (STV 0.6 0.9999000086419646)))
+!(test (query 2000 predictionKb (: $prf (Degraded mine t5) $tv)) (: ((antecedent-completion runs-mine 1 with cpu (prior (STV 0.25000694425154857 0.9))) (conjunction plant-on (by backup backup-t5))) (Degraded mine t5) (STV 0.6 0.9999)))
 
 ;; A completion of a refined rule reads the rule's learned truth, as its
 ;; forward and inverted applications do. Of eight past individuals, the four
@@ -373,4 +373,4 @@
 !(compileadd refKb (: b-q (B q) (STV 1 1)))
 !(compileadd refKb (: c-q (C q) (STV 1 1)))
 !(test (query 2000 refKb (: $prf (A q) $tv))
-   (: (node (conjunction b-q c-q (by rC cpu) (population-prior (A $_0)) (merge/revision (implication-instance-fold cpu) (rule-axiom rC)))) (A q) (STV 0.8749963543545393 0.3429267227111237)))
+   (: (node (conjunction b-q c-q (by rC cpu) (population-prior (A $_0)) (merge/revision (implication-instance-fold cpu) (rule-axiom rC)))) (A q) (STV 0.8750000000025522 0.34294333601756133)))

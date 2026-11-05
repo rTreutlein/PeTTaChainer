@@ -36,7 +36,7 @@ class WeightedAssumptionTests(unittest.TestCase):
 
     def test_direct_weighted_fact_reads_its_own_value(self):
         goal = '(PlayingTennisNow Bob)'
-        self.assertEqual(tv(self.h, f'(Assuming {goal} {goal})'), ['STV', 1.0, 1.0])
+        self.assertEqual(tv(self.h, f'(Assuming {goal} {goal})'), ['STV', 1.0, 0.9999])
         rows = answers(self.h, f'(Assuming (: bridge {goal} (STV 0.12 0.2)) {goal})')
         self.assertEqual(len(rows), 1, rows)
         self.assertEqual(rows[0].tv, ['STV', 0.12, 0.2])
@@ -75,7 +75,7 @@ class WeightedAssumptionTests(unittest.TestCase):
 
     def test_several_weighted_and_bare_assumptions_keep_their_values(self):
         facts = '(And (A x) (: wb (B x) (STV 0.3 0.9)) (: wc (C x) (STV 0.6 0.5)))'
-        for goal, value in (('(A x)', [1.0, 1.0]), ('(B x)', [0.3, 0.9]), ('(C x)', [0.6, 0.5])):
+        for goal, value in (('(A x)', [1.0, 0.9999]), ('(B x)', [0.3, 0.9]), ('(C x)', [0.6, 0.5])):
             with self.subTest(goal=goal):
                 self.assertEqual(tv(self.h, f'(Assuming {facts} {goal})')[1:], value)
         both = tv(self.h, f'(Assuming {facts} (And (B x) (C x)))')

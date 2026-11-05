@@ -36,17 +36,17 @@
 ;; soft fact applies no rules, so the weight is its stored value.
 !(test (map-flat overlap-step (collapse (query 2000 stage3Kb (: $p (Degraded plant t1) $tv)))) (conditioned))
 !(test (map-flat overlap-tv (collapse (query 2000 stage3Kb (: $p (Degraded plant t1) $tv))))
-   ((STV 0.0588728408972088 0.9998816871399366)))
+   ((STV 0.05887282839676099 0.9999)))
 
 ;; Degraded plant t2: the persistence from t1 and the t2 report share the
 ;; storm too; the running plant settles it in either branch (exact: 0), and t3
 ;; is the persistence's start rate 0.05 (exact: 0.05).
 !(test (map-flat overlap-tv (collapse (query 2000 stage3Kb (: $p (Degraded plant t2) $tv))))
-   ((STV 0.0 0.999942338645465)))
+   ((STV 0.0 0.9999)))
 ;; Its confidence propagates the t2 update's own confidence above; shared
 ;; estimates did not supply an independent confidence increment.
 !(test (map-flat overlap-tv (collapse (query 2000 stage3Kb (: $p (Degraded plant t3) $tv))))
-   ((STV 0.05 0.9999000094042628)))
+   ((STV 0.05 0.9999)))
 
 ;; Conditioning a key is paid for from the evaluation allowance. A query that
 ;; cannot pay keeps its one-step waiting value. A root that spends its whole
@@ -71,7 +71,7 @@
 !(test (collapse (match &sk_root_exhausted
    ($_hash (sk-key (Degraded plant t1) (budgetKb MAIN Nil)) (sk-root-limit $cap $_epoch)) $cap)) (2))
 !(test (map-flat overlap-tv (collapse (query 200 budgetKb (: $p (Degraded plant t1) $tv))))
-   ((STV 0.0588728408972088 0.9998816871399366)))
+   ((STV 0.05887282839676099 0.9999)))
 
 ;; Views that share only a fact no rule concludes, here the link both rules
 ;; read, and hold evidence of their own are independent given it. These

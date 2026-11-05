@@ -460,7 +460,7 @@ class DeepConditioningTests(unittest.TestCase):
         query = ['(: $p (Degraded plant t2) $tv)']
         first = handler.query_many_refs(query, steps=20000)[0][0].tv
         # Default κ reads each finite report/instance prior once before updates.
-        self.assertEqual(first, ['STV', 0.1071952240649727, 0.999894142365972])
+        self.assertEqual(first, ['STV', 0.10719520162513413, 0.9999995700555369])
         self.assertEqual(handler.last_query_metrics()['conditioned_evaluations'], 26)
         second = handler.query_many_refs(query, steps=20000)[0][0].tv
         self.assertEqual(first, second)

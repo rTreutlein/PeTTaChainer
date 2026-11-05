@@ -80,7 +80,7 @@ class TestConditionalWorldFacts(unittest.TestCase):
                             self.assertGreater(row.tv[2], 0.0)
                         self.assertLessEqual(row.tv[2], 0.9)
                         if name == 'positive_consequent_control':
-                            self.assertAlmostEqual(row.tv[2], 0.8709372443124922)
+                            self.assertAlmostEqual(row.tv[2], 0.8709625388003415)
                         if name in {'derived_existential_bridge', 'existential_conditional'}:
                             self.assertEqual(row.statement[0], 'Exists')
                             witness = row.statement[1][0]

@@ -14,7 +14,7 @@
 !(compileadd c1 (: cb (Implication (And (O $x) (C $x)) (B $x))
                     (CTV (STV 0.9 1) (STV 0.1 1))))
 !(test (query 2000 c1 (: $p (C q) $tv))
-   (: ((antecedent-completion cb 1 with cpu (prior (STV 0.5 1))) (conjunction o (by ab a))) (C q) (STV 0.7400000000000001 0.9999092513583969)))
+   (: ((antecedent-completion cb 1 with cpu (prior (STV 0.5 1))) (conjunction o (by ab a))) (C q) (STV 0.7400000000000001 0.9999)))
 
 !(set-base-rate c1b (C $x) (STV 0.5 1))
 !(compileadd c1b (: a (A q) (STV 1 1)))
@@ -25,14 +25,14 @@
 !(compileadd c1b (: cb (Implication (And (O $x) (C $x)) (B $x))
                     (CTV (STV 0.9 1) (STV 0.1 1))))
 !(test (query 2000 c1b (: $p (C q) $tv))
-   (: ((antecedent-completion cb 1 with cpu (prior (STV 0.5 1))) (conjunction o (by ab a))) (C q) (STV 0.7400000000000001 0.9999092513583969)))
+   (: ((antecedent-completion cb 1 with cpu (prior (STV 0.5 1))) (conjunction o (by ab a))) (C q) (STV 0.7400000000000001 0.9999)))
 
 !(set-base-rate c1c (C $x) (STV 0.5 1))
 !(compileadd c1c (: a (A q) (STV 1 1)))
 !(compileadd c1c (: ab (Implication (A $x) (B $x)) (CTV (STV 0.8 1) (STV 0.2 1))))
 !(compileadd c1c (: cb (Implication (C $x) (B $x)) (CTV (STV 0.9 1) (STV 0.1 1))))
 !(test (query 2000 c1c (: $p (C q) $tv))
-   (: ((inverted cb with cpu (prior (STV 0.5 1))) (by ab a)) (C q) (STV 0.7400000000000001 0.9999092513583969)))
+   (: ((inverted cb with cpu (prior (STV 0.5 1))) (by ab a)) (C q) (STV 0.7400000000000001 0.9999)))
 
 !(set-bayes-prior-count 0.2)
 
@@ -44,7 +44,7 @@
 !(compileadd selfKb (: degraded-prior (Degraded now) (STV 0.25 0.9)))
 !(compileadd selfKb (: service (InService now) (STV 1 1)))
 !(test (query 2000 selfKb (: $p (Produced now) $tv))
-   (: (by rule (conjunction service (negated degraded-prior))) (Produced now) (STV 0.75 0.8999999994868244)))
+   (: (by rule (conjunction service (negated degraded-prior))) (Produced now) (STV 0.75 0.9)))
 !(test (query 2000 selfKb (: $p (Degraded now) $tv)) (: degraded-prior (Degraded now) (STV 0.25 0.9)))
 !(test (sk-observation-prior (brand KB selfKb) (brand Proof unfounded) (STV 0 1) false) ())
 
@@ -126,18 +126,18 @@
 !(compileadd stageKb (: ab (Implication (A $x) (B $x)) (CTV (STV 0.8 1) (STV 0.2 1))))
 !(compileadd stageKb (: cb (Implication (And (O $x) (C $x)) (B $x)) (CTV (STV 0.9 1) (STV 0.1 1))))
 !(test (query 2000 stageKb (: $p (C q) $tv))
-   (: (population-prior (C $_0)) (C q) (STV 0.5 1)))
+   (: (population-prior (C $_0)) (C q) (STV 0.5 0.9999)))
 !(test (query 2000 stageKb (: $p (Assuming (B q) (C q)) $tv))
-   (: (assuming ((antecedent-completion cb 1 with cpu (prior (STV 0.5 1))) (conjunction o (ctx proof 3)))) (Assuming (B q) (C q)) (STV 0.9 0.99988201320876)))
+   (: (assuming ((antecedent-completion cb 1 with cpu (prior (STV 0.5 1))) (conjunction o (ctx proof 3)))) (Assuming (B q) (C q)) (STV 0.9 0.9999)))
 !(test (query 2000 stageKb (: $p (Assuming (Not (B q)) (C q)) $tv))
-   (: (assuming ((antecedent-completion cb 1 with cpu (prior (STV 0.5 1))) (conjunction o (ctx proof 4)))) (Assuming (Not (B q)) (C q)) (STV 0.09999999999999998 0.99988201320876)))
+   (: (assuming ((antecedent-completion cb 1 with cpu (prior (STV 0.5 1))) (conjunction o (ctx proof 4)))) (Assuming (Not (B q)) (C q)) (STV 0.09999999999999998 0.9999)))
 !(set-predicate-time stageInvKb C 1 0)
 !(set-base-rate stageInvKb (C $x) (STV 0.5 1))
 !(compileadd stageInvKb (: a (A q) (STV 1 1)))
 !(compileadd stageInvKb (: ab (Implication (A $x) (B $x)) (CTV (STV 0.8 1) (STV 0.2 1))))
 !(compileadd stageInvKb (: cb (Implication (C $x) (B $x)) (CTV (STV 0.9 1) (STV 0.1 1))))
 !(test (query 2000 stageInvKb (: $p (C q) $tv))
-   (: (population-prior (C $_0)) (C q) (STV 0.5 1)))
+   (: (population-prior (C $_0)) (C q) (STV 0.5 0.9999)))
 
 ;; A derived consequent that mixes both parts: B predicted from A and
 ;; observed through its child D, (0.9, 0.1). B's value is the factored merge
@@ -154,7 +154,7 @@
 !(compileadd mixedKb (: cb (Implication (And (O $x) (C $x)) (B $x)) (CTV (STV 0.9 1) (STV 0.1 1))))
 !(compileadd mixedKb (: bd (Implication (B $x) (D $x)) (CTV (STV 0.9 1) (STV 0.1 1))))
 !(test (query 2000 mixedKb (: $p (C q) $tv))
-   (: ((antecedent-completion cb 1 with cpu (prior (STV 0.5 1))) (conjunction o (factored-revision (by ab a) (prior (STV 0.8 0.9999000097740453)) (((inverted bd with cpu (prior (STV 0.5 1))) d))))) (C q) (STV 0.8200000000000003 0.9999090080024867)))
+   (: ((antecedent-completion cb 1 with cpu (prior (STV 0.5 1))) (conjunction o (factored-revision (by ab a) (prior (STV 0.8 1.0)) (((inverted bd with cpu (prior (STV 0.5 1))) d))))) (C q) (STV 0.8200000000000003 0.9999)))
 !(set-bayes-prior-count 0.2)
 
 ;; #119 without the positive-only declaration: an absent Via r1 reads as
@@ -189,7 +189,7 @@
 !(compileadd conjKb (: d (D q) (STV 1 1)))
 !(compileadd conjKb (: cbd (Implication (C $x) (And (B $x) (D $x))) (CTV (STV 0.9 1) (STV 0.1 1))))
 !(test (query 2000 conjKb (: $p (C q) $tv))
-   (: ((inverted cbd with cpu (prior (STV 0.5 1))) (conjunction b d)) (C q) (STV 0.9 0.9998820124978173)))
+   (: ((inverted cbd with cpu (prior (STV 0.5 1))) (conjunction b d)) (C q) (STV 0.9 0.9999)))
 !(set-predicate-time conjPredKb C 1 0)
 !(set-base-rate conjPredKb (C $x) (STV 0.5 1))
 !(compileadd conjPredKb (: b (B q) (STV 1 1)))
@@ -197,5 +197,5 @@
 !(compileadd conjPredKb (: ad (Implication (A $x) (D $x)) (CTV (STV 0.8 1) (STV 0.2 1))))
 !(compileadd conjPredKb (: cbd (Implication (C $x) (And (B $x) (D $x))) (CTV (STV 0.9 1) (STV 0.1 1))))
 !(test (query 2000 conjPredKb (: $p (C q) $tv))
-   (: (population-prior (C $_0)) (C q) (STV 0.5 1)))
+   (: (population-prior (C $_0)) (C q) (STV 0.5 0.9999)))
 !(set-bayes-prior-count 0.2)

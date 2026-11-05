@@ -75,7 +75,7 @@
 !(compileadd andFactKb (: em (Member e Mortal) (STV 1 1)))
 !(compileadd andFactKb (: ea (Member e Animal) (STV 1 1)))
 !(test (query 100 andFactKb (: $p (And (Inheritance Human Mortal) (Member a Human)) $tv))
-   (: (conjunction (implication-instance-fold cpu) ah) (And (Inheritance Human Mortal) (Member a Human)) (STV 0.6666666666666666 0.003735990037354318)))
+   (: (conjunction (implication-instance-fold cpu) ah) (And (Inheritance Human Mortal) (Member a Human)) (STV 0.6666666666666666 0.0037359900373599006)))
 
 
 ;; The same compound after a query of the link answers alike.
@@ -118,7 +118,7 @@
 !(compileadd negLinkAndKb (: ea (Member e Animal) (STV 1 1)))
 !(compileadd negLinkAndKb (: fh (Member f Human) (STV 1 1)))
 !(test (query 100 negLinkAndKb (: $p (And (Not (Inheritance Human Mortal)) (Member b Human)) $tv))
-   (: (conjunction (negated (implication-instance-fold cpu)) bh) (And (Not (Inheritance Human Mortal)) (Member b Human)) (STV 0.33333333333333337 0.003735990037358039)))
+   (: (conjunction (negated (implication-instance-fold cpu)) bh) (And (Not (Inheritance Human Mortal)) (Member b Human)) (STV 0.33333333333333337 0.0037359900373599006)))
 !(compileadd negLinksKb (: ah (Member a Human) (STV 1 1)))
 !(compileadd negLinksKb (: am (Member a Mortal) (STV 1 1)))
 !(compileadd negLinksKb (: aa (Member a Animal) (STV 1 1)))
@@ -154,7 +154,7 @@
 !(compileadd negImplicationKb (: ea (Member e Animal) (STV 1 1)))
 !(compileadd negImplicationKb (: fh (Member f Human) (STV 1 1)))
 !(test (query 100 negImplicationKb (: $p (And (Not (Implication (Human $x) (Mortal $x))) (Member b Human)) $tv))
-   (: (conjunction (negated (implication-instance-fold cpu)) bh) (And (Not (Implication (Human $_0) (Mortal $_0))) (Member b Human)) (STV 0.33333333333333337 0.003735990037358039)))
+   (: (conjunction (negated (implication-instance-fold cpu)) bh) (And (Not (Implication (Human $_0) (Mortal $_0))) (Member b Human)) (STV 0.33333333333333337 0.0037359900373599006)))
 !(compileadd negPairKb (: ah (Member a Human) (STV 1 1)))
 !(compileadd negPairKb (: am (Member a Mortal) (STV 1 1)))
 !(compileadd negPairKb (: aa (Member a Animal) (STV 1 1)))
@@ -176,4 +176,4 @@
 !(compileadd negPairKb (: r2 (R p r) (STV 1 1)))
 !(compileadd negPairKb (: s2 (S p r) (STV 1 1)))
 !(test (query 100 negPairKb (: $p (And (Not (Implication (R $x $y) (S $x $y))) (Member b Human)) $tv))
-   (: (conjunction (negated (implication-instance-fold cpu)) bh) (And (Not (Implication (R $_0 $_1) (S $_0 $_1))) (Member b Human)) (STV 0.5 0.002493765586033047)))
+   (: (conjunction (negated (implication-instance-fold cpu)) bh) (And (Not (Implication (R $_0 $_1) (S $_0 $_1))) (Member b Human)) (STV 0.5 0.0024937655860349127)))

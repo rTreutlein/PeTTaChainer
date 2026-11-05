@@ -25,7 +25,7 @@
                   $query-tv))))
       ($proof $pattern $extractor $init $total $tv))
    ((foldall-proof prfA prfB prfC)
-      (Score $_name $_n) $_n 0 6 (STV 1.0 1.0)))
+      (Score $_name $_n) $_n 0 6 (STV 1.0 0.9999)))
 
 !(test
    (collapse
@@ -40,7 +40,7 @@
             $tv)))
    ((: (foldall-proof sampleA sampleB)
        (FoldAll (XYZSample (Pair $_xy $_z)) (Pair $_xy $_z) (PairCounts ()) DistValueCountAcc -> (PairCounts (((Pair (XY 10.0 100.0) 20.0) 1.0) ((Pair (XY 10.0 100.0) 21.0) 1.0))))
-       (STV 1.0 1.0))))
+       (STV 1.0 0.9999))))
 
 !(test
    (collapse
@@ -55,7 +55,7 @@
             $tv)))
    ((: (foldall-proof (by seedRule seed1) (by seedRule seed2))
        (FoldAll (PairFact $_p) $_p (PairCounts ()) DistValueCountAcc -> (PairCounts (((Pair alpha 1) 1.0) ((Pair beta 2) 1.0))))
-       (STV 1.0 1.0))))
+       (STV 1.0 0.9999))))
 
 ;; Generic aggregate snapshots are durable incumbents. Each later query still
 ;; reopens the child goal and folds from the original zero accumulator, so a
@@ -78,7 +78,7 @@
                      $n 0 DurableAggregateSum -> $result)
                   $query-tv))))
       ($proof $total $tv))
-   ((foldall-proof durable-score-a durable-score-b) 3 (STV 1.0 1.0)))
+   ((foldall-proof durable-score-a durable-score-b) 3 (STV 1.0 0.9999)))
 
 !(test
    (let (: $proof (FoldAll $_pattern $_extractor $_init $_fun -> $total) $tv)
@@ -90,7 +90,7 @@
                      $n 0 DurableAggregateSum -> $result)
                   $query-tv))))
       ($proof $total $tv))
-   ((foldall-proof durable-score-a durable-score-b) 3 (STV 1.0 1.0)))
+   ((foldall-proof durable-score-a durable-score-b) 3 (STV 1.0 0.9999)))
 
 !(compileadd durableAggregateKb
    (: durable-score-c (DurableScore c 3) (STV 1.0 1.0)))
@@ -106,7 +106,7 @@
                   $query-tv))))
       ($proof $total $tv))
    ((foldall-proof durable-score-a durable-score-b durable-score-c)
-      6 (STV 1.0 1.0)))
+      6 (STV 1.0 0.9999)))
 
 !(test
    (let (: $proof (FoldAll $_pattern $_extractor $_init $_fun -> $total) $tv)
@@ -119,4 +119,4 @@
                   $query-tv))))
       ($proof $total $tv))
    ((foldall-proof durable-score-a durable-score-b durable-score-c)
-      6 (STV 1.0 1.0)))
+      6 (STV 1.0 0.9999)))

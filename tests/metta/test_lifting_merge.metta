@@ -15,11 +15,11 @@
 ;; dominance would give (STV 0.6 0.9); pooling the two implications raises it.
 !(test
    (query 40 twoImplKb (: $prf (B i) $tv))
-   (: (merge/revision (by ab1 a) (by ab2 a)) (B i) (STV 0.6 0.9473684209852937)))
+   (: (merge/revision (by ab1 a) (by ab2 a)) (B i) (STV 0.6 0.9473684210526316)))
 
 ;; --- Same shape but the two implications differ in strength (0.7 vs 0.6).
-;; Their idealized confidences then differ slightly, so plain overlap-dominance
-;; would drop the lower-scoring proof at storage before pooling could run --
+;; Plain overlap-dominance would drop the lower-scoring proof at storage before
+;; pooling could run --
 ;; only keeping fact-overlapping proofs (they share a, residuals {ab1}/{ab2} are
 ;; disjoint) lets them pool. Confirms the direct query agrees with the bare
 ;; A->B implication query rather than collapsing to a single dominated proof. ---
@@ -28,7 +28,7 @@
 !(compileadd diffImplKb (: ab2 (Implication (A $x) (B $x)) (CTV (STV 0.6 0.9) (STV 0.0 1.0))))
 !(test
    (query 40 diffImplKb (: $prf (B i) $tv))
-   (: (merge/revision (by ab2 a) (by ab1 a)) (B i) (STV 0.6499999999812448 0.9473684209665905)))
+   (: (merge/revision (by ab1 a) (by ab2 a)) (B i) (STV 0.6499999999999999 0.9473684210526316)))
 
 ;; --- A,X->B / A,Y->B sharing only A. The bare implication query cannot express
 ;; this shape. These distinct sibling conditions combine by odds over the
@@ -67,7 +67,7 @@
 
 !(test
    (query 80 mlKb (: $prf (C i) $tv))
-   (: (merge/revision (by r2 (conjunction a b)) (by r1 (conjunction a b))) (C i) (STV 0.5499999999774938 0.9473684209403997)))
+   (: (merge/revision (by r1 (conjunction a b)) (by r2 (conjunction a b))) (C i) (STV 0.5499999999999999 0.9473684210526316)))
 
 ;; --- Shared b enters through different paths (directly in path 1, via M in
 ;; path 2), but the conclusion is still linear in the shared {a,b} conjunction,
@@ -87,4 +87,4 @@
 !(test
    (let (: $prf $_type $tv) (query 100 rtKb (: $prf (D i) $tv))
       ($tv (car-atom $prf)))
-   ((STV 0.17965779467755605 0.03198435426343378) conditioned))
+   ((STV 0.17965779467680607 0.03198441055909181) conditioned))

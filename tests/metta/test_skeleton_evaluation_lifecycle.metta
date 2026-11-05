@@ -47,7 +47,7 @@
    ((() () ()) (111)))
 !(test
    (collapse (query 0 forceKb (: $proof (ForceRoot) $tv)))
-   ((: (by (no_inverse forceRule) seed) (ForceRoot) (STV 1.0 0.7999359651197002))))
+   ((: (by (no_inverse forceRule) seed) (ForceRoot) (STV 1.0 0.8))))
 
 ;; Invalidation re-requests every held exclusion context on this slot. The
 ;; hold journal is query-local and leaves when answers have been captured.

@@ -12,13 +12,12 @@
 (: ideal-clip (-[det]-> Number Number))
 (= (ideal-clip $s) (max 0.000001 (min 0.999999 $s)))
 
-;; The evidence count of a confidence, the inverse of count-confidence, so
-;; revision adds counts at any confidence below 1: views near certainty keep
-;; their weight however many are merged, in any order. A certain value (1) has
-;; no finite count; the formulas read it as 10^4 k pieces of evidence, the
-;; count of the most confident value they derive (ideal-conf-from-var).
+;; The evidence count of a confidence below 1, the inverse of count-confidence,
+;; so revision adds counts: views near certainty keep their weight however many
+;; are merged, in any order. A certain value (1) is a point mass, not a count;
+;; every caller reads it before converting.
 (: confidence-to-count (-[det]-> Number Number))
-(= (confidence-to-count $conf) (/ (* $conf (evidence-confidence-k)) (- 1 (if (< $conf 1.0) $conf 0.9999))))
+(= (confidence-to-count $conf) (/ (* $conf (evidence-confidence-k)) (- 1 $conf)))
 
 ;; PLN's evidence parameter k: n pieces of evidence have confidence n/(n+k).
 ;; It is process-wide and read when a formula runs, so set it before building
@@ -71,18 +70,22 @@
 ;; The Beta variance of a strength over its evidence count. A value with no
 ;; evidence is the uniform prior Beta(1,1), variance 1/12, whatever its
 ;; strength: not the Bernoulli variance s(1-s) of zero pseudo-observations.
+;; A certain value is a point: variance 0.
 (: ideal-var (-[det]-> Number Number Number))
 (= (ideal-var $s $c)
    (if (<= $c 0.0) (/ 1.0 12.0)
-      (let $cs (ideal-clip $s) (/ (* $cs (- 1.0 $cs)) (+ (confidence-to-count $c) 1.0)))))
+      (if (>= $c 1.0) 0.0
+         (let $cs (ideal-clip $s) (/ (* $cs (- 1.0 $cs)) (+ (confidence-to-count $c) 1.0))))))
 
-;; Convert a strength and its propagated variance back to confidence. Clamp the
-;; variance to the maximum possible Bernoulli variance so the implied count is
-;; non-negative and the resulting confidence remains in [0, 1).
+;; Convert a strength and its propagated variance back to confidence. Zero
+;; variance is a point, confidence 1; the public answer boundary reports a
+;; derived point at .9999 (public-query-tv). Otherwise clamp the variance to the
+;; maximum possible Bernoulli variance so the implied count is non-negative and
+;; the resulting confidence remains in [0, 1).
 (: ideal-conf-from-var (-[det]-> Number Number Number))
 (= (ideal-conf-from-var $s $Var)
    (if (<= $Var 0.0)
-      0.9999
+      1.0
       (let*
          (($cs (ideal-clip $s))
           ($maxvar (* $cs (- 1.0 $cs)))
@@ -202,9 +205,11 @@
       (STV (min 1.0 (/ $sab $sa)) (min $cab $ca))))
 
 (: AndMarginalProjection (-[det]-> STVType STVType))
+;; A projection of a point is a point where the conjunction ever holds.
 (= (AndMarginalProjection (STV $sab $cab))
    (STV $sab
-      (count-confidence (* $sab (confidence-to-count $cab)))))
+      (if (>= $cab 1.0) (if (> $sab 0.0) 1.0 0.0)
+         (count-confidence (* $sab (confidence-to-count $cab))))))
 
 (: NotFormula (-[det]-> STVType STVType))
 (= (NotFormula (STV $s $c)) (STV (- 1 $s) $c))
@@ -297,8 +302,10 @@
 ;; fewer counts is taken. Draining a positive count moves its mean by
 ;; (1 - p)/n and a negative one by p/n, so evidence of one kind alone cannot
 ;; move and only emptying removes it. Draining all movable counts restores the
-;; bound, so the least drain that does is found by bisection. Adapted from
-;; argset-chainer's tvconsistency.
+;; bound, so the least drain that does is found by bisection. A point
+;; (confidence 1) has no finite count: it cannot move and is never emptied, so
+;; its counts, above all the others', only scale its mean; three points are
+;; left as they are. Adapted from argset-chainer's tvconsistency.
 (: STVTriple Type)
 (: stv-triple (-[det]-> STVType STVType STVType STVTriple))
 
@@ -366,25 +373,36 @@
       (if (<= $nb $nab) (stv-triple (STV $sa $ca) (STV $sb 0.0) (STV $sab $cab))
          (stv-triple (STV $sa $ca) (STV $sb $cb) (STV $sab 0.0)))))
 
+(: triple-count (-[det]-> Number Number Number))
+(= (triple-count $point $c) (if (>= $c 1.0) $point (confidence-to-count $c)))
+
+(: triple-point (-[det]-> STVType STVType STVType))
+(= (triple-point (STV $s $c) $drained) (if (>= $c 1.0) (STV $s $c) $drained))
+
 (: ConsistentTriple (-[det]-> STVType STVType STVType STVTriple))
 (= (ConsistentTriple (STV $sa $ca) (STV $sb $cb) (STV $sab $cab))
    (let* (($upper (> (* $sa $sab) $sb))
-          ($lower (> (- (+ $sa $sb) 1.0) (* $sa $sab))))
-      (if (if (if $upper true $lower) (> (min $ca (min $cb $cab)) 0.0) false)
-         (let* (($na (confidence-to-count $ca))
-                ($nb (confidence-to-count $cb))
-                ($nab (confidence-to-count $cab))
+          ($lower (> (- (+ $sa $sb) 1.0) (* $sa $sab)))
+          ($least (min $ca (min $cb $cab))))
+      (if (if (if $upper true $lower) (if (> $least 0.0) (< $least 1.0) false) false)
+         (let* (($point (+ 1.0 (+ (triple-count 0.0 $ca) (+ (triple-count 0.0 $cb) (triple-count 0.0 $cab)))))
+                ($na (triple-count $point $ca))
+                ($nb (triple-count $point $cb))
+                ($nab (triple-count $point $cab))
                 ($counts (counts (* $sa $na) (* (- 1.0 $sa) $na) (* $sb $nb)
                             (* (- 1.0 $sb) $nb) (* $sab $nab) (* (- 1.0 $sab) $nab)))
-                ($wa (/ (* (if $upper $sab (- 1.0 $sab)) (- 1.0 $sa)) $na))
-                ($wb (/ (if $upper $sb (- 1.0 $sb)) $nb))
-                ($wab (/ (* $sa (if $upper (- 1.0 $sab) $sab)) $nab))
+                ($wa (if (>= $ca 1.0) 0.0 (/ (* (if $upper $sab (- 1.0 $sab)) (- 1.0 $sa)) $na)))
+                ($wb (if (>= $cb 1.0) 0.0 (/ (if $upper $sb (- 1.0 $sb)) $nb)))
+                ($wab (if (>= $cab 1.0) 0.0 (/ (* $sa (if $upper (- 1.0 $sab) $sab)) $nab)))
                 ($w (+ $wa (+ $wb $wab)))
                 ($emptied (empty-least-supported (STV $sa $ca) (STV $sb $cb) (STV $sab $cab) $na $nb $nab)))
             (if (<= $w 0.0) $emptied
                (case (drain-evidence $upper $counts $wa $wb $wab $w $sb $sab $na $nb $nab) (
-                  ((drain-plan $n $drained)
-                     (if (<= $n (min $na (min $nb $nab))) $drained $emptied))))))
+                  ((drain-plan $n (stv-triple $da $db $dab))
+                     (if (<= $n (min $na (min $nb $nab)))
+                        (stv-triple (triple-point (STV $sa $ca) $da) (triple-point (STV $sb $cb) $db)
+                           (triple-point (STV $sab $cab) $dab))
+                        $emptied))))))
          (stv-triple (STV $sa $ca) (STV $sb $cb) (STV $sab $cab)))))
 
 (: normalize-stv

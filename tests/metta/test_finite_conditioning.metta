@@ -23,9 +23,9 @@
 !(compileadd finiteKb (: on-t2 (Producing plant t2) (STV 1 1)))
 
 !(test (map-flat finite-tv (collapse (query 10 finiteKb (: $p (Degraded plant t1) $tv))))
-   ((STV 0.025944381244804894 0.8018751981786723)))
+   ((STV 0.025944375259443764 0.8019138487966662)))
 !(test (map-flat finite-tv (collapse (query 2000 finiteKb (: $p (Degraded plant t1) $tv))))
-   ((STV 0.0588728408972088 0.9998816871399366)))
+   ((STV 0.05887282839676099 0.9999)))
 !(test (search-id-value sk_claim_state) -1)
 
 ;; Metering itself: one unit buys two conditioned rows, including nested

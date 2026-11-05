@@ -3,10 +3,13 @@
 
 ;; A variance floor must not move the null mean: large, equally observed
 ;; general and specific rules with the same rate are still indistinguishable.
-!(test (hm-differs? 1 1 1000) false)
-!(test (hm-differs? 0 0 1000) false)
-!(test (hm-differs? 0.999 0.999 1000) false)
-!(test (hm-differs? 0.999 0.5 1000) true)
+!(test (hm-differs? 1 1 (count-confidence 1000)) false)
+!(test (hm-differs? 0 0 (count-confidence 1000)) false)
+!(test (hm-differs? 0.999 0.999 (count-confidence 1000)) false)
+!(test (hm-differs? 0.999 0.5 (count-confidence 1000)) true)
+;; A point has no sampling error: any difference counts.
+!(test (hm-differs? 0.5 0.49 1) true)
+!(test (hm-differs? 0.5 0.5 1) false)
 
 ;; A genuinely screened pair can return after the single's prediction fails.
 ;; Both rules first see only successes; then F1 alone has failures. Every

@@ -37,12 +37,12 @@ class TestAssumingExistsJoin(unittest.TestCase):
                         proof = h.expand_proof(row.proof)
                         for source in ('assuming', 'src_rule', 'src_meta'):
                             self.assertIn(source, proof)
-                        self.assertEqual(proof.count('src_rule'), 1, proof)
-                        self.assertEqual(proof.count('src_meta'), 1, proof)
-                    # The certain rule's conclusion carries c .99983 through modus
-                    # ponens, a prediction: its parts move by Jeffrey to 1 - O(1e-7)
-                    # (P* = (n_parts P_parts + n_rule)/(n_parts + n_rule), n_rule 4.8e6).
-                    self.assertAlmostEqual(first.tv[1], 1, places=6)
+                        # The certain rule's conclusion is a point, a hard
+                        # observation: each witness (at most two) cites the
+                        # rule and the metadata once.
+                        self.assertIn(proof.count('src_rule'), (1, 2), proof)
+                        self.assertEqual(proof.count('src_meta'), proof.count('src_rule'), proof)
+                    self.assertEqual(first.tv[1:], [1.0, .9999])
                     self.assertGreater(first.tv[2], .99)
                     # Existential binders stay local; concrete witnesses do
                     # not replace the public body variable.
@@ -114,7 +114,10 @@ class TestAssumingExistsJoin(unittest.TestCase):
                         row = self.answer(h, goal)
                         self.assertEqual(row.tv, expected)
                         proof = h.expand_proof(row.proof)
-                        self.assertEqual(proof.count('src_rule'), 1, proof)
+                        # A point rule observes each witness by its own node
+                        # message; a finite one updates the compound once.
+                        self.assertEqual(proof.count('src_rule'),
+                                         1 if confidence < 1 else proof.count('node-message'), proof)
                         evidence = self.evidence(h, row)
                         if confidence < 1:
                             self.assertEqual(evidence.count('src_rule'), 1, evidence)
@@ -145,7 +148,7 @@ class TestAssumingExistsJoin(unittest.TestCase):
             rows = h.query_many_refs([query], steps=300)[0]
             self.assertEqual(len(rows), 1, rows)
             proof = h.expand_proof(rows[0].proof)
-            self.assertEqual(proof.count('src_rule'), 1, proof)
+            self.assertEqual(proof.count('src_rule'), proof.count('node-message'), proof)
             self.assertIn('src_meta', proof)
             evidence = self.evidence(h, rows[0])
             self.assertEqual(evidence.count('src_meta'), 1, evidence)

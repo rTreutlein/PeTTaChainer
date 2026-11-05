@@ -110,7 +110,7 @@
 ;; A forward run applies the learned truth, not the prior.
 !(compileadd hypKb (: anew (A new) (STV 1 1)))
 !(forward-chain 20 hypKb (the (List (Statement KBContext Proof TV)) (((A new) (hypKb MAIN Nil) anew (STV 1 1)))))
-!(test (let (: $p $t $tv) (query 0 hypKb (: $p (B new) $tv)) $tv) (STV 0.796969696969697 0.6689189187913668))
+!(test (let (: $p $t $tv) (query 0 hypKb (: $p (B new) $tv)) $tv) (STV 0.796969696969697 0.6689189189189189))
 
 ;; Two hypotheses confirmed from the same cases, through correlated
 ;; antecedents. Each learns the single hypothesis's truth; their samples are
@@ -189,7 +189,7 @@
 !(test (let (: $p $t $tv) (query 50 ovKb (: $p (RuleTruth (Implication (B $x) (C $x))) $tv)) $tv)
    (STV 0.796969696969697 0.6689189189189189))
 !(test (let (: $p $t $tv) (query 200 ovKb (: $p (C new) $tv)) $tv)
-   (STV 0.7969696969696971 0.6689189187764815))
+   (STV 0.796969696969697 0.6689189189189189))
 
 ;; Refined trust rules, one per source, learned from ten labelled claims each
 ;; (ChainerGame's conflicting sources, in small; test_certain_merge.metta has
@@ -266,7 +266,7 @@
 !(compileadd refinedSharedKb (: k1 (Claims s (Up c1 n)) (STV 1 1)))
 !(compileadd refinedSharedKb (: k2 (Claims r (Up c2 n)) (STV 1 1)))
 !(compileadd refinedSharedKb (: kw (Claims s (Up w n)) (STV 0 1)))
-!(test (query 200 refinedSharedKb (: $p (Up w n) $tv)) (: (merge/revision (by sys (conjunction (by trust-s k1) (by trust-r k2))) (by trust-s kw)) (Up w n) (STV 0.41535401075338063 0.7723056361507247)))
+!(test (query 200 refinedSharedKb (: $p (Up w n) $tv)) (: (merge/revision (by sys (conjunction (by trust-s k1) (by trust-r k2))) (by trust-s kw)) (Up w n) (STV 0.4153586356314712 0.7723147443606941)))
 
 ;; Two refined hypotheses about one outcome, one more specific (ChainerGame
 ;; benchmarks/ona/repros/specificity.py): with L b the case always wins (3
@@ -320,8 +320,8 @@
 !(compileadd specKb (: l12 (L c t12) (STV 1 1)))
 !(compileadd specKb (: w12 (Win t12) (STV 0 1)))
 !(test (let (: $p $t $tv) (query 50 specKb (: $p (RuleTruth (Implication (S a $t) (Win $t))) $tv)) $tv) (STV 0.25104777870913664 0.7067535545023698))
-!(test (let (: $p $t $tv) (query 50 specKb (: $p (RuleTruth (Implication (And (S a $t) (L b $t)) (Win $t))) $tv)) $tv) (STV 0.9917202260594017 0.37887466975565864))
+!(test (let (: $p $t $tv) (query 50 specKb (: $p (RuleTruth (Implication (And (S a $t) (L b $t)) (Win $t))) $tv)) $tv) (STV 0.9917218543046357 0.3789209535759097))
 !(compileadd specKb (: sx (S a new) (STV 1 1)))
 !(compileadd specKb (: lx (L b new) (STV 1 1)))
 !(test (query 200 specKb (: $p (Win new) $tv))
-   (: (specializes (by spec (conjunction sx lx)) (by gen sx) (STV 0.9917202260594017 0.3788746677388355) (STV 0.0027901785714285715 0.6441408997394711)) (Win new) (STV 0.9689109127775376 0.3788746677388355)))
+   (: (specializes (by spec (conjunction sx lx)) (by gen sx) (STV 0.9917218543046357 0.37892095357590966) (STV 0.0027901785714285715 0.6441409058231489)) (Win new) (STV 0.9689168849110457 0.37892095357590966)))

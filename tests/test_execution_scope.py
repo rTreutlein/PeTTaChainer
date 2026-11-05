@@ -66,7 +66,7 @@ class TestExecutionScope(unittest.TestCase):
                 rows = self.h.query_many_refs(order, steps=budget)
                 tvs = {goal: [r.tv for r in answer] for goal, answer in zip(order, rows)}
                 self.assertEqual(tvs[goals[0]], [['STV', .7, .8]])
-                self.assertEqual(tvs[goals[2]], [['STV', 0, 1]])
+                self.assertEqual(tvs[goals[2]], [['STV', 0.0, 0.9999]])
                 self.assertEqual(tvs[goals[3]], [])
                 if budget >= 20:
                     self.assertEqual(len(tvs[goals[1]]), 1)

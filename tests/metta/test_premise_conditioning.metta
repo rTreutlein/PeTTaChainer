@@ -15,7 +15,7 @@
 !(test (query 200 reuseKb (: $p (D x) $tv))
    (: (conditioned a (by r2 (conjunction (given true) (by r1 (conjunction (given true) b))))
          (by r2 (conjunction (given false) (by r1 (conjunction (given false) b)))))
-      (D x) (STV 0.8600000000000001 0.15005104787344178)))
+      (D x) (STV 0.8600000000000001 0.1500510478783034)))
 
 ;; With uncertain facts and both branches of each rule, the result is the
 ;; chain rule: P(C | A) = 0.5 * 0.9 + 0.5 * 0.3 = 0.6, P(A and C) = 0.48, and
@@ -27,7 +27,7 @@
 !(compileadd chainKb (: r2 (Implication (And (A $v) (C $v)) (D $v)) (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 
 !(test (map-flat conditioning-tv (collapse (query 200 chainKb (: $p (D x) $tv))))
-   ((STV 0.43600000000000005 0.9446591724475808)))
+   ((STV 0.43600000000000005 0.9446591725059293)))
 
 ;; A statement shared only inside two derived premises: A and B both follow
 ;; from X, so C is mixed over X.
@@ -39,7 +39,7 @@
 !(test (query 100 hiddenKb (: $p (C) $tv))
    (: (conditioned x (by rc (conjunction (by ra (given true)) (by rb (given true))))
          (by rc (conjunction (by ra (given false)) (by rb (given false)))))
-      (C) (STV 0.7 0.899999998985212)))
+      (C) (STV 0.7 0.9)))
 
 ;; A premise reading the very statement another premise read reads it as known
 ;; under the condition: P(K and K) is P(K) (before: no answer).
@@ -47,7 +47,7 @@
 !(compileadd pairKb (: pairRule (Implication (And (P $u) (P $w)) (Pair $u $w)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 100 pairKb (: $p (Pair x x) $tv))
-   (: (conditioned p (by pairRule (conjunction (given true) (given true))) (by pairRule (conjunction (given false) (given false)))) (Pair x x) (STV 0.9 0.8999999977943337)))
+   (: (conditioned p (by pairRule (conjunction (given true) (given true))) (by pairRule (conjunction (given false) (given false)))) (Pair x x) (STV 0.9 0.9)))
 
 ;; #74: the remaining allowance pays for the actual conditioned rows, even
 ;; when it cannot prepay the dependency estimate. The small query now gets
@@ -58,9 +58,9 @@
 !(compileadd budgetKb (: r2 (Implication (And (A $v) (C $v)) (D $v)) (CTV (STV 0.9 0.9) (STV 0.0 1.0))))
 
 !(test (map-flat conditioning-tv (collapse (query 3 budgetKb (: $p (D x) $tv))))
-   ((STV 0.81 0.9047610934410989)))
+   ((STV 0.81 0.9047610941445885)))
 !(test (map-flat conditioning-tv (collapse (query 50 budgetKb (: $p (D x) $tv))))
-   ((STV 0.81 0.9047610934410989)))
+   ((STV 0.81 0.9047610941445885)))
 
 ;; A forward run evaluates the rows it builds as a query does, so it conditions
 ;; too, and derives D with the value a backward query reads.
@@ -83,9 +83,9 @@
       (forward-chain 50 forwardKb (append-flat (fwd-selected forwardKb (A x)) (fwd-selected forwardKb (B x)))))
    (((conditioned a (by r2 (conjunction (given true) (by r1 (conjunction (given true) b))))
         (by r2 (conjunction (given false) (by r1 (conjunction (given false) b)))))
-     (STV 0.43600000000000005 0.9446591724475808))))
+     (STV 0.43600000000000005 0.9446591725059293))))
 !(test (map-flat conditioning-tv (collapse (query 200 forwardKb (: $p (D x) $tv))))
-   ((STV 0.43600000000000005 0.9446591724475808)))
+   ((STV 0.43600000000000005 0.9446591725059293)))
 
 ;; A certain fact is exact whether its evidence is shared or not, so reusing it
 ;; joins as usual, with no conditioning.

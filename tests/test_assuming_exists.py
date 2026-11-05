@@ -43,8 +43,8 @@ class TestAssumingExists(unittest.TestCase):
                     # (n = 152/37 = 4.1 from their exact variance, P(K) = .125):
                     # 1 - (4.1 .875/7204) .571 = .99971.
                     self.assertEqual(row.tv[0], 'STV')
-                    self.assertAlmostEqual(row.tv[1], 0.9997147918855503)
-                    self.assertAlmostEqual(row.tv[2], 0.8314684465816465)
+                    self.assertAlmostEqual(row.tv[1], 0.9997148773972808)
+                    self.assertAlmostEqual(row.tv[2], 0.8315115453717039)
                     proof = h.expand_proof(row.proof)
                     for token in ('assuming', 'src_event', 'src_rule'):
                         self.assertIn(token, proof)

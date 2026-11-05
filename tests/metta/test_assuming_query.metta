@@ -14,7 +14,7 @@
    (query 60 decideKb (: $prf (Assuming (Candidate s1 u1) (Outcome s1 u1 $o)) $tv))
    (: (assuming (by (no_inverse protects) (conjunction (ctx proof 0) l1)))
       (Assuming (Candidate s1 u1) (Outcome s1 u1 protected))
-      (STV 0.3 0.7999999997956221)))
+      (STV 0.3 0.8)))
 
 ;; Nothing assumed is stored.
 !(test (query 60 decideKb (: $prf (Outcome s1 u1 $o) $tv)) ())
