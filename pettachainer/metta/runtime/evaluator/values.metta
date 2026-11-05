@@ -345,7 +345,12 @@
 
 ;; Exclusion/subtraction may change only floating-point rounding of the
 ;; same prior. Compare its TV at arithmetic precision so independent updates
-;; do not fall through into ordinary revision.
+;; do not fall through into ordinary revision. The population base rate is
+;; one prior whatever its value: rows read it as its fold takes members, a
+;; multi-root query's other roots adding them during one evaluation, and an
+;; update's likelihood ratio does not depend on the value it was read under.
+;; Its updates merge over the most informed value they read, the one with
+;; the larger confidence (more members).
 ;; Two views updating the same prior with different rules and observations
 ;; merge by Bayes' rule; over a base rate, which carries no evidence, they
 ;; must also be independent, sharing no uncertain statement, since an
@@ -462,12 +467,12 @@
               (STV $sa $ca) (STV $sb $cb))
                (let* (($population-a (== (sk-step-proof $base-a) cpu))
                       ($population-b (== (sk-step-proof $base-b) cpu)))
-                  (if (if $population-a (if $population-b false true) false)
+                  (if (if $population-a (if $population-b (> (the Number $cpb) (the Number $cpa)) true) false)
                      (sk-factored-merge (data $btype $bkbctx $proof-b $tv-b) $ev-b $deps-b (data $type $kbctx $proof-a $tv-a) $ev-a $deps-a $independent)
                      (if (if (if (if (>= $ca 1) (>= $cb 1) false)
                                     (sk-contradict? (the Number $sa) (the Number $sb)) false) false
                             (if (same-proof? $base-a $base-b)
-                               (if (< (abs-math (- (the Number $spa) (the Number $spb))) 0.000000000001) (if (< (abs-math (- (the Number $cpa) (the Number $cpb))) 0.000000000001) (if (== $parts-a ()) false (if (== $parts-b ()) false (if (if $population-a (if $independent false true) false) false (not (sk-sources-meet? $parts-a $parts-b))))) false) false)
+                               (if (if $population-a true (if (< (abs-math (- (the Number $spa) (the Number $spb))) 0.000000000001) (< (abs-math (- (the Number $cpa) (the Number $cpb))) 0.000000000001) false)) (if (== $parts-a ()) false (if (== $parts-b ()) false (if (if $population-a (if $independent false true) false) false (not (sk-sources-meet? $parts-a $parts-b))))) false)
                                (if $population-b
                                   $independent
                                   false)))

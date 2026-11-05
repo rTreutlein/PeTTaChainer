@@ -114,6 +114,14 @@ merge, over the same prior, and their observations differ.
   `P` is the prior proof (`cpu` for a population), and `O` the observation.
   Identity uses `P` together with its TV; arithmetic differences below 1e-12
   from incremental subtraction do not turn the same prior into two estimates.
+  The population base rate is the exception: `cpu` is one prior whatever value
+  a row read it at. Its fold takes members between the rows that read it, in
+  a multi-root query during one evaluation, as the other roots' search adds
+  them, and an update's likelihood ratio does not depend on the value it was
+  read under. Requiring equal values sent such views of one statement to plain
+  revision: a four-root temporal batch answered Front t1 at .271 for the exact
+  .642, which each root queried alone got right. The merge keeps the more
+  informed value, the one of larger confidence, as the merged view's prior.
 - A merged view's proof is `(factored-revision P (prior <TV>) proof-1 proof-2
   …)`, with the views' proofs in a fixed order, so a further view with the
   same prior merges into it.
