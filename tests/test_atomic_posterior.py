@@ -1,7 +1,9 @@
 """Atomic reports use the same event likelihood as compound evidence (posterior1)."""
 import unittest
 import json
+import math
 import time
+from fractions import Fraction
 from pathlib import Path
 
 import janus_swi as janus
@@ -49,16 +51,23 @@ class AtomicPosteriorTests(unittest.TestCase):
                                     {'Pid': int(row.proof[1])})
         self.assertEqual(len(evidence['Entries']), 1)
 
-    def test_uncertain_wide_conjunction_returns_a_bound_without_enumeration(self):
+    def test_uncertain_wide_conjunction_folds_to_the_moment_answer(self):
         request = json.loads(Path(__file__).with_name('fixtures').joinpath('issue150.json').read_text())
         h = PeTTaChainer()
         started = time.monotonic()
         h.add_atoms_no_check([request['entries'][0]['atom'].replace('(STV 1 1)', '(STV 1 0.9)')])
         row, = h.query_many_refs(['(: $p (Event Event_95fb56869e14af48_75423f0c) $tv)'], steps=500)[0]
-        m = 7201 / 7202
-        likelihood_one = 1 - m + (2 * m - 1) * 2**-29
-        self.assertAlmostEqual(row.tv[1], likelihood_one / (likelihood_one + 1 - m), delta=1e-12)
-        self.assertEqual(row.tv[2], 0)
+        # The goal t and the folded other 29 parts W (moments 2^-29, 3^-29): Z = a + c t W,
+        # N = t (a + c W); the contract's moment variance, converted at k = 800.
+        m = Fraction(7201, 7202)
+        a, c, t1, t2, w1, w2 = 1 - m, 2 * m - 1, Fraction(1, 2), Fraction(1, 3), Fraction(1, 2**29), Fraction(1, 3**29)
+        e = a + c * t1 * w1
+        s = (a * t1 + c * t1 * w1) / e
+        q = (a*a*t2 + (1-s)**2*c*c*t2*w2 + s*s*a*a + 2*a*(1-s)*c*t2*w1 - 2*s*a*a*t1 - 2*(1-s)*c*s*a*t1*w1)
+        var = (float(q) + float(max(s, 1 - s)) * math.sqrt(float(c*c*t2*w2 - (c*t1*w1)**2) * float(q))) / float(e*e)
+        n = float(s * (1 - s)) / var - 1
+        self.assertAlmostEqual(row.tv[1], float(s), delta=1e-12)
+        self.assertAlmostEqual(row.tv[2], n / (n + 800), delta=1e-12)
         self.assertLess(time.monotonic() - started, 10)
 
     def test_boolean_antecedent_completions_match_the_joint_oracle(self):

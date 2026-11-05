@@ -517,7 +517,9 @@
 ;; The need from a query's roots, or from the keys a forward wave takes.
 (: sk-need-roots! (-[semidet]-> (List SkeletonKey) Atom))
 (= (sk-need-roots! $keys)
-   (let $_budget (change-state! sk_need_budget (search-id-value sk_eval_budget)) (sk-need-level! 0 $keys ())))
+   (let* (($_budget (change-state! sk_need_budget (search-id-value sk_eval_budget)))
+          ($_graph (event-graph-prepay! $keys)))
+      (sk-need-level! 0 $keys ())))
 
 (: sk-need-level! (-[semidet]-> Number (List SkeletonKey) (List SkeletonKey) Atom))
 (= (sk-need-level! $depth $keys $members)

@@ -287,6 +287,7 @@
 
 !(declare-natives! -[semidet]-> (
    (application-rule Number ProofApplicationTemplate)
+   (event-graph-prepay! (List SkeletonKey) Bool)
    (member-shape Atom Atom Atom)
    ;; Observed likelihoods, then Jeffrey updates; graph replacements must be compatible.
    (event-network-read SkeletonKey SkeletonFilter (List Number) EvidenceSet EventNetworkRead)

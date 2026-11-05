@@ -19,10 +19,9 @@
         maplist(graph_parameter(Scope, Cavity, Exclude), Models, Groups, Priors),
         append(Groups, Vars),
         graph_fold(Models, Factors, Goal, Vars, Folded, FoldedFactors, FoldedGoal, FoldedVars),
-        length(Folded, NA), NA =< 12, length(FoldedVars, NV), NV =< 12,
         findall(P-D, member(['sk-val', [_, _, P, _], _, D], Priors), PDs),
         pairs_keys_values(PDs, Ps, Ds), append(Proofs, Ps, All), 'deps-join'([D0|Ds], Deps),
-        graph_answer(Folded, FoldedFactors, FoldedGoal, FoldedVars, TV),
+        graph_answer(Key, Folded, FoldedFactors, FoldedGoal, FoldedVars, TV), TV \== unpaid,
         ( TV == inconsistent
         -> 'sk-open-filter?'(Filter, true), Candidate = 'sk-none'
         ; TV = ['STV', S, _], (S =:= 0 ; S =:= 1),
@@ -73,7 +72,13 @@ graph_model(['sk-key', Goal, Scope], Observed, Watched, Stamp, graph(Models, Fac
                   node_formula(T, _, [], As), memberchk(Goal, As) ) ),
         ( Factors \== [] ; memberchk(model(Goal, root, [_]), Models)
         ; member(model(_, conditional(Parent, _, _, base), _), Models), node_formula(Parent, _, [], As),
-          member(A, As), memberchk(model(A, root, [_|_]), Models) ).
+          member(A, As), memberchk(model(A, root, [_|_]), Models) ),
+        % Enumeration is bounded after folding: twelve parameters, one per folded
+        % atom and a second branch per conditional, so also twelve atoms.
+        graph_blocks(Models, Factors, Goal, Blocks),
+        foldl([_-Ts, N0, N]>>(length(Ts, L), N is N0 + L - 1), Blocks, 0, Folded),
+        include([model(_, conditional(_, _, _, _), _)]>>true, Models, Conditionals),
+        length(Models, NM), length(Conditionals, NC), NM - Folded + NC =< 12.
 
 % A compound already settled by its root inputs carries no information about
 % its remaining parts. Keep a zero-weight factor so contradictions still fail.
@@ -108,7 +113,7 @@ graph_observations([], _, _, _, Seen, Ks, observed(Observed, Watched)) :- sort(K
 graph_observations([T|Ts], Scope, Goal, Stamp, Seen, Ks, Discovery) :-
     ( memberchk(T, Seen)
     -> graph_observations(Ts, Scope, Goal, Stamp, Seen, Ks, Discovery)
-    ; length(Seen, N), N < 24, graph_input(T, Scope, Stamp, input(Model, Facts, Neighbours))
+    ; length(Seen, N), N < 256, graph_input(T, Scope, Stamp, input(Model, Facts, Neighbours))
     -> ( T \== Goal, T = [Head|_], connective_head(Head), Facts == [], Model == root
        -> Next = [], NewKs = Ks
        ; ( Facts = [_|_] -> NewKs = [T|Ks] ; NewKs = Ks ),
@@ -125,7 +130,7 @@ graph_observations([T|Ts], Scope, Goal, Stamp, Seen, Ks, Discovery) :-
 graph_barren([], _, Region, Region).
 graph_barren([T|Ts], Scope, R0, Region) :-
     ( memberchk(T, R0) -> R = R0, Next = []
-    ; length(R0, N), N < 48, source_catalog_sources(T, Scope, Facts),
+    ; length(R0, N), N < 256, source_catalog_sources(T, Scope, Facts),
       'evidence-confidence-k'(K), forall(member([_, _, _, TV], Facts), pearl_factor(K, TV, 0.5)),
       source_catalog_neighbours(T, Scope, Neighbours),
       ( T = [Head|Children], connective_head(Head) -> append(Children, Neighbours, Next) ; Next = Neighbours ),
@@ -136,7 +141,7 @@ graph_atoms([], _, _, Models, Models).
 graph_atoms([Type|Rest], Scope, Stamp, M0, Models) :-
     (   memberchk(model(Type, _, _), M0)
     ->  graph_atoms(Rest, Scope, Stamp, M0, Models)
-    ;   length(M0, N), N < 24,
+    ;   length(M0, N), N < 256,
         ( Type = [Head|_] -> 'reserved-head?'(Head, false) ; true ),
         graph_input(Type, Scope, Stamp, input(Model, Facts, _)),
         ( Model = conditional(Parent, _, _, _)
@@ -146,14 +151,18 @@ graph_atoms([Type|Rest], Scope, Stamp, M0, Models) :-
 % Independent roots may share one bit only when every occurrence is the same
 % signed literal under the same And/Or. Paths distinguish nested occurrences;
 % a literal goal or a separate report prevents folding that root.
-graph_fold(Models, Factors, Goal, Vars, Folded, Fs, G, Vs) :-
+graph_blocks(Models, Factors, Goal, Blocks) :-
     findall(F, (F=Goal ; member([F|_], Factors) ; member(model(_,conditional(F,_,_,_),_), Models)), Forms),
     findall(Signature-T,
         ( member(model(T,root,_), Models),
           findall(S, (nth0(I,Forms,F), graph_occurrence(T,F,[I],S)), Ss), sort(Ss,Signature),
           Signature=[_-(H-B)|_], memberchk(H,['And','Or']),
           forall(member(_-HB,Signature), HB == H-B) ), Pairs),
-    keysort(Pairs, Sorted), group_pairs_by_key(Sorted, Blocks),
+    keysort(Pairs, Sorted), group_pairs_by_key(Sorted, Groups),
+    include([_-[_,_|_]]>>true, Groups, Blocks).
+
+graph_fold(Models, Factors, Goal, Vars, Folded, Fs, G, Vs) :-
+    graph_blocks(Models, Factors, Goal, Blocks),
     foldl(graph_block, Blocks, state(Models,Vars,[]), state(Ms,Vs,Map)),
     maplist({Map}/[model(T,P,_),model(T,Q,[])]>>(
         P=conditional(A,_,_,_) -> graph_formula(Map,A,B), Q=conditional(B,[],[],[]) ; Q=P), Ms, Folded),
@@ -167,17 +176,15 @@ graph_occurrence(T, F, Path, Signature) :-
       ; C == ['Not',T] -> Signature=Path-(H-0)
       ; graph_occurrence(T,C,[I|Path],Signature) ) ).
 
-graph_block(Signature-Ts, state(M0,V0,Map0), state(M,V,Map)) :-
-    ( Ts=[_,_|_]
-    -> Signature=[_-(H-B)|_], Block=block(Ts),
-       findall(D, (member(T,Ts),memberchk(T-D,V0)), Dists),
-       ( (H-B == 'And'-0 ; H-B == 'Or'-1) -> Complement=true ; Complement=false ),
-       event_node_product(Dists, Complement, Dist),
-       ( H == 'Or' -> Replacement=['Not',Block] ; Replacement=Block ),
-       findall(T-R, (member(T,Ts),( B=:=0 -> R=['Not',Replacement] ; R=Replacement )), Added),
-       exclude({Ts}/[model(T,_,_)]>>memberchk(T,Ts), M0, Ms), M=[model(Block,root,[])|Ms],
-       exclude({Ts}/[T-_]>>memberchk(T,Ts), V0, Vs), V=[Block-Dist|Vs], append(Added,Map0,Map)
-    ; M=M0, V=V0, Map=Map0 ).
+graph_block([_-(H-B)|_]-Ts, state(M0,V0,Map0), state([model(Block,root,[])|Ms],[Block-Dist|Vs],Map)) :-
+    Block=block(Ts),
+    findall(D, (member(T,Ts),memberchk(T-D,V0)), Dists),
+    ( (H-B == 'And'-0 ; H-B == 'Or'-1) -> Complement=true ; Complement=false ),
+    event_node_product(Dists, Complement, Dist),
+    ( H == 'Or' -> Replacement=['Not',Block] ; Replacement=Block ),
+    findall(T-R, (member(T,Ts),( B=:=0 -> R=['Not',Replacement] ; R=Replacement )), Added),
+    exclude({Ts}/[model(T,_,_)]>>memberchk(T,Ts), M0, Ms),
+    exclude({Ts}/[T-_]>>memberchk(T,Ts), V0, Vs), append(Added,Map0,Map).
 
 graph_formula(Map, F, G) :-
     ( memberchk(F-G,Map) -> true
@@ -203,10 +210,30 @@ graph_parameter(Scope, Ev, Exclude, model(Type, conditional(_, _, ['STV', S1, C1
     ; Neg = ['STV', S0, C0], event_node_dist(stored, S0, C0, K, D0), Prior = 'sk-none' ).
 
 :- dynamic event_graph_memo/3.
-graph_answer(Models, Factors, Goal, Vars, TV) :-
+% A computed answer is a free read. A key is admitted to the graph once a
+% query with budget needs or reads it, for one evaluation unit if it has a
+% model then; an admitted key's later answers refresh as the nodes a search
+% built absorb new facts, at no step (fact_absorption.md). Otherwise the key
+% reads as the ordinary evaluator has it, so a read without budget returns
+% only what exists. Plans are structural. A query's need admits its root
+% keys, which it reads after its evaluation has spent the allowance.
+:- dynamic event_graph_admitted/2.
+'event-graph-prepay!'(Keys, true) :-
+    forall(member(Key, Keys), ignore(graph_admit(Key))).
+
+graph_admit(Key) :-
+    term_hash(Key, H),
+    ( event_graph_admitted(H, Stored), Stored == Key -> true
+    ; 'search-id-value'(sk_eval_budget, B), B > 0,
+      ( graph_plan(Key, graph(_, _, _)) -> Left is B - 1, nb_setval(sk_eval_budget, Left) ; true ),
+      assertz(event_graph_admitted(H, Key)) ).
+
+graph_answer(Key, Models, Factors, Goal, Vars, TV) :-
     Input = Models-Factors-Goal-Vars, term_hash(Input, Hash),
     ( event_graph_memo(Hash, Stored, TV), Stored=Input -> true
-    ; ( graph_moments(Models, Factors, Goal, Vars, TV) -> true
+    ; \+ graph_admit(Key) -> TV = unpaid
+    ; query_metric_increment('graph-evaluations', _),
+      ( graph_moments(Models, Factors, Goal, Vars, TV) -> true
       ; TV = inconsistent, format(user_error, 'event-evidence-impossible: ~q~n', [Goal]) ),
       assertz(event_graph_memo(Hash, Input, TV)) ).
 

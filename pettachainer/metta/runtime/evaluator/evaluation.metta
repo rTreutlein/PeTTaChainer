@@ -105,7 +105,8 @@
 (= (backward-query-counter-keys)
    (expansions nodes-walked rows-created rows-deferred joins-deferred row-computes views-stored
     views-without-support merged-cache-hits merged-cache-misses conditioned-evaluations rows-unpaid
-    conditions-unpaid representative-reads branch-cache-hits branch-cache-misses branch-builds branch-cache-refreshes))
+    conditions-unpaid representative-reads branch-cache-hits branch-cache-misses branch-builds branch-cache-refreshes
+    graph-evaluations))
 
 (: sk-counter-reset (-[det]-> Atom Atom Atom))
 (= (sk-counter-reset $_acc $key) (let $_zero (query_metric_set $key 0) ()))

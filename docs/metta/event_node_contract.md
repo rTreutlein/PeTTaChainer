@@ -48,8 +48,16 @@ subscriptions and dependencies remain attached to the unfolded model. The
 polynomial kernel therefore returns the same strength and variance bound as
 full enumeration. This does not assert equality of the full posterior variance
 integral, which the kernel bounds using only those moments.
-The graph admits at most twelve atoms and twelve parameters after folding,
-and at most twenty-four atoms before folding and visited statements during observation discovery. Other templates retain the
+The graph admits at most twelve parameters after folding (one per folded atom
+and a second branch per conditional), checked when the plan is built. That
+bound governs enumeration, so overlapping reports with few occurrence
+signatures stay exact however many parts they share. Discovery and the unfolded
+model are only memory-guarded, at 256 visited statements and atoms. A key enters
+the graph once a query with budget needs or reads it, for one evaluation unit if
+it has a model then (a query's need admits its roots before evaluation spends
+the allowance); later answers of an admitted key refresh at no step, as fact
+absorption does. Unadmitted keys keep the ordinary read, so budget zero computes
+no new posterior. Other templates retain the
 ordinary evaluator. Observed children outside a compound enter the same joint
 model. Shared parents are one event bit in the enumeration; given branches are
 not imported as independent marginal parameters. Empty root counts read `sk-part-prior`, including configured rates and cavity population counts.
