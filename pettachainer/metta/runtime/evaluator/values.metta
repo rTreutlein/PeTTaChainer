@@ -165,8 +165,8 @@
                  (max 0.0 (- (sk-link-var $link $sb $cb) (sk-link-var $link $spb $cpb)))))
           ;; Clip the log/variance calculation, not an exact posterior mean.
           ($s (if (== $link odds)
-                 (if (or (certain-at? 0.0 $sa $ca) (certain-at? 0.0 $sb $cb)) 0.0
-                    (if (or (certain-at? 1.0 $sa $ca) (certain-at? 1.0 $sb $cb)) 1.0
+                 (if (or (or (certain-at? 0.0 $sa $ca) (certain-at? 0.0 $sb $cb)) (or (certain-at? 0.0 $spa $cpa) (certain-at? 0.0 $spb $cpb))) 0.0
+                    (if (or (or (certain-at? 1.0 $sa $ca) (certain-at? 1.0 $sb $cb)) (or (certain-at? 1.0 $spa $cpa) (certain-at? 1.0 $spb $cpb))) 1.0
                        (/ 1.0 (+ 1.0 (pow-math 2.718281828459045 (- 0.0 $x))))))
                  (max 0.0 (- 1.0 (pow-math 2.718281828459045 $x)))))
           ($q (sk-link-slope $link $s)))
@@ -354,9 +354,8 @@
 ;; uncertain view over another prior, or updating nothing, that is independent
 ;; of it: that view, including a stored target belief, takes the base rate's
 ;; place as the instance's prior. The update contributes its likelihood ratio,
-;; not another estimate to revise with the prior. A decided view (strength 0
-;; or 1 at confidence 1) stays as it is; a point probability between them is
-;; still an instance's prior that observations update. Anything else is left to the
+;; not another estimate to revise with the prior; a point prior is updated
+;; too, and a decided one (0 or 1) stays as it is. Anything else is left to the
 ;; rules below, and so are two certain views that contradict each other.
 ;; Stored reports describe the instance's evidence, while an independent
 ;; forward view predicts it. Revise reports first, then apply their
@@ -470,7 +469,7 @@
                             (if (same-proof? $base-a $base-b)
                                (if (< (abs-math (- (the Number $spa) (the Number $spb))) 0.000000000001) (if (< (abs-math (- (the Number $cpa) (the Number $cpb))) 0.000000000001) (if (== $parts-a ()) false (if (== $parts-b ()) false (if (if $population-a (if $independent false true) false) false (not (sk-sources-meet? $parts-a $parts-b))))) false) false)
                                (if $population-b
-                                  (if (if (< $ca 1.0) true (> (* $sa (- 1.0 $sa)) 0.0)) $independent false)
+                                  $independent
                                   false)))
                         (let* (((STV $combined-s $combined-c)
                                     (sk-factored-tv odds (the Number $spa) (the Number $cpa)
