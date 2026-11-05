@@ -263,13 +263,41 @@ graph_answer(Key, Models, Factors, Goal, Vars, TV) :-
       ; TV = inconsistent, format(user_error, 'event-evidence-impossible: ~q~n', [Goal]) ),
       retractall(event_graph_memo(Hash, Key, _, _)), assertz(event_graph_memo(Hash, Key, Input, TV)) ).
 
+% Components that share no bit and no uncertain parameter are independent:
+% each is enumerated and integrated alone and their moments multiply. The goal
+% splits into its top-level conjuncts; a component without one has N = Z.
 graph_moments(Models, Factors, Goal, Bindings-Params, TV) :-
-    graph_terms(Models, Factors, Goal, Bindings, Params, Terms),
-    event_node_moments(Params, Terms, [1], Answers),
-    % Unaffordable paired moments are refused like unpaid work.
-    ( Answers == unaffordable -> TV = unpaid
-    ; Answers = [a(S, V0, Kind)], ( Kind == bound -> V = bound ; V = V0 ),
-      'evidence-confidence-k'(K), node_stv(K, S, V, TV) ).
+    findall(Group, graph_link(Models, Factors, Goal, Bindings, Params, Group), Groups),
+    foldl([G, S0, [M|Rest]]>>( partition({G}/[S]>>(member(X, G), memberchk(X, S)), S0, Touch, Rest),
+                               append([G|Touch], A), sort(A, M) ), Groups, [], Sets),
+    foldl(graph_component(Models, Factors, Goal, Bindings, Params), Sets, m(1, 1, 1, 1, 1), Moments),
+    % Unaffordable moments are refused like unpaid work.
+    ( Moments == unaffordable -> TV = unpaid
+    ; event_node_answer(Moments, a(S, V, _)), 'evidence-confidence-k'(K), node_stv(K, S, V, TV) ).
+
+graph_component(_, _, _, _, _, _, unaffordable, unaffordable) :- !.
+graph_component(Models, Factors, Goal, Bindings, Params, Set, m(A0, B0, C0, D0, E0), Moments) :-
+    include({Set}/[model(T, _, _)]>>memberchk(T, Set), Models, Ms),
+    include({Set}/[[F|_]]>>( graph_atom(F, A), memberchk(A, Set) ), Factors, Fs),
+    findall(C, ( graph_conjunct(Goal, C), graph_atom(C, A), memberchk(A, Set) ), Cs),
+    graph_terms(Ms, Fs, ['And'|Cs], Bindings, Params, Terms),
+    event_node_expectations(Params, Terms, [1], Part),
+    (   Part = [m(A, B, C, D, E)]
+    ->  A1 is A0 * A, B1 is B0 * B, C1 is C0 * C, D1 is D0 * D, E1 is E0 * E, Moments = m(A1, B1, C1, D1, E1)
+    ;   Part == unaffordable, Moments = unaffordable ).
+
+% Elements that must share a component: a bit with its parameters and parent
+% atoms, a factor's atoms, a goal conjunct's atoms. Points tie nothing.
+graph_link(Models, _, _, Bindings, Params, [T|Links]) :-
+    member(model(T, M, _), Models),
+    findall(O, ( member(Id-E, Bindings), ( Id == T ; Id = branch(U, _), U == T ),
+                 ( E = w(Lits) -> member(O-_, Lits) ; O = E ), \+ memberchk(O-point(_), Params) ), Os),
+    findall(A, ( M = conditional(P, _, _, _), graph_atom(P, A) ), As), append(Os, As, Links).
+graph_link(_, Factors, _, _, _, As) :- member([F|_], Factors), findall(A, graph_atom(F, A), As).
+graph_link(_, _, Goal, _, _, As) :- graph_conjunct(Goal, C), findall(A, graph_atom(C, A), As).
+
+graph_conjunct(Goal, C) :- ( Goal = ['And'|Cs] -> member(C, Cs) ; C = Goal ).
+graph_atom(F, A) :- ( F = [H|Cs], (connective_head(H) ; H == 'Not') -> member(C, Cs), graph_atom(C, A) ; A = F ).
 
 graph_terms(Models, Factors, Goal, Bindings, Params, Terms) :-
     findall(LW-Lits-Hits,

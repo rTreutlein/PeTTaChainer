@@ -1,5 +1,5 @@
 % Event-node semantics and numerical contracts: docs/metta/event_node_contract.md.
-:- module(event_node, [event_node_dist/5, event_node_moments/4, event_node_coupling/5, event_node_widen/6, dist_mean/2]).
+:- module(event_node, [event_node_dist/5, event_node_moments/4, event_node_expectations/4, event_node_answer/2, event_node_coupling/5, event_node_widen/6, dist_mean/2]).
 :- autoload(library(simplex)).
 :- use_module(library(yall)).
 :- use_module(library(apply)).
@@ -18,27 +18,40 @@ event_node_dist(view, S, C, K, beta(A, B)) :-
 % or 1-theta of parameter Id, and w(Literals)-Bit their product or its
 % complement. A parameter used repeatedly keeps its powers: a monomial maps
 % each parameter to c(T, F), its powers of theta and of 1-theta.
-event_node_moments(Vars, Terms0, Goals, Answers) :-
+event_node_moments(Vars, Terms, Goals, Answers) :-
+    event_node_expectations(Vars, Terms, Goals, Moments),
+    ( is_list(Moments) -> maplist(event_node_answer, Moments, Answers) ; Answers = Moments ).
+
+% Each goal's m(E[N], E[Z], E[N^2], E[NZ], E[Z^2]), exact rationals: the
+% moments of independent components multiply. Work is counted before it is
+% done: monomials before expansion, then monomial pairs times their length.
+event_node_expectations(Vars, Terms0, Goals, Moments) :-
     foldl([t(C, _, _), M0, M]>>(M is max(M0, abs(C))), Terms0, 0.0, Scale),
+    foldl([t(_, Lits, _), W0, W]>>( aggregate_all(count, member(w(_)-0, Lits), N),
+                                   W is W0 + 1 << N ), Terms0, 0, Expanded),
     (   Scale =:= 0.0
-    ->  Answers = inconsistent
+    ->  Moments = inconsistent
+    ;   Expanded > 1 << 18
+    ->  Moments = unaffordable
     ;   maplist(scaled_term(Scale), Terms0, Terms), list_to_assoc(Vars, Dists),
         polynomial(Dists, Terms, Z),
         maplist({Dists, Terms}/[Goal, N]>>( include({Goal}/[t(_, _, Hits)]>>memberchk(Goal, Hits), Terms, GoalTerms),
                                            polynomial(Dists, GoalTerms, N) ), Goals, Ns),
+        append([Z|Ns], Monomials), pairs_keys(Monomials, Keys),
         foldl([P, L0, L]>>(length(P, LP), L is max(L0, LP)), [Z|Ns], 0, Largest),
-        % Paired moments visit every pair of monomials: refuse beyond 2^20 pairs.
-        (   Largest * Largest > 1 << 20
-        ->  Answers = unaffordable
-        ;   append([Z|Ns], Monomials), pairs_keys(Monomials, Keys), append(Keys, Uses),
+        foldl([K, L0, L]>>(length(K, LK), L is max(L0, LK)), Keys, 1, Width),
+        (   Largest * Largest * Width > 1 << 22
+        ->  Moments = unaffordable
+        ;   append(Keys, Uses),
             findall(Id-Stat, ( member(Id-Dist, Vars), Dist \= point(_), parameter_stat(Uses, Id, Dist, Stat) ), Stats0),
             list_to_assoc(Stats0, Stats),
             expectation(Stats, Z, [[]-1], EZ),
             (   EZ =< 0
-            ->  Answers = inconsistent
-            ;   maplist(constant_goal(Terms), Goals, Answers) -> true
-            ;   expectation(Stats, Z, Z, EZ2), ZVar is EZ2 - EZ * EZ,
-                maplist(polynomial_answer(Stats, Z, EZ, EZ2, ZVar), Ns, Answers) ) ) ).
+            ->  Moments = inconsistent
+            ;   expectation(Stats, Z, Z, EZ2),
+                maplist({Stats, Z, EZ, EZ2}/[N, m(EN, EZ, EN2, ENZ, EZ2)]>>(
+                            expectation(Stats, N, [[]-1], EN), expectation(Stats, N, N, EN2),
+                            expectation(Stats, N, Z, ENZ) ), Ns, Moments) ) ) ).
 
 scaled_term(Scale, t(C0, Lits, Gs), t(C, Lits, Gs)) :- C is C0 / Scale.
 dist_mean(point(X), X).
@@ -131,19 +144,13 @@ expectation(Stats, A, B, E) :-
                         K, Ca * Cb, Weight),
                   V is V0 + Weight ), B, E0, E1), A, 0, E).
 
-polynomial_answer(Stats, Z, EZ, EZ2, ZVar, N, a(S, V, Kind)) :-
-    expectation(Stats, N, [[]-1], EN),
-    expectation(Stats, N, N, EN2), expectation(Stats, N, Z, ENZ),
-    Center is EN rdiv EZ, S is float(Center),
+% Forced goals have Q = 0 exactly, so variance 0.
+event_node_answer(m(EN, EZ, EN2, ENZ, EZ2), a(S, V, Kind)) :-
+    Center is EN rdiv EZ, S is float(Center), ZVar is EZ2 - EZ * EZ,
     Q is EN2 - 2 * Center * ENZ + Center * Center * EZ2,
     Bound is (Q + max(Center, 1 - Center) * sqrt(ZVar * Q)) / (EZ * EZ),
     V is float(min(Center * (1 - Center), Bound)),
     ( (ZVar =:= 0 ; Q =:= 0) -> Kind = exact ; Kind = conservative ).
-
-% A goal forced by every surviving term is independent of all parameters.
-constant_goal(Terms, Goal, a(S, 0.0, exact)) :-
-    ( forall(member(t(C, _, Hits), Terms), (C =:= 0 ; memberchk(Goal, Hits))) -> S = 1.0
-    ; forall(member(t(C, _, Hits), Terms), (C =:= 0 ; \+ memberchk(Goal, Hits))), S = 0.0 ).
 
 event_node_coupling(Ps, _, _, _, interval(0.0, 1.0)) :- length(Ps, J), J > 4, !.
 event_node_coupling(Ps, Pairs, Lambdas0, Goal, Result) :-

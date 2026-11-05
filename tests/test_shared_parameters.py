@@ -139,6 +139,23 @@ class SharedPopulationRateTests(unittest.TestCase):
         [[tv]] = answers(h, ['(And ' + ' '.join(roots) + ')'])
         self.assertAlmostEqual(tv[1], float(F(27, 29) ** n), delta=1e-12)
 
+    def test_independent_components_integrate_apart(self):
+        # Twelve independent 16-root conjunctions, each with its own certain .9/.1 channel:
+        # one bit per component, so the moments multiply instead of expanding 3^12 products.
+        n, width = 12, 16
+        groups, atoms = [], []
+        for i in range(n):
+            roots = [f'(P{i}_{j} now)' for j in range(width)]
+            groups.append('(And ' + ' '.join(roots) + ')')
+            atoms += [f'(: prior{i}_{j} {r} (STV 0.5 0.5))' for j, r in enumerate(roots)]
+            atoms += [f'(: channel{i} (Implication {groups[-1]} (R{i} now)) (CTV (STV 0.9 1) (STV 0.1 1)))',
+                      f'(: obs{i} (R{i} now) (STV 1 1))']
+        h = PeTTaChainer()
+        h.add_atoms_no_check(atoms)
+        [[tv]] = answers(h, ['(And ' + ' '.join(groups) + ')'], steps=100)
+        prior = F(1, 2) ** width
+        self.assertAlmostEqual(tv[1] / float((9 * prior / (1 + 8 * prior)) ** n), 1, delta=1e-9)
+
     def test_equal_shapes_and_repeated_events_do_not_alias(self):
         # Two populations with equal Beta(2,2) laws stay independent: s=1/4, V=11/400.
         h = PeTTaChainer()

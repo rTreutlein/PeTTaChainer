@@ -35,6 +35,21 @@ kernel shared with #106 (dp-106.md R1.3).
     enumerated as varying, giving 2^24 worlds. Now `stress_certain_counts` is exact at (27/29)^n for every n up
     to 12, in at most 0.3 s (new public test).
 
+- **Independent components (cp5).** A graph splits into components that share no bit and no uncertain owner,
+  and the goal splits into its top-level conjuncts.
+  - Each component is enumerated and integrated on its own. Their m(E[N], E[Z], E[N²], E[NZ], E[Z²]) multiply.
+  - Within a component, a false block stays 1 − product, two monomials, so there is no cross-component
+    expansion.
+  - Work is counted before it is materialised: expanded monomials at most 2^18, then pairs × monomial length
+    at most 2^22. Over either limit the component is refused like unpaid work, and the ordinary read keeps its
+    answer.
+  - `constant_goal` is deleted: forced goals give Q = 0 exactly.
+  - Results on the cp4 review's fixtures:
+    - blocks(12,16) at b100: exact in 2.0 s (cp4: stack overflow; master 1.7 s);
+    - blocks(10,20): 2.3 s (cp4: timeout);
+    - blocks(10,8) at b1: 0.09 s (cp4: 47 s).
+    - blocks(12,16) is also a new public test.
+
 ## Which latent is shared (review item 2)
 
 - All members share the population centre g. This is the count-law tally that the cavity reader returns.
@@ -58,7 +73,7 @@ kernel shared with #106 (dp-106.md R1.3).
   - Accuracy changed in two cases: supplynet stage 1 b100 s3 (error .004954 → .005123, under the flag
     threshold; Brier .01046 → .01031) and fuzz (−3e-18).
   - The supplynet move comes from billing by bits, which admits more graphs.
-- **Canary** (`compare.sh anchor --canary`): PASS at cp3 and at cp4.
+- **Canary** (`compare.sh anchor --canary`): PASS at cp3, cp4 and cp5. cp5 --quick and --full against master also PASS, with the same two accuracy moves as cp4.
 
 ## Moved test values
 
@@ -76,7 +91,7 @@ fold test with shared owners.
 
 ## Limits
 
-- **Net core tokens about +1,408 (cl100k).** This is over #168's +800 ceiling and inside the shared #106/#168 +4,000
+- **Net core tokens about +2,200 (cl100k), cp5.** This is over #168's +800 ceiling and inside the shared #106/#168 +4,000
   ceiling (R1.5). No admission system was added.
 - **Inherited follow-ups, left alone:**
   - The cavity reader takes the first prior fold in installation order. A ground pattern such as `(P a0)` then

@@ -63,7 +63,9 @@ variance bound as full enumeration. This does not assert equality of the full
 posterior variance integral, which the kernel bounds.
 The graph admits at most twelve parameters after folding (one per folded atom
 and a second branch per conditional), checked when the plan is built. That
-bound governs enumeration and the polynomial alike: each bit contributes one of
+bound counts the bits that can vary: a certain observation on a bit, or a
+certain-endpoint law (a root's revised sources), fixes it, one predicate
+shared by the bill and the enumerator. It governs enumeration and the polynomial alike: each bit contributes one of
 two factors (theta or 1-theta; a block's product or 1), so there are at most
 4,096 distinct monomials however often an owner recurs, and powers stay below
 twice the bit count. Overlapping reports with few occurrence signatures stay
@@ -159,6 +161,15 @@ not N or Z at the parameter means, which repeated powers would bias. Rational
 arithmetic over the supplied numeric inputs preserves polynomial cancellations
 and tiny endpoint variances; only the final square root and returned variance
 are floating point.
+
+The graph splits into components that share no bit and no uncertain
+parameter (points tie nothing); the goal splits into its top-level conjuncts.
+Each component is enumerated and integrated alone, and E[N], E[Z], E[N^2],
+E[NZ] and E[Z^2] multiply across components, so independent structure never
+expands. Work is counted before it is done: the monomials a component's
+terms expand to (at most 2^18), then monomial pairs times monomial length
+(at most 2^22). Beyond either the component is refused like unpaid work and
+the ordinary read keeps its answer.
 
 Let e=E[Z], s=E[N]/e, D=N-sZ, Q=E[D^2], T=Var(Z), and b=max(s,1-s), with
 expectations under the independent prior. The claimed variance is
