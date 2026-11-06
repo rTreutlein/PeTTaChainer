@@ -85,7 +85,6 @@
    sk_row_budget
    sk_eval_budget
    sk_branch_unpaid
-   sk_representative_budget
    sk_branch_frame
    sk_branch_at
    sk_branch_budget
@@ -98,6 +97,7 @@
    sk_claim_state
    sk_claim_depth
    sk_claim_cut
+   sk_deferred
    ;; computations near a root a query may make once its allowance is spent
    sk_near_reserve
    ;; 1 while a forward run grows the skeleton upward

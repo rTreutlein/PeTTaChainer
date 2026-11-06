@@ -5,7 +5,6 @@
 !(change-state! sk_graph_budget 0)
 !(change-state! sk_root_claim_budget 0)
 !(change-state! sk_root_claim_cap 0)
-!(change-state! sk_representative_budget 0)
 !(change-state! sk_branch_at 0)
 
 ;; Row computations a query may spend per step of its budget beyond the reserve.
@@ -97,12 +96,11 @@
 
 (: sk-open-claim! (-[det]-> Atom))
 (= (sk-open-claim!)
-   (progn (change-state! sk_claim_state 0)
-          (change-state! sk_claim_depth 64) (change-state! sk_claim_cut 0) ()))
+   (progn (change-state! sk_claim_state 0) (change-state! sk_claim_cut 0) ()))
 (: sk-close-claim! (-[det]-> Bool))
 (= (sk-close-claim!)
    (let $exhausted (== (search-id-value sk_claim_state) -2)
-      (progn (change-state! sk_claim_state -1) (change-state! sk_claim_depth 64) (change-state! sk_claim_cut 0) $exhausted)))
+      (progn (change-state! sk_claim_state -1) (change-state! sk_claim_cut 0) $exhausted)))
 
 
 (: sk-evaluation-free-depth (-[det]-> Number))

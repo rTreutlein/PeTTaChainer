@@ -1048,6 +1048,8 @@
 (= (sk-discounted (sk-val ($type $kbctx $proof (STV $s $_c)) $ev $deps) (sk-val ($_rt $_rk $_rp (STV $r $_rc)) $_rev $_rdeps) $cmin)
    (let $range (max 1.0 (abs-math (- (sk-link odds $s) (sk-link odds $r))))
       (sk-val ($type $kbctx $proof (STV $s (/ $cmin (+ 1.0 (* $range $range))))) $ev $deps)))
+;; Without an independent read the range is its minimum, R = 1.
+(= (sk-discounted $view sk-none $_cmin) (sk-unresolved $view))
 
 ;; Premises read as independent although they share an uncertain statement:
 ;; the dependence is unresolved, with no second estimate to bound it, so the

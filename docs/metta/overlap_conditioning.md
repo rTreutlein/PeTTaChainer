@@ -202,9 +202,15 @@ is cut:
 
 A clash has no approximate value inside a conditioning pass: multiplying
 its shared facts would count evidence twice. If paid evaluation leaves a public
-root unanswered, a pending row can instead read a facts-disjoint representative
-lazily from compatible retained versions or bounded row replay, discounted against the independent row read
-by c/(1+R²), with R the absolute logit difference, at least one. This waiting
+root unanswered, a row left without a view that waits or was never computed
+can instead read a facts-disjoint representative from compatible retained
+versions or row replay, discounted against the independent row read by
+c/(1+R²), with R the absolute logit difference, at least one; with no
+independent read (a premise has only a waiting answer itself) R takes that
+minimum. The reads are paid from the evaluation allowance before any
+conditioning (`sk-coarse-roots!`): roots with no answer at all first, then
+roots with only their population prior, each from an equal share of what is
+left. A root the allowance cannot pay stays unanswered. This waiting
 answer is neither an ordinary view nor materializable, including through a
 materializing query. Rates still exclude the row's own observations. No second
 representative read runs on ordinary rows; paid conditioning replaces this answer.
@@ -311,8 +317,12 @@ sources (pln-sources) lost coverage.
 Under a closed read's pins outside any claim (a complete statement's rows
 evaluated again with the reader unfounded), an entangled row is conditioned
 only while the evaluation allowance can pay for actual conditioned rows,
-and takes its approximate value otherwise; a clash there opens a claim of its
-own against the same allowance. Conditioning every entangled row a
+and takes its approximate value otherwise. A clash there opens no claim of its
+own: it takes its approximation, and the ordinary row reading it waits for the
+conditions phase at that read's cost; when that row's turn is paid, its nested
+read opens the claim. A claim opened inline mid-pass spent the whole allowance
+in SupplyNet stage 3 at every budget (400/400 units at b200, 8000/8000 at
+b4000, a cut over 29 statements) and left the Producing plants unanswered (#106). Conditioning every entangled row a
 closed read met, on every statement it shared and unpaid, made 162 claims
 and 151,538 conditioned evaluations in SupplyNet stage 3 untimed (seed 4,
 budget 50): 59 s against 10 s, for no gain. Paid from the allowance, fuzzer
@@ -499,8 +509,9 @@ reads. Each pair of conditioned rows takes one unit before its first row runs,
 so the conditioned row count is at most twice the allowance available to
 claims.
 The exhausted marker prevents an unfinished pass from claiming completion.
-Iterative deepening retains the deepest completed pass, or the waiting value
-when none completed.
+Iterative deepening starts at depth one, deepens while a pass was cut at its
+depth, and retains the deepest completed pass, or the waiting value when none
+completed. Budget, not a depth ceiling, ends it.
 Closed reads use this same meter; deferred rebuilds stay within their existing
 tier slice. The near-root reserve never pays for conditioning.
 

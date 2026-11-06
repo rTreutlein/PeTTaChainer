@@ -201,8 +201,15 @@
    (let* (($_computed (query_metric_increment row-computes))
           ($causes (collapse (match &ctx_sk_forced ($hash $rhash $cause) $cause)))
           ($_taken (remove-data-rows! &sk_forced (quote ($hash $rhash $cause))))
-          ($_unpaid (remove-data-rows! &sk_given_pending (quote ($hash $rhash $_cost))))
-          ($new (sk-row-view () () $hash $key $rhash $row)))
+          ;; Only a computation that left nothing unpaid settles the row's
+          ;; debt; a nested conditioned read it deferred renews it.
+          ($_granted (change-state! sk_deferred (if (space-row-present? &ctx_sk_given_granted ($hash $rhash)) -1 0)))
+          ($unpaid (search-id-value sk_branch_unpaid))
+          ($new (sk-row-view () () $hash $key $rhash $row))
+          ($_debt (if (> (search-id-value sk_deferred) 0) (sk-wait! $hash $rhash (search-id-value sk_deferred) sk-none)
+             (if (== $unpaid (search-id-value sk_branch_unpaid))
+                (progn (remove-data-rows! &sk_given_pending (quote ($hash $rhash $_cost))) sk-none) sk-none)))
+          ($_scope (change-state! sk_deferred 0)))
       (case (sk-commit-result! $hash $key $seq $rhash $causes $new) (
          (sk-uncommitted $work)
          ((sk-committed $change) (sk-key-changed $pass $order $change $work $key))
@@ -724,7 +731,9 @@
                       (if (sk-root-claim? () $root-hash $root-key) (sk-uncache! $root-hash $root-key) (empty)) (empty))
                    (empty))))))
           ($last (sk-evaluate-pass! 0 $partial))
-          ($_roots (sk-read-roots!)))
+          ($_roots (sk-read-roots!))
+          ($_unanswered (sk-coarse-roots! false))
+          ($_coarse (sk-coarse-roots! true)))
       (let $_paid (sk-pay-conditions! (+ $last 1))
          (query_metric_set conditions-unpaid
             (+ (length (collapse (match &sk_needed ($dh $dk 0)
@@ -738,6 +747,71 @@
                   (match &sk_keys ($ph $pk) (if (sk-needed? $ph $pk) true (empty)))
                   (match &sk_row ($ph $pk $pr (sk-row $_pi $_pc $pp $_ps))
                      (if (sk-needed? $ph $pk) (if (sk-readable-row? $ph $pk $pr $pp) true (empty)) (empty))))))))))))
+
+(: sk-clash-waiting (-[semidet]-> Number SkeletonKey Number SkeletonFilter SkeletonRow SkeletonValue))
+(= (sk-clash-waiting $hash $key $rhash $filter $row)
+   (let* (((sk-row $_ident ($_type $_scope $proof $_tv) $_premises $_seq) $row)
+          ($exclude (sk-row-exclusions $hash $key $proof))
+          ($representative (sk-representative-row () $hash $key $rhash () $row))
+          ((sk-val $fact $_ev $_deps) $representative))
+      (if (sk-fact-matches? $filter $fact)
+         (let $independent (sk-row-result $row (sk-row-state () $exclude $hash sk-independent-read $row))
+            (sk-read-value $filter
+               (sk-discounted $representative $independent (term-confidence $fact)))) sk-none)))
+
+(: sk-waiting-root-value (-[semidet]-> SkeletonFilter SkeletonKey (| SkeletonValue SkeletonWaitingAnswer)))
+(= (sk-waiting-root-value $filter $key)
+   (case (sk-value $key $filter ()) (
+      (sk-none
+         (let* (($hash (index-hash $key))
+                ($ignore (sk-unifier-hashes $hash $key))
+                ($waiting (fold-semidet (sk-merge-step (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) true $ignore) sk-none
+                   (collapse (match &sk_row ($hash $stored $rhash $row)
+                      (if (=alpha $stored $key)
+                         ;; A row without a view that waits or was never computed.
+                         (if (if (== (sk-latest-view $hash $key $rhash) sk-none)
+                                (if (space-row-present? &ctx_sk_given_pending ($hash $rhash $_cost)) true
+                                   (not (space-row-present? &ctx_sk_support ($hash $rhash $_support)))) false)
+                            (sk-clash-waiting $hash $key $rhash $filter (copy_term $row)) (empty))
+                         (empty)))))))
+            (if (== $waiting sk-none) sk-none (sk-waiting $waiting))))
+      ($value $value))))
+
+;; A ground root the search left without a value answers with the base rate
+;; of its population: a base rate one of its rules reads over a pattern its
+;; statement belongs to, the prior its inversions update. It costs no
+;; expansion, so a root the budget did not reach still has an estimate, with
+;; the confidence of the members counted; any view the search finds replaces
+;; it. It is the prior an inversion reads (population-prior-tv), and a
+;; positive-only predicate has none. The prior is the population's value, not
+;; the statement's, and is never materialized. A statement nothing derives
+;; gets the same prior as a row once expanded (sk-start-prior!).
+(: sk-population-prior (-[semidet]-> Statement KBContext SkeletonFilter SkeletonValue))
+(= (sk-population-prior $type $kbctx $filter)
+   (case (sk-prior-folds $type (collapse (sk-rule-match (assemble-stored-runtime-fact $type $kbctx $_proof $_tv)))) (
+      ((cons (sk-prior-fold $_rule $args) $_more)
+         (case (sk-value (sk-fold $args) sk-any-filter ()) (
+            ((sk-goal-val (CPU $_fun $_args (STV $s $c)) $_fold-proof $_ev $deps)
+               (let* (($prior (configured-population-prior-tv (brand KB (car-atom $args)) (brand Statement (car-atom (cdr-atom $args))) (STV $s $c)))
+                      ($fact (data $type $kbctx (brand Proof (population-prior (car-atom (cdr-atom $args)))) $prior)))
+                  (if (sk-fact-matches? $filter $fact) (sk-val $fact (ev-set 0) $deps) sk-none)))
+            ($_none sk-none))))
+      (() sk-none))))
+
+;; Before conditioning, roots without a value buy waiting answers, those
+;; without a prior first, each from an equal share of the allowance left.
+(: sk-coarse-roots! (-[semidet]-> Bool Atom))
+(= (sk-coarse-roots! $prior)
+   (let* (($open (collapse (match &sk_needed ($hash (sk-key $type $kbctx) 0)
+             (if (if (== (sk-value (sk-key $type $kbctx) sk-any-filter ()) sk-none)
+                    (== (== (sk-population-prior $type $kbctx sk-any-filter) sk-none) (not $prior)) false)
+                (sk-key $type $kbctx) (empty)))))
+          ($share (floor-math (/ (search-id-value sk_eval_budget) (max 1 (length $open)))))
+          ($_bought (collapse (let $key (superpose $open)
+             (let* (($slice (execution-open-slice! $share))
+                    ($_waiting (sk-waiting-root-value sk-any-filter $key)))
+                (execution-close-slice! $slice ordinary-slice))))))
+      ()))
 
 ;; A pass works off the rows never evaluated, the readers of the keys changed
 ;; outside evaluation, the stale rows a need brought current (forced by their
@@ -855,7 +929,6 @@
 (: sk-pay! (-[semidet]-> Number SkeletonWaiting Number))
 (= (sk-pay! $pass (sk-row-waiting (sk-row-item $seq $hash $key $rhash $row)))
    (let* (($item (sk-row-item $seq $hash $key $rhash $row))
-          ($_taken (remove-data-rows! &sk_given_pending (quote ($hash $rhash $_was))))
           ($_granted (context-add! &sk_given_granted ($hash $rhash)))
           ($_forced (sk-force! (cons $hash ()) $item)))
       (sk-work-off! $pass (sk-work (add_to_heap (empty_heap) (sk-item-order $item) $item) (empty_heap)))))

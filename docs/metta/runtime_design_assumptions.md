@@ -931,10 +931,9 @@ reaches the part through that rule's own completion, and the prediction
 read as an observation shared that evidence with it, a view the merge took
 in that completion's place (`test_compound_key_reads`, consequenceKb: A
 0.401 where master gives 0.560 and the exact value is 0.567). Known limit:
-an unanswered root's waiting answer (the representative read) can fail
-through a compound key where reading the parts gave one: SupplyNet stage 3
-untimed soft0.9 b100 s4, `(Producing plant-a t4)` has no answer where master
-answers (0, 0.4999) from the same inputs, coverage 0.9734 to 0.9707 (#142).
+the waiting answer (the representative read) failed through a compound key
+for SupplyNet stage 3 untimed soft0.9 s4 `(Producing plant-a t4)` (#142); since
+#106b's waiting rows it answers at 200 steps, and b100 is not rechecked.
 
 The chainer is open-world: a statement with no proof is unknown. A KB may
 declare a predicate complete (`complete_predicates.md`): a rule application
@@ -1053,9 +1052,11 @@ entangled, and the row is conditioned on the statement as on a clash. Such a
 row has an approximate value, the premises read as independent, which it
 keeps while the conditioning waits. A clash has no approximation inside a
 conditioning pass: that would count its shared facts twice. If paid evaluation
-leaves a queried key unanswered, its pending rows may supply a waiting answer
-from facts-disjoint representatives, discounted against the independent row
-read by #49's c/(1+R²), R at least one. Paid conditioning replaces this answer.
+leaves a queried key unanswered, its rows without a view that wait or were
+never computed may supply a waiting answer from facts-disjoint
+representatives, discounted against the independent row read by #49's
+c/(1+R²), R at least one, and R = 1 when there is no independent read. Only a
+computation that left nothing unpaid settles a row's conditioning debt. Paid conditioning replaces this answer.
 The waiting answer is read only after paid evaluation at an otherwise
 unanswered public root. It is neither an ordinary view nor a materializable
 answer, including through the materializing APIs. Paid conditioning replaces it.
@@ -1071,10 +1072,10 @@ carry those hypothetical dependencies; admitting it removes only the given
 pin hashes from the output exclusions. Its premise reads still apply the full
 cuts, and an in-progress memo breaks recursive cycles. The representative
 channel never invokes ordinary merge conditioning to rebuild a closed read.
-Each otherwise unanswered root may replay at most 128 formulas, within a total
-allowance of 256 per query (`sk_representative_budget`),
-reported as `representative_reads`; they are a bounded output fallback, not
-additional conditioning allowance. Ordinary answered rows perform none of them.
+Each formula costs one unit of the evaluation allowance; before conditioning,
+each root without a value buys its waiting answer from an equal share of what
+is left, roots without a population prior first. They are reported as
+`representative_reads`, an output fallback, not conditioning. Ordinary answered rows perform none of them.
 Every real rate read uses the ordinary leave-one-out evaluator, including the
 representative channel. The memo is query-local and keyed by owner key, row and
 canonical exclusions and closed-read pins, private to its Assuming overlay. Closed
@@ -1656,8 +1657,8 @@ maximum of two conditioned row evaluations per allowance unit, without
 prepaying unused dependency estimates. Independent and cached reads cost
 nothing. Unused prepaid row credit expires when the claim closes; ordinary
 work always sees an integer allowance. Deferred rebuilds use their existing
-bounded tier slice; closed reads that start conditioning open a claim against
-that same allowance. An exhausted closed-read claim marks its rebuild frame
+bounded tier slice; a closed read that needs conditioning outside a claim
+defers it: its reading row waits, and the row's paid turn opens the claim. An exhausted closed-read claim marks its rebuild frame
 unfinished, so an unpaid approximation cannot settle a branch cache. No claim
 can borrow from another query or exceed the remaining allowance.
 

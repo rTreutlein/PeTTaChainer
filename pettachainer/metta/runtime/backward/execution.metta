@@ -15,7 +15,6 @@
    (-[nondet]-> Number (List ExecutionGoal) Bool Atom (List (List RuntimeResult))))
 (= (execute-backward-run $steps $requested $materialize? $_unit)
    (let* (($_value-caches (sk-clear-query-values!))
-          ($_representative-budget (change-state! sk_representative_budget 256))
           ($_frames (execution-reset-frames!))
           ($goals (map-semidet execution-search-goal $requested))
           ($_seen (remove-data-rows! &sk_seen (quote ($hash $node))))

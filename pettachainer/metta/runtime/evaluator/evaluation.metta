@@ -137,36 +137,6 @@
 
 ;; --- Entry points -----------------------------------------------------------
 
-(: sk-clash-waiting (-[semidet]-> Number SkeletonKey Number SkeletonFilter SkeletonRow SkeletonValue))
-(= (sk-clash-waiting $hash $key $rhash $filter $row)
-   (let* (((sk-row $_ident ($_type $_scope $proof $_tv) $_premises $_seq) $row)
-          ($exclude (sk-row-exclusions $hash $key $proof))
-          ($representative (sk-representative-row () $hash $key $rhash () $row))
-          ((sk-val $fact $_ev $_deps) $representative))
-      (if (sk-fact-matches? $filter $fact)
-         (let $independent (sk-row-result $row (sk-row-state () $exclude $hash sk-independent-read $row))
-            (sk-read-value $filter
-               (sk-discounted $representative $independent (term-confidence $fact)))) sk-none)))
-
-(: sk-waiting-root-value (-[semidet]-> SkeletonFilter SkeletonKey (| SkeletonValue SkeletonWaitingAnswer)))
-(= (sk-waiting-root-value $filter $key)
-   (case (sk-value $key $filter ()) (
-      (sk-none
-         (let* (($hash (index-hash $key))
-                ($ignore (sk-unifier-hashes $hash $key))
-                ($before (search-id-value sk_representative_budget))
-                ($room (min 128 $before))
-                ($_slice (change-state! sk_representative_budget $room))
-                ($waiting (fold-semidet (sk-merge-step (sk-mode-reader (sk-combination-mode (sk-value-reader sk-value))) true $ignore) sk-none
-                   (collapse (match &ctx_sk_given_pending ($hash $rhash $_cost)
-                      (match &sk_row ($hash $stored $rhash $row)
-                         (if (=alpha $stored $key)
-                            (sk-clash-waiting $hash $key $rhash $filter (copy_term $row)) (empty)))))))
-                ($_restored (change-state! sk_representative_budget
-                   (- $before (- $room (search-id-value sk_representative_budget))))))
-            (if (== $waiting sk-none) sk-none (sk-waiting $waiting))))
-      ($value $value))))
-
 ;; A materialized answer is the result an earlier query left, not independent
 ;; evidence: the root falls back to it when the search has no value for the key.
 ;; A root's proof and truth-value pattern may share variables with its
@@ -202,27 +172,6 @@
    (let $hash (forward-output-index-hash (forward-output-key $kbctx $type))
       (collapse (match &materialized_facts (materialized-row $hash $type $kbctx $fact $ev)
          (if (sk-fact-matches? $filter $fact) (sk-val $fact $ev 0) (empty))))))
-
-;; A ground root the search left without a value answers with the base rate
-;; of its population: a base rate one of its rules reads over a pattern its
-;; statement belongs to, the prior its inversions update. It costs no
-;; expansion, so a root the budget did not reach still has an estimate, with
-;; the confidence of the members counted; any view the search finds replaces
-;; it. It is the prior an inversion reads (population-prior-tv), and a
-;; positive-only predicate has none. The prior is the population's value, not
-;; the statement's, and is never materialized. A statement nothing derives
-;; gets the same prior as a row once expanded (sk-start-prior!).
-(: sk-population-prior (-[semidet]-> Statement KBContext SkeletonFilter SkeletonValue))
-(= (sk-population-prior $type $kbctx $filter)
-   (case (sk-prior-folds $type (collapse (sk-rule-match (assemble-stored-runtime-fact $type $kbctx $_proof $_tv)))) (
-      ((cons (sk-prior-fold $_rule $args) $_more)
-         (case (sk-value (sk-fold $args) sk-any-filter ()) (
-            ((sk-goal-val (CPU $_fun $_args (STV $s $c)) $_fold-proof $_ev $deps)
-               (let* (($prior (configured-population-prior-tv (brand KB (car-atom $args)) (brand Statement (car-atom (cdr-atom $args))) (STV $s $c)))
-                      ($fact (data $type $kbctx (brand Proof (population-prior (car-atom (cdr-atom $args)))) $prior)))
-                  (if (sk-fact-matches? $filter $fact) (sk-val $fact (ev-set 0) $deps) sk-none)))
-            ($_none sk-none))))
-      (() sk-none))))
 
 ;; A typed boundary shared by grouped roots and forward evaluation.
 (: sk-key-value (-[semidet]-> SkeletonKey SkeletonValue))

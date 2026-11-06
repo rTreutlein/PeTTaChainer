@@ -149,8 +149,10 @@ This contract does not authorize numerical corrections or broader language suppo
 - Root-only deep claims use one eighth, capped at 256 units. Exhausted full
   slices sleep until a new KB input generation or larger slice, without
   declaring settlement. Nested deep history keeps its marginal approximation.
-  Representative output fallback is bounded to 128 formulas per root and 256
-  per query; it cannot expand, materialize, or buy conditioning.
+  Representative output fallback is paid from the evaluation allowance:
+  before conditioning, each root without a value buys its waiting answer from
+  an equal share of what is left, roots without a population prior first; it
+  cannot expand, materialize, or buy conditioning.
 - On unchanged inputs sufficient repeated budgets must reach quiescence:
   zero row computations and branch builds after pending work finishes.
 - Query producers/scaffolds retire with all their rows, deferred work, waiters,

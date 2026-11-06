@@ -267,7 +267,7 @@
       (sk-representative-enter (context-add! &sk_representative ($hash $key $rhash $given $exclude sk-none)))
       ((sk-representative-result $value)
          (let $_left (context-remove! &sk_representative ($hash $key $rhash $given $exclude sk-none))
-            (if (if (== $value sk-none) (== (search-id-value sk_representative_budget) 0) false) ()
+            (if (if (== $value sk-none) (<= (search-id-value sk_eval_budget) 0) false) ()
                (context-add! &sk_representative ($hash $key $rhash $given $exclude $value))))))))
 
 

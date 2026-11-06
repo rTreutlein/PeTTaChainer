@@ -14,10 +14,10 @@
       ()))
 
 ;; Claim state: -1 outside a claim, 0/1 prepaid row credits, -2 exhausted.
-;; The pass's cutset depth is 64 outside a paid pass; sk_claim_cut is 1 once
-;; a nested conditioning used its approximation (see sk-deepen).
+;; sk_claim_depth is the pass's cutset depth; sk_claim_cut is 2 once a nested
+;; conditioning was cut at that depth, 1 once one stood in its approximation
+;; otherwise (see sk-deepen).
 !(change-state! sk_claim_state -1)
-!(change-state! sk_claim_depth 64)
 !(change-state! sk_claim_cut 0)
 
 ;; A key changed again before the evaluation took it is recorded once: each

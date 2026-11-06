@@ -456,7 +456,7 @@
                   (if (=alpha $stored $key) $cached (empty))))) (
             ((cons $cached $_rest) $cached)
             (()
-               (if (sk-take! sk_representative_budget 1)
+               (if (sk-take! sk_eval_budget 1)
                   (let* (($_entered (sk-update-representative! $hash $key $rhash $given $exclude sk-representative-enter))
                          ($_counted (query_metric_increment representative-reads))
                          ($copy (copy_term $row))
@@ -724,7 +724,7 @@
                                ($room (if $root (min $before (search-id-value sk_root_claim_budget)) $before))
                                ($slice (execution-open-slice! $room))
                                ($_opened (sk-open-claim!))
-                               ($deepest (sk-deepen $given $target $wexclude $keys (== $approx sk-none) (if (== $approx sk-none) 64 1) ()))
+                               ($deepest (sk-deepen $given $target $wexclude $keys (== $approx sk-none) 1 ()))
                                ($exhausted (sk-close-claim!))
                                ($spent (execution-close-slice! $slice (if $root root-slice ordinary-slice)))
                                ($key-spent (if $root
@@ -748,19 +748,24 @@
                                  (chainer-first-or $waiting $deepest))))
                         (chainer-first-or $waiting (sk-mix-on $given $target $wexclude $keys))))
                   (sk-wait! $khash $rhash $cost $waiting))))
-            (if (if (== $approx sk-none) false (>= (fold-flat sk-given-depth-step 0 $given) (search-id-value sk_claim_depth)))
-               (progn (change-state! sk_claim_cut 1) $approx)
-               (if (== (search-id-value sk_claim_state) -1)
-                  (if (< (search-id-value sk_eval_budget) 1) $approx
-                     (let* (($_opened (sk-open-claim!))
-                            ($deepest (sk-deepen $given $target $wexclude $keys (== $approx sk-none) (if (== $approx sk-none) 64 1) ()))
-                            ($_closed (if (sk-close-claim!) (next-search-id sk_branch_unpaid) 0)))
-                        (chainer-first-or $approx $deepest)))
+            ;; Outside a claim, only a row the conditions phase granted opens
+            ;; one; other rows take the approximation and wait (sk-compute).
+            (if (== (search-id-value sk_claim_state) -1)
+               (if (if (== (search-id-value sk_deferred) -1) (>= (search-id-value sk_eval_budget) 1) false)
+                  (let* (($_opened (sk-open-claim!))
+                         ($deepest (sk-deepen $given $target $wexclude $keys (== $approx sk-none) 1 ()))
+                         ($_closed (if (sk-close-claim!) (next-search-id sk_branch_unpaid) 0)))
+                     (chainer-first-or $approx $deepest))
+                  (progn (change-state! sk_deferred (max (search-id-value sk_deferred) (* 2 $base))) $approx))
+               (if (if (== $approx sk-none) false (>= (fold-flat sk-given-depth-step 0 $given) (search-id-value sk_claim_depth)))
+                  (progn (change-state! sk_claim_cut 2) $approx)
                   (case (sk-mix-on $given $target $wexclude $keys) (
-                     (() (if (== $approx sk-none) sk-none (progn (change-state! sk_claim_cut 1) $approx)))
+                     (() (if (== $approx sk-none) sk-none (progn (change-state! sk_claim_cut (max 1 (search-id-value sk_claim_cut))) $approx)))
                      ((cons $value $_rest) $value))))))))))
 
-;; Keep the deepest completed cutset pass, increasing depth while a pass was cut.
+;; Keep the deepest completed cutset pass, increasing depth while a pass was
+;; cut at its depth (sk_claim_cut 2) and the claim can pay. A pass that stood
+;; in an approximation for another reason (1) is cut at every depth.
 ;; A target without an approximation accepts no truncated pass.
 (: sk-deepen
    (-[semidet]-> (List SkeletonGiven) SkeletonTarget (List Number) (List SkeletonKey) Bool Number (List SkeletonValue)
@@ -770,9 +775,9 @@
           ($_uncut (change-state! sk_claim_cut 0))
           ($mixed (sk-mix-on $given $target $wexclude $keys)))
       (if (== (search-id-value sk_claim_state) -2) $deepest
-         (let* (($cut (== (search-id-value sk_claim_cut) 1))
+         (let* (($cut (> (search-id-value sk_claim_cut) 0))
                 ($found (if (== $mixed ()) $deepest (if (if $cut $uncut false) $deepest $mixed))))
-            (if (if $cut (< $depth 64) false) (sk-deepen $given $target $wexclude $keys $uncut (+ $depth 1) $found) $found)))))
+            (if (== (search-id-value sk_claim_cut) 2) (sk-deepen $given $target $wexclude $keys $uncut (+ $depth 1) $found) $found)))))
 
 ;; Try shared statements in order. Mix the target's true/false branches by a
 ;; compatible weight whose evidence lies outside them. Stored facts and compatible
