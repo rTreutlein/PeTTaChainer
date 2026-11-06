@@ -456,7 +456,7 @@
                   (if (=alpha $stored $key) $cached (empty))))) (
             ((cons $cached $_rest) $cached)
             (()
-               (if (sk-take! sk_eval_budget 1)
+               (if (sk-take! sk_eval_budget 0.5)
                   (let* (($_entered (sk-update-representative! $hash $key $rhash $given $exclude sk-representative-enter))
                          ($_counted (query_metric_increment representative-reads))
                          ($copy (copy_term $row))

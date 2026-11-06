@@ -206,8 +206,8 @@ root unanswered, a row left without a view that waits or was never computed
 can instead read a facts-disjoint representative from compatible retained
 versions or row replay, discounted against the independent row read by
 c/(1+R²), with R the absolute logit difference, at least one; with no
-independent read (a premise has only a waiting answer itself) R takes that
-minimum. The reads are paid from the evaluation allowance before any
+independent read (a premise has only a waiting answer itself) nothing measures
+the error, so the answer is the representative's mean at c=0. The reads are paid from the evaluation allowance before any
 conditioning (`sk-coarse-roots!`): roots with no answer at all first, then
 roots with only their population prior, each from an equal share of what is
 left. A root the allowance cannot pay stays unanswered. This waiting

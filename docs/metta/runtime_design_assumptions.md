@@ -1055,7 +1055,7 @@ conditioning pass: that would count its shared facts twice. If paid evaluation
 leaves a queried key unanswered, its rows without a view that wait or were
 never computed may supply a waiting answer from facts-disjoint
 representatives, discounted against the independent row read by #49's
-c/(1+R²), R at least one, and R = 1 when there is no independent read. Only a
+c/(1+R²), R at least one, and c=0 when there is no independent read. Only a
 computation that left nothing unpaid settles a row's conditioning debt. Paid conditioning replaces this answer.
 The waiting answer is read only after paid evaluation at an otherwise
 unanswered public root. It is neither an ordinary view nor a materializable
@@ -1072,7 +1072,8 @@ carry those hypothetical dependencies; admitting it removes only the given
 pin hashes from the output exclusions. Its premise reads still apply the full
 cuts, and an in-progress memo breaks recursive cycles. The representative
 channel never invokes ordinary merge conditioning to rebuild a closed read.
-Each formula costs one unit of the evaluation allowance; before conditioning,
+Two formulas cost one unit of the evaluation allowance, the conditioned-row
+tariff; before conditioning,
 each root without a value buys its waiting answer from an equal share of what
 is left, roots without a population prior first. They are reported as
 `representative_reads`, an output fallback, not conditioning. Ordinary answered rows perform none of them.
