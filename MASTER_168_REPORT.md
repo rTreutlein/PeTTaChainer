@@ -40,9 +40,24 @@ kernel shared with #106 (dp-106.md R1.3).
   - Each component is enumerated and integrated on its own. Their m(E[N], E[Z], E[N²], E[NZ], E[Z²]) multiply.
   - Within a component, a false block stays 1 − product, two monomials, so there is no cross-component
     expansion.
-  - Work is counted before it is materialised: expanded monomials at most 2^18, then pairs × monomial length
-    at most 2^22. Over either limit the component is refused like unpaid work, and the ordinary read keeps its
-    answer.
+  - cp6: work is paid before it is done, from the budget, with no fixed constants.
+    - Each invocation gets a graph tier `sk_graph_budget` as large as its evaluation allowance, set in
+      `execution-allowances!`.
+    - The tier is debited at 1/256 unit per scalar operation, the frozen design tariff:
+      - before enumeration: worlds × (models + factors);
+      - before expansion: expanded entries × (owners + 1) × (goals + 1);
+      - before pairing: pairs × monomial width.
+    - A refusal returns unpaid, is not cached, and leaves the ordinary read's answer.
+    - The connected-Or 11×16 job now answers in 1.7 s and the owner-linked 11×16 job in 1.7 s (cp5: 72.6 s and
+      30 s; master 1.7 s). The pair-boundary 8×8 job takes 0.9 s.
+    - The graph tier is separate from the evaluation allowance. Root reads come after the search has spent
+      that allowance, so drawing on it would refuse almost every graph answer. As a result a query's total work
+      is at most twice its allowance.
+    - Low budgets now refuse large graphs. For example, the 8-owner partition is refused at budget 1, the
+      11-owner one at budget 100, and all 12 are exact at budget 1000. The answer converges with budget.
+    - Fact absorption: following the Nov 3 user rule that budget 0 means no work, a budget-0 query no longer
+      refreshes an admitted key's graph posterior. `test_fact_absorption` now reads it at 1 step, with
+      unchanged values.
   - `constant_goal` is deleted: forced goals give Q = 0 exactly.
   - Results on the cp4 review's fixtures:
     - blocks(12,16) at b100: exact in 2.0 s (cp4: stack overflow; master 1.7 s);
@@ -73,7 +88,7 @@ kernel shared with #106 (dp-106.md R1.3).
   - Accuracy changed in two cases: supplynet stage 1 b100 s3 (error .004954 → .005123, under the flag
     threshold; Brier .01046 → .01031) and fuzz (−3e-18).
   - The supplynet move comes from billing by bits, which admits more graphs.
-- **Canary** (`compare.sh anchor --canary`): PASS at cp3, cp4 and cp5. cp5 --quick and --full against master also PASS, with the same two accuracy moves as cp4.
+- **Canary** (`compare.sh anchor --canary`): PASS at cp3, cp4, cp5 and cp6. --quick and --full also PASS at cp5 and cp6, with the same two accuracy moves as cp4. At cp6 they were run against bdae8d7e: master has moved to 5d140ce3, so a rebase is pending.
 
 ## Moved test values
 

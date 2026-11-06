@@ -2,6 +2,7 @@
 ;; The invocation controller consumes these operations and owns finally brackets.
 
 !(change-state! sk_branch_budget 0)
+!(change-state! sk_graph_budget 0)
 !(change-state! sk_root_claim_budget 0)
 !(change-state! sk_root_claim_cap 0)
 !(change-state! sk_representative_budget 0)
@@ -47,6 +48,8 @@
 (= (execution-allowances! $units $backward?)
    (let* (($_evaluation (change-state! sk_eval_budget $units))
           ($_branches (change-state! sk_branch_budget (* $units (sk-branch-share))))
+          ;; Event-graph numeric work has a tier as large as the allowance (event_graph.pl).
+          ($_graph (change-state! sk_graph_budget $units))
           ($_roots (if $backward?
              (let $root (min (sk-root-claim-limit) (floor-math (* $units (sk-root-claim-share))))
                 (progn (change-state! sk_root_claim_budget $root) (change-state! sk_root_claim_cap $root))) ())))

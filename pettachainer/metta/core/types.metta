@@ -89,6 +89,7 @@
    sk_branch_frame
    sk_branch_at
    sk_branch_budget
+   sk_graph_budget
    sk_input_id
    sk_root_claim_budget
    sk_root_claim_cap

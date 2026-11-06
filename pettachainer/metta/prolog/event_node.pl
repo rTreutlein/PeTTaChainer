@@ -1,5 +1,5 @@
 % Event-node semantics and numerical contracts: docs/metta/event_node_contract.md.
-:- module(event_node, [event_node_dist/5, event_node_moments/4, event_node_expectations/4, event_node_answer/2, event_node_coupling/5, event_node_widen/6, dist_mean/2]).
+:- module(event_node, [event_node_dist/5, event_node_moments/4, event_node_expectations/5, event_node_answer/2, event_node_coupling/5, event_node_widen/6, dist_mean/2]).
 :- autoload(library(simplex)).
 :- use_module(library(yall)).
 :- use_module(library(apply)).
@@ -19,28 +19,34 @@ event_node_dist(view, S, C, K, beta(A, B)) :-
 % complement. A parameter used repeatedly keeps its powers: a monomial maps
 % each parameter to c(T, F), its powers of theta and of 1-theta.
 event_node_moments(Vars, Terms, Goals, Answers) :-
-    event_node_expectations(Vars, Terms, Goals, Moments),
+    event_node_expectations(Vars, Terms, Goals, [_]>>true, Moments),
     ( is_list(Moments) -> maplist(event_node_answer, Moments, Answers) ; Answers = Moments ).
 
 % Each goal's m(E[N], E[Z], E[N^2], E[NZ], E[Z^2]), exact rationals: the
-% moments of independent components multiply. Work is counted before it is
-% done: monomials before expansion, then monomial pairs times their length.
-event_node_expectations(Vars, Terms0, Goals, Moments) :-
+% moments of independent components multiply. Pay is called with the scalar
+% operations of each step before the step: the expanded monomials times the
+% parameters they can carry for Z and every N, then the monomial pairs of the
+% paired moments times their length. A refused payment is unaffordable.
+event_node_expectations(Vars, Terms0, Goals, Pay, Moments) :-
     foldl([t(C, _, _), M0, M]>>(M is max(M0, abs(C))), Terms0, 0.0, Scale),
     foldl([t(_, Lits, _), W0, W]>>( aggregate_all(count, member(w(_)-0, Lits), N),
                                    W is W0 + 1 << N ), Terms0, 0, Expanded),
+    findall(Id, ( member(t(_, Lits, _), Terms0), member(L-_, Lits),
+                  ( L = w(Ls) -> member(Id-_, Ls) ; Id = L ), \+ memberchk(Id-point(_), Vars) ), Ids0),
+    sort(Ids0, Ids), length(Ids, Owners), length(Goals, NG),
     (   Scale =:= 0.0
     ->  Moments = inconsistent
-    ;   Expanded > 1 << 18
+    ;   Build is Expanded * (Owners + 1) * (NG + 1), \+ call(Pay, Build)
     ->  Moments = unaffordable
     ;   maplist(scaled_term(Scale), Terms0, Terms), list_to_assoc(Vars, Dists),
         polynomial(Dists, Terms, Z),
         maplist({Dists, Terms}/[Goal, N]>>( include({Goal}/[t(_, _, Hits)]>>memberchk(Goal, Hits), Terms, GoalTerms),
                                            polynomial(Dists, GoalTerms, N) ), Goals, Ns),
         append([Z|Ns], Monomials), pairs_keys(Monomials, Keys),
-        foldl([P, L0, L]>>(length(P, LP), L is max(L0, LP)), [Z|Ns], 0, Largest),
         foldl([K, L0, L]>>(length(K, LK), L is max(L0, LK)), Keys, 1, Width),
-        (   Largest * Largest * Width > 1 << 22
+        length(Z, LZ),
+        foldl({LZ}/[N, P0, P]>>(length(N, LN), P is P0 + LN * LN + LN * LZ), Ns, LZ * LZ, Pairs),
+        (   Pair is Pairs * Width, \+ call(Pay, Pair)
         ->  Moments = unaffordable
         ;   append(Keys, Uses),
             findall(Id-Stat, ( member(Id-Dist, Vars), Dist \= point(_), parameter_stat(Uses, Id, Dist, Stat) ), Stats0),

@@ -26,7 +26,7 @@ class GraphFoldingTests(unittest.TestCase):
             f'branch(r{i},1)-beta(3,2),branch(r{i},0)-beta(1,4)' for i in range(len(parents))])
         case = f'input([{models}],[{reports}|{extra}],{goal},[{bindings}],[{params}])'
         out = janus.query_once(
-            'term_string(input(_M,_F,_G,_B,_P),Text),graph_moments(_M,_F,_G,_B-_P,Before),'
+            'nb_setval(sk_graph_budget,1000000),term_string(input(_M,_F,_G,_B,_P),Text),graph_moments(_M,_F,_G,_B-_P,Before),'
             'graph_fold(_M,_F,_G,_B,_Ms,_Fs,_Gs,_Bs),'
             'graph_moments(_Ms,_Fs,_Gs,_Bs-_P,After),length(_Ms,Size)', {'Text': case})
         self.assertTrue(out['truth'])

@@ -238,7 +238,8 @@ graph_owner(Term, Owner) :- copy_term_nat(Term, Owner), numbervars(Owner, 0, _).
 % A computed answer is a free read. A key is admitted to the graph once a
 % query with budget needs or reads it, for one evaluation unit if it has a
 % model then; an admitted key's later answers refresh as the nodes a search
-% built absorb new facts, at no step (fact_absorption.md). Otherwise the key
+% built absorb new facts, paid from the reading query's graph tier
+% (graph_take), so a query without steps refreshes nothing. Otherwise the key
 % reads as the ordinary evaluator has it, so a read without budget returns
 % only what exists. Plans are structural. A query's need admits its root
 % keys, which it reads after its evaluation has spent the allowance.
@@ -261,7 +262,9 @@ graph_answer(Key, Models, Factors, Goal, Vars, TV) :-
     ; query_metric_increment('graph-evaluations', _),
       ( graph_moments(Models, Factors, Goal, Vars, TV) -> true
       ; TV = inconsistent, format(user_error, 'event-evidence-impossible: ~q~n', [Goal]) ),
-      retractall(event_graph_memo(Hash, Key, _, _)), assertz(event_graph_memo(Hash, Key, Input, TV)) ).
+      % A refusal is not an answer: a later read with budget computes it.
+      ( TV == unpaid -> true
+      ; retractall(event_graph_memo(Hash, Key, _, _)), assertz(event_graph_memo(Hash, Key, Input, TV)) ) ).
 
 % Components that share no bit and no uncertain parameter are independent:
 % each is enumerated and integrated alone and their moments multiply. The goal
@@ -271,7 +274,7 @@ graph_moments(Models, Factors, Goal, Bindings-Params, TV) :-
     foldl([G, S0, [M|Rest]]>>( partition({G}/[S]>>(member(X, G), memberchk(X, S)), S0, Touch, Rest),
                                append([G|Touch], A), sort(A, M) ), Groups, [], Sets),
     foldl(graph_component(Models, Factors, Goal, Bindings, Params), Sets, m(1, 1, 1, 1, 1), Moments),
-    % Unaffordable moments are refused like unpaid work.
+    % Work the remaining allowance cannot pay is refused like unpaid work.
     ( Moments == unaffordable -> TV = unpaid
     ; event_node_answer(Moments, a(S, V, _)), 'evidence-confidence-k'(K), node_stv(K, S, V, TV) ).
 
@@ -280,8 +283,12 @@ graph_component(Models, Factors, Goal, Bindings, Params, Set, m(A0, B0, C0, D0, 
     include({Set}/[model(T, _, _)]>>memberchk(T, Set), Models, Ms),
     include({Set}/[[F|_]]>>( graph_atom(F, A), memberchk(A, Set) ), Factors, Fs),
     findall(C, ( graph_conjunct(Goal, C), graph_atom(C, A), memberchk(A, Set) ), Cs),
-    graph_terms(Ms, Fs, ['And'|Cs], Bindings, Params, Terms),
-    event_node_expectations(Params, Terms, [1], Part),
+    include({Bindings, Params, Fs}/[M]>>graph_bit_choices(Bindings, Params, Fs, M, [_, _]), Ms, Varying),
+    length(Varying, NV), length(Ms, NM), length(Fs, NF), Worlds is (1 << NV) * (NM + NF),
+    (   \+ graph_take(Worlds)
+    ->  Part = unaffordable
+    ;   graph_terms(Ms, Fs, ['And'|Cs], Bindings, Params, Terms),
+        event_node_expectations(Params, Terms, [1], graph_take, Part) ),
     (   Part = [m(A, B, C, D, E)]
     ->  A1 is A0 * A, B1 is B0 * B, C1 is C0 * C, D1 is D0 * D, E1 is E0 * E, Moments = m(A1, B1, C1, D1, E1)
     ;   Part == unaffordable, Moments = unaffordable ).
@@ -296,14 +303,25 @@ graph_link(Models, _, _, Bindings, Params, [T|Links]) :-
 graph_link(_, Factors, _, _, _, As) :- member([F|_], Factors), findall(A, graph_atom(F, A), As).
 graph_link(_, _, Goal, _, _, As) :- graph_conjunct(Goal, C), findall(A, graph_atom(C, A), As).
 
+graph_bit_choices(Bindings, Params, Factors, model(T, M, _), Bs) :-
+    ( M == root, memberchk(T-O, Bindings), memberchk(O-Law, Params), graph_fixed_law(Law, F) -> true ; true ),
+    graph_choices(T, F, Factors, Bs).
+
+% Graph numeric work pays from the invocation's graph tier, an allowance as
+% large as the evaluation's, at 1/256 unit per scalar operation, before it is
+% done. Root reads after the search has spent its allowance still have it.
+graph_take(Ops) :-
+    'search-id-value'(sk_graph_budget, B), Units is Ops / 256, Units =< B,
+    Left is B - Units, nb_setval(sk_graph_budget, Left).
+
 graph_conjunct(Goal, C) :- ( Goal = ['And'|Cs] -> member(C, Cs) ; C = Goal ).
 graph_atom(F, A) :- ( F = [H|Cs], (connective_head(H) ; H == 'Not') -> member(C, Cs), graph_atom(C, A) ; A = F ).
 
 graph_terms(Models, Factors, Goal, Bindings, Params, Terms) :-
     findall(LW-Lits-Hits,
-            ( maplist({Bindings, Params, Factors}/[model(T, M, _), T-B]>>(
-                  ( M == root, memberchk(T-O, Bindings), memberchk(O-Law, Params), graph_fixed_law(Law, F) -> true ; true ),
-                  graph_choices(T, F, Factors, Bs), member(B, Bs) ), Models, Bits),
+            ( maplist({Bindings, Params, Factors}/[Model, T-B]>>(
+                  Model = model(T, _, _), graph_bit_choices(Bindings, Params, Factors, Model, Bs), member(B, Bs) ),
+                  Models, Bits),
               foldl(graph_factor(Bits), Factors, 0.0, LF), LF \== ninf,
               maplist({Bits, Bindings}/[M, O-B]>>( graph_literal(Bits, M, Id-B), memberchk(Id-O, Bindings) ), Models, All),
               foldl(node_fixed_literal(Params), All, LF-[], LW-Lits), LW \== ninf,

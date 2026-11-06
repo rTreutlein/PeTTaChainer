@@ -73,9 +73,9 @@ exact however many parts they share. Discovery and the unfolded
 model are only memory-guarded, at 256 visited statements and atoms. A key enters
 the graph once a query with budget needs or reads it, for one evaluation unit if
 it has a model then (a query's need admits its roots before evaluation spends
-the allowance); later answers of an admitted key refresh at no step, as fact
-absorption does. Unadmitted keys keep the ordinary read, so budget zero computes
-no new posterior. Other templates retain the
+the allowance); later answers of an admitted key refresh as facts are absorbed,
+paid like every computation from the reading query's graph tier. Budget zero
+computes no new posterior. Other templates retain the
 ordinary evaluator. Observed children outside a compound enter the same joint
 model. Shared parents are one event bit in the enumeration; given branches are
 not imported as independent marginal parameters. Empty root counts read `sk-part-prior`, including configured rates and cavity population counts.
@@ -166,10 +166,14 @@ The graph splits into components that share no bit and no uncertain
 parameter (points tie nothing); the goal splits into its top-level conjuncts.
 Each component is enumerated and integrated alone, and E[N], E[Z], E[N^2],
 E[NZ] and E[Z^2] multiply across components, so independent structure never
-expands. Work is counted before it is done: the monomials a component's
-terms expand to (at most 2^18), then monomial pairs times monomial length
-(at most 2^22). Beyond either the component is refused like unpaid work and
-the ordinary read keeps its answer.
+expands. Work is paid before it is done, from the invocation's graph tier, an
+allowance as large as its evaluation allowance, at 1/256 unit per scalar
+operation: a component's worlds times its models and factors before
+enumeration; its expanded monomials times the parameters they can carry, for
+Z and every N, before expansion; its monomial pairs times monomial length
+before pairing. A refused payment refuses the answer like unpaid work and is
+not cached; the ordinary read keeps its answer, and a read with more budget
+computes it.
 
 Let e=E[Z], s=E[N]/e, D=N-sZ, Q=E[D^2], T=Var(Z), and b=max(s,1-s), with
 expectations under the independent prior. The claimed variance is
