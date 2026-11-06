@@ -38,8 +38,12 @@ already represented by its stored strength. Node outputs never become reports.
 The graph reader discovers atomic and compound observations through live
 conclusion and premise indexes, starting with the goal and its formula atoms.
 An unobserved nested goal compound cannot hide its atoms' observations.
-All visible live producers must match the supported template;
-one unsupported producer rejects the graph. It supports an acyclic graph with
+A producer whose antecedent has a ground, non-negated positive-only conjunct
+with no source, no producer and no user base rate never applies (#169): a
+positive-only statement is only its stored instances. It is no producer of the
+key, so a generic rule for another source does not take a grounded channel's
+key out of the graph. Every other visible live producer must match the
+supported template; one unsupported producer rejects the graph. It supports an acyclic graph with
 one explicit CTV source per conclusion, or a family of certain-positive rules.
 A family uses the disjunction of its distinct ground antecedents as its parent,
 with positive branch 1 and the conclusion's empty-root prior as fallback.

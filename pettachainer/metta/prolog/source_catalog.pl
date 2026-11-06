@@ -105,7 +105,8 @@ source_catalog_neighbours(Type, Scope, Neighbours) :-
 
 source_catalog_template(Type, Scope, Model) :-
     findall(Name-(Id-Parent-TV-Negative-Admission),
-            source_catalog_match(Type,Scope,Id,['forward-source',Name,Parent,TV,Negative,Admission],_,_), Producers),
+            ( source_catalog_match(Type,Scope,Id,['forward-source',Name,Parent,TV,Negative,Admission],_,_),
+              \+ source_catalog_inapplicable(Parent, Scope) ), Producers),
     ( Producers == [] -> Model=root
     ; keysort(Producers, Sorted), group_pairs_by_key(Sorted, Groups),
       maplist({Scope}/[Name-Roles,(Id-Name)-(Parent-TV)]>>(
@@ -124,6 +125,12 @@ source_catalog_template(Type, Scope, Model) :-
         pairs_keys(Branches, Ps0), sort(Ps0, Ps),
         ( Ps = [Parent] -> true ; Parent = ['Or'|Ps] ),
         Neg = base ), Model=conditional(Parent,Rules,Pos,Neg) ).
+% A positive-only statement is only its stored instances (#169): an antecedent
+% conjunct of one with no source, producer or user rate never holds.
+source_catalog_inapplicable(Parent, Scope) :-
+    Scope = [KB|_], ( Parent = ['And'|Cs] -> member(C, Cs) ; C = Parent ),
+    ground(C), C \= ['Not'|_], 'positive-only-pattern?'(KB, C, true), \+ 'user-base-rate?'(KB, C, true),
+    source_catalog_sources(C, Scope, []), \+ source_catalog_match(C, Scope, _, ['forward-source'|_], _, _).
 source_catalog_admitted(true, _).
 source_catalog_admitted(['raw-scopes', Scopes], Scope) :- maplist(=(Scope), Scopes).
 
