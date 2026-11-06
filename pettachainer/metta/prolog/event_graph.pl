@@ -308,10 +308,11 @@ graph_bit_choices(Bindings, Params, Factors, model(T, M, _), Bs) :-
     graph_choices(T, F, Factors, Bs).
 
 % Graph numeric work pays from the invocation's graph tier, an allowance as
-% large as the evaluation's, at 1/256 unit per scalar operation, before it is
-% done. Root reads after the search has spent its allowance still have it.
+% large as the evaluation's, at 1/1700 unit per scalar operation, before it is
+% done: a unit buys the CPU time of a search step (measured, event_node_contract.md
+% "Tariff"). Root reads after the search has spent its allowance still have it.
 graph_take(Ops) :-
-    'search-id-value'(sk_graph_budget, B), Units is Ops / 256, Units =< B,
+    'search-id-value'(sk_graph_budget, B), Units is Ops / 1700, Units =< B,
     Left is B - Units, nb_setval(sk_graph_budget, Left).
 
 graph_conjunct(Goal, C) :- ( Goal = ['And'|Cs] -> member(C, Cs) ; C = Goal ).

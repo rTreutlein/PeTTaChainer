@@ -172,13 +172,27 @@ parameter (points tie nothing); the goal splits into its top-level conjuncts.
 Each component is enumerated and integrated alone, and E[N], E[Z], E[N^2],
 E[NZ] and E[Z^2] multiply across components, so independent structure never
 expands. Work is paid before it is done, from the invocation's graph tier, an
-allowance as large as its evaluation allowance, at 1/256 unit per scalar
-operation: a component's worlds times its models and factors before
+allowance as large as its evaluation allowance, at 1/1700 unit per scalar
+operation (see "Tariff" below): a component's worlds times its models and factors before
 enumeration; its expanded monomials times the parameters they can carry, for
 Z and every N, before expansion; its monomial pairs times monomial length
 before pairing. A refused payment refuses the answer like unpaid work and is
 not cached; the ordinary read keeps its answer, and a read with more budget
 computes it.
+
+Tariff. A graph unit buys the CPU time of one query step, so a budget bounds
+graph and search work alike. The constant is measured, not chosen:
+`scripts/calibrate_graph_tariff.py` runs a workload in process and divides the
+search's CPU seconds per step (outermost `sk-walk!` and `sk-evaluate!`, less
+the graph work inside them) by the graph's CPU seconds per paid operation
+(inside `graph_moments`). Nov 6 2026 (#169), one value per workload family
+that admits graphs: KE capacity KBs, small 1,695 and 50 sources 6,835;
+SupplyNet stage 1 940 (the other SupplyNet and scale cases admit none); the
+graph_folding 11,288, shared_parameters 21,327, certain_producer_families
+1,119, event_dependence 1,053, atomic_posterior 2,942 and soft_reports 273
+test files. The median, 1,695, is rounded to 1700. Small graphs cost more
+per operation (2-5 us) than large ones (0.9 us), and row-heavy searches more
+per step, so the spread is wide; re-measure after changing either side.
 
 Let e=E[Z], s=E[N]/e, D=N-sZ, Q=E[D^2], T=Var(Z), and b=max(s,1-s), with
 expectations under the independent prior. The claimed variance is
