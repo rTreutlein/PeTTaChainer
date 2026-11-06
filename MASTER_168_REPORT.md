@@ -114,3 +114,26 @@ fold test with shared owners.
   - The cavity drops the counts of training members that are in the graph (.923 against the once-counted .941).
   - Plans and inputs are still built at b0.
   - The ordinary reader still publishes the independent answer for over-cap shared models.
+
+## cp7: rebase onto master 5d140ce3 (dominance included)
+
+- **Rebase:** clean, with no conflicts. HEAD is listed in cp7.txt.
+- **Gates against 5d140ce3:**
+  - verify.sh: 7/7 PASS.
+  - compare --quick: PASS.
+  - compare --full: PASS. Accuracy moved in two cases: supplynet stage 1 b100 s3 (error .004954 → .005123,
+    Brier .01046 → .01031) and fuzz (−3e-18).
+  - Canary: PASS.
+  - Reviewer suite: 88/91 methods pass; the failures are the three inherited classes.
+- **The supplynet stage 3 timed b100 s3 `producing_unstocked` flag is gone.** The flag came from comparing
+  master 5d140ce3, which has dominance but not #168, against the un-rebased branch, which has #168 but not
+  dominance. On the rebased branch the case equals master exactly in both quick and full: `producing_unstocked`
+  2.082e-17, `producing` .002064, error .001339. With nothing left to explain, there is no key trace and no
+  multi-seed run.
+- **KE budget check (steps 200):**
+  - Design probe: all 112 shared-rate goals exact at budget 200, the same as at 1000. None are refused.
+  - dp-106 two-root replays (mine t18 and plant-a t16, single and pair, b200 and b4000): the answers are
+    identical across budgets, and `graph_evaluations` is 0 at both, so the event graph is never used on these
+    components. Those values come from the ordinary path, so #168's tariff does not affect them:
+    - mine t18 .9499997 (soft reference .9499983);
+    - plant-a t16 .8649991 (reference .87335).
