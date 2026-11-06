@@ -11,7 +11,9 @@ CHANNEL = f'(: channel (Implication (And (A e) (B e)) (Affirms claim1)) {WEAK})'
 # Ownership fact exists, so its instance for claim1 never holds.
 OTHER = ('(: other (Implication (And (About $c (Ownership $a $b)) (Source $c OtherSource) '
          f'(AtomicClaim $c) (Ownership $a $b)) (Affirms $c)) {WEAK})')
-SECOND = '(: second (Implication (And (Source claim1 S2) (C e)) (Affirms claim1)) {})'
+METADATA = ['(: about (About claim1 (Ownership alice bob)) (STV 1 1))',
+            '(: source (Source claim1 OtherSource) (STV 1 1))', '(: atomic (AtomicClaim claim1) (STV 1 1))']
+SECOND ='(: second (Implication (And (Source claim1 S2) (C e)) (Affirms claim1)) {})'
 GATE = '(: s2 (Source claim1 S2) (STV 1 1))'
 GOALS = ('(A e)', '(B e)', '(C e)', '(And (A e) (B e))')
 
@@ -41,7 +43,14 @@ class InapplicableProducerTests(unittest.TestCase):
             self.assertAlmostEqual(row[1], strength, delta=1e-6)
         self.assertEqual(baseline[2], [])
         controls = {'added': [OBSERVED, CHANNEL, OTHER], 'reversed': [OTHER, OBSERVED, CHANNEL],
-                    'renamed': [OBSERVED, CHANNEL, OTHER.replace('Affirms', 'OtherAffirms')]}
+                    'renamed': [OBSERVED, CHANNEL, OTHER.replace('Affirms', 'OtherAffirms')],
+                    # An About of another shape does not unify with the open conjunct.
+                    'shape': [OBSERVED, CHANNEL, OTHER, *METADATA[1:], '(: own (Ownership alice bob) (STV 1 1))',
+                              METADATA[0].replace('Ownership', 'OtherRelation')]}
+        # Any one missing positive-only conjunct, ground or open, is enough.
+        for present in itertools.product((False, True), repeat=3):
+            if not all(present):
+                controls[present] = [OBSERVED, CHANNEL, OTHER, *itertools.compress(METADATA, present)]
         for name, atoms in controls.items():
             with self.subTest(name):
                 self.assertEqual(answers(chainer(atoms)), baseline)

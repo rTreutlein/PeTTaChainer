@@ -38,9 +38,10 @@ already represented by its stored strength. Node outputs never become reports.
 The graph reader discovers atomic and compound observations through live
 conclusion and premise indexes, starting with the goal and its formula atoms.
 An unobserved nested goal compound cannot hide its atoms' observations.
-A producer whose antecedent has a ground, non-negated positive-only conjunct
-with no source, no producer and no user base rate never applies (#169): a
-positive-only statement is only its stored instances. It is no producer of the
+A producer whose antecedent has a non-negated positive-only conjunct, ground
+or open, that no stored fact or assumption unifies with and no rule concludes
+never applies (#169): a positive-only statement is only its stored instances,
+and a user base rate reaches it only through a rule concluding it. It is no producer of the
 key, so a generic rule for another source does not take a grounded channel's
 key out of the graph. Every other visible live producer must match the
 supported template; one unsupported producer rejects the graph. It supports an acyclic graph with

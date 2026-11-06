@@ -126,11 +126,14 @@ source_catalog_template(Type, Scope, Model) :-
         ( Ps = [Parent] -> true ; Parent = ['Or'|Ps] ),
         Neg = base ), Model=conditional(Parent,Rules,Pos,Neg) ).
 % A positive-only statement is only its stored instances (#169): an antecedent
-% conjunct of one with no source, producer or user rate never holds.
+% conjunct of one, ground or open, that no stored fact or assumption unifies
+% with and no rule concludes (a user rate reaches it only through such a rule)
+% never holds. An assumption is found by key, so a context judges ground ones.
 source_catalog_inapplicable(Parent, Scope) :-
     Scope = [KB|_], ( Parent = ['And'|Cs] -> member(C, Cs) ; C = Parent ),
-    ground(C), C \= ['Not'|_], 'positive-only-pattern?'(KB, C, true), \+ 'user-base-rate?'(KB, C, true),
-    source_catalog_sources(C, Scope, []), \+ source_catalog_match(C, Scope, _, ['forward-source'|_], _, _).
+    C \= ['Not'|_], 'positive-only-pattern?'(KB, C, true), 'kb-facts'(C, Scope, []),
+    ( context_active(_) -> ground(C), 'context-leaves'(['sk-key', C, Scope], []) ; true ),
+    \+ source_catalog_match(C, Scope, _, _, _, _).
 source_catalog_admitted(true, _).
 source_catalog_admitted(['raw-scopes', Scopes], Scope) :- maplist(=(Scope), Scopes).
 
