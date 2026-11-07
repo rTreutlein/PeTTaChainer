@@ -258,12 +258,12 @@ graph_admit(Key) :-
 graph_answer(Key, Models, Factors, Goal, Vars, TV) :-
     Input = Models-Factors-Goal-Vars, term_hash(Key, Hash),
     ( event_graph_memo(Hash, Key, Stored, TV), Stored=Input -> true
-    ; \+ graph_admit(Key) -> TV = unpaid
+    ; \+ graph_admit(Key) -> TV = unpaid, 'next-search-id'(sk_ran_out, _)
     ; query_metric_increment('graph-evaluations', _),
       ( graph_moments(Models, Factors, Goal, Vars, TV) -> true
       ; TV = inconsistent, format(user_error, 'event-evidence-impossible: ~q~n', [Goal]) ),
       % A refusal is not an answer: a later read with budget computes it.
-      ( TV == unpaid -> true
+      ( TV == unpaid -> 'next-search-id'(sk_ran_out, _)
       ; retractall(event_graph_memo(Hash, Key, _, _)), assertz(event_graph_memo(Hash, Key, Input, TV)) ) ).
 
 % Components that share no bit and no uncertain parameter are independent:
@@ -361,6 +361,11 @@ graph_proof(Models, Factors, Scope, [node, [conjunction|Proofs]], Evidence, Deps
     findall(D, ( ( member(model(Type, root, _), Models) ; member([Type|_], Factors) ),
                  'index-hash'(['sk-key', Type, Scope], H), 'deps-key'(H, D) ), Ds),
     'deps-join'(Ds, Deps).
+
+'query-answer-groups'(Statements, Rows, Groups) :-
+    findall(Answers,
+            ( nth0(I, Statements, _), findall(Answer, member(['query-result', I, Answer], Rows), Answers) ),
+            Groups).
 
 % Cache lifecycle belongs to the graph; force-reset requests this operation.
 event_graph_reset :-

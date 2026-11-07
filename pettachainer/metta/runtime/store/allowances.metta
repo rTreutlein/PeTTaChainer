@@ -6,6 +6,8 @@
 !(change-state! sk_root_claim_budget 0)
 !(change-state! sk_root_claim_cap 0)
 !(change-state! sk_branch_at 0)
+;; Work this backward run refused or left unpaid (query-many-with-status).
+!(change-state! sk_ran_out 0)
 
 ;; Row computations a query may spend per step of its budget beyond the reserve.
 (: sk-evaluation-per-step (-[det]-> Number))

@@ -15,13 +15,6 @@
    ;; expanded, work left, answers with a value, children, routes
    (node Bool Bool Number (List SkPattern) (List DiagnosticRoute)))
 
-;; Whether the search still has work at or below a node: it is unexpanded, or
-;; the pending-work index holds work below it. A root never reached has no
-;; entry in the index yet.
-(: diagnostic-work? (-[det]-> Number SkPattern Bool))
-(= (diagnostic-work? $hash $node)
-   (if (sk-pending? $hash $node) true (if (sk-expanded? $hash $node) false (sk-root? $node))))
-
 (: query-diagnostic-search (-[det]-> DiagnosticSearch))
 (= (query-diagnostic-search)
    (search

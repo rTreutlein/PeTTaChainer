@@ -8,6 +8,7 @@
 (: query-many-refs (-[nondet]-> Number KB (List AnnotatedStatement) QueryBatchResult))
 (: expand-proof (-[nondet]-> Proof Proof))
 (: query-many-materialize (-[nondet]-> Number KB (List AnnotatedStatement) QueryBatchResult))
+(: query-many-with-status (-[semidet]-> Number KB (List AnnotatedStatement) QueryOutcome))
 (: set-backward-query-metrics (-[det]-> Bool Bool))
 (: backward-query-metrics (-[det]-> (List BackwardQueryMetric)))
 (: chainer-many

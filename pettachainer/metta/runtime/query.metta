@@ -104,3 +104,18 @@
 (: query-many-materialize (-[nondet]-> Number KB (List AnnotatedStatement) QueryBatchResult))
 (= (query-many-materialize $steps $kb $statements)
    (query-many-mode $steps $kb $statements true true))
+
+;; What the last run left, read after it, so it cannot change its answers. It
+;; says nothing about whether they are right (API.md, "Budget status").
+(: query-run-status (-[det]-> QueryStatus))
+(= (query-run-status) (if (> (search-id-value sk_ran_out) 0) ran-out did-not-run-out))
+
+;; query-many's rows, then the status: the clauses run in this order.
+(: query-many-status-rows (-[nondet]-> Number KB (List AnnotatedStatement) QueryBatchResult))
+(= (query-many-status-rows $steps $kb $statements) (query-many $steps $kb $statements))
+(= (query-many-status-rows $_steps $_kb $_statements) (query-status (query-run-status)))
+
+(: query-many-with-status (-[semidet]-> Number KB (List AnnotatedStatement) QueryOutcome))
+(= (query-many-with-status $steps $kb $statements)
+   (let $rows (collapse (query-many $steps $kb $statements))
+      (query-outcome (query-run-status) (query-answer-groups $statements $rows))))

@@ -155,7 +155,7 @@
                               (let* (($incumbents (sk-branch-values $slot $key $rhash $exclude false))
                                      ($_unpaid
                                         (if $build
-                                           (let $_counted (query_metric_increment rows-unpaid) (next-search-id sk_branch_unpaid))
+                                           (let* (($_counted (query_metric_increment rows-unpaid)) ($_out (next-search-id sk_ran_out))) (next-search-id sk_branch_unpaid))
                                            (sk-request-branch! $slot $hash $key $rhash $exclude)))
                                      ($_reader (sk-hold-branch-reader! $slot $key $rhash $exclude)))
                                  (chainer-first-or sk-none $incumbents)))))))))))))))
@@ -469,7 +469,7 @@
                          ($value (sk-reference-view $owner (sk-row-result $copy $read)))
                          ($_memo (sk-update-representative! $hash $key $rhash $given $exclude (sk-representative-result $value))))
                      $value)
-            sk-none))))
+            (progn (next-search-id sk_ran_out) sk-none)))))
          sk-none))))
 
 (: sk-representative-value
@@ -754,7 +754,7 @@
                (if (if (== (search-id-value sk_deferred) -1) (>= (search-id-value sk_eval_budget) 1) false)
                   (let* (($_opened (sk-open-claim!))
                          ($deepest (sk-deepen $given $target $wexclude $keys (== $approx sk-none) 1 ()))
-                         ($_closed (if (sk-close-claim!) (next-search-id sk_branch_unpaid) 0)))
+                         ($_closed (if (sk-close-claim!) (progn (next-search-id sk_ran_out) (next-search-id sk_branch_unpaid)) 0)))
                      (chainer-first-or $approx $deepest))
                   (progn (change-state! sk_deferred (max (search-id-value sk_deferred) (* 2 $base))) $approx))
                (if (if (== $approx sk-none) false (>= (fold-flat sk-given-depth-step 0 $given) (search-id-value sk_claim_depth)))

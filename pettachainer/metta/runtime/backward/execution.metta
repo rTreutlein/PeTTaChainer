@@ -16,6 +16,7 @@
 (= (execute-backward-run $steps $requested $materialize? $_unit)
    (let* (($_value-caches (sk-clear-query-values!))
           ($_frames (execution-reset-frames!))
+          ($_ran-out (change-state! sk_ran_out 0))
           ($goals (map-semidet execution-search-goal $requested))
           ($_seen (remove-data-rows! &sk_seen (quote ($hash $node))))
           ($_fresh (remove-data-rows! &sk_fresh (quote ($fhash $node))))
@@ -63,11 +64,22 @@
           ($world-unpaid (not (== (collapse (once (match &sk_world_done ($wh $wr)
              (if (if (space-row-present? &ctx_sk_stale ($wh $wr)) true
                      (space-row-present? &ctx_sk_given_pending ($wh $wr $_cost))) true (empty))))) ())))
+          ($_world-out (if $world-unpaid (next-search-id sk_ran_out) 0))
           ($_world-done (collapse (match &sk_world_done ($wkhash $wrhash)
              (let $_taken (remove-atom &sk_world_done ($wkhash $wrhash))
                 (if $world-unpaid () (remove-atom &sk_world_stale ($wkhash $wrhash)))))))
-          ($results (execution-context-results (* (sk-evaluation-per-step) $steps) $context-reserve $requested $main-results)))
+          ($results (execution-context-results (* (sk-evaluation-per-step) $steps) $context-reserve $requested $main-results))
+          ($_left (sk-note-left!)))
       $results))
+
+;; What a run leaves in the open: deliveries, branch requests, and search at or
+;; below a root.
+(: sk-note-left! (-[semidet]-> Number))
+(= (sk-note-left!)
+   (let* (($queued (collapse (once (match &sk_answer_queue ($_seq $_delivery) true))))
+          ($wanted (collapse (once (match &ctx_sk_branch_wanted ($_slot $_hash $_key $_rhash $_exclude) true))))
+          ($searching (collapse (once (match &sk_roots ($hash $root) (if (diagnostic-work? $hash $root) true (empty)))))))
+      (if (== ($queued $wanted $searching) (() () ())) 0 (next-search-id sk_ran_out))))
 
 
 ;; Forward-chains from caller-selected facts within `$units` row
@@ -209,7 +221,8 @@
              (if (=? (data $want-proof (numeric-tv $want-tv)) ((assuming $proof) (numeric-tv (public-tv (brand Proof $proof) (the TV $tv)))))
                 (brand RuntimeResult (data (Assuming $facts $type) ($kb MAIN Nil) (assuming $proof) $tv))
                 (empty)))))
-          ($_held (sk-stale-held!)))
+          ($_held (sk-stale-held!))
+          ($_left (sk-note-left!)))
       $results))
 
 (: execution-dirty-seed! (-[det]-> SkFact Atom))

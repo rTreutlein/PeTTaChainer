@@ -85,6 +85,7 @@
    sk_row_budget
    sk_eval_budget
    sk_branch_unpaid
+   sk_ran_out
    sk_branch_frame
    sk_branch_at
    sk_branch_budget
@@ -136,7 +137,9 @@
 
 ;; Batch query answers retain their input position and emit one row per
 ;; annotated answer. A root with no answer emits no row.
-(datatype QueryBatchResult (query-result Number Atom))
+(datatype QueryStatus ran-out did-not-run-out)
+(datatype QueryBatchResult (query-result Number Atom) (query-status QueryStatus))
+(datatype QueryOutcome (query-outcome QueryStatus (List (List Atom))))
 
 (datatype AggregateTVMode result-tv unit-stv)
 

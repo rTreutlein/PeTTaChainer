@@ -338,7 +338,7 @@
                 (sk-determined-row? $item)))
           true)
       (sk-work-off! $pass (once (sk-compute $pass $order (sk-work $rest $next) $item)))
-      (let* (($_unpaid (query_metric_increment rows-unpaid)) ($_stale (sk-mark-stale! $item)))
+      (let* (($_unpaid (query_metric_increment rows-unpaid)) ($_out (next-search-id sk_ran_out)) ($_stale (sk-mark-stale! $item)))
          (sk-work-off! $pass (sk-work $rest $next)))))
 
 ;; A query computes the rows and folds within two steps of a root from a
@@ -735,7 +735,7 @@
           ($_unanswered (sk-coarse-roots! false))
           ($_coarse (sk-coarse-roots! true)))
       (let $_paid (sk-pay-conditions! (+ $last 1))
-         (query_metric_set conditions-unpaid
+         (if (> (query_metric_set conditions-unpaid
             (+ (length (collapse (match &sk_needed ($dh $dk 0)
                   (match &ctx_sk_root_exhausted ($dh $stored-debt $_cap)
                      (if (=alpha $stored-debt $dk)
@@ -746,7 +746,8 @@
                (if (== $pr -1)
                   (match &sk_keys ($ph $pk) (if (sk-needed? $ph $pk) true (empty)))
                   (match &sk_row ($ph $pk $pr (sk-row $_pi $_pc $pp $_ps))
-                     (if (sk-needed? $ph $pk) (if (sk-readable-row? $ph $pk $pr $pp) true (empty)) (empty))))))))))))
+                     (if (sk-needed? $ph $pk) (if (sk-readable-row? $ph $pk $pr $pp) true (empty)) (empty))))))))) 0)
+            (next-search-id sk_ran_out) 0))))
 
 (: sk-clash-waiting (-[semidet]-> Number SkeletonKey Number SkeletonFilter SkeletonRow SkeletonValue))
 (= (sk-clash-waiting $hash $key $rhash $filter $row)

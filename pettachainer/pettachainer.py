@@ -704,6 +704,30 @@ class PeTTaChainer:
         queries = list(atoms)
         if not queries:
             return []
+        return _group_query_many_results(
+            self._batch_rows("query-many", queries, steps, timeout_sec),
+            len(queries),
+        )
+
+    @_timed
+    def query_many_with_status(
+        self,
+        atoms: Sequence[str],
+        steps: int = 100,
+        timeout_sec: Optional[float] = 10,
+    ) -> dict:
+        """``query_many``'s answers and whether this call ran out of budget or
+        refused work, ``"ran-out"`` or ``"did-not-run-out"``. The second does
+        not mean the answers are correct (docs/metta/API.md, "Budget status").
+        """
+        queries = list(atoms)
+        *rows, status = self._batch_rows("query-many-status-rows", queries, steps, timeout_sec)
+        return {
+            "answers": _group_query_many_results(rows, len(queries)),
+            "status": status[len("(query-status "):-1],
+        }
+
+    def _batch_rows(self, fn: str, queries: List[str], steps: int, timeout_sec: Optional[float]) -> List[str]:
         source = self._batch_source(queries, steps)
         with self._query_metrics(
             kind="query_many",
@@ -711,10 +735,7 @@ class PeTTaChainer:
             steps=steps,
             timeout_sec=timeout_sec,
         ):
-            return _group_query_many_results(
-                self._run_query("query-many", source, timeout_sec),
-                len(queries),
-            )
+            return self._run_query(fn, source, timeout_sec)
 
     @_timed
     def query_many_refs(

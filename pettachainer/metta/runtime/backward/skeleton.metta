@@ -734,6 +734,13 @@
    (let $hash (sk-node-hash $node)
       (not (== (collapse (once (match &sk_roots ($hash $root) (if (=alpha $root $node) true (empty))))) ()))))
 
+;; Whether the search still has work at or below a node: it is unexpanded, or
+;; the pending-work index holds work below it. A root never reached has no
+;; entry in the index yet.
+(: diagnostic-work? (-[det]-> Number SkPattern Bool))
+(= (diagnostic-work? $hash $node)
+   (if (sk-pending? $hash $node) true (if (sk-expanded? $hash $node) false (sk-root? $node))))
+
 ;; Work left over by an earlier query waits with its node and resumes when a
 ;; later walk reaches that node, so it never spends an unrelated query's
 ;; budget: parked deliveries are queued again, and while rows are allowed,
