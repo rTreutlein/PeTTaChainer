@@ -721,6 +721,8 @@ class PeTTaChainer:
         not mean the answers are correct (docs/metta/API.md, "Budget status").
         """
         queries = list(atoms)
+        if not queries:
+            return {"answers": [], "status": "did-not-run-out"}
         *rows, status = self._batch_rows("query-many-status-rows", queries, steps, timeout_sec)
         return {
             "answers": _group_query_many_results(rows, len(queries)),

@@ -65,8 +65,9 @@ from pettachainer import PeTTaChainer
 from tests.test_deep_conditioning import plant
 h = PeTTaChainer()
 plant(h, 4)
-print(json.dumps([h.query_many_with_status(["(: $p (Degraded plant t4) $tv)"], int(steps), timeout_sec=0)["status"]
-                  for steps in sys.argv[1:]]))
+statuses = [h.query_many_with_status(["(: $p (Degraded plant t4) $tv)"], int(steps), timeout_sec=0)["status"]
+            for steps in sys.argv[1:]]
+print(json.dumps(statuses + [h.query_many_with_status([], 0, timeout_sec=0)["status"]]))
 """
 
 TIMED = """
@@ -150,7 +151,7 @@ class QueryStatusTests(unittest.TestCase):
                 self.assertEqual(self.status(h, query, 100), DID_NOT)
 
     def test_unpaid_rows_and_conditions_ran_out_on_every_call(self):
-        self.assertEqual(last_json(PLANT, 400, 400, 400), [RAN_OUT] * 3)
+        self.assertEqual(last_json(PLANT, 400, 400, 400), [RAN_OUT] * 3 + [DID_NOT])
 
     def test_did_not_run_out_is_not_correct(self):
         # #172: the exact value of (P a) is 0; nothing here ran out, and the
@@ -165,7 +166,7 @@ class QueryStatusTests(unittest.TestCase):
     def test_a_status_is_of_its_own_call(self):
         statuses = last_json(PLANT, 400, 20000, 20000)
         self.assertEqual(statuses[0], RAN_OUT)
-        self.assertEqual(statuses[-1], DID_NOT)
+        self.assertEqual(statuses[-2], DID_NOT)
 
     def test_an_assuming_context_reports_its_own_search(self):
         rules = ["(: r1 (Implication (A $x) (B $x)) (CTV (STV 0.9 0.9) (STV 0.2 0.9)))",
