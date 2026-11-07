@@ -129,7 +129,8 @@ class QueryStatusTests(unittest.TestCase):
     def test_added_work_does_not_grow_with_the_answers(self):
         def added(n):
             return last_json(WORK, "query_many_with_status", n) - last_json(WORK, "query_many", n)
-        self.assertEqual(added(10), added(1000))
+        # Inference counts shift by a few across SWI-Prolog versions; growth with the answers would be ~100x.
+        self.assertLessEqual(added(1000), added(10) + 5)
 
     def test_budget_zero_with_work_left_ran_out(self):
         h = self.handler(["(: a (A x) (STV 0.8 0.9))"])

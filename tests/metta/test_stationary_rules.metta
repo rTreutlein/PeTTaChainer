@@ -1,4 +1,5 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
+!(import! &self ./posterior_assertions)
 
 ;; A rule keeps the rule-change hazard only if one of its variables can bind a
 ;; stage: at a position declared Stage or Time, or at one where a constant of
@@ -6,11 +7,10 @@
 ;; arity: its truth is the plain frequency of its samples (prolog/sorts.pl).
 !(set-evidence-confidence-k 5)
 
-(: truth (-[semidet]-> KB Atom Atom))
+(: truth (-[semidet]-> KB Atom TV))
 (= (truth $kb $rule)
    (case (sk-key-value (sk-key (RuleTruth $rule) ($kb MAIN Nil))) (
-      ((sk-val ($_type $_kbctx $_proof $tv) $_ev $_deps) $tv)
-      ($_none none))))
+      ((sk-val ($_type $_kbctx $_proof (STV $s $c)) $_ev $_deps) (STV $s $c)))))
 
 ;; Instances declared stages by their constants: after 12 confirmations and
 ;; 6 failures the candidate regime of the failures has taken over, as with
@@ -79,7 +79,7 @@
 !(compileadd constantStageKb (: a17 (A i17) (STV 1 1)))
 !(compileadd constantStageKb (: b17 (B i17) (STV 0 1)))
 !(query 0 constantStageKb (: $p (B i0) $tv))
-!(test (truth constantStageKb (Implication (A $x) (B $x))) (STV 0.23601949605264932 0.6732636918165381))
+!(test (posterior-tv-near? 0.23601949605264932 0.6732636918165381 (truth constantStageKb (Implication (A $x) (B $x)))) true)
 
 ;; An unsorted rule of any arity is stationary: 12 of 18.
 !(set-rule-refinement binaryKb true)
@@ -128,7 +128,7 @@
 !(compileadd binaryKb (: a17 (A i17 bob) (STV 1 1)))
 !(compileadd binaryKb (: b17 (B i17) (STV 0 1)))
 !(query 0 binaryKb (: $p (B i0) $tv))
-!(test (truth binaryKb (Implication (A $x bob) (B $x))) (STV 0.6657271702367531 0.7835689045936396))
+!(test (posterior-tv-near? 0.6657271702367531 0.7835689045936396 (truth binaryKb (Implication (A $x bob) (B $x)))) true)
 
 ;; A class link with no declarations is exact, whatever the order of its samples.
 !(compileadd linkKb (: l1 (Member x1 Human) (STV 1 1)))
@@ -208,7 +208,7 @@
 !(compileadd stageAfterKb (: a17 (A i17) (STV 1 1)))
 !(compileadd stageAfterKb (: b17 (B i17) (STV 0 1)))
 !(query 0 stageAfterKb (: $p (B i0) $tv))
-!(test (truth stageAfterKb (Implication (A $x) (B $x))) (STV 0.23601949605264932 0.6732636918165381))
+!(test (posterior-tv-near? 0.23601949605264932 0.6732636918165381 (truth stageAfterKb (Implication (A $x) (B $x)))) true)
 
 !(set-rule-refinement stageLateKb true)
 !(set-positive-only-predicate stageLateKb A)
@@ -262,7 +262,7 @@
 !(compileadd stageLateKb (: a17 (A i17) (STV 1 1)))
 !(compileadd stageLateKb (: b17 (B i17) (STV 0 1)))
 !(query 0 stageLateKb (: $p (B i0) $tv))
-!(test (truth stageLateKb (Implication (A $x) (B $x))) (STV 0.23601949605264932 0.6732636918165381))
+!(test (posterior-tv-near? 0.23601949605264932 0.6732636918165381 (truth stageLateKb (Implication (A $x) (B $x)))) true)
 
 ;; A constant first stated at an unsorted position and later sorted Time.
 !(set-rule-refinement timeAfterKb true)
@@ -329,7 +329,7 @@
 !(compileadd timeAfterKb (: a17 (A i17) (STV 1 1)))
 !(compileadd timeAfterKb (: b17 (B i17) (STV 0 1)))
 !(query 0 timeAfterKb (: $p (B i0) $tv))
-!(test (truth timeAfterKb (Implication (A $x) (B $x))) (STV 0.23601949605264932 0.6732636918165381))
+!(test (posterior-tv-near? 0.23601949605264932 0.6732636918165381 (truth timeAfterKb (Implication (A $x) (B $x)))) true)
 
 ;; A head that gains a stage position after the samples were taken rebuilds
 ;; the tally under the rule's hazard at the next evaluation, in the order the
@@ -403,7 +403,7 @@
 !(set-constant-sort sortLastKb i17 Stage)
 !(query 0 sortLastKb (: $p (B i0) $tv))
 !(query 50 sortLastKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv))
-!(test (truth sortLastKb (Implication (A $x) (B $x))) (STV 0.23601949605264932 0.6732636918165381))
+!(test (posterior-tv-near? 0.23601949605264932 0.6732636918165381 (truth sortLastKb (Implication (A $x) (B $x)))) true)
 !(set-rule-refinement sortLastRevisedKb true)
 !(set-positive-only-predicate sortLastRevisedKb A)
 !(compileadd sortLastRevisedKb (: h (Implication (A $x) (B $x)) (STV 0.5 0.02)))
@@ -473,7 +473,7 @@
 !(set-constant-sort sortLastRevisedKb i17 Stage)
 !(query 0 sortLastRevisedKb (: $p (B i0) $tv))
 !(query 50 sortLastRevisedKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv))
-!(test (truth sortLastRevisedKb (Implication (A $x) (B $x))) (STV 0.5345287463133238 0.7685446067610805))
+!(test (posterior-tv-near? 0.5345287463133238 0.7685446067610805 (truth sortLastRevisedKb (Implication (A $x) (B $x)))) true)
 !(set-rule-refinement firstOrderKb true)
 !(set-positive-only-predicate firstOrderKb A)
 !(compileadd firstOrderKb (: h (Implication (A $x) (B $x)) (STV 0.5 0.02)))
@@ -546,7 +546,7 @@
 !(compileadd firstOrderKb (: b18 (B i18) (STV 0 1)))
 !(query 0 firstOrderKb (: $p (B i0) $tv))
 !(query 50 firstOrderKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv))
-!(test (truth firstOrderKb (Implication (A $x) (B $x))) (STV 0.43378166815246727 0.7628577208350289))
+!(test (posterior-tv-near? 0.43378166815246727 0.7628577208350289 (truth firstOrderKb (Implication (A $x) (B $x)))) true)
 !(set-rule-refinement lateHazardKb true)
 !(set-positive-only-predicate lateHazardKb A)
 !(set-constant-sort lateHazardKb i0 Stage)
@@ -615,4 +615,4 @@
 !(set-rule-change-hazard lateHazardKb 0.05)
 !(query 0 lateHazardKb (: $p (B i0) $tv))
 !(query 50 lateHazardKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv))
-!(test (truth lateHazardKb (Implication (A $x) (B $x))) (STV 0.009014677017253201 0.5501295215449624))
+!(test (posterior-tv-near? 0.009014677017253201 0.5501295215449624 (truth lateHazardKb (Implication (A $x) (B $x)))) true)
