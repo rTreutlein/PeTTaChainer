@@ -84,6 +84,22 @@ print(json.dumps(out))
 """
 
 
+RAW = """
+import json, sys
+import janus_swi as janus
+from pettachainer import PeTTaChainer
+n, fn = int(sys.argv[1]), sys.argv[2]
+h = PeTTaChainer()
+h.add_atoms_no_check([f"(: f{i} (P a{i}) (STV 1 1))" for i in range(n)])
+roots = " ".join(["(: $p (P $x) $tv)"] + [f"(: $p (Missing a{i}) $tv)" for i in range(100)])
+for _ in range(2):
+    h._call(fn, [f"20000 {h.kb} ({roots})"])
+before = janus.query_once("statistics(inferences, I)")["I"]
+h._call(fn, [f"1 {h.kb} ({roots})"])
+print(json.dumps(janus.query_once("statistics(inferences, I)")["I"] - before))
+"""
+
+
 def last_json(script, *args):
     run = subprocess.run([sys.executable, "-c", script, *map(str, args)], capture_output=True, text=True, check=True)
     return json.loads(run.stdout.splitlines()[-1])
@@ -197,6 +213,20 @@ class QueryStatusTests(unittest.TestCase):
         self.assertEqual(h._call("query-many-with-status", [f"100 {h.kb} ((: $p (A x) $tv) (: $p (Z x) $tv))"]),
                          [f"(query-outcome {DID_NOT} (((: a (A x) (STV 0.8 0.9))) ()))"])
         self.assertEqual(h._call("query-many-with-status", [f"100 {h.kb} ()"]), [f"(query-outcome {DID_NOT} ())"])
+
+    def test_the_one_term_form_groups_in_one_pass(self):
+        def added(n):
+            return last_json(RAW, n, "query-many-with-status") - last_json(RAW, n, "query-many")
+        grown = added(1000) - added(10)
+        # Printing one term against many rows only saves work; no scan per root.
+        self.assertLessEqual(grown, 0)
+
+    def test_the_one_term_form_keeps_positions_and_binding_order(self):
+        h = self.handler(["(: a (A x) (STV 0.8 0.9))", "(: b (A y) (STV 0.7 0.9))", "(: c (B x) (STV 0.6 0.9))"])
+        batch = "((: $p (Z x) $tv) (: $p (A $v) $tv) (: $p (Z y) $tv) (: $p (B x) $tv) (: $p (Z z) $tv))"
+        rows = h.query_many(["(: $p (A $v) $tv)"], 100, timeout_sec=0)[0]
+        self.assertEqual(h._call("query-many-with-status", [f"100 {h.kb} {batch}"]),
+                         [f"(query-outcome {DID_NOT} (() ({' '.join(rows)}) () ((: c (B x) (STV 0.6 0.9))) ()))"])
 
     def test_an_error_leaves_the_next_status_intact(self):
         h = self.handler(["(: a (A x) (STV 0.8 0.9))"])

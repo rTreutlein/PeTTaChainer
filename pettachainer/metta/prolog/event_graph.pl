@@ -363,9 +363,14 @@ graph_proof(Models, Factors, Scope, [node, [conjunction|Proofs]], Evidence, Deps
     'deps-join'(Ds, Deps).
 
 'query-answer-groups'(Statements, Rows, Groups) :-
-    findall(Answers,
-            ( nth0(I, Statements, _), findall(Answer, member(['query-result', I, Answer], Rows), Answers) ),
-            Groups).
+    findall(I-Answer, member(['query-result', I, Answer], Rows), Pairs),
+    keysort(Pairs, Sorted), group_pairs_by_key(Sorted, Answered),
+    answer_groups(Statements, 0, Answered, Groups).
+
+answer_groups([], _, _, []).
+answer_groups([_|Statements], I, Answered, [Answers|Groups]) :-
+    ( Answered = [I-Answers|Rest] -> true ; Answers = [], Rest = Answered ),
+    Next is I + 1, answer_groups(Statements, Next, Rest, Groups).
 
 % Cache lifecycle belongs to the graph; force-reset requests this operation.
 event_graph_reset :-
