@@ -35,6 +35,14 @@
    (let $left (search-id-value $counter)
       (if (<= $left 0) false (progn (change-state! $counter (- $left $cost)) true))))
 
+;; Pays a cost counted as stored (term-cost, row-cost). One unit takes a
+;; positive balance, as any payment does; a dearer term must fit whole. A
+;; count stopped at the balance reports a cost over it, so the term is
+;; refused, never paid at the part counted.
+(: sk-pay-cost! (-[det]-> CounterKey Number Bool))
+(= (sk-pay-cost! $counter $cost)
+   (if (if (<= $cost 1) true (<= $cost (search-id-value $counter))) (sk-take! $counter $cost) false))
+
 ;; A row or fold within two steps of a root adds to a query's reserve (see
 ;; sk-near-root-reserve-take!); a forward run has none.
 (: sk-reserve-near! (-[det]-> Number Atom))
@@ -63,12 +71,14 @@
       (evaluation-slice $before $room)))
 
 ;; Returning a slice debits exactly its work to the containing allowance and
-;; optionally its root or branch tier. Queue bookkeeping costs at least one.
+;; optionally its root or branch tier; a reserve slice is paid from the
+;; near-root reserve instead. Queue bookkeeping costs at least one.
 (: execution-close-slice! (-[det]-> EvaluationSlice EvaluationTier Number))
 (= (execution-close-slice! (evaluation-slice $before $room) $tier)
    (let* (($spent (- $room (search-id-value sk_eval_budget)))
-          ($_restore (change-state! sk_eval_budget (- $before $spent)))
+          ($_restore (change-state! sk_eval_budget (if (== $tier reserve-slice) $before (- $before $spent))))
           ($_tier (case $tier (
+             (reserve-slice (change-state! sk_near_reserve (- (search-id-value sk_near_reserve) $spent)))
              (root-slice (change-state! sk_root_claim_budget (- (search-id-value sk_root_claim_budget) $spent)))
              (branch-slice (change-state! sk_branch_budget (- (search-id-value sk_branch_budget) (max 1 $spent))))
              (ordinary-slice true)))))
@@ -98,11 +108,18 @@
 
 (: sk-open-claim! (-[det]-> Atom))
 (= (sk-open-claim!)
-   (progn (change-state! sk_claim_state 0) (change-state! sk_claim_cut 0) ()))
+   (progn (change-state! sk_claim_state 0) (change-state! sk_claim_depth 0) (change-state! sk_claim_cut 0) ()))
 (: sk-close-claim! (-[det]-> Bool))
 (= (sk-close-claim!)
    (let $exhausted (== (search-id-value sk_claim_state) -2)
       (progn (change-state! sk_claim_state -1) (change-state! sk_claim_cut 0) $exhausted)))
+
+;; Whether a cutset pass runs: a claim that can still pay, past the depth 0
+;; of a replay's claim (sk-replay-turn!), whose reads keep the reading they
+;; have outside a claim.
+(: sk-conditioning? (-[det]-> Bool))
+(= (sk-conditioning?)
+   (if (>= (search-id-value sk_claim_state) 0) (> (search-id-value sk_claim_depth) 0) false))
 
 
 (: sk-evaluation-free-depth (-[det]-> Number))

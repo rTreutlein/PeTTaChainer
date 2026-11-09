@@ -131,7 +131,7 @@
                             ($mandatory (deps-join (map-flat deps-key (map-semidet index-hash $inputs)))))
                         (if (sk-excludes? $exclude $mandatory)
                            (if $build sk-none (chainer-first-or sk-none (sk-branch-values $slot $key $rhash $exclude false)))
-                           (if (if $build (sk-take! sk_eval_budget (case $key (((sk-key $type $_kbctx) (term-cost $type)) ($_fold 1)))) false)
+                           (if (if $build (sk-pay-cost! sk_eval_budget (case $key (((sk-key $type $_kbctx) (term-cost $type (search-id-value sk_eval_budget))) ($_fold 1)))) false)
                               (let* (($_counted (query_metric_increment row-computes))
                                      ($_build (query_metric_increment branch-builds))
                                      ($incumbent (sk-branch-values $slot $key $rhash $exclude false))
@@ -354,7 +354,7 @@
 (= (sk-pinned-value $given $key $filter $exclude)
    (let* (($branch (case $key (
                      ((sk-key $_type $_ctx)
-                        (if (>= (search-id-value sk_claim_state) 0) (> (fold-flat sk-given-depth-step 0 $given) 0) false))
+                        (if (sk-conditioning?) (> (fold-flat sk-given-depth-step 0 $given) 0) false))
                      ($_fold false))))
           ($value (if $branch (sk-given-merge $given $key $filter $exclude) (sk-value $key $filter $exclude))))
       (if (if $branch false (sk-given-meets? $given $value)) (sk-given-merge $given $key $filter $exclude)
@@ -536,11 +536,16 @@
                            (sk-branch-excludes? (deps-key $hash))) false (sk-settled? $key))
                   (if (sk-founded? $hash $key)
                      (if (if (== $policy sk-representative-read) true (== $pin ())) sk-none
-                        (sk-merge-key $hash $key $filter $exclude $given
-                           (fold-semidet sk-cons-step ()
-                              (fold-semidet (sk-row-view-step (append-flat $pin $given) $exclude $hash $key) ()
-                                 (collapse (match &sk_row ($hash $stored $rhash $row)
-                                    (if (=alpha $stored $key) ($rhash $row) (empty))))))))
+                        (case (sk-replay-turn!) (
+                           (replay-owed sk-none)
+                           ($turn
+                              (let $merged
+                                    (sk-merge-key $hash $key $filter $exclude $given
+                                       (fold-semidet sk-cons-step ()
+                                          (fold-semidet (sk-row-view-step (append-flat $pin $given) $exclude $hash $key) ()
+                                             (collapse (match &sk_row ($hash $stored $rhash $row)
+                                                (if (=alpha $stored $key) ($rhash $row) (empty)))))))
+                                 (if (sk-replay-done! $turn) $merged sk-none))))))
                      (sk-unfounded-value $hash $key))
                   sk-none))
             sk-none))
@@ -748,13 +753,16 @@
                                  (chainer-first-or $waiting $deepest))))
                         (chainer-first-or $waiting (sk-mix-on $given $target $wexclude $keys))))
                   (sk-wait! $khash $rhash $cost $waiting))))
-            ;; Outside a claim, only a row the conditions phase granted opens
-            ;; one; other rows take the approximation and wait (sk-compute).
-            (if (== (search-id-value sk_claim_state) -1)
-               (if (if (== (search-id-value sk_deferred) -1) (>= (search-id-value sk_eval_budget) 1) false)
-                  (let* (($_opened (sk-open-claim!))
-                         ($deepest (sk-deepen $given $target $wexclude $keys (== $approx sk-none) 1 ()))
-                         ($_closed (if (sk-close-claim!) (progn (next-search-id sk_ran_out) (next-search-id sk_branch_unpaid)) 0)))
+            ;; A pinned read runs inside a claim (sk-claim-charge!). In a claim
+            ;; a replay opened (sk-replay-turn!), whose depth is 0, only a row
+            ;; the conditions phase granted conditions, and deepens as a claim
+            ;; of its own would; other rows take the approximation and wait
+            ;; (sk-compute). The conditionings nested in it cut at its depth.
+            (if (== (search-id-value sk_claim_depth) 0)
+               (if (== (search-id-value sk_deferred) -1)
+                  (let* (($deepest (sk-deepen $given $target $wexclude $keys (== $approx sk-none) 1 ()))
+                         ($_outer (change-state! sk_claim_depth 0))
+                         ($_uncut (change-state! sk_claim_cut 0)))
                      (chainer-first-or $approx $deepest))
                   (progn (change-state! sk_deferred (max (search-id-value sk_deferred) (* 2 $base))) $approx))
                (if (if (== $approx sk-none) false (>= (fold-flat sk-given-depth-step 0 $given) (search-id-value sk_claim_depth)))
@@ -880,9 +888,14 @@
             (case (sk-premise-step $pin $given $siblings $shared true $policy $state $premise) (
                (sk-fail
                   (if (== $state sk-fail) sk-fail
-                     (sk-premise-step $pin (append-flat $completed $given)
-                        (hash-set (fold-flat (sk-without-hash-step $khash) () $siblings))
-                        $shared true $policy $state $premise)))
+                     (case (sk-replay-turn!) (
+                        (replay-owed sk-fail)
+                        ($turn
+                           (let $read
+                                 (sk-premise-step $pin (append-flat $completed $given)
+                                    (hash-set (fold-flat (sk-without-hash-step $khash) () $siblings))
+                                    $shared true $policy $state $premise)
+                              (if (sk-replay-done! $turn) $read sk-fail)))))))
                ($read $read))))))))
 
 (= (sk-merge-facts $combine $ignore $a $ev-a $deps-a $b $ev-b $deps-b)

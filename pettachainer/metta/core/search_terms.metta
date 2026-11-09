@@ -88,8 +88,12 @@
 (datatype SkeletonDelivery (sk-delivery SkPattern SkeletonKey))
 ;; a delivery taken off the queue with its number
 (datatype SkeletonQueued (sk-queued Number SkeletonDelivery))
-(datatype SkeletonJoin (sk-join SkeletonWaiter SkeletonKey))
-(datatype SkeletonDeferred (sk-deferred SkPattern Number SkFact (List SkPattern) (List SkeletonKey)))
+;; A join to read its premise's keys again: its owner, rule and the identity
+;; of its stored waiter
+;; (sk-defer-join!).
+(datatype SkeletonJoin (sk-join SkPattern Number Number))
+;; A rule to start again at its owner (sk-defer-rule!).
+(datatype SkeletonDeferred (sk-deferred SkPattern Number))
 (datatype SkeletonPending (sk-pending-rule Number) (sk-pending-fact SkeletonKey))
 
 ;; Store schemas and indexing contracts: prolog/store_schema.pl.
@@ -137,6 +141,16 @@
    (case $pattern (
       ((CPU $_fun $args $_res) (index-hash $args))
       (($type $kbctx $_proof $_tv) (index-hash (sk-key $type $kbctx))))))
+
+;; Whether two patterns are the node one hash stands for: the same statement
+;; and context, or the same fold arguments, whatever their proof and value
+;; patterns. The hash only finds candidates.
+(: sk-same-node? (-[det]-> SkPattern SkPattern Bool))
+(= (sk-same-node? $a $b)
+   (case (data $a $b) (
+      (((CPU $_f $args $_r) (CPU $_g $other $_s)) (=alpha $args $other))
+      ((($type $kbctx $_p $_t) ($other-type $other-kbctx $_q $_u)) (=alpha (sk-key $type $kbctx) (sk-key $other-type $other-kbctx)))
+      ($_mixed false))))
 
 (datatype SkeletonNodeAt (sk-node-at Number SkPattern))
 

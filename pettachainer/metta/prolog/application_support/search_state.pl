@@ -20,9 +20,12 @@
     ; Subscription = [] ).
 
 'sk-functional-delivered!'([], true).
+% A waiter a deferred join holds by its identity (sk-defer-join!) stays until
+% that join is read again: its delivery was not made.
 'sk-functional-delivered!'([H,N,Ref], true) :-
     ( '&sk_answer'(H, Stored, _), attribute_free_variant(Stored, N),
-      clause(sk_wait_payload(_,_,_,_), true, Ref)
+      clause(sk_wait_payload(_,_,_,_), true, Ref),
+      \+ ( sk_wait_id_of(Ref, Id), '&sk_deferred_joins'(_, _, ['sk-join', _, _, Id]) )
     -> sk_retire_wait_ref(Ref) ; true ).
 
 sk_queue_retirement(H, Key) :-
@@ -95,6 +98,16 @@ sk_search_owned(H, Key, Space, Ref) :-
       ( sk_search_key(Conclusion, _, [T,C]) -> 'sk-retire-known!'(T,C,true) ; true ),
       New = true ).
 
+% A join whose row could not be paid for forgets it extended, so the restart
+% of its rule extends it again (sk-defer-rule!).
+'sk-unstore-join!'(Digest, Conclusion, true) :-
+    ( Conclusion = [Head|_], Head == 'CPU'
+    -> Conclusion = [_,Fun,Args,_],
+       ( Fun == 'GroupedFoldAllCompiled' -> Key = ['sk-group',Args] ; Key = ['sk-fold',Args] )
+    ; Conclusion = [Type,Context|_], Key = ['sk-key',Type,Context] ),
+    'link-digest'(Key, KeyDigest),
+    ( retract('&sk_join_link'(KeyDigest, Digest)) -> true ; true ).
+
 % A waiter batch already needs this digest for its child link. Retain a
 % lease by clause reference, so retraction never hashes the partial again.
 % Reopening an evicted cache reuses the subscription and its child lease.
@@ -115,6 +128,7 @@ sk_search_owned(H, Key, Space, Ref) :-
       Template = Waiter ),
     assertz(sk_wait_payload(H, N, TemplateId, Bindings), Ref),
     variant_hash([N, TemplateId|Bindings], WaitHash), assertz(sk_wait_key(WaitHash, Ref)),
+    flag(sk_wait_id, WaitId, WaitId + 1), assertz(sk_wait_id(WaitId, Ref)), assertz(sk_wait_id_of(Ref, WaitId)),
     assertz(sk_child_users(D, Ref)), sk_search_index(C, sk_wait_payload, Ref),
     ( N = [Type,Context|_], functional_key(Type, Context, Key), term_hash(Key, Hash),
       \+ functional_value(Hash, Key, _)
@@ -141,8 +155,8 @@ sk_retire_wait_ref(Ref) :-
       sk_search_index(Conclusion, sk_child_claim, Ref),
       ( sk_search_key(Conclusion, _, [Type, Context]) -> 'sk-retire-known!'(Type, Context, true) ; true ) ).
 
-sk_search_conclusion('&sk_deferred_joins', '&sk_deferred_joins'(_, _, ['sk-join', ['sk-partial', _, _, C|_], _]), C).
-sk_search_conclusion('&sk_deferred', '&sk_deferred'(_, _, ['sk-deferred', _, _, C|_]), C).
+sk_search_conclusion('&sk_deferred_joins', '&sk_deferred_joins'(_, _, ['sk-join', C|_]), C).
+sk_search_conclusion('&sk_deferred', '&sk_deferred'(_, _, ['sk-deferred', C|_]), C).
 
 sk_search_changed(Space, assertz, Ref) :- !,
     ( sk_search_conclusion(Space, Row, C), clause(Row, true, Ref)
@@ -155,6 +169,7 @@ sk_search_changed(Space, retract, Ref) :- !,
     (   Space == sk_wait_payload
     ->  clause(sk_wait_payload(_, N, TemplateId, Bindings), true, Ref),
         variant_hash([N, TemplateId|Bindings], WaitHash), retract(sk_wait_key(WaitHash, Ref)),
+        ( retract(sk_wait_id_of(Ref, WaitId)) -> retract(sk_wait_id(WaitId, Ref)) ; true ),
         ( once((clause(sk_wait_payload(_, _, TemplateId, _), true, Other), Other \== Ref)) -> true
         ; retractall(sk_wait_template(_, _, TemplateId, _, _)) ),
         ( sk_join_wait(Ref, _) -> assertz(sk_retire_wait(Ref)) ; true ),
@@ -243,7 +258,7 @@ sk_retire_clause(Space, Ref) :-
     ->  assertz('&sk_fact_watch'(H, D, N))
     ;   true ),
     (   memberchk(Space, ['&sk_deferred_joins', '&sk_deferred']), clause(Row, true, Ref)
-    ->  (   Row = '&sk_deferred_joins'(H, _, ['sk-join', ['sk-partial', O|_], _])
+    ->  (   Row = '&sk_deferred_joins'(H, _, ['sk-join', O|_])
         ;   Row = '&sk_deferred'(H, _, ['sk-deferred', O|_]) ),
         'sk-work!'(H, O, -1, [])
     ;   true ),

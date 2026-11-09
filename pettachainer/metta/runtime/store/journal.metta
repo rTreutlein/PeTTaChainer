@@ -14,7 +14,8 @@
       ()))
 
 ;; Claim state: -1 outside a claim, 0/1 prepaid row credits, -2 exhausted.
-;; sk_claim_depth is the pass's cutset depth; sk_claim_cut is 2 once a nested
+;; sk_claim_depth is the pass's cutset depth, 0 in a replay's claim until its
+;; first conditioning deepens (sk-conditioned); sk_claim_cut is 2 once a nested
 ;; conditioning was cut at that depth, 1 once one stood in its approximation
 ;; otherwise (see sk-deepen).
 !(change-state! sk_claim_state -1)

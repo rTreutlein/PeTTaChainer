@@ -277,13 +277,14 @@ class DeepConditioningTests(unittest.TestCase):
             "_Z=['sk-key',['Z',a],[Kb,'MAIN','Nil']], "
             "'index-hash'(_Pin,_P), 'index-hash'(_Z,_E), "
             "'change-state!'(sk_eval_budget,1000,_), "
-            "setup_call_cleanup('sk-open-claim!'(_), ("
+            "setup_call_cleanup(('sk-open-claim!'(_), 'change-state!'(sk_claim_depth,1,_)), ("
             "'sk-pinned-value'([['sk-given',_P,_Pin,true]],_Key,'sk-any-filter',[_E],_Raw), "
             "'sk-calibrated-value'([['sk-given',_P,_Pin,true]],_Key,'sk-any-filter',[_E],_Raw, "
             " ['sk-val',[_,_,_,['STV',Strength,_]],_,_Deps]), "
             "'deps-meet?'([_E],_Deps,ReadsExcluded)), 'sk-close-claim!'(_))",
             {'Kb': handler.kb},
         )
+        # A cutset pass at depth 1, not a replay's claim (sk-conditioning?).
         # The old selection returned B=.38 through the report alone. Pinning W
         # removes the current prediction's Z dependency, making it admissible.
         # Pinning W gives prior X=.9. The .3 report supplies odds 3/7
@@ -641,7 +642,8 @@ print(json.dumps({'tv': [r.tv for r in rows], 'metrics': metrics}, sort_keys=Tru
             self.assertLess(abs(answer.tv[1]-float(exact_t8(4))), .0011)
             metrics = handler.last_query_metrics()
             self.assertEqual(metrics['conditions_unpaid'], 0)
-            self.assertEqual(metrics['conditioned_evaluations'], 308 if repeat == 0 else 0)
+            # The 308-row cut and 10 rows of completion replays under pins (#175).
+            self.assertEqual(metrics['conditioned_evaluations'], 318 if repeat == 0 else 0)
 
     def test_cached_summary_can_be_promoted_to_a_root_claim(self):
         handler = PeTTaChainer()
@@ -828,7 +830,9 @@ print(json.dumps({'tv': [r.tv for r in rows], 'metrics': metrics}, sort_keys=Tru
         handler.set_query_metrics(True)
         query = ['(: $p (Degraded plant t4) $tv)']
         handler.query_many_refs(query, steps=300)
-        self.assertEqual(handler.last_query_metrics()['conditioned_evaluations'], 150)
+        # The root's slice, 75 units, and the 10 rows the antecedent
+        # completions' replays under their pins take in claims (#175).
+        self.assertEqual(handler.last_query_metrics()['conditioned_evaluations'], 160)
         handler.query_many_refs(query, steps=300)
         self.assertEqual(handler.last_query_metrics()['conditioned_evaluations'], 0)
         answer = handler.query_many_refs(query, steps=3000)[0][0]

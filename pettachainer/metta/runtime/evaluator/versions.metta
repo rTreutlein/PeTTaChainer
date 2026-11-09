@@ -692,7 +692,7 @@
 ;; after rebuilding it. Closed unfounded reads are not cutset branches.
 (: sk-admission-exclusions (-[det]-> (List SkeletonGiven) (List Number) (List Number)))
 (= (sk-admission-exclusions $given $exclude)
-   (if (if (>= (search-id-value sk_claim_state) 0) (> (fold-flat sk-given-depth-step 0 $given) 0) false) () $exclude))
+   (if (if (sk-conditioning?) (> (fold-flat sk-given-depth-step 0 $given) 0) false) () $exclude))
 
 ;; A premise value whose evidence overlaps what the row already uses is
 ;; replaced by the merge of the key's leaves and views that do not overlap it:
@@ -818,13 +818,13 @@
                 ($hash (sk-node-hash $node)))
             (if (sk-expanded? $hash $node)
                (if (== (collapse (once (superpose (
-                         (match &sk_deferred_joins ($hash $jhash (sk-join (sk-partial $join-owner $join-rule $jc $jd $jr $jk) $answer))
-                            (if (rule-live? $join-rule) true
-                               (let* (($_removed (remove-variant-row! &sk_deferred_joins (quote ($hash $jhash (sk-join (sk-partial $join-owner $join-rule $jc $jd $jr $jk) $answer)))))
+                         (match &sk_deferred_joins ($hash $jhash (sk-join $join-owner $join-rule $join-handle))
+                            (if (rule-live? $join-rule) (if (sk-same-node? $join-owner $node) true (empty))
+                               (let* (($_removed (remove-variant-row! &sk_deferred_joins (quote ($hash $jhash (sk-join $join-owner $join-rule $join-handle)))))
                                       ($_work (sk-work! $hash $join-owner -1))) (empty))))
-                         (match &sk_deferred ($hash $rhash (sk-deferred $row-owner $row-rule $rc $rp $rk))
-                            (if (rule-live? $row-rule) true
-                               (let* (($_removed (remove-variant-row! &sk_deferred (quote ($hash $rhash (sk-deferred $row-owner $row-rule $rc $rp $rk)))))
+                         (match &sk_deferred ($hash $rhash (sk-deferred $row-owner $row-rule))
+                            (if (rule-live? $row-rule) (if (sk-same-node? $row-owner $node) true (empty))
+                               (let* (($_removed (remove-variant-row! &sk_deferred (quote ($hash $rhash (sk-deferred $row-owner $row-rule)))))
                                       ($_work (sk-work! $hash $row-owner -1))) (empty))))))))
                        ())
                   (if (fold-semidet (sk-application-waits? $node) false (sk-children $hash $node)) false true)
@@ -865,14 +865,24 @@
 (: sk-given-depth-step (-[det]-> Number SkeletonGiven Number))
 (= (sk-given-depth-step $depth $given) (case $given (((sk-given $_hash $_key $_truth) (+ $depth 1)) ($_pin $depth))))
 
+;; The reader's row waits for a turn (sk-compute), which a query still to pay
+;; it reports as unpaid (conditions_unpaid).
+(: sk-owe-replay! (-[det]-> Atom))
+(= (sk-owe-replay!)
+   (progn (change-state! sk_deferred (max (search-id-value sk_deferred) 2))
+          (next-search-id sk_branch_unpaid) ()))
+
 ;; A claim buys conditioned rows in pairs: one evaluation unit pays for
 ;; the next row and leaves one credit for a later row in this claim. This
 ;; preserves the existing two-rows-per-unit bound and integer allowances.
 ;; Nested conditioning shares the credit; unused credit expires at close.
+;; A row read under pins outside any claim is owed, never free
+;; (sk-replay-turn!).
 
 (: sk-claim-charge! (-[det]-> (List SkeletonGiven) Bool))
 (= (sk-claim-charge! $given)
-   (if (if (== $given ()) true (== (search-id-value sk_claim_state) -1)) true
+   (if (== $given ()) true
+      (if (== (search-id-value sk_claim_state) -1) (progn (sk-owe-replay!) false)
       (if (== (search-id-value sk_claim_state) -2) false
          (let $paid
                (if (== (search-id-value sk_claim_state) 1)
@@ -883,7 +893,7 @@
                      false))
             (if $paid
                (let $_counted (query_metric_increment conditioned-evaluations) true)
-               (progn (change-state! sk_claim_state -2) false))))))
+               (progn (change-state! sk_claim_state -2) false)))))))
 
 ;; The branches mix by modus ponens over the weight, when all three are simple
 ;; truth values and the weight's evidence is not in the branches.
@@ -1251,3 +1261,38 @@
                   (let $_take (if (sk-instance-fold-key? $fold) (sk-rate-dirty! $fold $key) ()) (empty))
                   $fold)
                (empty)))))))
+
+(: sk-replay-open! (-[det]-> EvaluationTier Number ReplayTurn))
+(= (sk-replay-open! $tier $room)
+   (let $slice (execution-open-slice! $room)
+      (progn (sk-open-claim!) (replay-opened $tier $slice))))
+
+;; A replay of rows under pins is conditioned work: a claim pays for it
+;; (sk-claim-charge!). A reader that brings pins outside a claim runs the
+;; replay in a claim of its own, paid as the reading row is: from the
+;; near-root reserve for a row within the free depth while it lasts, as part
+;; of computing that row at any budget, otherwise from the allowance.
+;; Otherwise the reader owes it: its row keeps its incumbent and waits for a
+;; turn, and the unpaid replay settles no branch.
+(: sk-replay-turn! (-[det]-> ReplayTurn))
+(= (sk-replay-turn!)
+   (if (not (== (search-id-value sk_claim_state) -1)) replay-claimed
+      (let $near
+            (chainer-first-or false (collapse (once (let ($hash $key $_rhash) (sk-active-reader)
+               (if (<= (sk-need-depth $hash $key) (sk-evaluation-free-depth)) (>= (search-id-value sk_near_reserve) 1) false)))))
+         (if $near
+            (sk-replay-open! reserve-slice (search-id-value sk_near_reserve))
+            (if (>= (search-id-value sk_eval_budget) 1)
+               (sk-replay-open! ordinary-slice (search-id-value sk_eval_budget))
+               (progn (sk-owe-replay!) replay-owed))))))
+
+;; Whether a replay's result stands: a claim it exhausted leaves the reader
+;; owing the replay, and its partial pass is dropped.
+(: sk-replay-done! (-[det]-> ReplayTurn Bool))
+(= (sk-replay-done! $turn)
+   (case $turn (
+      ((replay-opened $tier $slice)
+         (let* (($exhausted (sk-close-claim!))
+                ($_spent (execution-close-slice! $slice $tier)))
+            (if $exhausted (progn (next-search-id sk_ran_out) (sk-owe-replay!) false) true)))
+      ($_claimed true))))

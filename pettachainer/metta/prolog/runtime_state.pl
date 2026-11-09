@@ -909,8 +909,45 @@ answer_instance(Index-Memo, Position, Answer) :-
 % allowance or steps of the budget: one, and one more for each 400 words of the
 % term, about what storing, hashing and comparing that much of a term takes
 % beyond a row's fixed cost (ONA reasoningbench_num: a row of a 9,000-word
-% statement took 25 ms, one of a few words about 1 ms).
-'term-cost'(Term, Cost) :- term_size(Term, Size), Cost is 1 + Size // 400.
+% statement took 25 ms, one of a few words about 1 ms). The words are those of
+% the copy a store keeps, which shares no subterm: a term built from shared
+% parts can be many times its term_size (#176: conclusions of 1.5 million words
+% stored as 4.5 million). The count stops once the cost passes Limit units, so
+% a term no allowance can pay for is never walked in full. Its cost is then
+% reported as one more than the limit: over it, which no payment within the
+% limit accepts (sk-pay-cost!), never the part counted.
+'term-cost'(Term, Limit, Cost) :- stored_cost(Term, 400, Limit, Cost).
+
+% What storing a skeleton row costs in the same units, counted on the whole
+% row as stored, so a row pays for its premises and keys too, not only its
+% statement (#176: rows averaged 25,000 words on statements of 3,000). A row
+% holds its statement about four times (its identity's key, its conclusion
+% and the premise it is read through; a row of a 900-word statement is 4,040
+% words), so 1,600 row words are the 400 statement words of term-cost, and a
+% row of ordinary size, a few hundred words, costs one.
+'row-cost'(Row, Limit, Cost) :- stored_cost(Row, 1600, Limit, Cost).
+
+stored_cost(Term, Unit, Limit, Cost) :-
+    Units is max(1, floor(Limit)),
+    Words is Units * Unit,
+    stored_words(Term, Words, 0, Size),
+    (   Size >= Words -> Cost is Units + 1 ; Cost is 1 + Size // Unit ).
+
+
+stored_words(Term, Words, N0, N) :-
+    (   N0 >= Words -> N = N0
+    ;   compound(Term)
+    ->  compound_name_arity(Term, _, Arity),
+        N1 is N0 + Arity + 1,
+        stored_args(1, Arity, Term, Words, N1, N)
+    ;   term_size(Term, Size), N is N0 + Size ).
+
+stored_args(I, Arity, Term, Words, N0, N) :-
+    (   I > Arity -> N = N0
+    ;   arg(I, Term, Arg),
+        stored_words(Arg, Words, N0, N1),
+        I1 is I + 1,
+        stored_args(I1, Arity, Term, Words, N1, N) ).
 
 % Whether node Specific is an instance of node General whose statement binds
 % one of General's variables to a compound term: the term a recursive rule

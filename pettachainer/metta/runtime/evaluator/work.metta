@@ -202,7 +202,7 @@
           ($causes (collapse (match &ctx_sk_forced ($hash $rhash $cause) $cause)))
           ($_taken (remove-data-rows! &sk_forced (quote ($hash $rhash $cause))))
           ;; Only a computation that left nothing unpaid settles the row's
-          ;; debt; a nested conditioned read it deferred renews it.
+          ;; debt; a replay it owes or a conditioning it defers renews it.
           ($_granted (change-state! sk_deferred (if (space-row-present? &ctx_sk_given_granted ($hash $rhash)) -1 0)))
           ($unpaid (search-id-value sk_branch_unpaid))
           ($new (sk-row-view () () $hash $key $rhash $row))
@@ -332,14 +332,48 @@
 (= (sk-work-pop! $pass $next ($order $item $rest))
    (if (if (sk-item-needed? $item)
           (if (sk-near-root-reserve-take! $item) true
-             (if (sk-take! sk_eval_budget
-                    (case $item (((sk-row-item $_seq $_khash (sk-key $type $_kbctx) $_rhash $_row) (term-cost $type)) ($_fold-check 1))))
+             (if (let* (($cost (case $item (
+                          ((sk-row-item $_seq $_khash (sk-key $type $_kbctx) $_rhash $_row) (term-cost $type (search-id-value sk_eval_budget)))
+                          ($_fold-check 1))))
+                        ($held (sk-claims-held $item $cost)))
+                    (if (if (== $held 0) true (>= (- (search-id-value sk_eval_budget) $cost) $held))
+                       (sk-pay-cost! sk_eval_budget $cost) false))
                 true
                 (sk-determined-row? $item)))
           true)
       (sk-work-off! $pass (once (sk-compute $pass $order (sk-work $rest $next) $item)))
       (let* (($_unpaid (query_metric_increment rows-unpaid)) ($_out (next-search-id sk_ran_out)) ($_stale (sk-mark-stale! $item)))
          (sk-work-off! $pass (sk-work $rest $next)))))
+
+;; Conditioning takes its turns after the ordinary rows (sk-pay-conditions!),
+;; so that it reads their values, but a row deeper than a target waiting for
+;; a turn cannot spend what that target needs (#177: a conjunction's
+;; conditioning on its shared fact waited at depth 0 while 319 deeper rows, a
+;; population's members, took the whole allowance, and the query answered
+;; nothing). A payment that would leave less than the root claims' share
+;; (sk-root-claim-share) must leave the waiting targets nearer a root their
+;; estimated cost, two conditioned rows to a unit, up to that share, so no
+;; estimate holds back more than claims may spend; a large row cannot step
+;; across the share in one payment. A forward run computes its rows by
+;; creation, not by depth.
+(: sk-claims-held (-[semidet]-> SkeletonItem Number Number))
+(= (sk-claims-held $item $cost)
+   (let* (($cap (search-id-value sk_root_claim_cap)) ($left (search-id-value sk_eval_budget)))
+      (if (if (== (search-id-value sk_forward_run) 1) true (if (<= $left 0) true (> (- $left $cost) $cap))) 0
+         (let* (($depth (case $item (
+                   ((sk-row-item $_seq $khash $key $_rhash $_row) (sk-need-depth $khash $key))
+                   ((sk-fold-check $hash $fold) (sk-need-depth $hash $fold)))))
+                ($costs (collapse (match &ctx_sk_given_pending ($thash $trhash $tcost)
+                   (if (space-row-present? &ctx_sk_given_granted ($thash $trhash)) (empty)
+                      (let $target (if (== $trhash -1) (match &sk_keys ($thash $tkey) $tkey)
+                                      (match &sk_row ($thash $tkey $trhash $_trow) $tkey))
+                         (if (sk-needed? $thash $target)
+                            (if (< (sk-need-depth $thash $target) $depth) $tcost (empty))
+                            (empty))))))))
+            (min $cap (fold-semidet sk-held-step 0 $costs))))))
+
+(: sk-held-step (-[det]-> Number Number Number))
+(= (sk-held-step $held $cost) (+ $held (/ $cost 2)))
 
 ;; A query computes the rows and folds within two steps of a root from a
 ;; reserve that its need fills with a fixed number of computations for each
@@ -474,8 +508,9 @@
              (if (== $latest sk-none)
                 (if $near true
                    (case $key (((sk-key $type $_kbctx)
-                      (let $extra (- (term-cost $type) 1)
-                         (if (== $extra 0) true (sk-take! sk_need_budget $extra)))))))
+                      (let $cost (term-cost $type (+ 1 (search-id-value sk_need_budget)))
+                         (if (== $cost 1) true
+                            (if (<= $cost (+ 1 (search-id-value sk_need_budget))) (sk-take! sk_need_budget (- $cost 1)) false)))))))
                 false))
           ($refresh
              (if (if $unseen true (if $near true $world))

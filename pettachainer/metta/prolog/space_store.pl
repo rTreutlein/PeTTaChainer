@@ -41,7 +41,9 @@
     -> erase(Ref) ; true ).
 
 
-:- dynamic sk_wait_payload/4, sk_wait_template/5, sk_wait_key/2.
+:- dynamic sk_wait_payload/4, sk_wait_template/5, sk_wait_key/2, sk_wait_id/2, sk_wait_id_of/2.
+% sk_wait_id(Id, Ref) and sk_wait_id_of(Ref, Id) give each stored payload an
+% identity no other payload ever takes, removed with it (search_state.pl).
 % The read-only relation exposes the existing transient delivery shape. The
 % only owned clauses are compact payloads, indexed by the awaited node hash.
 % sk_wait_key(Hash, Ref) finds one payload by the variant hash of its node,
@@ -61,6 +63,21 @@ sk_wait_ref(H, N, Waiter, Ref) :-
     clause(sk_wait_payload(H, Stored, TemplateId, B), true, Ref),
     attribute_free_variant(Stored-B, N-Bindings), !.
 
+
+% A deferred join's handle: the identity of its stored payload (sk_wait_id),
+% or -1 when the waiter is not stored. The handle resolves to a fresh copy of
+% that waiter while its payload lives, and to none once it is retired; a
+% variant hash only finds the payload, which sk_wait_ref checks.
+'sk-wait-handle'(Waiter, Handle) :-
+    (   Waiter = ['sk-partial',_,_,_,_,[N|_],_], 'sk-node-hash'(N, H),
+        sk_wait_ref(H, N, Waiter, Ref), sk_wait_id_of(Ref, Id)
+    ->  Handle = Id
+    ;   Handle = -1 ).
+'sk-waiter-at'(Handle, Waiters) :-
+    (   sk_wait_id(Handle, Ref), clause(sk_wait_payload(_, _, TemplateId, B), true, Ref),
+        sk_wait_template(_, _, TemplateId, Template, Vars)
+    ->  copy_term_nat(Template-Vars, Waiter-B), Waiters = [Waiter]
+    ;   Waiters = [] ).
 
 % The node hash is already available at expansion/context cleanup. Only its
 % few compact subscriptions need alpha comparison; no digest is computed.

@@ -142,7 +142,7 @@ store_schema('&sk_parked', plain, '(Number Number SkeletonDelivery)').
 % join hash
 store_schema('&sk_deferred_joins', plain, '(Number Number SkeletonJoin)').
 % rows found after the row allowance ran out, by owner hash and row hash
-store_schema('&sk_deferred', plain, '(Number Number (sk-deferred SkPattern Number SkFact (List SkPattern) (List SkeletonKey)))').
+store_schema('&sk_deferred', plain, '(Number Number (sk-deferred SkPattern Number))').
 % rows and waiters created from query-local rules, removed after the query
 store_schema('&sk_temp_rows', plain, '(Number SkeletonKey Number SkeletonRow)').
 store_schema('&sk_temp_waits', plain, '(Number SkPattern SkeletonWaiter)').

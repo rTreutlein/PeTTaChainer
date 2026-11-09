@@ -110,6 +110,8 @@
    forgetting_horizon
    forgetting_decay
    sk_row_seq
+   ;; rows refused for want of allowance, so far (sk-defer-rule!)
+   sk_refused
    sk_push_seq
    sk_delivery_seq
    hm_name

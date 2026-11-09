@@ -1444,8 +1444,8 @@ minutes and the run hit a SWI segfault at 569 s in `sk-row-present?`). A mere
 specialization, such as `(Reward op1 $t)` of `(Reward $op $t)`, keeps its own
 search, which a budget spends on that case first: subsuming those too moved
 SupplyNet stage 3 timed (error 0.0027 to 0.0039 at budget 50) and StationOps
-replay (Brier 0.0446 to 0.0497 at budget 50). A root subsumes nothing, since
-its rows always fit the allowance below.
+replay (Brier 0.0446 to 0.0497 at budget 50). A root subsumes nothing: it is
+what the query asks.
 A node no rule can conclude (other than an implication, whose expansion
 installs rules) is expanded without a step when the walk
 reaches it: its expansion only reads its stored facts. It keeps its place in the walk, so its facts extend joins
@@ -1470,12 +1470,43 @@ three times master's rows). Before any state is created, a rule
 whose ground computation cannot succeed is pruned. A ground fact premise
 without a fact or concluding rule still keeps its waiter: that input can
 arrive later, and the node will not be expanded again. New
-rows have an allowance of ten per step, except the rows of the query's own
-roots, and a row costs one more for each 400
-words of its statement, what storing, hashing and comparing that much of a
-term takes beyond a row's fixed cost (`term-cost`); rows beyond it wait with
-their node and are completed when a later walk reaches that node, so leftover work never
-spends an unrelated query's budget. Facts stored since the last query are the
+rows have an allowance of ten per step, except the query's scaffold
+(`sk-scaffold?`): the applications of its own compiled rules, which apply a
+bounded number of times. A root's applications of the KB's rules are as many
+as their premises have bindings, whether the root is open or ground, and
+spend the allowance like any row: exempt, an inverted coreference rule and a
+conjunction rule's projections rebuilt each other's ever larger witnesses at
+an open `(Past $e)` until 1,222 rows held 518 MB and the query died at 400
+steps (#176), and one rule over 1,000 facts gave a ground `(Q a)` 1,000 free
+rows at one step. A row costs one more for each
+1,600 words of the row as stored (`row-cost`), what storing, hashing and
+comparing that much takes beyond a row's fixed cost: a row holds its
+statement about four times, so that is 400 words of its statement, as a node
+costs (`term-cost`), and a row of ordinary size costs one. The words are
+those of the copy a store keeps, which shares no subterm (a term built from
+shared parts can be many times its `term_size`), counted before the row is
+stored and only as far as the allowance left can pay. A cost of one takes a
+positive allowance; a dearer row, node or computation must fit whole
+(`sk-pay-cost!`), and a count stopped at the allowance reports a cost over it,
+never the part counted (paying that part let a 76-unit row through for 12). A
+row the allowance cannot pay closes it, and an application computes nothing
+more once it is closed: neither the prefilter nor the advance runs a ground
+user computation then (`sk-computes-now?`). Nothing unpaid keeps a payload:
+the innermost application in progress keeps only how to rebuild what it could
+not pay for (`sk-refuse!`). A join forgets it extended by the refused key and
+keeps its owner, rule and the identity of its stored waiter in `&sk_wait`, a
+number allocated once per payload and removed with it, never the variant hash
+the payload is looked up by (`sk-defer-join!`, `sk-wait-handle`), not the terms its earlier premises
+bound; a rule started at a node keeps only its owner and id
+(`sk-defer-rule!`). A later walk that reaches the node reads the join's
+premise keys again, or starts the rule there again, while rows are allowed,
+so leftover work never spends an unrelated query's budget. A forward run's
+joins do not wait, so its take owns a refusal: the taken key stays on the
+carried agenda as a seed, and a later run, with or without facts of its own,
+takes it again (`sk-forward-retained!`). Keeping the refused row, the
+delivered key or the bound waiter instead kept 90,000 unpaid words per row,
+2.4 million words for 32 rules completing without a join at one step, and
+361,644 for four joins that had read a large premise. Facts stored since the last query are the
 exception: they are delivered first, before the next query's walk, from an
 allowance of their own (ten rows per new fact and per step), as the deferred
 cost of ingesting them.
@@ -1648,7 +1679,18 @@ reads a row it refuses again under its own exclusions. A row whose clash needs i
 row takes its independent value if it has no view; a key keeps its one-step
 component merge. Dependencies of discarded views still connect their component.
 After ordinary rows and root reads, waiting targets get turns nearest a root
-first, then by estimated cost, then oldest. Twice (one plus the dependency
+first, then by estimated cost, then oldest. Ordinary rows deeper than a
+waiting target cannot spend what it needs first: a payment for such a row
+that would leave less than the root claims' share (`sk-claims-held`) is made
+only if the waiting targets nearer a root keep their estimated cost, two
+conditioned rows to a unit, up to that share, so a large row cannot step from
+above the share to nothing in one payment. Without it a conjunction conditioned on
+its shared fact waited at depth 0 while 319 deeper rows, a population's
+members, took the whole allowance, and the query answered nothing (#177).
+Conditioning still comes after the ordinary rows, so it reads their values:
+paying a waiting target as soon as a deeper row came up conditioned it on
+inputs not yet computed (a compound negation's implication read 0.14 for
+0.1). Twice (one plus the dependency
 count) estimates cost for ordering only: a large history must not prevent a
 cheap cut from being attempted (#74).
 
@@ -1659,7 +1701,30 @@ prepaying unused dependency estimates. Independent and cached reads cost
 nothing. Unused prepaid row credit expires when the claim closes; ordinary
 work always sees an integer allowance. Deferred rebuilds use their existing
 bounded tier slice; a closed read that needs conditioning outside a claim
-defers it: its reading row waits, and the row's paid turn opens the claim. An exhausted closed-read claim marks its rebuild frame
+defers it: its reading row waits, and the row's paid turn opens the claim.
+A replay of rows under pins is conditioned work too, whoever brings the pins:
+a closed read replaying a complete key's rows under its unfounded pin, or an
+antecedent completion reading a sibling under its completed pin. Outside a
+claim, the reader runs the replay in a claim of its own, paid as its row is
+(`sk-replay-turn!`): a row within the free depth pays from the near-root
+reserve while it lasts, since the replay is part of computing that row at any
+budget, and any other from the allowance. When neither can pay, the reader
+owes the replay: its row keeps its views and waits for a turn, and the unpaid
+replay settles no branch. Waiting for the row's turn instead, as conditioning
+does, left SupplyNet stage 3 untimed b50 s4 without some answers (coverage
+0.96): the turns come after the ordinary rows, which had spent the allowance
+by then. Paying every replay from the allowance cost stage 3 untimed b25 s4
+the same way (coverage 0.97, error 0.0004 to 0.024): near the roots, closed
+reads of complete predicates found the allowance spent. An exhausted replay claim drops its partial pass and leaves the
+reader owing it. A replay's claim has depth 0, so its reads keep the reading
+they have outside a claim (`sk-conditioning?`). A conditioning inside it
+deepens as a claim of its own would only on its row's granted turn; on any
+other, it takes its approximation and its row waits, as before (#106: one
+inline pinned claim over 29 statements spent the whole allowance at every
+budget). Replays were free outside claims: a
+completion's sibling read under a pin replayed the same 816 pin and
+exclusion contexts 30,000 times inside one paid row, until the query
+exhausted its stacks (#175). An exhausted closed-read claim marks its rebuild frame
 unfinished, so an unpaid approximation cannot settle a branch cache. No claim
 can borrow from another query or exceed the remaining allowance.
 

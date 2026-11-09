@@ -2,7 +2,9 @@
 
 ;; #81 one-step filtering summarizes deep shared history instead of opening
 ;; cross-period key claims. Root refinement is capped separately; a producing
-;; observation certifies zero degradation without any conditioning work.
+;; observation certifies zero degradation. The only conditioned rows are the
+;; replays of the antecedent completions' sibling reads under their pins,
+;; which a claim pays for (#175).
 
 (= (nested-tv (: $_proof $_type $tv)) $tv)
 (: nested-count (-[det]-> Number BackwardQueryMetric Number))
@@ -34,5 +36,5 @@
 ;; propagated through modus ponens but cannot weaken that zero likelihood.
 !(test (map-flat nested-tv (collapse (query 300 nestedKb (: $p (Degraded plant t5) $tv))))
    ((STV 0.0 0.983052335327906)))
-!(test (fold-flat nested-count 0 (backward-query-metrics)) 0)
+!(test (fold-flat nested-count 0 (backward-query-metrics)) 10)
 !(set-backward-query-metrics false)

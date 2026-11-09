@@ -126,7 +126,23 @@
                             ((sk-val $counted $_cev $_cdeps) (forward-maintain-aggregates! aggregate-update $counted))
                             ($_derived (forward-maintain-aggregates! aggregate-remove $fact)))))
                       ($_none ())))))
-            (sk-forward-start! $key))))))
+            (let* (($refused (search-id-value sk_refused))
+                   ($_started (sk-forward-start! $key)))
+               (sk-forward-retained! $key $refused)))))))
+
+;; A take whose application could not be paid for (sk-refuse!) keeps its key
+;; on the carried agenda as a seed, so a later run, given no facts of its
+;; own, takes it again and builds what this one refused; a take that builds
+;; it leaves no item behind. The key is a stored fact or a key a paid row
+;; derived.
+(: sk-forward-retained! (-[semidet]-> SkeletonKey Number Atom))
+(= (sk-forward-retained! $key $refused)
+   (if (== (search-id-value sk_refused) $refused) ()
+      (let* (($_owned (change-state! sk_refused $refused))
+             ($kb (case $key (((sk-key $_type ($kbid $_ctx $_vars)) $kbid))))
+             ($held (collapse (match &sk_forward_agenda ($kb $_p (sk-fwd-seed $stored)) (if (=alpha $stored $key) true (empty)))))
+             ($priority (- 0 (sk-change (sk-key-value $key) sk-none))))
+         (if (== $held ()) (add-atom &sk_forward_agenda ($kb $priority (sk-fwd-seed $key))) ()))))
 
 (datatype SkeletonForwardEntry (sk-fwd-at Number SkeletonForwardItem SkeletonKey))
 

@@ -193,4 +193,6 @@
 
 ;; The executor alone opens and returns these evaluation slices.
 (datatype EvaluationSlice (evaluation-slice Number Number))
-(datatype EvaluationTier root-slice branch-slice ordinary-slice)
+(datatype EvaluationTier root-slice branch-slice ordinary-slice reserve-slice)
+;; Who pays a replay under pins (sk-replay-turn!).
+(datatype ReplayTurn replay-claimed replay-owed (replay-opened EvaluationTier EvaluationSlice))

@@ -48,15 +48,24 @@
    (once
       (case $premise (
          ((CPU $fun $args $res)
-            (if (if (contextual-cpu? $fun) true (aggregate-fold-function? $fun)) false
-               (if (if (is-var $fun) false (if (== $fun vars-covered?) true (== (extract-vars $args) ())))
-                  (case (collapse (cpu-call 0 $fun $args)) (
-                     (() true)
-                     ((cons $result $_rest) (if (= $res $result) false true))))
-                  false)))
+            (if (sk-computes-now? $premise)
+               (case (collapse (cpu-call 0 $fun $args)) (
+                  (() true)
+                  ((cons $result $_rest) (if (= $res $result) false true))))
+               false))
          ;; Missing facts can arrive after this node has been expanded. Keep
          ;; their ordinary join subscriptions instead of caching an empty search.
          ($_fact false)))))
+
+;; Whether starting an application runs a premise's computation at once: a
+;; user computation over bound arguments (or a binding guard).
+(: sk-computes-now? (-[det]-> SkPattern Bool))
+(= (sk-computes-now? $premise)
+   (case $premise (
+      ((CPU $fun $args $_res)
+         (if (if (contextual-cpu? $fun) true (aggregate-fold-function? $fun)) false
+            (if (is-var $fun) false (if (== $fun vars-covered?) true (== (extract-vars $args) ())))))
+      ($_fact false))))
 
 ;; Durable skeleton construction: goal expansion, partial joins, rows, answers,
 ;; activation of later facts and rules, and the budgeted search walk.
@@ -399,10 +408,15 @@
                         (sk-wait-on! $owner $rule $premise
                            (sk-partial $owner $rule $concl $done $remaining $keys)))
                      (if (if (contextual-cpu? $fun) false (if (== $fun vars-covered?) true (== (extract-vars $args) ())))
-                        (fold-semidet
-                           (sk-cpu-step (sk-partial $owner $rule $concl $done $remaining $keys))
-                           ()
-                           (collapse (cpu-call 0 $fun $args)))
+                        ;; Once the row allowance is closed, an application
+                        ;; computes nothing more: a row it completes would only
+                        ;; be refused (sk-refuse!).
+                        (if (if (sk-scaffold? $owner $rule) false (<= (search-id-value sk_row_budget) 0))
+                           (sk-refuse!)
+                           (fold-semidet
+                              (sk-cpu-step (sk-partial $owner $rule $concl $done $remaining $keys))
+                              ()
+                              (collapse (cpu-call 0 $fun $args))))
                         ;; Truth-value formulas run during evaluation.
                         (let $_child (if (== $fun CompoundEvidence) (sk-fold-child! $owner $rule $concl $remaining () $premise) ())
                            (sk-advance!
@@ -445,7 +459,7 @@
           ($child (copy_term $premise))
           ($digest (link-digest (sk-child-link $owner $child)))
           ($_wait (if $known () (sk-store-wait! $digest $hash $premise $waiter)))
-          ($_inversions (sk-start-deferred! $hash $rule))
+          ($_inversions (sk-start-deferred! $hash $premise $rule))
           ($subscription (sk-functional-subscription $waiter))
           ;; A durable join cannot depend on a query-local judgment producer.
           ;; Install its exact scaffold with the join's lifetime, even if a
@@ -497,11 +511,18 @@
                 (sk-add-child! $owner $child (sk-join-score $owner $rule $remaining) $digest))))
       ;; Read existing keys, including aggregate registrations before the
       ;; completed-row check. A known conclusion leaves no future subscriber.
-      (let* (($_read (fold-semidet (sk-extend-waiter-step $waiter) ()
-                (if (sk-completion-waiter? $waiter) (append-flat (sk-answers $premise)
-                   (collapse (match &sk_prior_answer ($hash $pstored $pkey) (if (=alpha $pstored $premise) $pkey (empty))))) (sk-answers $premise))))
+      (let* (($_read (sk-read-answers! $waiter $premise))
              ($_retired (sk-functional-delivered! $subscription)))
          ())))))
+
+;; A waiting join reads the keys its premise has: its answers, and a
+;; completion's population priors too.
+(: sk-read-answers! (-[semidet]-> SkeletonWaiter SkPattern Atom))
+(= (sk-read-answers! $waiter $premise)
+   (let $hash (sk-node-hash $premise)
+      (fold-semidet (sk-extend-waiter-step $waiter) ()
+         (if (sk-completion-waiter? $waiter) (append-flat (sk-answers $premise)
+            (collapse (match &sk_prior_answer ($hash $pstored $pkey) (if (=alpha $pstored $premise) $pkey (empty))))) (sk-answers $premise)))))
 
 (: sk-extend-waiter-step (-[semidet]-> SkeletonWaiter Atom SkeletonKey Atom))
 (= (sk-extend-waiter-step $waiter $_acc $key) (sk-extend-current! (copy_term $waiter) $key))
@@ -511,7 +532,7 @@
 ;; samples would otherwise draw again. Once the row allowance is spent, a join
 ;; an answer reaches stops there: the pair waits once with the join's owner, so
 ;; a recursive rule cannot keep extending joins whose rows could not be kept
-;; anyway. Joins of the query's roots always proceed.
+;; anyway. Joins of the query's scaffold always proceed (sk-scaffold?).
 (= (sk-extend! (sk-partial $owner $rule $concl $done $remaining $keys) $key)
    (if (rule-live? $rule)
       (if (sk-known-conclusion? $concl) ()
@@ -528,18 +549,30 @@
 (: sk-extend-current! (-[semidet]-> SkeletonWaiter SkeletonKey Atom))
 (= (sk-extend-current! (sk-partial $owner $rule $concl $done $remaining $keys) $key)
    (if (rule-live? $rule)
-   (if (if (sk-root? $owner) true (> (search-id-value sk_row_budget) 0))
+   (if (if (sk-scaffold? $owner $rule) true (> (search-id-value sk_row_budget) 0))
       (sk-extend-now! (sk-partial $owner $rule $concl $done $remaining $keys) $key)
-      (let* (($hash (sk-node-hash $owner))
-             ($join (sk-join (sk-partial $owner $rule $concl $done $remaining $keys) $key))
-             ($jhash (index-hash $join)))
-         (if (not (space-row-present? &sk_deferred_joins (quote ($hash $jhash $_join))))
-            (let* (($_deferred (add-atom &sk_deferred_joins ($hash $jhash $join)))
-                   ($_pending (sk-work! $hash $owner 1))
-                   ($_counted (query_metric_increment joins-deferred)))
-               ())
-            ())))
+      (sk-defer-join! (sk-partial $owner $rule $concl $done $remaining $keys)))
       ()))
+
+;; A join the allowance cannot extend keeps the identity of itself as it
+;; waits in &sk_wait (sk-wait-handle), neither the key that reached it nor the terms
+;; its earlier premises bound: a later walk with allowance reads its
+;; premise's keys again (sk-resume!), and the join extends by those it has not
+;; taken. A join with no stored waiter, as a forward run's are, has no handle,
+;; and the application that started it owns the refusal (sk-refuse!).
+(: sk-defer-join! (-[det]-> SkeletonWaiter Atom))
+(= (sk-defer-join! (sk-partial $owner $rule $concl $done $remaining $keys))
+   (let $handle (sk-wait-handle (sk-partial $owner $rule $concl $done $remaining $keys))
+      (if (< $handle 0) (sk-refuse!)
+         (let* (($hash (sk-node-hash $owner))
+                ($join (sk-join $owner $rule $handle))
+                ($jhash (index-hash $join)))
+            ;; The hashes find candidates; only the record itself is a duplicate.
+            (if (not (== (collapse (match &sk_deferred_joins ($hash $jhash $stored) (if (=alpha $stored $join) true (empty)))) ())) ()
+               (let* (($_deferred (add-atom &sk_deferred_joins ($hash $jhash $join)))
+                      ($_pending (sk-work! $hash $owner 1))
+                      ($_counted (query_metric_increment joins-deferred)))
+                  ()))))))
 
 ;; A settled join (its rule reads one part of a compound, settling it; see
 ;; connective_settling.md) reads a part only when a certain stored fact fixes
@@ -586,12 +619,18 @@
             ;; join, started later from that premise's key, from extending,
             ;; and its row would never be built (sk-complete-row! keeps a row
             ;; once).
-            (if (if (== (search-id-value sk_forward_run) 1) true
-                   (let $link (sk-join-link (sk-partial $owner $rule $concl $done $remaining $keys) $registered)
-                      (sk-store-join! (link-digest $link) $waiter $concl)))
-               (sk-advance!
-                  (sk-partial $owner $rule $concl (cons $premise $done) $rest (cons $registered $keys)))
-               ())
+            (let $digest (link-digest (sk-join-link (sk-partial $owner $rule $concl $done $remaining $keys) $registered))
+               (if (if (== (search-id-value sk_forward_run) 1) true (sk-store-join! $digest $waiter $concl))
+                  ;; A row this extension led to that could not be paid
+                  ;; for leaves the join to extend again (sk-refuse!).
+                  (let* (($refused (search-id-value sk_refused))
+                         ($_advanced (sk-advance!
+                            (sk-partial $owner $rule $concl (cons $premise $done) $rest (cons $registered $keys)))))
+                     (if (if (== $refused (search-id-value sk_refused)) true (== (search-id-value sk_forward_run) 1)) ()
+                        (let* (($_owned (change-state! sk_refused $refused))
+                               ($_forgot (sk-unstore-join! $digest $concl)))
+                           (sk-defer-join! $waiter))))
+                  ()))
             ())))
       ($_other ()))))
 
@@ -684,12 +723,16 @@
          ()
       (if (sk-row-present? $khash $key $rhash $ident)
          (sk-row-answer! $owner $key $proof)
-         ;; The rows of the query's roots are its compiled scaffold and always
-         ;; fit; every other row spends the allowance.
-         (if (if (sk-root? $owner) true (sk-take! sk_row_budget (term-cost $type)))
+         ;; The query's scaffold always fits; every other row spends the
+         ;; allowance at what storing it costs, paid before it is stored. A
+         ;; row the allowance left cannot pay closes it and is refused
+         ;; (sk-refuse!).
+         (let $evaluated (fold-semidet sk-cons-step () (fold-semidet sk-evaluated-premise-step () $premises))
+         (if (if (sk-scaffold? $owner $rule) true
+                (if (sk-pay-cost! sk_row_budget (row-cost (sk-row $ident $concl $evaluated 0) (search-id-value sk_row_budget))) true
+                   (let $_closed (change-state! sk_row_budget (min 0 (search-id-value sk_row_budget))) false)))
             (let* (($seq (next-search-id sk_row_seq))
-                   ($row (sk-row $ident $concl
-                            (fold-semidet sk-cons-step () (fold-semidet sk-evaluated-premise-step () $premises)) $seq))
+                   ($row (sk-row $ident $concl $evaluated $seq))
                    ($_add
                       (if (chainer-acyclic-term? $row)
                          (let* (($_stored (add-atom &sk_row ($khash $key $rhash $row)))
@@ -711,28 +754,54 @@
                       (fold-semidet (sk-add-reader! $khash $rhash) ()
                          (fold-semidet sk-direct-key-step () $premises))))
                (sk-row-answer! $owner $key $proof))
-            ;; A row waits once, however often its join completes meanwhile.
-            (let $hash (sk-node-hash $owner)
-               (if (not (space-row-present? &sk_deferred (quote ($hash $rhash $_deferred))))
-                  (let* (($_deferred
-                            (add-atom &sk_deferred ($hash $rhash (sk-deferred $owner $rule $concl $premises $keys))))
-                         ($_pending (sk-work! $hash $owner 1))
-                         ($_counted (query_metric_increment rows-deferred)))
-                     ())
-                  ()))))))
+            (sk-refuse!))))))
       ()))
+
+;; A row the allowance cannot pay leaves no payload behind (sk-refuse!). The
+;; innermost application in progress owns the refusal and keeps only how to
+;; rebuild the row: a join extension forgets it extended and waits to read its
+;; premise's keys again (sk-defer-join!), and a rule started at a node waits
+;; to start again there (sk-defer-rule!). Keeping the row itself let refused
+;; rows keep 90,000 words each, and 2.4 million words for 32 rules completing
+;; without a join at one step, none of it paid.
+(: sk-refuse! (-[det]-> Atom))
+(= (sk-refuse!) (let $_refused (next-search-id sk_refused) ()))
+
+;; A rule waits to start again at its owner once, however often it is refused.
+(: sk-defer-rule! (-[det]-> SkPattern Number Atom))
+(= (sk-defer-rule! $owner $rule)
+   (let* (($hash (sk-node-hash $owner))
+          ($dhash (index-hash (sk-deferred $owner $rule))))
+      (if (not (== (collapse (match &sk_deferred ($hash $dhash $stored) (if (=alpha $stored (sk-deferred $owner $rule)) true (empty)))) ())) ()
+         (let* (($_deferred (add-atom &sk_deferred ($hash $dhash (sk-deferred $owner $rule))))
+                ($_pending (sk-work! $hash $owner 1))
+                ($_counted (query_metric_increment rows-deferred)))
+            ()))))
 
 ;; The budget counts expansions. New rows have their own allowance of ten per
 ;; step, so recursive rules cannot grow the skeleton without bound; a row found
 ;; after the allowance is spent waits in &sk_deferred for a later walk. A row
-;; costs more the larger its statement, as expanding a fact node does
-;; (term-cost, runtime_helpers.pl), so a step costs the same however large the
+;; costs more the larger it is as stored, every shared subterm counted again,
+;; as expanding a fact node costs more the larger its statement (row-cost and
+;; term-cost, runtime_state.pl), so a step costs the same however large the
 ;; terms a recursive rule builds, such as (Num (succ (succ ...))) from
 ;; (Num $x) → (Num (succ $x)). A fold's arguments do not grow that way.
 (: sk-root? (-[det]-> SkPattern Bool))
 (= (sk-root? $node)
    (let $hash (sk-node-hash $node)
       (not (== (collapse (once (match &sk_roots ($hash $root) (if (=alpha $root $node) true (empty))))) ()))))
+
+;; A query's scaffold, the joins and rows its roots own that cost no
+;; allowance: the applications of its own rules, which the query compiled
+;; and which apply a bounded number of times. A root's applications of the
+;; KB's rules are as many as their premises have bindings, whether the root
+;; is open or ground, and spend the allowance as any other row does (#176: an
+;; inverted rule and the projections of a conjunction rebuilt each other's
+;; answers at an open root, 1,222 rows and 518 MB of stored rows in 400 steps;
+;; one rule over 1,000 facts gave a ground root 1,000 free rows at one step).
+(: sk-scaffold? (-[det]-> SkPattern Number Bool))
+(= (sk-scaffold? $owner $rule)
+   (if (>= $rule 1000000000) (sk-root? $owner) false))
 
 ;; Whether the search still has work at or below a node: it is unexpanded, or
 ;; the pending-work index holds work below it. A root never reached has no
@@ -744,10 +813,14 @@
 ;; Work left over by an earlier query waits with its node and resumes when a
 ;; later walk reaches that node, so it never spends an unrelated query's
 ;; budget: parked deliveries are queued again, and while rows are allowed,
-;; deferred joins are extended and deferred rows completed.
+;; deferred joins are extended and deferred rules started again.
+;; A deferred rule starts again at its owner, as expansion started it.
 (: sk-deferred-step (-[semidet]-> Atom SkeletonDeferred Atom))
-(= (sk-deferred-step $_acc (sk-deferred $owner $rule $concl $premises $keys))
-   (sk-complete-row! $owner $rule $concl $premises $keys))
+(= (sk-deferred-step $_acc (sk-deferred $owner $rule))
+   (let ($type $kbctx $_proof $_tv) $owner
+      (fold-semidet (sk-start-rule-step $owner) ()
+         (collapse (let (sk-match $id $premises $goal) (sk-rule-match (assemble-stored-runtime-fact $type $kbctx $_p $_t))
+            (if (== $id $rule) (sk-match $id $premises $goal) (empty)))))))
 
 (: sk-resume! (-[semidet]-> Number SkPattern Atom))
 (= (sk-resume! $hash $node)
@@ -760,19 +833,18 @@
           ($_delivered (sk-work! $hash $node (- 0 (length $deliveries)))))
       (if (<= (search-id-value sk_row_budget) 0) ()
          (let* (($joins
-                   (collapse (match &sk_deferred_joins ($hash $jhash (sk-join $waiter $key))
-                      (if (=alpha (sk-waiter-owner $waiter) $node)
-                         (let $_removed (remove-atom &sk_deferred_joins ($hash $jhash (sk-join $waiter $key)))
-                            (sk-join $waiter $key))
+                   (collapse (match &sk_deferred_joins ($hash $jhash (sk-join $jowner $jrule $handle))
+                      (if (=alpha $jowner $node)
+                         (let $_removed (remove-atom &sk_deferred_joins ($hash $jhash (sk-join $jowner $jrule $handle)))
+                            (sk-join $jowner $jrule $handle))
                          (empty)))))
                 ($_taken (sk-work! $hash $node (- 0 (length $joins))))
                 ($_joined (fold-semidet sk-deferred-join-step () $joins))
                 ($deferred
-                   (collapse (match &sk_deferred ($hash $rhash (sk-deferred $owner $rule $concl $premises $keys))
+                   (collapse (match &sk_deferred ($hash $rhash (sk-deferred $owner $rule))
                       (if (=alpha $owner $node)
-                         (let $_removed
-                            (remove-atom &sk_deferred ($hash $rhash (sk-deferred $owner $rule $concl $premises $keys)))
-                            (sk-deferred $owner $rule $concl $premises $keys))
+                         (let $_removed (remove-atom &sk_deferred ($hash $rhash (sk-deferred $owner $rule)))
+                            (sk-deferred $owner $rule))
                          (empty)))))
                 ($_completed (sk-work! $hash $node (- 0 (length $deferred)))))
             (fold-semidet sk-deferred-step () $deferred)))))
@@ -781,7 +853,16 @@
 (= (sk-waiter-owner (sk-partial $owner $_rule $_concl $_done $_remaining $_keys)) $owner)
 
 (: sk-deferred-join-step (-[semidet]-> Atom SkeletonJoin Atom))
-(= (sk-deferred-join-step $_acc (sk-join $waiter $key)) (sk-extend! (copy_term $waiter) $key))
+(= (sk-deferred-join-step $_acc (sk-join $_owner $rule $handle))
+   (if (rule-live? $rule)
+      (fold-semidet sk-waiter-read-step () (sk-waiter-at $handle))
+      ()))
+
+(: sk-waiter-read-step (-[semidet]-> Atom SkeletonWaiter Atom))
+(= (sk-waiter-read-step $_acc (sk-partial $owner $rule $concl $done (cons $premise $rest) $keys))
+   (let* (($subscription (sk-functional-subscription (sk-partial $owner $rule $concl $done (cons $premise $rest) $keys)))
+          ($_read (sk-read-answers! (sk-partial $owner $rule $concl $done (cons $premise $rest) $keys) $premise)))
+      (sk-functional-delivered! $subscription)))
 
 (: sk-park-step (-[det]-> Atom SkeletonQueued Atom))
 (= (sk-park-step $_acc (sk-queued $seq (sk-delivery $node $key)))
@@ -817,9 +898,17 @@
                 (($type $kbctx $proof $_tv)
                    (if (derivation-proof? $type $proof) (complete-statement? $type $kbctx) false))))
              false
-             (any-flat? prefilter-premise-blocks? (copy_term $premises)))
+             ;; Once the row allowance is closed, starting an application
+             ;; that computes at once is refused before it computes: its rule
+             ;; starts again later, prefilter and all.
+             (if (if (sk-scaffold? $owner $rule) false (<= (search-id-value sk_row_budget) 0))
+                (if (any-flat? sk-computes-now? $premises) (let $_deferred (sk-defer-rule! $owner $rule) true) false)
+                (any-flat? prefilter-premise-blocks? (copy_term $premises))))
          ()
-         (sk-advance! (sk-partial $owner $rule $goal () $premises ())))
+         (let* (($refused (search-id-value sk_refused))
+                ($_advanced (sk-advance! (sk-partial $owner $rule $goal () $premises ()))))
+            (if (== $refused (search-id-value sk_refused)) ()
+               (let $_owned (change-state! sk_refused $refused) (sk-defer-rule! $owner $rule)))))
       ()))
 
 ;; The compiled scaffold of an implication subgoal that is not itself a
@@ -1078,19 +1167,20 @@
          (append-flat $kept (cons $match ())))))
 
 ;; A reader of a node, a join of rule `$reader` or a query root (-1), starts
-;; the inversions waiting there of every other rule.
-(: sk-start-deferred! (-[semidet]-> Number Number Atom))
-(= (sk-start-deferred! $hash $reader-id)
+;; the inversions waiting there of every other rule; the node hash only finds
+;; the node's entries.
+(: sk-start-deferred! (-[semidet]-> Number SkPattern Number Atom))
+(= (sk-start-deferred! $hash $node $reader-id)
    (if (not (space-row-present? &sk_deferred_inversion (quote ($hash $_r $_o $_m)))) ()
       (let* (($reader (if (< $reader-id 0) none (sk-rule-name $reader-id)))
              ($_started (collapse (match &sk_deferred_inversion ($hash $rule $owner $match)
-                (if (== $rule $reader) (empty)
+                (if (if (== $rule $reader) true (not (sk-same-node? $owner $node))) (empty)
                    (let $_taken (remove-variant-row! &sk_deferred_inversion (quote ($hash $rule $owner $match)))
                       (sk-start-rule-step $owner () $match)))))))
          ())))
 
 (: sk-root-reader-step (-[semidet]-> Atom SkPattern Atom))
-(= (sk-root-reader-step $_acc $root) (sk-start-deferred! (sk-node-hash $root) -1))
+(= (sk-root-reader-step $_acc $root) (sk-start-deferred! (sk-node-hash $root) $root -1))
 
 ;; Subsumption: an open node below a root whose statement grows a term of an
 ;; open node whose rules were already started (grows-from?, as (Num (succ $x))
@@ -1387,7 +1477,7 @@
          (sk-search! $rest))
       (if (sk-seen! $hash $node)
          (sk-search! $rest)
-         (if (if (sk-free-expansion? $hash $node) true (sk-take! sk_budget (case $node (((CPU $_f $_a $_r) 1) (($type $_c $_p $_t) (term-cost $type))))))
+         (if (if (sk-free-expansion? $hash $node) true (sk-pay-cost! sk_budget (case $node (((CPU $_f $_a $_r) 1) (($type $_c $_p $_t) (term-cost $type (search-id-value sk_budget)))))))
             (let $_expand (sk-expand! $node $depth $hash) (sk-search! (sk-push-children $depth $hash $node $rest)))
             (sk-search! $rest)))))
 
@@ -1405,16 +1495,16 @@
 (: sk-clear-temp! (-[semidet]-> Atom))
 (= (sk-clear-temp!)
    (let* (($_deferred
-             (collapse (match &sk_deferred ($h $rh (sk-deferred $o $rule $c $p $k))
+             (collapse (match &sk_deferred ($h $rh (sk-deferred $o $rule))
                 (if (>= $rule 1000000000)
                    (let $_taken (sk-work! (sk-node-hash $o) $o -1)
-                      (remove-atom &sk_deferred ($h $rh (sk-deferred $o $rule $c $p $k))))
+                      (remove-atom &sk_deferred ($h $rh (sk-deferred $o $rule))))
                    (empty)))))
           ($_joins
-             (collapse (match &sk_deferred_joins ($jh $jj (sk-join (sk-partial $jo $jrule $jc $jd $jr $jk) $jkey))
+             (collapse (match &sk_deferred_joins ($jh $jj (sk-join $jo $jrule $jw))
                 (if (>= $jrule 1000000000)
                    (let $_taken (sk-work! (sk-node-hash $jo) $jo -1)
-                      (remove-atom &sk_deferred_joins ($jh $jj (sk-join (sk-partial $jo $jrule $jc $jd $jr $jk) $jkey))))
+                      (remove-atom &sk_deferred_joins ($jh $jj (sk-join $jo $jrule $jw))))
                    (empty)))))
           ($_waits
              (collapse (match &sk_temp_waits ($hash $pattern $waiter)
