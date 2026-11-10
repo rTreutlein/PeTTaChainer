@@ -912,6 +912,12 @@
 ;; parts. Inverting the rule concludes the compound again, so its row also
 ;; excludes views depending on any part: the premise it inverts was derived
 ;; from them.
+;; An inverse of rule r concludes a witness of r's antecedent from an
+;; observed consequent. A consequent view resting on r's own application to a
+;; witness is r's prediction, never an observation for another witness (#180,
+;; #181). So the row also excludes the premise keys of r's rows concluding the
+;; keys it observes (sk-witness-hashes). That is provenance: a part shared with
+;; another rule's antecedent stays independent evidence.
 ;; An implication instance sample reads no value a refined rule's truth
 ;; estimates: what the other hypotheses predict is no observation, and taking
 ;; it as one would count their samples again and feed hypotheses into each
@@ -919,8 +925,8 @@
 ;; value derived through the implication it samples, a derived implication
 ;; applied to its own instance: the fold carries no member dependencies, so
 ;; the sample is where that support is refused.
-(: sk-row-exclusions (-[det]-> Number SkeletonKey Atom (List Number)))
-(= (sk-row-exclusions $khash $key $proof)
+(: sk-row-exclusions (-[det]-> SkeletonIdent Number SkeletonKey Atom (List Number)))
+(= (sk-row-exclusions (sk-ident $rule $observed $_owner) $khash $key $proof)
    (let $own
       (case $key (
          ((sk-key $type ($kbid $ctx $_vars))
@@ -936,7 +942,8 @@
       (case $key (
          ((sk-key $type $kbctx)
             (if (sk-inverted-proof? $proof)
-               (hash-set (foldr-flat (sk-part-exclusions $kbctx) $own (sk-statement-parts (cons $type ()))))
+               (hash-set (foldr-flat (sk-part-exclusions $kbctx) (append-flat (sk-witness-hashes $rule $observed) $own)
+                  (sk-statement-parts (cons $type ()))))
                (if (head-is? $type ImplicationInstanceSample)
                   (case $type (
                      ((ImplicationInstanceSample $a $b $_atv $_btv)
@@ -947,6 +954,42 @@
                      ($_statement $own)))
                   $own)))
          ($_fold $own)))))
+
+;; The statement premise keys that set the inverse's rule's rows concluding a
+;; key the inverse observes apart from that key's other derivations: a view
+;; through r's own row depends on them, another rule's derivation does not. A
+;; premise r's row shares with another rule's derivation is no mark of r's.
+;; An inversion, completion or report row only relays its observation as
+;; evidence of another antecedent, so it sets nothing apart. A refined rule's
+;; truth is the rule's parameter, no witness.
+(: sk-witness-hashes (-[det]-> Number (List Atom) (List Number)))
+(= (sk-witness-hashes $rule $observed)
+   (let $forward (rule-forward-ids $rule)
+      (if (== $forward ()) ()
+         (collapse
+            (let* (($target (superpose $observed))
+                   ($thash (index-hash $target))
+                   ($rows (collapse (match &sk_row ($thash $stored $_rhash $row)
+                      (if (=alpha $stored $target) $row (empty)))))
+                   ($distinct (\== (fold-semidet (sk-row-premises-step $forward applied) () $rows)
+                                    (fold-semidet (sk-row-premises-step $forward derived) () $rows))))
+               (superpose $distinct))))))
+
+;; The statement premise hashes of a row of the wanted kind: applied (by one
+;; of the forward applications), derived (by another rule) or relayed.
+(: sk-row-premises-step (-[semidet]-> (List Number) Atom (List Number) SkeletonRow (List Number)))
+(= (sk-row-premises-step $forward $wanted $hashes (sk-row (sk-ident $rule $premises $_concluded) ($_type $_kbctx $proof $_tv) $_patterns $_seq))
+   (if (== (if (stored-list-member? $rule $forward) applied
+              (case (proof-semantic (brand Proof $proof)) (((prior-update $_kind $_r $_b $_read $_w) relayed) ($_other derived))))
+           $wanted)
+      (fold-semidet sk-statement-hash-step $hashes $premises)
+      $hashes))
+
+(: sk-statement-hash-step (-[det]-> (List Number) Atom (List Number)))
+(= (sk-statement-hash-step $hashes $premise)
+   (case $premise (
+      ((sk-key $type $_kbctx) (if (head-is? $type RuleTruth) $hashes (cons (index-hash $premise) $hashes)))
+      ($_fold $hashes))))
 
 ;; A completion's recipe fixes its target, compound, observation position and
 ;; opening polarity; statement inputs before the observation are siblings.

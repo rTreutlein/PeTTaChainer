@@ -159,3 +159,10 @@ source_catalog_sources(Type, Scope, Facts) :-
          ( 'positive-only-pattern?'(KB,Pattern,true) -> 'user-base-rate?'(KB,Pattern,true) ; true ),
          copy_term_nat(Pattern,Probe), copy_term_nat(Type,Want), Probe=Want,
          Args=[KB,Pattern,'extract-tv',['BaseRateEvidence',0.0,0.0],'BaseRateAcc','base-rate','result-tv'] ), Folds).
+
+% The forward applications of the source an application belongs to; none for
+% an application without one.
+'rule-forward-ids'(Id, Ids) :-
+    ( source_catalog_application(Id, Source, _, _, _, _, _)
+    -> findall(F, source_catalog_application(F, Source, _, _, ['forward-source'|_], _, _), Ids)
+    ; Ids = [] ).

@@ -486,8 +486,8 @@
                (not (== (collapse (once
                   (let ($reader-hash $reader-row) (superpose $readers)
                      (match &sk_row ($reader-hash $reader-key $reader-row
-                              (sk-row $_ident ($_type $_ctx $proof $_tv) $_premises $_seq))
-                        (if (deps-meet? (sk-row-exclusions $reader-hash $reader-key $proof) $mandatory)
+                              (sk-row $reader-ident ($_type $_ctx $proof $_tv) $_premises $_seq))
+                        (if (deps-meet? (sk-row-exclusions $reader-ident $reader-hash $reader-key $proof) $mandatory)
                            (empty) true))))) ()))))))
 
 (: sk-need-row! (-[semidet]-> Number SkeletonNeed SkeletonItem SkeletonNeed))
@@ -786,8 +786,8 @@
 
 (: sk-clash-waiting (-[semidet]-> Number SkeletonKey Number SkeletonFilter SkeletonRow SkeletonValue))
 (= (sk-clash-waiting $hash $key $rhash $filter $row)
-   (let* (((sk-row $_ident ($_type $_scope $proof $_tv) $_premises $_seq) $row)
-          ($exclude (sk-row-exclusions $hash $key $proof))
+   (let* (((sk-row $ident ($_type $_scope $proof $_tv) $_premises $_seq) $row)
+          ($exclude (sk-row-exclusions $ident $hash $key $proof))
           ($representative (sk-representative-row () $hash $key $rhash () $row))
           ((sk-val $fact $_ev $_deps) $representative))
       (if (sk-fact-matches? $filter $fact)

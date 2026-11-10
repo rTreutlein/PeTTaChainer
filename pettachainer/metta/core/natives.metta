@@ -68,6 +68,7 @@
    (source-catalog-clear-temp! Bool)
    (source-catalog-changed! KB Bool)
    (source-catalog-priors Statement KBContext Atom)
+   (rule-forward-ids Number (List Number))
    (context-current Atom)
    (context-prepare! KBContext Statement Proof TV Bool)
    (context-seeds Atom (List SkFact))

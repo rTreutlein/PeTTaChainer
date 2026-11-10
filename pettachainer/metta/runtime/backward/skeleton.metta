@@ -525,7 +525,12 @@
             (collapse (match &sk_prior_answer ($hash $pstored $pkey) (if (=alpha $pstored $premise) $pkey (empty))))) (sk-answers $premise)))))
 
 (: sk-extend-waiter-step (-[semidet]-> SkeletonWaiter Atom SkeletonKey Atom))
-(= (sk-extend-waiter-step $waiter $_acc $key) (sk-extend-current! (copy_term $waiter) $key))
+(= (sk-extend-waiter-step $waiter $_acc $key)
+   ;; Backward answers register their keys before delivery. Forward joins also
+   ;; read stored facts directly; register those through the same index so
+   ;; dependency hashes resolve for cycle checks and shared-evidence cuts.
+   (let $_registered (if (== (search-id-value sk_forward_run) 1) (sk-register-key! $key) ())
+      (sk-extend-current! (copy_term $waiter) $key)))
 
 ;; A join is extended by an answer once, however the answer reaches it (read
 ;; when the join starts waiting, or delivered later); a computation that

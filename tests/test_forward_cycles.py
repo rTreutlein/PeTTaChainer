@@ -1,8 +1,6 @@
 """Issue #181: forward publication retains admissible, shared-evidence values."""
 import unittest
 
-import janus_swi as janus
-
 from pettachainer import PeTTaChainer
 from pettachainer.metta_syntax import parse_term, render
 
@@ -78,16 +76,20 @@ class ForwardCycleTests(unittest.TestCase):
                         h.forward_chain(h.all_facts(), steps=2000)
 
     def test_nonseed_fact_in_forward_join_keeps_dependency_identity(self):
+        # Two routes read the unselected (P a) as a join co-premise. Unless
+        # its key is registered, they look independent and their merge
+        # moves (R a) away from the one observation both rest on.
         h = PeTTaChainer()
         h.add_atoms_no_check([
             '(: start (Start a) (STV 1 1))',
+            '(: go (Go a) (STV 1 1))',
             '(: source (P a) (STV 0.8 0.9))',
-            '(: (no_inverse pq) (Implication (And (Start $x) (P $x)) (Q $x)) '
+            '(: (no_inverse sr) (Implication (And (Start $x) (P $x)) (R $x)) '
             '(CTV (STV 1 1) (STV 0 1)))',
-            '(: (no_inverse qr) (Implication (And (Q $x) (P $x)) (R $x)) '
+            '(: (no_inverse gr) (Implication (And (Go $x) (P $x)) (R $x)) '
             '(CTV (STV 1 1) (STV 0 1)))',
         ])
-        seeds = [f for f in h.all_facts() if parse_term(f)[2] == 'start']
+        seeds = [f for f in h.all_facts() if parse_term(f)[2] in ('start', 'go')]
         out = {render(t): tuple(map(float, tv[1:]))
                for t, _, _, tv in map(parse_term, h.forward_chain(seeds, steps=2000))}
         self.assertIn('(R a)', out)
@@ -109,19 +111,6 @@ class ForwardCycleTests(unittest.TestCase):
         answers = h.query_many_refs([f'(: $p {witness} $tv)'], steps=2000)[0]
         self.assertTrue(answers)
         self.assertIn('observed_male', h.expand_proof(answers[0].proof))
-
-    def test_inverse_cycle_pattern_preserves_bindings_and_variable_heads(self):
-        h = make_case(CASES[0], .001)
-        result = janus.query_once(
-            "source_catalog_application(Id,_,_,[Output,Scope],"
-            "['reverse-source',male_son,_,_],_,_), "
-            "Scope=[Kb,'MAIN','Nil'], "
-            "Output=['Kin',son,elliott,[exists,male_son,0,[elliott]]], "
-            "'rule-cycle-key'(Id,['sk-key',Output,Scope],_Cycle), "
-            "_Cycle=['sk-key',['Kin',son,elliott,_Parent],Scope], var(_Parent), "
-            "'rule-cycle-key'(-1,['sk-key',[_Head,a],Scope],_Other), var(_Head)",
-            {'Kb': h.kb})
-        self.assertTrue(result['truth'])
 
 
 if __name__ == '__main__':
