@@ -896,6 +896,27 @@ application depends on the truth's key, not on the instances it was learned
 from, so two views through rules learned from one history share no
 observation through them. Because dependency sets are transitive, this rejects self-support
 through inverted rules, longer cycles, and more general or more specific keys.
+An inverse of rule r reads the consequent as an observation of r's
+antecedent. A consequent view resting on r's own application to a witness of
+that antecedent is r's prediction, never an observation for another witness:
+a known `Son(x, stanley)` predicts `Male(x)` through `male_son`, which must
+not invert into `Son(x, generated-parent)`. The exclusion is provenance read
+from the existing row store: the inverse's row also excludes the statement
+premise keys that set r's rows concluding an observed key apart from that
+key's other derivations (`sk-witness-hashes`; r's rows are those of the
+applications sharing the inverse's source, `rule-forward-ids`). A view
+through r's row depends on them, transitively, so a prediction reaching the
+consequent through other rules (a symmetric relation, a converse) is refused
+too; a view through another rule's row does not, so a premise r shares with
+another rule (`Located(eiffel, paris)` read by `r1` and `r2`) cuts nothing
+and `r1`'s route still supports `r2`'s witness. An inversion, completion or
+report row at the observed key only relays an observation as evidence of
+another antecedent, so it sets no premise apart. The premise keys carry their
+own context, so the exclusion holds in any context and whatever variables the
+inverse keeps or loses. A refined rule's truth premise is r's parameter, not
+a witness. An independently observed consequence still supports the inverse.
+The compiler's constructive Skolem convention is unchanged; it is no license
+to reuse a prediction as new evidence of its own antecedent (#180, #181).
 A value carries its dependency set as one interned node id, a union of its
 premises' nodes, so it stays one integer however long its history; whether a
 set holds a key is a walk pruned by each node's bitmask of key hashes
@@ -1927,7 +1948,10 @@ agenda earlier runs left, and grows the backward skeleton upward from them (`run
 - Taking a key starts, for every rule premise the key matches, a join with
   that premise bound. The join's other premises read the stored facts and the
   keys the skeleton already has, never expanding anything. A complete join is
-  an ordinary row. Its owner is the rule's conclusion, and no node is marked
+  an ordinary row. Stored premise keys enter the same key registry as backward
+  answers before extending a join, including facts the caller did not select
+  as seeds. Otherwise their dependency hashes cannot resolve to shared
+  statements for conditioning. Its owner is the rule's conclusion, and no node is marked
   expanded, so a later query still starts every rule on that pattern. A
   forward join records no join digest: it never waits, so one that stopped at
   a premise no key answered yet kept the same join, started later from that
@@ -1975,6 +1999,14 @@ make later queries cheap.
   or a read conditioned on one, leaves it out.
 - It stands for the value only while the key has no computed versions. Once
   it has, the live value wins and the copy never competes with it.
+
+Publication keeps the forward evaluation policy until all returned values
+have been read and stored. Switching to backward mode first changes root
+claim eligibility and replaces the already evaluated merge with an unpaid
+fallback (#181). The shared formulas and dependency checks apply in either
+mode; the search schedules and deep-root refinement allowances differ, so
+arbitrary finite-budget forward and backward runs need not be numerically
+identical.
 
 `forward-chain` returns the values it stored, with each proof printed as a DAG
 (`proof_dag_expand`).
