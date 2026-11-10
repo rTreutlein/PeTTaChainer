@@ -185,9 +185,9 @@
                 (() (sk-fold-views $hash $key)))))))))
       (fold-semidet sk-cons-step () (fold-semidet (sk-admit-step $hash $key $filter $exclude) () $versions))))
 
-;; A compound the event graph models has one value, its posterior, whoever
-;; reads it outside a condition: a stored report on it is a likelihood on its
-;; parts, and its parts' joint is the graph's.
+;; The graph models a compound without observations of its own key. Stored
+;; observations of that key use the ordinary merge, whoever reads it; their
+;; likelihood on the parts still belongs to graphs for other keys.
 (: sk-report-posterior (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) EvidenceSet EventNetworkRead))
 (= (sk-report-posterior $given $key $filter $exclude $ev)
    (case (data $given $key) (

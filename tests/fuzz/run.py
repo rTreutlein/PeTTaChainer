@@ -265,11 +265,9 @@ def event_evaluate(kb, settings, execute):
     exact = reference(kb, settings.k)
     if 'identity-subset' in kb.checks:
         # Q = I and judgment implies Q <= I, without inventing a probability
-        # for the judgment. Unobserved identity parts have uniform count laws.
-        identity = kb.reports[0][0]
-        control = EventKB('identity-bound', dict.fromkeys(identity[1:], (.5, 0, 'count')),
-                          [], kb.reports, [identity])
-        exact['subset'] = reference(control, settings.k)['rows'][0]
+        # for the judgment. This fixture has one stored identity source and
+        # no independent identity proof: #183 reads its stated strength.
+        exact['subset'] = {'s': kb.reports[0][1]}
     result = execute(kb)
     flags, rows = event_judge(kb, exact, result, settings)
     variants = {}

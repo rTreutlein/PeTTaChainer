@@ -1,5 +1,30 @@
 % Numerical event-value kernels; no search or evaluator control.
 
+% Unknown inputs are intervals, not zero-confidence point priors. The ordinary
+% connective formula propagates each endpoint and its variance. Read the interval
+% at its midpoint, discounting confidence by its width. A complete read belongs
+% to the ordinary producer.
+'compound-bounds'([Head|_], Parts, TVs, Proofs, ['bound-result', ['STV', S, C], [conjunction|Known]]) :-
+    maplist(compound_bound_input, Parts, TVs, Proofs, Bounds),
+    maplist([bound(L,_,_),L]>>true, Bounds, Lows),
+    maplist([bound(_,H,_),H]>>true, Bounds, Highs),
+    maplist([bound(_,_,P),P]>>true, Bounds, Sources),
+    memberchk(none, Sources), exclude(==(none), Sources, Known), Known \== [],
+    atom_concat(Head, 'Formula', Formula),
+    Lows = [L|Ls], Highs = [H|Hs],
+    foldl({Formula}/[T,A,B]>>call(Formula,A,T,B), Ls, L, ['STV', Lo, LC]),
+    foldl({Formula}/[T,A,B]>>call(Formula,A,T,B), Hs, H, ['STV', Hi, HC]),
+    Decided is Lo + (1 - Hi), Decided > 0,
+    S is (Lo + Hi) / 2, C is min(LC, HC) * Decided, C > 0.
+
+compound_bound_input(Part, TV, Proof, bound(Low, High, Source)) :-
+    ( TV = ['STV', _, C], C > 0
+    -> 'canon'(Part, [_, Odd]),
+       ( Odd == true -> 'NotFormula'(TV, Value), Source = [negated, Proof]
+       ; Value = TV, Source = Proof ),
+       Low = Value, High = Value
+    ; Low = ['STV', 0, 1], High = ['STV', 1, 1], Source = none ).
+
 'event-node-message'(Formula, Index, K, [KProof, KTV], Siblings, Proofs, Keys,
                      ['node-message-result', TV, Likelihood]) :-
     observed(KProof, KTV),

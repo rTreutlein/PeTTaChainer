@@ -177,8 +177,9 @@ class EventReviewRegressionTests(unittest.TestCase):
         h = PeTTaChainer()
         facts, compounds = kb_atoms(probes(*SETTINGS['H'])['P3'])
         h.add_atoms_no_check(facts)
-        # The compound key itself needs no rows for template discovery.
-        read = ("Key=['sk-key',['Or',['A',a],['B',a]],[Kb,'MAIN','Nil']],"
+        # A different compound sees the new observation through the graph;
+        # the observed key itself now reads its stored report.
+        read = ("Key=['sk-key',['And',['A',a],['B',a]],[Kb,'MAIN','Nil']],"
                 " 'event-network-read'(Key,'sk-any-filter',[],['ev-set',0],Out)")
         before = janus.query_once(read, {'Kb': h.kb})
         self.assertEqual(before['Out'], 'no-event-model')
@@ -193,7 +194,7 @@ class EventReviewRegressionTests(unittest.TestCase):
         self.assertGreater(new, old)
         self.assertNotEqual(janus.query_once(read, {'Kb': h.kb})['Out'], 'no-event-model')
         generations = janus.query_once(
-            "findall(_E,event_graph_plan(_,main,_E,['sk-key',['Or',['A',a],['B',a]],[Kb,'MAIN','Nil']],_),Gs)",
+            "findall(_E,event_graph_plan(_,main,_E,['sk-key',['And',['A',a],['B',a]],[Kb,'MAIN','Nil']],_),Gs)",
             {'Kb': h.kb})['Gs']
         # Compiler indexes, not skeleton rows, now define the plan.
         self.assertEqual(len(set(generations)), 1)

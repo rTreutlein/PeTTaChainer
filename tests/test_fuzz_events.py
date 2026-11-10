@@ -124,12 +124,12 @@ class EventGateTests(unittest.TestCase):
         result = event_evaluate(kb, self.settings, lambda k: self.answers(k, 1))
         self.assertIn('false', [f['invariant'] for f in result['flags']])
 
-    def test_soft_identity_uses_enumerated_subset_below_strength_tolerance(self):
+    def test_soft_identity_uses_stored_subset_below_strength_tolerance(self):
         kb = next(k for k in event_cases() if 'identity-subset' in k.checks)
-        result = event_evaluate(kb, self.settings, lambda k: self.answers(k, 1, .818))
+        excess = self.settings.threshold / 2
+        result = event_evaluate(kb, self.settings, lambda k: self.answers(k, .8 + excess, .818))
         upper = result['exact']['subset']['s']
-        self.assertAlmostEqual(upper, 7201/7208)
-        self.assertLess(1-upper, self.settings.threshold)
+        self.assertEqual(upper, .8)
         self.assertIn('identity-subset', [f['invariant'] for f in result['flags']])
         valid = event_evaluate(kb, self.settings, lambda k: self.answers(k, upper-.01))
         self.assertFalse(valid['flags'])

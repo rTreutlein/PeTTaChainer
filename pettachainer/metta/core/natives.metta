@@ -302,6 +302,7 @@
    (jeffrey-posterior Number Number Number TV Expression STVType)
    (pearl-moments Number Atom Atom Expression STVType)
    (event-node-joint Atom Expression Number Expression Expression Expression Expression Expression)
+   (compound-bounds Atom Expression Expression Expression Atom)
    ;; Keep selection as an output across the FFI: nth0/4 types its third
    ;; position as an input under strict checking.
    (rule-premise Number (List SkPattern) SkPattern)

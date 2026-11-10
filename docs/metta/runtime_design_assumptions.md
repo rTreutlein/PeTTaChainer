@@ -672,7 +672,53 @@ that both apply a rule to different premises are not: given the rule's truth
 they are independent, whether that truth is given or estimated, and its
 uncertainty enters each proof's confidence.
 
-A key's value merges its stored facts and one view per row:
+An admitted event graph supplies a posterior before the ordinary merge, except
+when a compound key has its own positive-confidence raw observation (#183).
+That key uses the ordinary merge below, for every consumer, in MAIN and
+Assuming overlays, at either public polarity. A sole stored observation reads
+at its stored TV. Independent proofs from the parts can revise with it;
+projections of the observation cannot count it again. A false conjunct or true
+disjunct can decide the compound at finite confidence.
+Its independent part proof revises with the report; it does not reduce confidence
+merely because the sources disagree.
+At ingestion, a stored And/Or also installs a partial part producer. It reads
+parts through the existing optional cavities, excluding the compound key,
+so the report and every derivation through it contribute no part evidence.
+Unknown parts give bounds [0,1], not a zero-confidence point prior. Apply the
+connective's ordinary formula to both endpoint lists, including its variance
+propagation, giving (L,cL) and (U,cU). With d=L+(1-U), the partial TV is
+((L+U)/2, d*min(cL,cU)); d=0 supplies no proof. A known part uses its own TV at
+both ends; Not complements it. When every part is known the ordinary complete
+producer supplies the value instead. Optional read subscriptions wake on late
+parts, and adding a report installs its producer through ordinary rule activation.
+This interval-to-TV reading uses its centre L+(U-L)/2=(L+U)/2
+and discounts the smaller endpoint confidence by one minus the width. It
+does not interpret an upper bound as evidence that the compound is false.
+For A=(.5,.99), B unknown, And has [0,.5], so its proof is (.25,.495).
+At width zero it preserves the endpoint and its confidence; at width one
+it contributes no evidence.
+No source report is an input of that producer. This partial reading is installed
+only for stored compounds, where the ordinary merge replaced graph admission;
+unreported compounds retain their existing producer and graph behavior.
+
+The source remains a Pearl likelihood in graphs for its parts and for other
+compound keys. This admission boundary does not change their variance bound,
+work tariff or source identity.
+
+For `(Not (And A B C)) (STV 1 .99)`, the positive key therefore reads
+`(STV 0 .99)` and the negated query `(STV 1 .99)`, both from the stored source.
+With independent A and B each `(STV 1 .99)` and a negative report about
+`(And A B)`, ordinary revision pools the report's count with the conjunction's
+count: approximately `(STV .3333305275 .9933110088)`. This is confidence in
+the pooled frequency, not in either endpoint; conflict does not select the
+report alone or discard it in favour of the parts.
+
+The key identity here is `canon`'s: leading negations cancel and Member syntax
+normalizes, but connective child order is retained. Reordered compounds are
+separate keys, connected by the existing joint rows where supported. This
+change does not canonicalize arbitrary Boolean equivalences.
+
+Outside an admitted graph, a key's value merges its stored facts and one view per row:
 
 - independent forward predictions supply the instance prior for a stored
   report below confidence 1, rather than another sample to revise with it

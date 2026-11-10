@@ -225,7 +225,9 @@ def event_cases(seed=1, long=False):
     identity = ('And', '(AnnouncedBy Split1 Apple)', '(AnnouncedOn Split1 Date20200730)', '(Member Split1 StockSplit)')
     judgment = '(Implication (Implemented Split1) (Not (Dilutes Split1)))'
     bridge = '(: bridge (Implication (And (Member $e StockSplit) (Implemented $e)) (Not (Dilutes $e))) (STV 1 0.9))'
-    yield EventKB(f'identity-soft-{seed}', {}, [], [(identity, 1, .9)],
+    # A fractional source keeps the subset bound nontrivial under #183's
+    # direct source read (an endpoint source would only check Q <= 1).
+    yield EventKB(f'identity-soft-{seed}', {}, [], [(identity, .8, .9)],
                   [('And', *identity[1:], judgment)], raw=[bridge],
                   checks=['identity-subset'], reference=False)
     for mode in ('ground', 'exists'):

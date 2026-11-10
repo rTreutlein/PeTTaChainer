@@ -35,6 +35,43 @@ rules. Forward copies, frozen summaries and materialized outputs are excluded. P
 negative uses of the same canonical source are one factor, with polarity
 already represented by its stored strength. Node outputs never become reports.
 
+A compound key with its own positive-confidence raw source is not admitted to
+the graph. Its ordinary source/evidence merge reads that observation directly,
+combining independent proofs when present and excluding feedback from its own
+projections. The rule applies to every consumer, not just public roots, and
+uses the same scoped source lookup in Assuming overlays. A sole report retains
+its strength and confidence; multiple independent report ids revise, while a
+repeated id counts once. Forward copies and summaries are not raw observations.
+The source is still a factor in graphs for other keys: a query of a part, or of
+another compound sharing parts, continues to learn through its likelihood.
+Zero-confidence placeholders do not prevent graph admission.
+
+Stored And/Or reports install a partial part producer for this ordinary merge.
+Its optional cavity reads exclude the compound, including report-derived parts.
+Unknown inputs carry [0,1]; applying the connective's ordinary formula to each
+endpoint list gives (L,cL) and (U,cU). The interval precision is d=L+(1-U)=1-(U-L); d>0
+contributes ((L+U)/2, d*min(cL,cU)), otherwise nothing. With all inputs known the
+complete producer supplies its ordinary TV. Thus A=(0,.99) independently
+refutes And(A,B) at .99 even with B unknown, and A=(1,.99) proves Or(A,B).
+The report's own count then revises with that count, without a conflict discount.
+The midpoint is L+(U-L)/2=(L+U)/2: an estimate centred in the unresolved
+interval, with confidence reduced by its width rather than treating the upper
+bound as a false observation. A=(.5,.99), B unknown gives [0,.5], hence
+(.25,.495); width zero retains the endpoint and width one yields no proof.
+This producer does not change graph admission or create a new source identity.
+
+
+For example, storing `(Not (And A B C)) (STV 1 .99)` reads back as `(STV 0 .99)`
+at its positive canonical key, with the stored proof. Previously that same
+key was answered as a posterior over three uniform parameters, strength
+`1/554408` and confidence approximately `.00431827495`. The November 10 #183
+source-read decision replaces that precedence; it does not tighten the
+polynomial variance bound for queries about other keys.
+
+`canon` preserves child order, so reordered compounds remain separate keys.
+The ordinary joint-row identity below does not itself prevent a graph for
+such a different key. Boolean key normalization is outside this change.
+
 The graph reader discovers atomic and compound observations through live
 conclusion and premise indexes, starting with the goal and its formula atoms.
 An unobserved nested goal compound cannot hide its atoms' observations.
@@ -117,8 +154,9 @@ An observed compound sends a Pearl likelihood. A predicted compound instead
 uses Jeffrey kinematics: P'(G) = P* P(G|K) + (1-P*) P(G|not K). P* revises the
 prediction with the parts' estimate using their counts. An absorbing parts'
 probability stays unchanged. Joint readers calculate their goal in the same
-worlds. A connective over all the same children in another order is the original
-compound and retains its TV.
+worlds. Within this ordinary joint reader, a connective over all the same children
+in another order retains the source compound's TV. An admitted graph for that
+separate key takes precedence over the joint reader.
 
 Observed messages act together on the cavity value, a set population rate, or a
 uniform prior. Separable literal messages share only their target. Their other

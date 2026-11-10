@@ -124,14 +124,21 @@ settled step agree.
 - The prior-factored merge needs nothing: a certain view is not an inversion
   over a prior.
 
-## Not built: bounds
+## Bounds for stored reports (#183, November 10)
 
 An uncertain part gives only a bound, P(A or B) >= P(A), P(A and B) <= P(A).
 One STV cannot carry an interval; reading the unproved part as its base rate
 would turn every partly known compound into an answer whose strength the
 population decides, and in the untimed cycle the loop disjunct's base rate
 would make a plant without stock run with the population's rate (SupplyNet's
-exact answer is 0). So only certainty settles.
+exact answer is 0). So only certainty settles an unreported compound through this shortcut.
+A stored compound uses its ordinary source merge and now installs a separate
+partial producer at ingestion. Its unknown parts carry [0,1], and its known
+parts read independently of that compound. It reads the connective interval
+at its midpoint with confidence discounted by its width, as specified in
+`event_node_contract.md`; a finite-confidence
+absorbing part can therefore revise with the report. This does not broaden the
+settling shortcut or add partial producers to unreported compounds.
 
 ## Result
 

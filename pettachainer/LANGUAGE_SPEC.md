@@ -350,12 +350,35 @@ nothing else informs claims little confidence. An update or message that an
 antecedent completion of the atom already counts (the completion's prior was
 formed under K's evidence, alone or within a revision) is not applied again.
 
+A query or premise reading a compound key with its own stored observation
+uses the ordinary source merge (#183). A sole observation retains its TV,
+including when the query is negated or read under Assuming; independent parts'
+proofs can revise with it, and its own projected evidence counts only once.
+An independently false conjunct or true disjunct contributes at its own
+confidence even when other parts are unknown. For graded parts, unknowns
+contribute bounds [0,1] without evidence: the connective's usual formula
+produces (L,cL) and (U,cU), and the partial proof is ((L+U)/2,d*min(cL,cU))
+where d=L+(1-U)>0. With d=0 there is no proof; with every part known the
+ordinary complete proof applies. Part reads exclude the compound itself, so
+a report projected through a part cannot be counted again in its own read.
+The strength is the interval centre L+(U-L)/2, and d=1-(U-L) discounts
+confidence as its width increases. Thus A=(.5,.99), B unknown gives And
+bounds [0,.5] and partial TV (.25,.495), not a claim of falsity.
+
+For example, a stored `Not (And A B C)` at `(1, .99)` answers its positive key
+at `(0, .99)`. The observation remains a Pearl likelihood for queries about
+its parts or other compounds. This rule is keyed by the existing canonical
+statement, which removes leading negations and normalizes Member syntax but
+preserves connective child order.
+
 An `And` or `Or` over two or more of K's children or of its atoms, in any
 order, and each compound inside K, is a joint row of K's node over at most four
 atoms, the node's own posterior; it takes the place of the conjunction or
 disjunction of the parts' values, so (And A B) and (And B A) agree, and in
 S -> (And A (And B C)) both (And A B) and (And B C) are P* + (1 - P*)/7. K's
-own connective over all its children is K, at K's value. Any other connective
+own connective over all its children retains K's value in this ordinary joint
+reader. An admitted event graph for a different, reordered key takes precedence
+over that reader. Any other connective
 over parts of one K is conditioned on K, given true and false; within each
 branch K's children are read jointly, each given K and the children before
 it.
@@ -364,13 +387,10 @@ A part's other parts are read at their values without searching them first;
 their searches run as low-priority children of the part's search, on the
 budget the direct work leaves, so a part read cold improves with budget.
 
-Limits: the node's variance is exact only where its quadrature settles: each
-rule twice as fine until two agree within 1 % (a factor constant to 1e-9 is a
-point; one broad dimension is integrated on intervals graded toward its
-endpoints, so a boundary layer as thin as 1e-12 is resolved), within 257
-nodes a dimension and 70000 points, the prior and up to four uncertain
-dimensions for independent messages; elsewhere, and past twelve atoms, the
-answer claims the bound s(1 - s), confidence 0, tested before any rounding;
+Limits: propagated confidence comes from the conservative polynomial
+ratio-variance bound in `docs/metta/event_node_contract.md`, not numerical
+quadrature. The bound can be loose near endpoints. Enumeration is bounded to
+twelve varying bits after folding; work is charged to the graph allowance;
 joint rows exist for at most four atoms; parts derived from each other by
 rules inside the node (rule-derived atoms with their own observations) are
 read as independent, and are then underconfident.

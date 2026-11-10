@@ -58,10 +58,10 @@
 
 ;; A stated conditional and both double-negated applications are one source.
 ;; Revision with those applications used to inflate confidence to 0.870943.
-;; The world parts are read as their stored conjunction, a report (1, .9) on
-;; three uniform parts: its posterior m / (m + 7 (1 - m)), m = 7201/7202, is
-;; 7201/7208, at the conservative variance bound of an observed compound
-;; (c 0), times the stated conditional. The compound counts once.
+;; The world parts read their stored compound (1, .9), once, beside the
+;; independent conditional (1, .9). AndFormula propagates both variances:
+;; v = (1-1e-6)*1e-6/7201, V = 2*v + v*v, n = (1-1e-6)*1e-6/V - 1.
+;; The resulting confidence is n/(n+800) = .8181611546663349.
 !(compileadd ev68ExplicitKb (: src_event (And (AnnouncedBy Split1 Apple)
    (AnnouncedOn Split1 Date20200730) (Member Split1 StockSplit)) (STV 1 0.9)))
 !(compileadd ev68ExplicitKb (: src_conditional
@@ -70,9 +70,9 @@
    (query 300 ev68ExplicitKb (: $p (Exists ($e) (And
       (AnnouncedBy $e Apple) (AnnouncedOn $e Date20200730) (Member $e StockSplit)
       (Implication (Implemented $e) (Not (Dilutes $e))))) $value)) $tv)
-   (STV 0.9990288568257488 0.0))
+   (STV 1 0.8181611546663349))
 !(test (let (: $_proof $_statement $tv)
    (query 300 ev68ExplicitKb (: $p (Exists ($e) (And
       (AnnouncedBy $e Apple) (AnnouncedOn $e Date20200730) (Member $e StockSplit)
       (Implication (Implemented $e) (Not (Dilutes $e))))) $value)) $tv)
-   (STV 0.9990288568257488 0.0))
+   (STV 1 0.8181611546663349))

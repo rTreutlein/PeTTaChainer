@@ -709,6 +709,18 @@
       (superpose (
          (brand CompiledAddition (() |- (: $fact-kb $prf $Type $tv)))
          (compile-specialization-fact-triggers $kb $Type)
+         ;; Stored compounds use the ordinary source merge. Supply its partial
+         ;; part proof without making the report itself an input of that proof.
+         (if (head-is-member? $Type (And Or))
+            (let* (($parts (compound-parts $Type (statement-children (list_to_set (cdr-atom $Type)))))
+                   (($goals $tvs $proofs $_tokens $_keys)
+                      (lower-node-siblings $fact-kb $Type (node-joint-part) $parts true)))
+               (reading-addition $fact-kb $Type
+                  (premise-bundle
+                     (append-flat (the (List Goal) $goals)
+                        ((CPU compound-bounds (quote ($Type $parts $tvs $proofs)) (bound-result $bound-tv $bound-proof))))
+                     $bound-tv (brand Proof $bound-proof))))
+            (empty))
          (if (if (head-is? $Type And)
                 (case $tv (((STV $s $c) (if (>= $s 1.0) (>= $c 1.0) false)) ($_other false)))
                 false)

@@ -7,12 +7,6 @@ import unittest
 from pettachainer import PeTTaChainer
 
 
-# P(identity) with the report (STV 1 .9) at k 800: m = 7201/7202 on the
-# all-true world of three uniform parts, 1 - m on the other seven.
-IDENTITY = 7201 / 7208
-IDENTITY_CASES = {'derived_ground_bridge', 'derived_existential_bridge',
-                  'existential_identity_control', 'explicit_conditional'}
-
 
 def entry(name, atom):
     return {'name': 'src_' + name, 'source_id': name, 'atom': f'(: src_{name} {atom} (STV 1 0.9))'}
@@ -69,15 +63,8 @@ class TestConditionalWorldFacts(unittest.TestCase):
                     self.assertEqual(bool(rows), expected, rows)
                     for row in rows:
                         self.assertEqual(row.tv[0], 'STV')
-                        if name in IDENTITY_CASES:
-                            # The event report is a likelihood on its three
-                            # uniform parts: the whole query reads the
-                            # identity's posterior, at the conservative
-                            # variance bound of an observed compound (c 0).
-                            self.assertAlmostEqual(row.tv[1], IDENTITY, delta=1e-10)
-                        else:
-                            self.assertAlmostEqual(row.tv[1], 1.0)
-                            self.assertGreater(row.tv[2], 0.0)
+                        self.assertAlmostEqual(row.tv[1], 1.0)
+                        self.assertGreater(row.tv[2], 0.0)
                         self.assertLessEqual(row.tv[2], 0.9)
                         if name == 'positive_consequent_control':
                             self.assertAlmostEqual(row.tv[2], 0.8709625388003415)

@@ -1,11 +1,4 @@
-"""KE identity worlds: a conjunction's world parts beside a judgment are read as
-one compound, and a compound the event graph models has its posterior as its
-one value, whoever reads it.
-
-Reference: the three identity parts are uniform roots; the report (STV s .9)
-multiplies the all-true world by its predictive mean m = (7200 s + 1)/7202
-and the seven others by 1 - m, so P(I) = m / (m + 7 (1 - m)).
-"""
+"""KE identity worlds read a stored compound as one source, also beside a judgment."""
 import unittest
 
 from pettachainer import PeTTaChainer
@@ -17,10 +10,6 @@ Q = f'(And {PARTS} {J})'
 BRIDGE = '(: bridge (Implication (And (Member $e StockSplit) (Implemented $e)) (Not (Dilutes $e))) (STV 1 0.9))'
 
 
-def identity(s):
-    m = (7200 * s + 1) / 7202
-    return m / (m + 7 * (1 - m))
-
 
 class TestIdentityWorlds(unittest.TestCase):
     def tvs(self, atoms, goal):
@@ -29,13 +18,13 @@ class TestIdentityWorlds(unittest.TestCase):
         return [[row.tv for row in h.query_many_refs([f'(: $p {g} $tv)'], steps=300)[0]]
                 for g in (goal, I)]
 
-    def test_certain_judgment_reads_the_identity_posterior(self):
+    def test_certain_judgment_reads_the_identity_source(self):
         for s in (1, .8, .5, .2):
             with self.subTest(s=s):
                 q, i = self.tvs([f'(: report {I} (STV {s} 0.9))', f'(: judgment {J} (STV 1 1))'], Q)
                 for rows in (q, i):
                     self.assertEqual(len(rows), 1, rows)
-                    self.assertAlmostEqual(rows[0][1], identity(s), delta=1e-10)
+                    self.assertAlmostEqual(rows[0][1], s, delta=1e-10)
 
     def test_bridge_judgment_stays_within_the_identity(self):
         # The bridge has no template; it is an evidence-free descendant, and a
@@ -44,10 +33,12 @@ class TestIdentityWorlds(unittest.TestCase):
                          (.8, ['(: neutral (Not (Dilutes Split1)) (STV 0.5 0.9))'])):
             with self.subTest(s=s, extra=extra):
                 q, i = self.tvs([f'(: report {I} (STV {s} 0.9))', BRIDGE] + extra, Q)
-                self.assertAlmostEqual(i[0][1], identity(s), delta=1e-10)
+                self.assertAlmostEqual(i[0][1], s, delta=1e-10)
                 self.assertEqual(len(q), 1, q)
-                self.assertLessEqual(q[0][1], identity(s) + 1e-6)
-                self.assertLessEqual(q[0][2], .1)
+                self.assertAlmostEqual(q[0][1], s, delta=1e-12)
+                expected = {1: 0.8181611546663349, .8: 0.8999996399380039,
+                            .5: 0.899999909975099}
+                self.assertAlmostEqual(q[0][2], expected[s], delta=1e-12)
 
     def test_known_false_identity_supports_no_judgment(self):
         q, i = self.tvs([f'(: report {I} (STV 1 0.9))', BRIDGE, f'(: contra (Not {I}) (STV 1 1))'], Q)

@@ -4,12 +4,6 @@ import unittest
 from pettachainer import PeTTaChainer
 
 
-def identity(confidence):
-    """P(identity) for the report (STV 1 c) at k 800 over three uniform parts."""
-    n = 800 * confidence / (1 - confidence)
-    m = (n + 1) / (n + 2)
-    return m / (m + 7 * (1 - m))
-
 
 class TestDoubleNegationEvidence(unittest.TestCase):
     def test_double_negation_query_and_premise_answer_cold(self):
@@ -54,19 +48,18 @@ class TestDoubleNegationEvidence(unittest.TestCase):
                 with self.subTest(consequent=consequent, repeat=repeat):
                     rows = h.query_many_refs([query], steps=300)[0]
                     self.assertEqual(len(rows), 1, rows)
-                    # As test_double_negation_evidence.metta's ev68ExplicitKb: the
-                    # report is a likelihood on its parts, so the whole reads the
-                    # identity's posterior, at the conservative bound of an
-                    # observed compound (c 0), times the stated conditional.
-                    self.assertAlmostEqual(rows[0].tv[1], identity(0.9), delta=1e-10)
-                    self.assertLessEqual(rows[0].tv[2], 0.1)
+                    # The stored identity and independent conditional each
+                    # contribute once; the ordinary conjunction propagates
+                    # their variances (the MeTTa test pins that calculation).
+                    self.assertEqual(rows[0].tv[1], 1)
+                    self.assertAlmostEqual(rows[0].tv[2], 0.8181611546663349, delta=1e-12)
                     confidences.append(rows[0].tv[2])
         self.assertTrue(all(abs(value - confidences[0]) < 1e-12 for value in confidences))
 
     def test_overlapping_bridge_conditions_on_one_source(self):
         # The join conditions on the one event report: given the identity the
-        # bridge's conditional holds, and the identity is the report's
-        # posterior over its three parts, an upper bound on the join.
+        # bridge's conditional holds. Reading the identity retains the
+        # report's own strength and confidence, without counting it twice.
         for confidence in (0.5, 0.9):
             for consequent in ('(DoesNotDilute $e)', '(Not (Dilutes $e))'):
                 conjunction = f'(And (AnnouncedBy $e Apple) (AnnouncedOn $e Date20200730) (Member $e StockSplit) (Implication (Implemented $e) {consequent}))'
@@ -80,10 +73,11 @@ class TestDoubleNegationEvidence(unittest.TestCase):
                         with self.subTest(confidence=confidence, consequent=consequent, statement=statement, repeat=repeat):
                             rows = h.query_many_refs([f'(: $p {statement} $tv)'], steps=300)[0]
                             self.assertEqual(len(rows), 1, rows)
-                            self.assertAlmostEqual(rows[0].tv[1], identity(confidence), delta=1e-10)
-                            self.assertLessEqual(rows[0].tv[2], 0.1)
+                            self.assertEqual(rows[0].tv[1], 1)
+                            expected = {0.5: 0.4736218485431543, 0.9: 0.8181611546663349}
+                            self.assertAlmostEqual(rows[0].tv[2], expected[confidence], delta=1e-12)
                             proof = h.expand_proof(rows[0].proof)
-                            self.assertIn('(conditioned (node (conjunction src_event)) ', proof)
+                            self.assertIn('(conditioned src_event ', proof)
                             self.assertEqual(proof.count('src_event'), 1)
                             evidence = h._call('evidence-entries', [f'(proof-ref-evidence {rows[0].proof[1]})'])[0]
                             self.assertEqual(evidence.count('src_event'), 1)

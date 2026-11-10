@@ -38,7 +38,10 @@
     -> Out = ['event-posterior', Candidate] ; Out = 'no-event-model' ).
 
 graph_plan(Key, Plan) :-
-    Key = ['sk-key', _, Scope], ground(Key), Scope = [_, _, _],
+    Key = ['sk-key', Goal, Scope], ground(Key), Scope = [_, _, _],
+    % A compound's own observations are read by the ordinary source merge.
+    % Its likelihood on the parts still belongs to graphs for other keys.
+    \+ ( 'compound-source?'(Goal, true), source_catalog_sources(Goal, Scope, [_|_]) ),
     ( context_active(Frame) -> true ; Frame = main ),
     Scope = [KB|_], source_catalog_stamp(KB, Generation),
     ( event_graph_epoch(KB, Frame, Generation) -> true

@@ -31,12 +31,10 @@ class TestBridgeQueryOrder(unittest.TestCase):
                                 self.assertEqual(rows[0].tv, expected[-1])
                 self.assertEqual(expected[0], expected[1])
                 if confidence == 0.9:
-                    # The identity report is a likelihood on its three uniform
-                    # parts: the join reads its posterior 7201/7208 with the
-                    # bridge's conditional given it, at the conservative
-                    # variance bound of an observed compound.
-                    self.assertAlmostEqual(expected[0][1], 7201 / 7208, delta=1e-10)
-                    self.assertLessEqual(expected[0][2], 0.1)
+                    # The whole identity reads its stored report, including
+                    # when another key consumes it beside the judgment.
+                    self.assertEqual(expected[0][1], 1)
+                    self.assertAlmostEqual(expected[0][2], 0.8181611546663349, delta=1e-12)
                 for first, second in ((0, 1), (1, 0)):
                     h = PeTTaChainer()
                     h.add_atoms_no_check(atoms)
