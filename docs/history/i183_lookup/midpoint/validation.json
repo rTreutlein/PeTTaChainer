@@ -1,0 +1,33 @@
+{
+  "base": "8538013b18de3e7bdbc94b298d964e821e5c342f",
+  "code_commit": "dcdc890646dccfe6add7d57e327de416dafc9f84",
+  "runtime_tree": "78b6248a80d86e7c5962caa78efcd497dcf11231",
+  "petta_runtime": "18c99706738d76f4",
+  "verify_key": "bed18c2748fe",
+  "verify_seconds": 193,
+  "metta_files": 164,
+  "python_tests": 1160,
+  "python_files": 88,
+  "expected_failures": 23,
+  "skipped": 4,
+  "review_rows": 58,
+  "review_byte_identical": true,
+  "supplementary_rows": 26,
+  "supplementary_changed_rows": 8,
+  "original_cases": 21,
+  "original_case_changes": [
+    "rule-part-ctv"
+  ],
+  "before_review_logs": "/nexus/Dev/OpenCog/bench/results/codex-logs/i183-lookup-review/",
+  "curves": {
+    "families": 10,
+    "paired_points": 56,
+    "changed_errors": [],
+    "missing": [],
+    "unsupported": [],
+    "wall_seconds": 612
+  },
+  "capture_pairs": 85,
+  "changed_capture_rows_against_master": 0,
+  "changed_capture_rows_against_anchor": 1015
+}

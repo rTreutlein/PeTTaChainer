@@ -1,0 +1,191 @@
+{
+  "half_strong": [
+    [
+      "(: report (And A B) (STV 1 0.99))",
+      "(: a A (STV 0.5 0.99))"
+    ],
+    [
+      "(And A B)"
+    ]
+  ],
+  "half_weakrep": [
+    [
+      "(: report (And A B) (STV 0.5 0.1))",
+      "(: a A (STV 0.5 0.99))"
+    ],
+    [
+      "(And A B)"
+    ]
+  ],
+  "nine_strong": [
+    [
+      "(: report (And A B) (STV 1 0.99))",
+      "(: a A (STV 0.9 0.99))"
+    ],
+    [
+      "(And A B)"
+    ]
+  ],
+  "one_strong": [
+    [
+      "(: report (And A B) (STV 1 0.99))",
+      "(: a A (STV 1 0.99))"
+    ],
+    [
+      "(And A B)"
+    ]
+  ],
+  "half_tworep": [
+    [
+      "(: report (And A B) (STV 0.4 0.9))",
+      "(: a A (STV 0.5 0.99))"
+    ],
+    [
+      "(And A B)"
+    ]
+  ],
+  "low_rep_lowA": [
+    [
+      "(: report (And A B) (STV 0.1 0.9))",
+      "(: a A (STV 0.2 0.99))"
+    ],
+    [
+      "(And A B)"
+    ]
+  ],
+  "not_and_conflict": [
+    [
+      "(: report (Not (And A B)) (STV 0 0.99))",
+      "(: a A (STV 0 0.99))"
+    ],
+    [
+      "(And A B)",
+      "(Not (And A B))"
+    ]
+  ],
+  "not_and_agree": [
+    [
+      "(: report (Not (And A B)) (STV 1 0.99))",
+      "(: a A (STV 0 0.99))"
+    ],
+    [
+      "(And A B)"
+    ]
+  ],
+  "neg_child": [
+    [
+      "(: report (And (Not A) B) (STV 1 0.99))",
+      "(: a A (STV 1 0.99))"
+    ],
+    [
+      "(And (Not A) B)"
+    ]
+  ],
+  "nested": [
+    [
+      "(: report (Or (And A B) C) (STV 0 0.99))",
+      "(: c C (STV 1 0.99))"
+    ],
+    [
+      "(Or (And A B) C)"
+    ]
+  ],
+  "nested_inner": [
+    [
+      "(: report (Or (And A B) C) (STV 0 0.99))",
+      "(: a A (STV 1 0.99))",
+      "(: b B (STV 1 0.99))"
+    ],
+    [
+      "(Or (And A B) C)"
+    ]
+  ],
+  "three": [
+    [
+      "(: report (And A B C) (STV 1 0.99))",
+      "(: a A (STV 0 0.99))"
+    ],
+    [
+      "(And A B C)",
+      "(And C A B)"
+    ]
+  ],
+  "sh_rule_pos": [
+    [
+      "(: report (And A B) (STV 0.3 0.9))",
+      "(: r (Implication (And A B) A) (STV 1 0.99))"
+    ],
+    [
+      "(And A B)",
+      "A"
+    ]
+  ],
+  "sh_rule_neg": [
+    [
+      "(: report (Not (And A B)) (STV 1 0.9))",
+      "(: r (Implication (Not (And A B)) (Not A)) (STV 1 0.99))"
+    ],
+    [
+      "(And A B)",
+      "A"
+    ]
+  ],
+  "sh_rule_neg_b": [
+    [
+      "(: report (Not (And A B)) (STV 1 0.9))",
+      "(: r (Implication (Not (And A B)) (Not A)) (STV 1 0.99))",
+      "(: b B (STV 1 0.99))"
+    ],
+    [
+      "(And A B)"
+    ]
+  ],
+  "sh_graph": [
+    [
+      "(: report (And A B) (STV 0.3 0.9))",
+      "(: r2 (And A C) (STV 0.2 0.9))"
+    ],
+    [
+      "(And A B)",
+      "(And A C)",
+      "A"
+    ]
+  ],
+  "sh_or_rule": [
+    [
+      "(: report (Or A B) (STV 0.7 0.9))",
+      "(: r (Implication (Or A B) A) (STV 1 0.99))"
+    ],
+    [
+      "(Or A B)"
+    ]
+  ],
+  "dup_reports": [
+    [
+      "(: r1 (And A B) (STV 1 0.99))",
+      "(: r2 (And A B) (STV 1 0.99))",
+      "(: a A (STV 0 0.99))"
+    ],
+    [
+      "(And A B)"
+    ]
+  ],
+  "single_report": [
+    [
+      "(: r1 (And A B) (STV 1 0.99))",
+      "(: a A (STV 0 0.99))"
+    ],
+    [
+      "(And A B)"
+    ]
+  ],
+  "nine_weak": [
+    [
+      "(: r1 (And A B) (STV 1 0.1))",
+      "(: a A (STV 0.9 0.99))"
+    ],
+    [
+      "(And A B)"
+    ]
+  ]
+}

@@ -1,0 +1,21 @@
+{"case": "1", "facts": ["(: a A (STV 1 0.99))", "(: b B (STV 1 0.99))", "(: c C (STV 1 0.99))"], "query": "(Not A)", "answer": ["(: (negated a) (Not A) (STV 0 0.99))"]}
+{"case": "2", "facts": ["(: a A (STV 1 0.99))", "(: b B (STV 1 0.99))", "(: c C (STV 1 0.99))"], "query": "(And A B C)", "answer": ["(: (conjunction a b c) (And A B C) (STV 1 0.9705875143995023))"]}
+{"case": "3", "facts": ["(: a A (STV 1 0.99))", "(: b B (STV 1 0.99))", "(: c C (STV 1 0.99))"], "query": "(Not (And A B C))", "answer": ["(: (negated (conjunction a b c)) (Not (And A B C)) (STV 0 0.9705875143995023))"]}
+{"case": "4", "facts": ["(: report (Not (And A B C)) (STV 1 0.99))"], "query": "(Not (And A B C))", "answer": ["(: (negated report) (Not (And A B C)) (STV 1.0 0.99))"]}
+{"case": "5", "facts": ["(: report (Not (And A B C)) (STV 1 0.99))"], "query": "(And A B C)", "answer": ["(: report (And A B C) (STV 0.0 0.99))"]}
+{"case": "6", "facts": ["(: report (And A B C) (STV 1 0.99))"], "query": "(And A B C)", "answer": ["(: report (And A B C) (STV 1 0.99))"]}
+{"case": "7", "facts": ["(: report (And A B C) (STV 1 0.99))"], "query": "(Not (And A B C))", "answer": ["(: (negated report) (Not (And A B C)) (STV 0 0.99))"]}
+{"case": "8", "facts": ["(: report (Not (And A B)) (STV 1 0.99))", "(: a A (STV 1 0.99))"], "query": "(Not (And A B))", "answer": ["(: (negated report) (Not (And A B)) (STV 1.0 0.99))"]}
+{"case": "9", "facts": ["(: report (Not (And A B)) (STV 1 0.99))", "(: a A (STV 1 0.99))"], "query": "(And A B)", "answer": ["(: report (And A B) (STV 0.0 0.99))"]}
+{"case": "conflict", "facts": ["(: report (Not (And A B)) (STV 1 0.99))", "(: a A (STV 1 0.99))", "(: b B (STV 1 0.99))"], "query": "(And A B)", "answer": ["(: (merge/revision report (conjunction a b)) (And A B) (STV 0.33333052748398234 0.9933110088252738))"]}
+{"case": "part", "facts": ["(: report (And A B) (STV 1 0.99))"], "query": "A", "answer": ["(: (node (conjunction report)) A (STV 0.9999747487500632 3.660960423701452e-16))"]}
+{"case": "shared", "facts": ["(: report (And A B) (STV 1 0.99))"], "query": "(And A C)", "answer": ["(: (node (conjunction report)) (And A C) (STV 0.4999873743750316 0.0))"]}
+{"case": "rule-part-ctv", "facts": ["(: report (Not (And A B)) (STV 1 0.99))", "(: x X (STV 1 0.99))", "(: r (Implication X A) (CTV (STV 0.9 0.99) (STV 0.1 0.99)))"], "query": "(And A B)", "answer": ["(: (merge/revision report (conjunction (by r x))) (And A B) (STV 0.0 0.990010975730573))"]}
+{"case": "rule-part", "facts": ["(: report (Not (And A B)) (STV 1 0.99))", "(: x X (STV 1 0.99))", "(: r (Implication X A) (STV 1 0.99))"], "query": "(And A B)", "answer": ["(: report (And A B) (STV 0.0 0.99))"]}
+{"case": "assuming", "facts": ["(: report (Not (And A B C)) (STV 1 0.99))"], "query": "(Assuming X (And A B C))", "answer": ["(: (assuming report) (Assuming X (And A B C)) (STV 0.0 0.99))"]}
+{"case": "assuming-part", "facts": ["(: report (Not (And A B)) (STV 1 0.99))"], "query": "(Assuming A (And A B))", "answer": ["(: (assuming report) (Assuming A (And A B)) (STV 0.0 0.99))"]}
+{"case": "independent", "facts": ["(: report (Not (And A B C)) (STV 1 0.99))", "(: second (Not (And A B C)) (STV 1 0.99))"], "query": "(And A B C)", "answer": ["(: (merge/revision second report) (And A B C) (STV 0.0 0.9949748743718593))"]}
+{"case": "repeated", "facts": ["(: report (Not (And A B C)) (STV 1 0.99))", "(: report (Not (And A B C)) (STV 1 0.99))"], "query": "(And A B C)", "answer": ["(: report (And A B C) (STV 0.0 0.99))"]}
+{"case": "reordered", "facts": ["(: report (Not (And A B C)) (STV 1 0.99))"], "query": "(And C A B)", "answer": ["(: (node (conjunction report)) (And C A B) (STV 1.8037257759628302e-06 0.004318274947876658))"]}
+{"case": "or", "facts": ["(: report (Or A B) (STV 0.8 0.9))"], "query": "(Or B A)", "answer": ["(: (node (conjunction report)) (Or B A) (STV 0.923039948728904 0.002660470649190701))"]}
+{"case": "nested", "facts": ["(: report (Or (And A B) C) (STV 0.8 0.9))"], "query": "(Or C (And B A))", "answer": ["(: (node (conjunction report)) (Or C (And B A)) (STV 0.8695061579328665 0.002084105254701016))"]}

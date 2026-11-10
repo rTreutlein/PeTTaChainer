@@ -1,0 +1,3148 @@
+[
+  {
+    "suite": "supplynet",
+    "case": "stage 1 b25 s2",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/quick.json",
+    "base_key": "fa8b66c84a455eef510f67aeffdb9ad658301d25173fc414927f70846573aff9",
+    "candidate_key": "76bfe1dd10997fa0b669fd7cfc72ca975d66346e5733354b2f19f1064f82b6ef",
+    "base": {
+      "n": 218,
+      "mae": 0.014189093281144323,
+      "brier": 0.043104730388312223,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.07358561909261746,
+      "z_p95": 1.2950022324084873,
+      "z_max": 1.753209379776326
+    },
+    "candidate": {
+      "n": 218,
+      "mae": 0.014189093281144323,
+      "brier": 0.043104730388312223,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.07358561909261746,
+      "z_p95": 1.2950022324084873,
+      "z_max": 1.753209379776326
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.014189093281144321,
+      "brier": 0.043104730388312223,
+      "coverage": 1.0,
+      "seconds": 1.793
+    },
+    "metrics_candidate": {
+      "error": 0.014189093281144321,
+      "brier": 0.043104730388312223,
+      "coverage": 1.0,
+      "seconds": 2.349
+    }
+  },
+  {
+    "suite": "supplynet",
+    "case": "stage 3 timed b100 s3",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/quick.json",
+    "base_key": "a38d4f1d0354f14d947828bdb8ff101c803a10c00ec1b5cde875a141002272a0",
+    "candidate_key": "ffbb2608dfc6eb43645f859f4abee93bc53d57992b4b2ebcb7737cf192715069",
+    "base": {
+      "n": 403,
+      "mae": 0.0007757049501772663,
+      "brier": 0.17112661131836343,
+      "outside_2sd": 6,
+      "outside_2sd_fraction": 0.01488833746898263,
+      "z_median": 1.533370623438985e-14,
+      "z_p95": 4.1813329304752026e-08,
+      "z_max": 41.20637126363235
+    },
+    "candidate": {
+      "n": 403,
+      "mae": 0.0007757049501772663,
+      "brier": 0.17112661131836343,
+      "outside_2sd": 6,
+      "outside_2sd_fraction": 0.01488833746898263,
+      "z_median": 1.533370623438985e-14,
+      "z_p95": 4.1813329304752026e-08,
+      "z_max": 41.20637126363235
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.000775704950177266,
+      "brier": 0.17112661131836338,
+      "coverage": 1.0,
+      "seconds": 9.573
+    },
+    "metrics_candidate": {
+      "error": 0.000775704950177266,
+      "brier": 0.17112661131836338,
+      "coverage": 1.0,
+      "seconds": 12.305
+    }
+  },
+  {
+    "suite": "supplynet",
+    "case": "stage 3 untimed b50 s4",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/quick.json",
+    "base_key": "ce61077196be475a65942d31b9522629bb645af31fe282d91d96902137a3e908",
+    "candidate_key": "4dbe71926a8d05a01bd7928220f1342b9003ade95ca0f69ab5dce779c17055ef",
+    "base": {
+      "n": 376,
+      "mae": 0.0003946364901928634,
+      "brier": 0.13186872940352254,
+      "outside_2sd": 6,
+      "outside_2sd_fraction": 0.015957446808510637,
+      "z_median": 1.5843119761671267e-14,
+      "z_p95": 1.7198813145992236e-13,
+      "z_max": 20.68392843176349
+    },
+    "candidate": {
+      "n": 376,
+      "mae": 0.0003946364901928634,
+      "brier": 0.13186872940352254,
+      "outside_2sd": 6,
+      "outside_2sd_fraction": 0.015957446808510637,
+      "z_median": 1.5843119761671267e-14,
+      "z_p95": 1.7198813145992236e-13,
+      "z_max": 20.68392843176349
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0003946364901928635,
+      "brier": 0.13186872940352254,
+      "coverage": 1.0,
+      "seconds": 9.545
+    },
+    "metrics_candidate": {
+      "error": 0.0003946364901928635,
+      "brier": 0.13186872940352254,
+      "coverage": 1.0,
+      "seconds": 11.796
+    }
+  },
+  {
+    "suite": "scale",
+    "case": "l spq4 s1",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/quick.json",
+    "base_key": "a228eaee6ee5d72d587728b74dc9a18f6343f901623a1e6c213952142a6a436b",
+    "candidate_key": "2fb309971d34bc74e2d3d3b7f8dd3829d3aef564e14dbe64dda688e37ab7fa61",
+    "base": {
+      "n": 1252,
+      "mae": 0.0038075538159404493,
+      "brier": 0.04320015688406147,
+      "outside_2sd": 398,
+      "outside_2sd_fraction": 0.31789137380191695,
+      "z_median": 0.31998951964563555,
+      "z_p95": 4671947.165925031,
+      "z_max": 94010161.27522375
+    },
+    "candidate": {
+      "n": 1252,
+      "mae": 0.0038075538159404493,
+      "brier": 0.04320015688406147,
+      "outside_2sd": 398,
+      "outside_2sd_fraction": 0.31789137380191695,
+      "z_median": 0.31998951964563555,
+      "z_p95": 4671947.165925031,
+      "z_max": 94010161.27522375
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.00380755381594045,
+      "brier": 0.043200156884061466,
+      "coverage": 1.0,
+      "seconds": 39.164
+    },
+    "metrics_candidate": {
+      "error": 0.00380755381594045,
+      "brier": 0.043200156884061466,
+      "coverage": 1.0,
+      "seconds": 47.121
+    }
+  },
+  {
+    "suite": "conflict",
+    "case": "pln-sources m spq1 s2",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/quick.json",
+    "base_key": "e7367d853cc69524618eecdd4a77b070ffd01d090e0a2767a211ad7301dfb704",
+    "candidate_key": "f9b6218174786ea68aaa6b965b6a3f535e8a48b0dd2016eb208953dcfd09e1e3",
+    "base": {
+      "n": 79,
+      "mae": 0.07055759283867112,
+      "brier": 0.10344018086075733,
+      "outside_2sd": 7,
+      "outside_2sd_fraction": 0.08860759493670886,
+      "z_median": 0.48313559339003453,
+      "z_p95": 2.8604448013695603,
+      "z_max": 4.6167429448509605
+    },
+    "candidate": {
+      "n": 79,
+      "mae": 0.07055759283867112,
+      "brier": 0.10344018086075733,
+      "outside_2sd": 7,
+      "outside_2sd_fraction": 0.08860759493670886,
+      "z_median": 0.48313559339003453,
+      "z_p95": 2.8604448013695603,
+      "z_max": 4.6167429448509605
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.07448327286770319,
+      "brier": 0.10527217859999786,
+      "coverage": 0.9875,
+      "seconds": 9.511
+    },
+    "metrics_candidate": {
+      "error": 0.07448327286770319,
+      "brier": 0.10527217859999786,
+      "coverage": 0.9875,
+      "seconds": 11.645
+    }
+  },
+  {
+    "suite": "learned",
+    "case": "stage 3 timed learned b50 s1",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/quick.json",
+    "base_key": "9ae33fa69568fd4c5556cc91e16eb0974c7b6b1acdcb7400b9dfa69f8b2fe964",
+    "candidate_key": "a1fa95090bffcb71b059e6b5f9c417bb5ec9b9ba9a76f14add4974a0a72de0e0",
+    "base": {
+      "n": 202,
+      "mae": 0.08152441295531578,
+      "brier": 0.11624614733633676,
+      "outside_2sd": 19,
+      "outside_2sd_fraction": 0.09405940594059406,
+      "z_median": 0.7875859124305826,
+      "z_p95": 2.268498640161582,
+      "z_max": 7.02635719784976
+    },
+    "candidate": {
+      "n": 202,
+      "mae": 0.08152441295531578,
+      "brier": 0.11624614733633676,
+      "outside_2sd": 19,
+      "outside_2sd_fraction": 0.09405940594059406,
+      "z_median": 0.7875859124305826,
+      "z_p95": 2.268498640161582,
+      "z_max": 7.02635719784976
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.08152441295531578,
+      "brier": 0.11624614733633674,
+      "coverage": 1.0,
+      "seconds": 13.549
+    },
+    "metrics_candidate": {
+      "error": 0.08152441295531578,
+      "brier": 0.11624614733633674,
+      "coverage": 1.0,
+      "seconds": 16.949
+    }
+  },
+  {
+    "suite": "replay",
+    "case": "b25 s4",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/quick.json",
+    "base_key": "cd646d2ae677e7bfd20feca14d9136be4f4365ed792354e99e2b2f01f66baef4",
+    "candidate_key": "9915916afeab67d3a5ad5fe48610903dcdeb68427dc313bb19dd8b4b5dd63dba",
+    "base": {
+      "n": 200,
+      "mae": 0.1268842312532735,
+      "brier": null,
+      "outside_2sd": 78,
+      "outside_2sd_fraction": 0.39,
+      "z_median": 1.6708508351225526,
+      "z_p95": 107.0229226210069,
+      "z_max": 223597.96509498433
+    },
+    "candidate": {
+      "n": 200,
+      "mae": 0.1268842312532735,
+      "brier": null,
+      "outside_2sd": 78,
+      "outside_2sd_fraction": 0.39,
+      "z_median": 1.6708508351225526,
+      "z_p95": 107.0229226210069,
+      "z_max": 223597.96509498433
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.1268842312532735,
+      "brier": 0.07750696312564949,
+      "coverage": 1.0,
+      "regret": 229.41387962415365,
+      "seconds": 4.202024302999234
+    },
+    "metrics_candidate": {
+      "error": 0.1268842312532735,
+      "brier": 0.07750696312564949,
+      "coverage": 1.0,
+      "regret": 229.41387962415365,
+      "seconds": 4.821248923000894
+    }
+  },
+  {
+    "suite": "replay",
+    "case": "b50 s4",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/quick.json",
+    "base_key": "0fcdfee8c4aa4ddf6539aa37d47b91c97e96df5859f8dbdbd36bf7bcae3c8b13",
+    "candidate_key": "9c1438892d45790367f800bf2099c151e9129a90a4e6b29424af888d9868fcc5",
+    "base": {
+      "n": 200,
+      "mae": 0.11626801520221852,
+      "brier": null,
+      "outside_2sd": 87,
+      "outside_2sd_fraction": 0.435,
+      "z_median": 1.7794383052900586,
+      "z_p95": 107.0229226210069,
+      "z_max": 223597.96509498433
+    },
+    "candidate": {
+      "n": 200,
+      "mae": 0.11626801520221852,
+      "brier": null,
+      "outside_2sd": 87,
+      "outside_2sd_fraction": 0.435,
+      "z_median": 1.7794383052900586,
+      "z_p95": 107.0229226210069,
+      "z_max": 223597.96509498433
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.11626801520221854,
+      "brier": 0.0753031263051767,
+      "coverage": 1.0,
+      "regret": 229.41388297076332,
+      "seconds": 6.78335504000097
+    },
+    "metrics_candidate": {
+      "error": 0.11626801520221854,
+      "brier": 0.0753031263051767,
+      "coverage": 1.0,
+      "regret": 229.41388297076332,
+      "seconds": 8.341470452996873
+    }
+  },
+  {
+    "suite": "combinet",
+    "case": "n2 s1",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/quick.json",
+    "base_key": "72248f4ad25e23aef5c9d7bbdb0ade46ff92ef3f09b00767e6ab88c5d84d9e31",
+    "candidate_key": "3ebb8824b46b0774ea6eefd3bcd6a12c087d41579314f4eda0b7430459587c54",
+    "base": {
+      "n": 91,
+      "mae": 0.08313863036537834,
+      "brier": 0.16509307182425262,
+      "outside_2sd": 61,
+      "outside_2sd_fraction": 0.6703296703296703,
+      "z_median": 26.735535325992192,
+      "z_p95": 107.63132531039544,
+      "z_max": 128.46639695062495
+    },
+    "candidate": {
+      "n": 91,
+      "mae": 0.08313863036537834,
+      "brier": 0.16509307182425262,
+      "outside_2sd": 61,
+      "outside_2sd_fraction": 0.6703296703296703,
+      "z_median": 26.735535325992192,
+      "z_p95": 107.63132531039544,
+      "z_max": 128.46639695062495
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.09231358320604027,
+      "brier": 0.17273469536006988,
+      "coverage": 0.91,
+      "seconds": 0.594
+    },
+    "metrics_candidate": {
+      "error": 0.09231358320604027,
+      "brier": 0.17273469536006988,
+      "coverage": 0.91,
+      "seconds": 1.005
+    }
+  },
+  {
+    "suite": "supplynet",
+    "case": "stage 1 b100 s3",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/full.json",
+    "base_key": "3a27925152683226f3a01a98022b613443c119d2335269bf1d85cf9638424d47",
+    "candidate_key": "e80ca8290334aacf3e250121142bdf29205f72fabf2f8abb709d8abbc58cc63b",
+    "base": {
+      "n": 227,
+      "mae": 0.005122997174988368,
+      "brier": 0.010307637735114866,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.018803177913332796,
+      "z_p95": 0.6122905386834593,
+      "z_max": 1.8347090158432005
+    },
+    "candidate": {
+      "n": 227,
+      "mae": 0.005122997174988368,
+      "brier": 0.010307637735114866,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.018803177913332796,
+      "z_p95": 0.6122905386834593,
+      "z_max": 1.8347090158432005
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.005122997174988368,
+      "brier": 0.010307637735114865,
+      "coverage": 1.0,
+      "seconds": 4.486
+    },
+    "metrics_candidate": {
+      "error": 0.005122997174988368,
+      "brier": 0.010307637735114865,
+      "coverage": 1.0,
+      "seconds": 3.805
+    }
+  },
+  {
+    "suite": "supplynet",
+    "case": "stage 3 timed b25 s3",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/full.json",
+    "base_key": "2cdea3b3efc046fd0fc96489c0f52e4b779353d099b0ef6e6bd0014e315e209c",
+    "candidate_key": "d6ed306aff0becb95f78951e6a4a966b7841780c0cf12e669880af7fe174c596",
+    "base": {
+      "n": 403,
+      "mae": 0.0038204805229916975,
+      "brier": 0.1725504348747468,
+      "outside_2sd": 9,
+      "outside_2sd_fraction": 0.022332506203473945,
+      "z_median": 1.5701700572546068e-14,
+      "z_p95": 2.6693748752737643e-08,
+      "z_max": 75.59257329760734
+    },
+    "candidate": {
+      "n": 403,
+      "mae": 0.0038204805229916975,
+      "brier": 0.1725504348747468,
+      "outside_2sd": 9,
+      "outside_2sd_fraction": 0.022332506203473945,
+      "z_median": 1.5701700572546068e-14,
+      "z_p95": 2.6693748752737643e-08,
+      "z_max": 75.59257329760734
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.003820480522991697,
+      "brier": 0.17255043487474683,
+      "coverage": 1.0,
+      "seconds": 7.768
+    },
+    "metrics_candidate": {
+      "error": 0.003820480522991697,
+      "brier": 0.17255043487474683,
+      "coverage": 1.0,
+      "seconds": 6.786
+    }
+  },
+  {
+    "suite": "supplynet",
+    "case": "stage 3 timed b50 s3",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/full.json",
+    "base_key": "e49f0baf27c30ad7807a3787b96bc23dbcf621c6da3c4e83f877de8c176e8ca9",
+    "candidate_key": "d1ae3257f156ad61b9948bc6d969792af4b7bb8b38ae0ba7af0f179754f36956",
+    "base": {
+      "n": 403,
+      "mae": 0.0013386529794111419,
+      "brier": 0.17121667539395732,
+      "outside_2sd": 6,
+      "outside_2sd_fraction": 0.01488833746898263,
+      "z_median": 1.5526090800235886e-14,
+      "z_p95": 3.5684483272571016e-08,
+      "z_max": 82.67826119517535
+    },
+    "candidate": {
+      "n": 403,
+      "mae": 0.0013386529794111419,
+      "brier": 0.17121667539395732,
+      "outside_2sd": 6,
+      "outside_2sd_fraction": 0.01488833746898263,
+      "z_median": 1.5526090800235886e-14,
+      "z_p95": 3.5684483272571016e-08,
+      "z_max": 82.67826119517535
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0013386529794111423,
+      "brier": 0.1712166753939573,
+      "coverage": 1.0,
+      "seconds": 12.543
+    },
+    "metrics_candidate": {
+      "error": 0.0013386529794111423,
+      "brier": 0.1712166753939573,
+      "coverage": 1.0,
+      "seconds": 12.145
+    }
+  },
+  {
+    "suite": "supplynet",
+    "case": "stage 3 untimed b25 s4",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/full.json",
+    "base_key": "d38b5576eeb8a948b99a70901a00e7f50e429da8cc22fd05075e7ae52393b67f",
+    "candidate_key": "85979146b4835a86096ff4ac5141cfd3e7426a533cd9c2f71031c7b631cc0630",
+    "base": {
+      "n": 376,
+      "mae": 0.0003946364901928589,
+      "brier": 0.13186872940352254,
+      "outside_2sd": 6,
+      "outside_2sd_fraction": 0.015957446808510637,
+      "z_median": 1.438696212596497e-14,
+      "z_p95": 3.3054393977882526e-13,
+      "z_max": 20.68392843176349
+    },
+    "candidate": {
+      "n": 376,
+      "mae": 0.0003946364901928589,
+      "brier": 0.13186872940352254,
+      "outside_2sd": 6,
+      "outside_2sd_fraction": 0.015957446808510637,
+      "z_median": 1.438696212596497e-14,
+      "z_p95": 3.3054393977882526e-13,
+      "z_max": 20.68392843176349
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0003946364901928588,
+      "brier": 0.1318687294035225,
+      "coverage": 1.0,
+      "seconds": 9.529
+    },
+    "metrics_candidate": {
+      "error": 0.0003946364901928588,
+      "brier": 0.1318687294035225,
+      "coverage": 1.0,
+      "seconds": 8.288
+    }
+  },
+  {
+    "suite": "supplynet",
+    "case": "stage 3 untimed b100 s4",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/full.json",
+    "base_key": "8a8dcd391bde3403afcef642e57419b05fbd348ab362a5dfc97afd1103eb732a",
+    "candidate_key": "e466106064d3799e50d6110cb757229faafb6cf04f16ce9b6fe7800c35802fc1",
+    "base": {
+      "n": 376,
+      "mae": 0.0003946364901928643,
+      "brier": 0.13186872940352254,
+      "outside_2sd": 6,
+      "outside_2sd_fraction": 0.015957446808510637,
+      "z_median": 1.6938956870680688e-14,
+      "z_p95": 1.8684738463814717e-13,
+      "z_max": 20.68392843176349
+    },
+    "candidate": {
+      "n": 376,
+      "mae": 0.0003946364901928643,
+      "brier": 0.13186872940352254,
+      "outside_2sd": 6,
+      "outside_2sd_fraction": 0.015957446808510637,
+      "z_median": 1.6938956870680688e-14,
+      "z_p95": 1.8684738463814717e-13,
+      "z_max": 20.68392843176349
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0003946364901928643,
+      "brier": 0.13186872940352254,
+      "coverage": 1.0,
+      "seconds": 15.128
+    },
+    "metrics_candidate": {
+      "error": 0.0003946364901928643,
+      "brier": 0.13186872940352254,
+      "coverage": 1.0,
+      "seconds": 14.582
+    }
+  },
+  {
+    "suite": "supplynet",
+    "case": "stage 3 timed soft0.9 b100 s3",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/full.json",
+    "base_key": "e3f5c6f7775959753b95f1ed33ab2a743800a682a6414902fa3a34014ec78cd9",
+    "candidate_key": "b2c9169a434872d0e8f8fec2c93debb7c23205a59870ab5ac1efbdd650675701",
+    "base": {
+      "n": 402,
+      "mae": 0.009330624209308273,
+      "brier": 0.17287381069192917,
+      "outside_2sd": 12,
+      "outside_2sd_fraction": 0.029850746268656716,
+      "z_median": 2.6560289100662732e-14,
+      "z_p95": 0.3018808378650431,
+      "z_max": 394.27171679499463
+    },
+    "candidate": {
+      "n": 402,
+      "mae": 0.009330624209308273,
+      "brier": 0.17287381069192917,
+      "outside_2sd": 12,
+      "outside_2sd_fraction": 0.029850746268656716,
+      "z_median": 2.6560289100662732e-14,
+      "z_p95": 0.3018808378650431,
+      "z_max": 394.27171679499463
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.010548166084719418,
+      "brier": 0.17306519081428173,
+      "coverage": 0.9975186104218362,
+      "seconds": 29.512
+    },
+    "metrics_candidate": {
+      "error": 0.010548166084719418,
+      "brier": 0.17306519081428173,
+      "coverage": 0.9975186104218362,
+      "seconds": 28.753
+    }
+  },
+  {
+    "suite": "supplynet",
+    "case": "stage 3 untimed soft0.9 b100 s4",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/full.json",
+    "base_key": "cdfeca4e6120fbd05e6a88bb9bdce27ccdaee8a3dc2217e63be6bbb92a5092e5",
+    "candidate_key": "7855dd562c7a5d271a09f93fdade593ff0290f916128e21df8b1403d5c5dce1b",
+    "base": {
+      "n": 370,
+      "mae": 0.006946304426737669,
+      "brier": 0.13574427866363917,
+      "outside_2sd": 8,
+      "outside_2sd_fraction": 0.021621621621621623,
+      "z_median": 2.2398734352655615e-14,
+      "z_p95": 0.03625308335136824,
+      "z_max": 4.353998078786092
+    },
+    "candidate": {
+      "n": 370,
+      "mae": 0.006946304426737669,
+      "brier": 0.13574427866363917,
+      "outside_2sd": 8,
+      "outside_2sd_fraction": 0.021621621621621623,
+      "z_median": 2.2398734352655615e-14,
+      "z_p95": 0.03625308335136824,
+      "z_max": 4.353998078786092
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.014814182547587595,
+      "brier": 0.13756750825943215,
+      "coverage": 0.9840425531914894,
+      "seconds": 42.964
+    },
+    "metrics_candidate": {
+      "error": 0.014814182547587595,
+      "brier": 0.13756750825943215,
+      "coverage": 0.9840425531914894,
+      "seconds": 46.076
+    }
+  },
+  {
+    "suite": "scale",
+    "case": "l spq16 s1",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/full.json",
+    "base_key": "ae5c70ab850987c863f6a0034a353b3abd6f3e985dd4e33a82ed88be1587c2bb",
+    "candidate_key": "3c8ec5f1c6df6fb7161d197487d01b218da001a5b62d39ca0f72ed1ad2d68019",
+    "base": {
+      "n": 1252,
+      "mae": 0.000928412641808061,
+      "brier": 0.04303120682747965,
+      "outside_2sd": 167,
+      "outside_2sd_fraction": 0.13338658146964857,
+      "z_median": 3.576686097048714e-08,
+      "z_p95": 63587.78261866947,
+      "z_max": 29793824.798179567
+    },
+    "candidate": {
+      "n": 1252,
+      "mae": 0.000928412641808061,
+      "brier": 0.04303120682747965,
+      "outside_2sd": 167,
+      "outside_2sd_fraction": 0.13338658146964857,
+      "z_median": 3.576686097048714e-08,
+      "z_p95": 63587.78261866947,
+      "z_max": 29793824.798179567
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0009284126418080606,
+      "brier": 0.043031206827479636,
+      "coverage": 1.0,
+      "seconds": 112.596
+    },
+    "metrics_candidate": {
+      "error": 0.0009284126418080606,
+      "brier": 0.043031206827479636,
+      "coverage": 1.0,
+      "seconds": 120.106
+    }
+  },
+  {
+    "suite": "scale",
+    "case": "s spq1 s1",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/full.json",
+    "base_key": "45077391862d0cc6d831b3c34af944839da937039e85a44bad909eeb66910ec8",
+    "candidate_key": "c9f4b7cabfdaa1fccffa4c666eff1c45ff8175f8a05d392708218f9f0ad79321",
+    "base": {
+      "n": 136,
+      "mae": 0.018373090079909227,
+      "brier": 0.15872105521744112,
+      "outside_2sd": 84,
+      "outside_2sd_fraction": 0.6176470588235294,
+      "z_median": 8.321287396037537,
+      "z_p95": 21587107.795639236,
+      "z_max": 59212870.74805801
+    },
+    "candidate": {
+      "n": 136,
+      "mae": 0.018373090079909227,
+      "brier": 0.15872105521744112,
+      "outside_2sd": 84,
+      "outside_2sd_fraction": 0.6176470588235294,
+      "z_median": 8.321287396037537,
+      "z_p95": 21587107.795639236,
+      "z_max": 59212870.74805801
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.018373090079909227,
+      "brier": 0.15872105521744112,
+      "coverage": 1.0,
+      "seconds": 2.578
+    },
+    "metrics_candidate": {
+      "error": 0.018373090079909227,
+      "brier": 0.15872105521744112,
+      "coverage": 1.0,
+      "seconds": 2.35
+    }
+  },
+  {
+    "suite": "conflict",
+    "case": "pln-sources m spq4 s2",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/full.json",
+    "base_key": "37b6056d91dad81e33a98ead409f80e4d178dcac2e37bfeb78e2c82c763a6eee",
+    "candidate_key": "6a31d310ae66cc7e38e1377fc45a48b1cf0b5bfe4cc072c7076cf3505904b28d",
+    "base": {
+      "n": 79,
+      "mae": 0.07149177052218327,
+      "brier": 0.10602041821820116,
+      "outside_2sd": 6,
+      "outside_2sd_fraction": 0.0759493670886076,
+      "z_median": 0.4944001291741146,
+      "z_p95": 2.4513247636253688,
+      "z_max": 4.860263844961266
+    },
+    "candidate": {
+      "n": 79,
+      "mae": 0.07149177052218327,
+      "brier": 0.10602041821820116,
+      "outside_2sd": 6,
+      "outside_2sd_fraction": 0.0759493670886076,
+      "z_median": 0.4944001291741146,
+      "z_p95": 2.4513247636253688,
+      "z_max": 4.860263844961266
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.07540577333017143,
+      "brier": 0.10782016299047363,
+      "coverage": 0.9875,
+      "seconds": 18.655
+    },
+    "metrics_candidate": {
+      "error": 0.07540577333017143,
+      "brier": 0.10782016299047363,
+      "coverage": 0.9875,
+      "seconds": 16.018
+    }
+  },
+  {
+    "suite": "conflict",
+    "case": "pln-sources m spq4 s3",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/full.json",
+    "base_key": "5db856f25b1c199d79abf9a8ed39544536f8fad85964e8418f008e2f8bef006a",
+    "candidate_key": "77f16f22c058d78746dcc76d3b9b9eff0ef173d2d74c5b8710148815d7c3e2cb",
+    "base": {
+      "n": 80,
+      "mae": 0.17763551825638893,
+      "brier": 0.13518616233046285,
+      "outside_2sd": 31,
+      "outside_2sd_fraction": 0.3875,
+      "z_median": 1.4810560656239247,
+      "z_p95": 8.083578128894697,
+      "z_max": 16.952358410745582
+    },
+    "candidate": {
+      "n": 80,
+      "mae": 0.17763551825638893,
+      "brier": 0.13518616233046285,
+      "outside_2sd": 31,
+      "outside_2sd_fraction": 0.3875,
+      "z_median": 1.4810560656239247,
+      "z_p95": 8.083578128894697,
+      "z_max": 16.952358410745582
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.17763551825638896,
+      "brier": 0.13518616233046282,
+      "coverage": 1.0,
+      "seconds": 17.038
+    },
+    "metrics_candidate": {
+      "error": 0.17763551825638896,
+      "brier": 0.13518616233046282,
+      "coverage": 1.0,
+      "seconds": 13.352
+    }
+  },
+  {
+    "suite": "conflict",
+    "case": "pln-reliable l spq4 s1",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/full.json",
+    "base_key": "92eb8eb7de24c5b5ca49841b8e8ebabba1a2c465d9e0449f63ab2326a984c311",
+    "candidate_key": "095f79e2faee42d151d80349b08af2feb74b4dbf440b457316f707acf62a5a2e",
+    "base": {
+      "n": 160,
+      "mae": 0.05407387445418048,
+      "brier": 0.07161101038515104,
+      "outside_2sd": 2,
+      "outside_2sd_fraction": 0.0125,
+      "z_median": 0.16776552088832158,
+      "z_p95": 1.0973236837228355,
+      "z_max": 8.056271598057318
+    },
+    "candidate": {
+      "n": 160,
+      "mae": 0.05407387445418048,
+      "brier": 0.07161101038515104,
+      "outside_2sd": 2,
+      "outside_2sd_fraction": 0.0125,
+      "z_median": 0.16776552088832158,
+      "z_p95": 1.0973236837228355,
+      "z_max": 8.056271598057318
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.05407387445418048,
+      "brier": 0.07161101038515102,
+      "coverage": 1.0,
+      "seconds": 60.434
+    },
+    "metrics_candidate": {
+      "error": 0.05407387445418048,
+      "brier": 0.07161101038515102,
+      "coverage": 1.0,
+      "seconds": 65.523
+    }
+  },
+  {
+    "suite": "learned",
+    "case": "stage 3 timed learned b50 r200 s1",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/full.json",
+    "base_key": "80d0175a4fde176ecda23c4a925bbb4c38cc3f74e6b20adcfaa0e4dbaf68ecd7",
+    "candidate_key": "b20c8d03e1b676a6a8f733a69073a93d1764ba8c0155100f58b5e4ac6fcd2161",
+    "base": {
+      "n": 202,
+      "mae": 0.08152441295531578,
+      "brier": 0.11624614733633676,
+      "outside_2sd": 19,
+      "outside_2sd_fraction": 0.09405940594059406,
+      "z_median": 0.7875859124305826,
+      "z_p95": 2.268498640161582,
+      "z_max": 7.02635719784976
+    },
+    "candidate": {
+      "n": 202,
+      "mae": 0.08152441295531578,
+      "brier": 0.11624614733633676,
+      "outside_2sd": 19,
+      "outside_2sd_fraction": 0.09405940594059406,
+      "z_median": 0.7875859124305826,
+      "z_p95": 2.268498640161582,
+      "z_max": 7.02635719784976
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.08152441295531578,
+      "brier": 0.11624614733633674,
+      "coverage": 1.0,
+      "seconds": 20.682
+    },
+    "metrics_candidate": {
+      "error": 0.08152441295531578,
+      "brier": 0.11624614733633674,
+      "coverage": 1.0,
+      "seconds": 18.987
+    }
+  },
+  {
+    "suite": "supplynet",
+    "case": "stage 4 extend b50 s2",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/full.json",
+    "base_key": "3d23e3392868026b6bcffccc5f94e822a3c7da1d0b66f716c63a7d865a5da083",
+    "candidate_key": "8c09e645cdc9be574147f6a57084e0b583f09d55a07064479ebffd5aaf322b6f",
+    "base": {
+      "n": 137,
+      "mae": 7.354214560929413e-17,
+      "brier": 0.1894101605746271,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 2.5469601627860832e-14,
+      "z_p95": 3.5382775871781075e-13,
+      "z_max": 9.390504237836935e-08
+    },
+    "candidate": {
+      "n": 137,
+      "mae": 7.354214560929413e-17,
+      "brier": 0.1894101605746271,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 2.5469601627860832e-14,
+      "z_p95": 3.5382775871781075e-13,
+      "z_max": 9.390504237836935e-08
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 7.354214560929413e-17,
+      "brier": 0.1894101605746271,
+      "coverage": 1.0,
+      "seconds": 19.014,
+      "regret": 0.0,
+      "agreement": 1.0
+    },
+    "metrics_candidate": {
+      "error": 7.354214560929413e-17,
+      "brier": 0.1894101605746271,
+      "coverage": 1.0,
+      "seconds": 16.413,
+      "regret": 0.0,
+      "agreement": 1.0
+    }
+  },
+  {
+    "suite": "learned",
+    "case": "stage 3 timed learned b50 r200 s2",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/full.json",
+    "base_key": "11a9f8663eb47b847ff5e9798da47de8961d21fa69193df51d7c89ff60c26888",
+    "candidate_key": "5f71e81bbec39d9b534a9e9a95d87780ca6386265cb520186e560b9deef6c9c7",
+    "base": {
+      "n": 207,
+      "mae": 0.06015690898331763,
+      "brier": 0.18374816612492972,
+      "outside_2sd": 15,
+      "outside_2sd_fraction": 0.07246376811594203,
+      "z_median": 0.6151785397922066,
+      "z_p95": 2.2718239975411127,
+      "z_max": 7.028312088402942
+    },
+    "candidate": {
+      "n": 207,
+      "mae": 0.06015690898331763,
+      "brier": 0.18374816612492972,
+      "outside_2sd": 15,
+      "outside_2sd_fraction": 0.07246376811594203,
+      "z_median": 0.6151785397922066,
+      "z_p95": 2.2718239975411127,
+      "z_max": 7.028312088402942
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.06015690898331764,
+      "brier": 0.1837481661249297,
+      "coverage": 1.0,
+      "seconds": 22.0
+    },
+    "metrics_candidate": {
+      "error": 0.06015690898331764,
+      "brier": 0.1837481661249297,
+      "coverage": 1.0,
+      "seconds": 21.938
+    }
+  },
+  {
+    "suite": "learned",
+    "case": "stage 3 untimed learned mined b50 r50 h10 s3",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/full.json",
+    "base_key": "8626a56ae4b493ed3c5efa30aeb2aac08ba98b9286f01ce8d2d4d241bfefec18",
+    "candidate_key": "2bb1bf35ededf46b5c6070d3c04c52d9ed1898f951a7fda72885ef31f09a44e3",
+    "base": {
+      "n": 54,
+      "mae": 0.23318340773495258,
+      "brier": 0.29208504130043383,
+      "outside_2sd": 19,
+      "outside_2sd_fraction": 0.35185185185185186,
+      "z_median": 1.0087989714585566,
+      "z_p95": 5.480211257658907,
+      "z_max": 17.512021550492594
+    },
+    "candidate": {
+      "n": 54,
+      "mae": 0.23318340773495258,
+      "brier": 0.29208504130043383,
+      "outside_2sd": 19,
+      "outside_2sd_fraction": 0.35185185185185186,
+      "z_median": 1.0087989714585566,
+      "z_p95": 5.480211257658907,
+      "z_max": 17.512021550492594
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.23923042888727572,
+      "brier": 0.29058200411113255,
+      "coverage": 0.9642857142857143,
+      "seconds": 76.631
+    },
+    "metrics_candidate": {
+      "error": 0.23923042888727572,
+      "brier": 0.29058200411113255,
+      "coverage": 0.9642857142857143,
+      "seconds": 76.219
+    }
+  },
+  {
+    "suite": "replay",
+    "case": "b25 s1",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/full.json",
+    "base_key": "933d7fa1f5a4db60991b12815ab7f8f9f204e25e9e29bfd73ee82bb7b226726a",
+    "candidate_key": "7362300bca135e9b43fa3ec0800bd08c668bcdbc59367921782d8e47b86e7ceb",
+    "base": {
+      "n": 200,
+      "mae": 0.10762090007194657,
+      "brier": null,
+      "outside_2sd": 95,
+      "outside_2sd_fraction": 0.475,
+      "z_median": 1.928044426605166,
+      "z_p95": 169.78956450532826,
+      "z_max": 207237.13838071717
+    },
+    "candidate": {
+      "n": 200,
+      "mae": 0.10762090007194657,
+      "brier": null,
+      "outside_2sd": 95,
+      "outside_2sd_fraction": 0.475,
+      "z_median": 1.928044426605166,
+      "z_p95": 169.78956450532826,
+      "z_max": 207237.13838071717
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.10762090007194657,
+      "brier": 0.04387572260861578,
+      "coverage": 1.0,
+      "regret": 627.499801934466,
+      "seconds": 5.866715630000726
+    },
+    "metrics_candidate": {
+      "error": 0.10762090007194657,
+      "brier": 0.04387572260861578,
+      "coverage": 1.0,
+      "regret": 627.499801934466,
+      "seconds": 4.412620583003445
+    }
+  },
+  {
+    "suite": "fuzz",
+    "case": "all n100 s22",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/full.json",
+    "base_key": "e67f78d15f7329e6ab1e26e388a3a635a595b6da3b40753085f3e78e7516f810",
+    "candidate_key": "1d34aa1b378f6390810c341a65c7f083c88e70c29488ad8067ae1f6f95f0fc51",
+    "base": {},
+    "candidate": {},
+    "changed_values": 0,
+    "metrics_base": {
+      "flagged": 8,
+      "unsupported": 0,
+      "crashed": 0,
+      "error": 0.00816439741370844,
+      "answered": 365,
+      "seconds": 32
+    },
+    "metrics_candidate": {
+      "flagged": 8,
+      "unsupported": 0,
+      "crashed": 0,
+      "error": 0.00816439741370844,
+      "answered": 365,
+      "seconds": 34
+    }
+  },
+  {
+    "suite": "ona",
+    "case": "conditioning s1",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/anchor-canary.json",
+    "base_key": "a2351ca5451dd512140e1ad5a633978f6cedebeac7abd9760479f7749c33c080",
+    "candidate_key": "6c13627880399cc2490dd24334fc8d59d522558c35b5bedbcddb492617cc8e22",
+    "base": {},
+    "candidate": {},
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0,
+      "seconds": 3.3750031780000427
+    },
+    "metrics_candidate": {
+      "error": 0.0,
+      "seconds": 9.54890796700056
+    }
+  },
+  {
+    "suite": "ona",
+    "case": "identitymatching s8",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/anchor-canary.json",
+    "base_key": "8c0b2dc343f70be8dfc2513abdb234e61efc979a2f21d3cad28684f4b2dd9d53",
+    "candidate_key": "a2ce9ca5c2b75586e7f4cea47950f8b966bc4573b3c537fb3939f0a4eea66b11",
+    "base": {},
+    "candidate": {},
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.4375,
+      "seconds": 4.251109255999836
+    },
+    "metrics_candidate": {
+      "error": 0.4375,
+      "seconds": 12.924018555000657
+    }
+  },
+  {
+    "suite": "live",
+    "case": "b50 5 shifts s1",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/anchor-canary.json",
+    "base_key": "4189a52205f259421f142266a8d1a4f9c6ace2a74a909c435be8136bdd9845c1",
+    "candidate_key": "c967a47c2aeb8f9774aa5467f60468d2416f7a9a9a4acacb6c1a329d3b743372",
+    "base": {
+      "n": 50,
+      "mae": 0.09812707817829412,
+      "brier": null,
+      "outside_2sd": 18,
+      "outside_2sd_fraction": 0.36,
+      "z_median": 1.234043289380414,
+      "z_p95": 141.68611681616323,
+      "z_max": 223.16413434925937
+    },
+    "candidate": {
+      "n": 50,
+      "mae": 0.10501985094963397,
+      "brier": null,
+      "outside_2sd": 17,
+      "outside_2sd_fraction": 0.34,
+      "z_median": 1.2203392387181475,
+      "z_p95": 114.91683464136968,
+      "z_max": 158.6034820004612
+    },
+    "changed_values": 50,
+    "metrics_base": {
+      "error": 0.09812707817829412,
+      "brier": 0.02632017229441637,
+      "coverage": 1.0,
+      "regret": 59.783305192500364,
+      "seconds": 3.48536945899923
+    },
+    "metrics_candidate": {
+      "error": 0.10501985094963397,
+      "brier": 0.031950592544410406,
+      "coverage": 1.0,
+      "regret": 72.78330494981489,
+      "seconds": 9.25413156099421
+    }
+  },
+  {
+    "suite": "conflict",
+    "case": "pln-stated l spq4 s1",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/anchor-canary.json",
+    "base_key": "055af41f43462f756a7862e4b59ec6c06151bb89288790d7b76d468069b2df26",
+    "candidate_key": "17b31fc2e2037f0dd9e639a2d565b9ff8de48b0f5e0152e846308fe731ddcfba",
+    "base": {
+      "n": 70,
+      "mae": 0.3359619022337566,
+      "brier": 0.20921992742435228,
+      "outside_2sd": 60,
+      "outside_2sd_fraction": 0.8571428571428571,
+      "z_median": 3.3939646856721186,
+      "z_p95": 14.597320092271259,
+      "z_max": 15.336890182918358
+    },
+    "candidate": {
+      "n": 160,
+      "mae": 0.032098529973975984,
+      "brier": 0.06762840268711522,
+      "outside_2sd": 135,
+      "outside_2sd_fraction": 0.84375,
+      "z_median": 6.659520190397441,
+      "z_p95": 46301.09561339057,
+      "z_max": 2293022.174865368
+    },
+    "changed_values": 160,
+    "metrics_base": {
+      "error": 0.38951467206185997,
+      "brier": 0.2321587182481541,
+      "coverage": 0.4375,
+      "seconds": 6.322
+    },
+    "metrics_candidate": {
+      "error": 0.032098529973975984,
+      "brier": 0.0676284026871152,
+      "coverage": 1.0,
+      "seconds": 27.954
+    }
+  },
+  {
+    "suite": "conflict",
+    "case": "pln-reliable l spq4 s1",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/anchor-canary.json",
+    "base_key": "3391c029ea15d8fab43301f8b50b4694478b2a6f1098d64f95fb4cce5004c147",
+    "candidate_key": "095f79e2faee42d151d80349b08af2feb74b4dbf440b457316f707acf62a5a2e",
+    "base": {
+      "n": 160,
+      "mae": 0.10701442503095535,
+      "brier": 0.08484607898568726,
+      "outside_2sd": 70,
+      "outside_2sd_fraction": 0.4375,
+      "z_median": 1.8347050821864868,
+      "z_p95": 7.087532986156963,
+      "z_max": 20.46130201860141
+    },
+    "candidate": {
+      "n": 160,
+      "mae": 0.05407387445418048,
+      "brier": 0.07161101038515104,
+      "outside_2sd": 2,
+      "outside_2sd_fraction": 0.0125,
+      "z_median": 0.16776552088832158,
+      "z_p95": 1.0973236837228355,
+      "z_max": 8.056271598057318
+    },
+    "changed_values": 160,
+    "metrics_base": {
+      "error": 0.10701442503095535,
+      "brier": 0.08484607898568726,
+      "coverage": 1.0,
+      "seconds": 6.339
+    },
+    "metrics_candidate": {
+      "error": 0.05407387445418048,
+      "brier": 0.07161101038515102,
+      "coverage": 1.0,
+      "seconds": 65.523
+    }
+  },
+  {
+    "suite": "scale",
+    "case": "m spq4 r10 s1",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/anchor-canary.json",
+    "base_key": "cb74791124c08764ce1c28808c2455b26c7ee3aeff28dd4bdf5f575d2e34b177",
+    "candidate_key": "afdf8ff2ae73975cb8abe17e8738cbc5098285c08a5fddd8ddf65b8ed6dd7cb3",
+    "base": {
+      "n": 645,
+      "mae": 0.003033771334374448,
+      "brier": 0.0823646813525237,
+      "outside_2sd": 185,
+      "outside_2sd_fraction": 0.2868217054263566,
+      "z_median": 0.09911048901338396,
+      "z_p95": 16.410497194497463,
+      "z_max": 72.29791320480322
+    },
+    "candidate": {
+      "n": 645,
+      "mae": 0.0026464081046593257,
+      "brier": 0.08220700877374264,
+      "outside_2sd": 186,
+      "outside_2sd_fraction": 0.28837209302325584,
+      "z_median": 0.026835035359335145,
+      "z_p95": 1030038.7802180669,
+      "z_max": 28608240.812709928
+    },
+    "changed_values": 645,
+    "metrics_base": {
+      "error": 0.0030337713343744485,
+      "brier": 0.0823646813525237,
+      "coverage": 1.0,
+      "seconds": 13.636
+    },
+    "metrics_candidate": {
+      "error": 0.0026464081046593257,
+      "brier": 0.08220700877374264,
+      "coverage": 1.0,
+      "seconds": 34.383
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "scale l s1 budget 0.5",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "9e00f19307f10d8721c280c6c4bac0240c9707237eb115a12006968cb3f06301",
+    "candidate_key": "dd05b007d93237666d7e06cecf674b25ffd37ead99e743e3397664624619781c",
+    "base": {
+      "n": 1252,
+      "mae": 0.0743556716962884,
+      "brier": 0.0625871532332084,
+      "outside_2sd": 692,
+      "outside_2sd_fraction": 0.5527156549520766,
+      "z_median": 2.8644678934223986,
+      "z_p95": 323077.6242516939,
+      "z_max": 299380880.5977346
+    },
+    "candidate": {
+      "n": 1252,
+      "mae": 0.0743556716962884,
+      "brier": 0.0625871532332084,
+      "outside_2sd": 692,
+      "outside_2sd_fraction": 0.5527156549520766,
+      "z_median": 2.8644678934223986,
+      "z_p95": 323077.6242516939,
+      "z_max": 299380880.5977346
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.07435567169628839,
+      "seconds": 10.206
+    },
+    "metrics_candidate": {
+      "error": 0.07435567169628839,
+      "seconds": 10.314
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "scale l s1 budget 1",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "6449b7a7bf3f543efd9830c9a163dd2f411de0d249bd8293b65e7df589ee2b84",
+    "candidate_key": "032749149715b465e9b452340e7fca86660da3f0c84c565a2899bc44493fbfbb",
+    "base": {
+      "n": 1252,
+      "mae": 0.02693459933631704,
+      "brier": 0.05185336243623873,
+      "outside_2sd": 720,
+      "outside_2sd_fraction": 0.5750798722044729,
+      "z_median": 4.110536435065871,
+      "z_p95": 44168926.63464302,
+      "z_max": 299380880.5977346
+    },
+    "candidate": {
+      "n": 1252,
+      "mae": 0.02693459933631704,
+      "brier": 0.05185336243623873,
+      "outside_2sd": 720,
+      "outside_2sd_fraction": 0.5750798722044729,
+      "z_median": 4.110536435065871,
+      "z_p95": 44168926.63464302,
+      "z_max": 299380880.5977346
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.026934599336317037,
+      "seconds": 13.173
+    },
+    "metrics_candidate": {
+      "error": 0.026934599336317037,
+      "seconds": 12.851
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "scale l s1 budget 2",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "b55e5cb77f14f897eeed9672ff855965d298e050d8d57d37528f52cf6ca0e368",
+    "candidate_key": "5383468ab3fa7b485fa0df351fa0a6e7acc45b937127f6ad67cc52c027a4a182",
+    "base": {
+      "n": 1252,
+      "mae": 0.01571354552115314,
+      "brier": 0.04710340458761281,
+      "outside_2sd": 649,
+      "outside_2sd_fraction": 0.518370607028754,
+      "z_median": 2.265237934590755,
+      "z_p95": 13103652.198883597,
+      "z_max": 309040232.43977934
+    },
+    "candidate": {
+      "n": 1252,
+      "mae": 0.01571354552115314,
+      "brier": 0.04710340458761281,
+      "outside_2sd": 649,
+      "outside_2sd_fraction": 0.518370607028754,
+      "z_median": 2.265237934590755,
+      "z_p95": 13103652.198883597,
+      "z_max": 309040232.43977934
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.015713545521153144,
+      "seconds": 24.148
+    },
+    "metrics_candidate": {
+      "error": 0.015713545521153144,
+      "seconds": 23.941
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "scale l s1 budget 8",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "735d95b053d65ea735bac03024970a332008f6f23b2765713a11eae5a71857c1",
+    "candidate_key": "6a34039f30b38123ada315ea213f072ec881ee63d6080c61055a14a1a3426526",
+    "base": {
+      "n": 1252,
+      "mae": 0.0033075096624948066,
+      "brier": 0.0431863692596279,
+      "outside_2sd": 394,
+      "outside_2sd_fraction": 0.3146964856230032,
+      "z_median": 0.29507345900995374,
+      "z_p95": 2748767.8232664755,
+      "z_max": 38139585.9707831
+    },
+    "candidate": {
+      "n": 1252,
+      "mae": 0.0033075096624948066,
+      "brier": 0.0431863692596279,
+      "outside_2sd": 394,
+      "outside_2sd_fraction": 0.3146964856230032,
+      "z_median": 0.29507345900995374,
+      "z_p95": 2748767.8232664755,
+      "z_max": 38139585.9707831
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0033075096624948066,
+      "seconds": 51.926
+    },
+    "metrics_candidate": {
+      "error": 0.0033075096624948066,
+      "seconds": 51.693
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "scale l s1 budget 32",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "3f3604cc5a0db4a973b2a0b4093f7d429b9125de4909bfc5b009ef7cc5b3646d",
+    "candidate_key": "44f0e456448c708b66fa97fc79a1b9af96168ac9d3a69250eaacb0c918e689b5",
+    "base": {
+      "n": 1252,
+      "mae": 1.8469663032023337e-05,
+      "brier": 0.04280349974280052,
+      "outside_2sd": 110,
+      "outside_2sd_fraction": 0.0878594249201278,
+      "z_median": 5.174530957967838e-08,
+      "z_p95": 458.80627188616296,
+      "z_max": 161631.57662594988
+    },
+    "candidate": {
+      "n": 1252,
+      "mae": 1.8469663032023337e-05,
+      "brier": 0.04280349974280052,
+      "outside_2sd": 110,
+      "outside_2sd_fraction": 0.0878594249201278,
+      "z_median": 5.174530957967838e-08,
+      "z_p95": 458.80627188616296,
+      "z_max": 161631.57662594988
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 1.8469663032023333e-05,
+      "seconds": 126.391
+    },
+    "metrics_candidate": {
+      "error": 1.8469663032023333e-05,
+      "seconds": 125.536
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "scale m s1 budget 0.5",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "7253fa9243bc610de8c26dff94a3e9f23814735d38e7686126ab5563b8a04e24",
+    "candidate_key": "007d8e3d6f294399fc6d1bb2931774bfad219bed5dcdb94528b946f22d8eb9ec",
+    "base": {
+      "n": 645,
+      "mae": 0.0966448056817588,
+      "brier": 0.1149501694763936,
+      "outside_2sd": 388,
+      "outside_2sd_fraction": 0.6015503875968993,
+      "z_median": 2.5100355480019045,
+      "z_p95": 442.8422296842523,
+      "z_max": 25504924.599502467
+    },
+    "candidate": {
+      "n": 645,
+      "mae": 0.0966448056817588,
+      "brier": 0.1149501694763936,
+      "outside_2sd": 388,
+      "outside_2sd_fraction": 0.6015503875968993,
+      "z_median": 2.5100355480019045,
+      "z_p95": 442.8422296842523,
+      "z_max": 25504924.599502467
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0966448056817588,
+      "seconds": 7.892
+    },
+    "metrics_candidate": {
+      "error": 0.0966448056817588,
+      "seconds": 8.036
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "scale m s1 budget 1",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "7c7325b253a8de9b360ede792ec178f10ffcf91a28b4695760c847861418d065",
+    "candidate_key": "651d109904dc44d4824403fe4369bfc3a9a831a2980c6c98c30d4d6076dd0b73",
+    "base": {
+      "n": 645,
+      "mae": 0.0035779573155398474,
+      "brier": 0.08220058325478524,
+      "outside_2sd": 256,
+      "outside_2sd_fraction": 0.39689922480620154,
+      "z_median": 0.7338120827751573,
+      "z_p95": 1497499.5129500022,
+      "z_max": 30280206.1586529
+    },
+    "candidate": {
+      "n": 645,
+      "mae": 0.0035779573155398474,
+      "brier": 0.08220058325478524,
+      "outside_2sd": 256,
+      "outside_2sd_fraction": 0.39689922480620154,
+      "z_median": 0.7338120827751573,
+      "z_p95": 1497499.5129500022,
+      "z_max": 30280206.1586529
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0035779573155398483,
+      "seconds": 12.737
+    },
+    "metrics_candidate": {
+      "error": 0.0035779573155398483,
+      "seconds": 12.566
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "scale m s1 budget 2",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "7f199e59acaef46558a2537376f273ef557f400be80bc8240c99b12437a7a87d",
+    "candidate_key": "20de17a41a4dacf1cd33acf277c1b0763b81d56b1d7e8fa257f0040dee73ba90",
+    "base": {
+      "n": 645,
+      "mae": 0.00337765011999126,
+      "brier": 0.08217276900322569,
+      "outside_2sd": 237,
+      "outside_2sd_fraction": 0.3674418604651163,
+      "z_median": 0.4869562909070676,
+      "z_p95": 1551894.285832787,
+      "z_max": 30135290.691098236
+    },
+    "candidate": {
+      "n": 645,
+      "mae": 0.00337765011999126,
+      "brier": 0.08217276900322569,
+      "outside_2sd": 237,
+      "outside_2sd_fraction": 0.3674418604651163,
+      "z_median": 0.4869562909070676,
+      "z_p95": 1551894.285832787,
+      "z_max": 30135290.691098236
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0033776501199912607,
+      "seconds": 17.685
+    },
+    "metrics_candidate": {
+      "error": 0.0033776501199912607,
+      "seconds": 17.856
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "scale m s1 budget 4",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "4a92293e8400b56e177d8e1ad91d074ace570836c24070eb2badde991ecbe0dd",
+    "candidate_key": "514e74e75c862775764de1d6ff5cb33bcee0e29b5e6bb3922eef925918f9ee3a",
+    "base": {
+      "n": 645,
+      "mae": 0.0026464081046593257,
+      "brier": 0.08220700877374264,
+      "outside_2sd": 186,
+      "outside_2sd_fraction": 0.28837209302325584,
+      "z_median": 0.026835035359335145,
+      "z_p95": 1030038.7802180669,
+      "z_max": 28608240.812709928
+    },
+    "candidate": {
+      "n": 645,
+      "mae": 0.0026464081046593257,
+      "brier": 0.08220700877374264,
+      "outside_2sd": 186,
+      "outside_2sd_fraction": 0.28837209302325584,
+      "z_median": 0.026835035359335145,
+      "z_p95": 1030038.7802180669,
+      "z_max": 28608240.812709928
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0026464081046593257,
+      "seconds": 23.124
+    },
+    "metrics_candidate": {
+      "error": 0.0026464081046593257,
+      "seconds": 23.161
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "scale m s1 budget 8",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "db8d44d73ccf4b0527cafaf56f0a33c862a602e85c412aff900f4a74b6a927d9",
+    "candidate_key": "a9b263f534f21c727360cadb5a1d865a75f2c13900d3468fc5b4db58113b9aad",
+    "base": {
+      "n": 645,
+      "mae": 0.002146985467159363,
+      "brier": 0.08214027490222553,
+      "outside_2sd": 152,
+      "outside_2sd_fraction": 0.23565891472868217,
+      "z_median": 0.006243622416536738,
+      "z_p95": 213445.64417341675,
+      "z_max": 22639475.215597346
+    },
+    "candidate": {
+      "n": 645,
+      "mae": 0.002146985467159363,
+      "brier": 0.08214027490222553,
+      "outside_2sd": 152,
+      "outside_2sd_fraction": 0.23565891472868217,
+      "z_median": 0.006243622416536738,
+      "z_p95": 213445.64417341675,
+      "z_max": 22639475.215597346
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.002146985467159363,
+      "seconds": 32.872
+    },
+    "metrics_candidate": {
+      "error": 0.002146985467159363,
+      "seconds": 32.775
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "scale m s1 budget 16",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "c7f1557974fd3971754cd331e125bb57ff9179e07b5cee779e08e426b9221069",
+    "candidate_key": "1ed184e467e7c6142c4e2af843ee15f3c50c1eed9ae5a4106f3e835045e38780",
+    "base": {
+      "n": 645,
+      "mae": 9.486150986267614e-05,
+      "brier": 0.08229128652817273,
+      "outside_2sd": 63,
+      "outside_2sd_fraction": 0.09767441860465116,
+      "z_median": 2.2379113857709837e-06,
+      "z_p95": 2207.5925396648468,
+      "z_max": 1893333.1986433342
+    },
+    "candidate": {
+      "n": 645,
+      "mae": 9.486150986267614e-05,
+      "brier": 0.08229128652817273,
+      "outside_2sd": 63,
+      "outside_2sd_fraction": 0.09767441860465116,
+      "z_median": 2.2379113857709837e-06,
+      "z_p95": 2207.5925396648468,
+      "z_max": 1893333.1986433342
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 9.486150986267614e-05,
+      "seconds": 55.544
+    },
+    "metrics_candidate": {
+      "error": 9.486150986267614e-05,
+      "seconds": 54.935
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "scale m s1 budget 32",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "915930e731cfd4f63eb87945622d9f65bc4a0a25f133400e6cbedefc1bae3f01",
+    "candidate_key": "fd8a92d4c56aad72f5175992daf1b91fb9f68b61ee9ce4736c184ca991190c43",
+    "base": {
+      "n": 645,
+      "mae": 0.00010844976109559401,
+      "brier": 0.08229169110183694,
+      "outside_2sd": 64,
+      "outside_2sd_fraction": 0.09922480620155039,
+      "z_median": 2.4747115851945806e-06,
+      "z_p95": 7113.115828155495,
+      "z_max": 1888900.68376802
+    },
+    "candidate": {
+      "n": 645,
+      "mae": 0.00010844976109559401,
+      "brier": 0.08229169110183694,
+      "outside_2sd": 64,
+      "outside_2sd_fraction": 0.09922480620155039,
+      "z_median": 2.4747115851945806e-06,
+      "z_p95": 7113.115828155495,
+      "z_max": 1888900.68376802
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.00010844976109559402,
+      "seconds": 59.003
+    },
+    "metrics_candidate": {
+      "error": 0.00010844976109559402,
+      "seconds": 59.362
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 3 timed s2 budget 10",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "c2bd30733658775d5ff48234d7cef9266573a123eae0130947cb3d9eaff51140",
+    "candidate_key": "6438c0d6719ffaf84b55d151500aff2d17d037ca8cea76fd88778e31c33ebba1",
+    "base": {
+      "n": 559,
+      "mae": 0.14711024821080704,
+      "brier": 0.19414236238645072,
+      "outside_2sd": 270,
+      "outside_2sd_fraction": 0.48300536672629696,
+      "z_median": 1.8944813116764285,
+      "z_p95": 9.530744938853104,
+      "z_max": 11470168.945810376
+    },
+    "candidate": {
+      "n": 559,
+      "mae": 0.14711024821080704,
+      "brier": 0.19414236238645072,
+      "outside_2sd": 270,
+      "outside_2sd_fraction": 0.48300536672629696,
+      "z_median": 1.8944813116764285,
+      "z_p95": 9.530744938853104,
+      "z_max": 11470168.945810376
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.17280099175029492,
+      "seconds": 3.424
+    },
+    "metrics_candidate": {
+      "error": 0.17280099175029492,
+      "seconds": 3.494
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 3 timed s2 budget 25",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "d2d2b74e4c056afe4e8ecc3494068da3f2d9a7beadbfe8715b991533e0875669",
+    "candidate_key": "adda2015d9ac16b831ba73b598183fdd288d7219f7ffa2e7a78d97bae243c1ff",
+    "base": {
+      "n": 616,
+      "mae": 0.0027772414708428614,
+      "brier": 0.14662502615627407,
+      "outside_2sd": 18,
+      "outside_2sd_fraction": 0.02922077922077922,
+      "z_median": 2.1067219040746497e-14,
+      "z_p95": 2.6235599293596683e-08,
+      "z_max": 87.31597258222335
+    },
+    "candidate": {
+      "n": 616,
+      "mae": 0.0027772414708428614,
+      "brier": 0.14662502615627407,
+      "outside_2sd": 18,
+      "outside_2sd_fraction": 0.02922077922077922,
+      "z_median": 2.1067219040746497e-14,
+      "z_p95": 2.6235599293596683e-08,
+      "z_max": 87.31597258222335
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.004386376611713919,
+      "seconds": 9.27
+    },
+    "metrics_candidate": {
+      "error": 0.004386376611713919,
+      "seconds": 9.761
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 3 timed s2 budget 50",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "318145e72051b5c81bb4bfd50e012f6c1b6cb3721c6b960a29913b765107ae2d",
+    "candidate_key": "4381979a47494f73d0e1c3ad3d9e34dd3a4d2727b19047e019cd53994ca906cb",
+    "base": {
+      "n": 618,
+      "mae": 0.0017077976997069491,
+      "brier": 0.14594297015783414,
+      "outside_2sd": 16,
+      "outside_2sd_fraction": 0.025889967637540454,
+      "z_median": 1.948994146225401e-14,
+      "z_p95": 7.543945689052283e-08,
+      "z_max": 87.31597258222335
+    },
+    "candidate": {
+      "n": 618,
+      "mae": 0.0017077976997069491,
+      "brier": 0.14594297015783414,
+      "outside_2sd": 16,
+      "outside_2sd_fraction": 0.025889967637540454,
+      "z_median": 1.948994146225401e-14,
+      "z_p95": 7.543945689052283e-08,
+      "z_max": 87.31597258222335
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0017077976997069498,
+      "seconds": 14.352
+    },
+    "metrics_candidate": {
+      "error": 0.0017077976997069498,
+      "seconds": 14.96
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 3 timed s2 budget 100",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "3960bc700e28dc78089eec290634e924248e990c655b731ce67d6ac0de71e843",
+    "candidate_key": "0b576d1be1e84245e69b3d4683bab7b29dd442645f9c22835477a2c315d13235",
+    "base": {
+      "n": 618,
+      "mae": 0.0016927335351865067,
+      "brier": 0.14594425561251304,
+      "outside_2sd": 16,
+      "outside_2sd_fraction": 0.025889967637540454,
+      "z_median": 1.5500034391403202e-14,
+      "z_p95": 7.119627528663748e-13,
+      "z_max": 87.31597258222335
+    },
+    "candidate": {
+      "n": 618,
+      "mae": 0.0016927335351865067,
+      "brier": 0.14594425561251304,
+      "outside_2sd": 16,
+      "outside_2sd_fraction": 0.025889967637540454,
+      "z_median": 1.5500034391403202e-14,
+      "z_p95": 7.119627528663748e-13,
+      "z_max": 87.31597258222335
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0016927335351865065,
+      "seconds": 15.252
+    },
+    "metrics_candidate": {
+      "error": 0.0016927335351865065,
+      "seconds": 15.334
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 3 timed s2 budget 200",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "dbffbdc40b501f23fdbfacdaba6f287da99241684d4c0f91a0599dea081f8034",
+    "candidate_key": "b140f1e244f5e419e4c789c7e7dfe7e8da078c176576b900b86a98f163e51e90",
+    "base": {
+      "n": 618,
+      "mae": 0.0016927335351865067,
+      "brier": 0.14594425561251304,
+      "outside_2sd": 16,
+      "outside_2sd_fraction": 0.025889967637540454,
+      "z_median": 1.531096180922401e-14,
+      "z_p95": 3.9406157182958407e-13,
+      "z_max": 87.31597258222335
+    },
+    "candidate": {
+      "n": 618,
+      "mae": 0.0016927335351865067,
+      "brier": 0.14594425561251304,
+      "outside_2sd": 16,
+      "outside_2sd_fraction": 0.025889967637540454,
+      "z_median": 1.531096180922401e-14,
+      "z_p95": 3.9406157182958407e-13,
+      "z_max": 87.31597258222335
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0016927335351865065,
+      "seconds": 16.541
+    },
+    "metrics_candidate": {
+      "error": 0.0016927335351865065,
+      "seconds": 16.346
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 3 untimed s3 budget 10",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "aa2829e0bb48dc9e64d38536fa1fc3dfc1d1ab8e7d7c22918926906f9b8e3fd1",
+    "candidate_key": "95643b05e769b28ac1a564a4e2ec6426bff1b4a2c60d4b7fa0515fd48cbe66b7",
+    "base": {
+      "n": 539,
+      "mae": 0.1428263241536419,
+      "brier": 0.2163067324007135,
+      "outside_2sd": 206,
+      "outside_2sd_fraction": 0.3821892393320965,
+      "z_median": 1.4880611238759378,
+      "z_p95": 6.923072771905219,
+      "z_max": 23.35433775644076
+    },
+    "candidate": {
+      "n": 539,
+      "mae": 0.1428263241536419,
+      "brier": 0.2163067324007135,
+      "outside_2sd": 206,
+      "outside_2sd_fraction": 0.3821892393320965,
+      "z_median": 1.4880611238759378,
+      "z_p95": 6.923072771905219,
+      "z_max": 23.35433775644076
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.17296249681239634,
+      "seconds": 3.603
+    },
+    "metrics_candidate": {
+      "error": 0.17296249681239634,
+      "seconds": 3.734
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 3 untimed s3 budget 25",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "445b33a1b4bfd4b4325c7a5468bbd14fe15ac6c0969ef8ae0d358bdfa3aef457",
+    "candidate_key": "034b8b8c9644db5ce65e05edc3295dce85850999f58426d26713687e2efc57a3",
+    "base": {
+      "n": 598,
+      "mae": 0.002317064743439667,
+      "brier": 0.1563330449037317,
+      "outside_2sd": 10,
+      "outside_2sd_fraction": 0.016722408026755852,
+      "z_median": 1.5424911993181154e-14,
+      "z_p95": 3.08511839168929e-13,
+      "z_max": 75.59257329760734
+    },
+    "candidate": {
+      "n": 598,
+      "mae": 0.002317064743439667,
+      "brier": 0.1563330449037317,
+      "outside_2sd": 10,
+      "outside_2sd_fraction": 0.016722408026755852,
+      "z_median": 1.5424911993181154e-14,
+      "z_p95": 3.08511839168929e-13,
+      "z_max": 75.59257329760734
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0023170647434396664,
+      "seconds": 10.2
+    },
+    "metrics_candidate": {
+      "error": 0.0023170647434396664,
+      "seconds": 10.192
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 3 untimed s3 budget 50",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "c9ea60b4e66cba6c9209e59478f61574deb3e0ef8704935a7328dba5f7697417",
+    "candidate_key": "cc85c1d5c2b06c0a1666694e3422ea6785ac765f9fb5d41e7af9be7f818a236c",
+    "base": {
+      "n": 598,
+      "mae": 0.0009770572094605092,
+      "brier": 0.15576315116455552,
+      "outside_2sd": 8,
+      "outside_2sd_fraction": 0.013377926421404682,
+      "z_median": 1.5005136170623605e-14,
+      "z_p95": 2.482436091077837e-11,
+      "z_max": 75.59257329760734
+    },
+    "candidate": {
+      "n": 598,
+      "mae": 0.0009770572094605092,
+      "brier": 0.15576315116455552,
+      "outside_2sd": 8,
+      "outside_2sd_fraction": 0.013377926421404682,
+      "z_median": 1.5005136170623605e-14,
+      "z_p95": 2.482436091077837e-11,
+      "z_max": 75.59257329760734
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.000977057209460509,
+      "seconds": 15.301
+    },
+    "metrics_candidate": {
+      "error": 0.000977057209460509,
+      "seconds": 15.864
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 3 untimed s3 budget 100",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "12ad7238277e02787d8c5f7b3ed288b25b339b24c8f9df1a22cf7a9d6748a5b2",
+    "candidate_key": "84b7045889f5c61394cd716f5a4eb5a9dcc3ae8b40aa7fee3f3b672150e13eac",
+    "base": {
+      "n": 598,
+      "mae": 0.0009770572094605088,
+      "brier": 0.15576315116455552,
+      "outside_2sd": 8,
+      "outside_2sd_fraction": 0.013377926421404682,
+      "z_median": 1.4755873579622975e-14,
+      "z_p95": 1.3937776434917342e-08,
+      "z_max": 75.59257329760734
+    },
+    "candidate": {
+      "n": 598,
+      "mae": 0.0009770572094605088,
+      "brier": 0.15576315116455552,
+      "outside_2sd": 8,
+      "outside_2sd_fraction": 0.013377926421404682,
+      "z_median": 1.4755873579622975e-14,
+      "z_p95": 1.3937776434917342e-08,
+      "z_max": 75.59257329760734
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0009770572094605085,
+      "seconds": 16.639
+    },
+    "metrics_candidate": {
+      "error": 0.0009770572094605085,
+      "seconds": 16.665
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 3 untimed s3 budget 200",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "79f8ec35e3a9f6433e6536800c4b9f00d66973bbcacc1256f360ec58dcf77372",
+    "candidate_key": "bbafef9b5f8922d9cdbd4300910da508a5c3e582c36da1bbfa636c611be9fc50",
+    "base": {
+      "n": 598,
+      "mae": 0.0009770571683084708,
+      "brier": 0.15576315117005565,
+      "outside_2sd": 8,
+      "outside_2sd_fraction": 0.013377926421404682,
+      "z_median": 1.4506610988622345e-14,
+      "z_p95": 3.539676552617061e-13,
+      "z_max": 75.59257329760734
+    },
+    "candidate": {
+      "n": 598,
+      "mae": 0.0009770571683084708,
+      "brier": 0.15576315117005565,
+      "outside_2sd": 8,
+      "outside_2sd_fraction": 0.013377926421404682,
+      "z_median": 1.4506610988622345e-14,
+      "z_p95": 3.539676552617061e-13,
+      "z_max": 75.59257329760734
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0009770571683084706,
+      "seconds": 18.324
+    },
+    "metrics_candidate": {
+      "error": 0.0009770571683084706,
+      "seconds": 18.101
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 3 timed soft0.9 s3 budget 25",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "7f810bf7506e8e48b8a58412a5883533a9be6efc01119cc8b6ca266bf2fff27d",
+    "candidate_key": "220418357e2872f22e609b694584e4fd99d1ab6148e69e2b7fa002dc0dbb749e",
+    "base": {
+      "n": 394,
+      "mae": 0.01596987207424886,
+      "brier": 0.17969810106323844,
+      "outside_2sd": 22,
+      "outside_2sd_fraction": 0.05583756345177665,
+      "z_median": 2.6043022426226082e-14,
+      "z_p95": 3.001506842051752,
+      "z_max": 387.4945790527386
+    },
+    "candidate": {
+      "n": 394,
+      "mae": 0.01596987207424886,
+      "brier": 0.17969810106323844,
+      "outside_2sd": 22,
+      "outside_2sd_fraction": 0.05583756345177665,
+      "z_median": 2.6043022426226082e-14,
+      "z_p95": 3.001506842051752,
+      "z_max": 387.4945790527386
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.02410959181562126,
+      "seconds": 13.216
+    },
+    "metrics_candidate": {
+      "error": 0.02410959181562126,
+      "seconds": 13.421
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 3 timed soft0.9 s3 budget 400",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "a70528aed9f346836dcfd6b9853dda42088f77066fd0260f28d9e30d1b686e08",
+    "candidate_key": "b2f2b17d63ec0c096ae7e94a0d54d28bc91d33eb93367695359876e3413ca190",
+    "base": {
+      "n": 403,
+      "mae": 0.006289633502660869,
+      "brier": 0.1719537886680329,
+      "outside_2sd": 7,
+      "outside_2sd_fraction": 0.017369727047146403,
+      "z_median": 2.5533146256533576e-14,
+      "z_p95": 0.24929032138600335,
+      "z_max": 387.6249132454226
+    },
+    "candidate": {
+      "n": 403,
+      "mae": 0.006289633502660869,
+      "brier": 0.1719537886680329,
+      "outside_2sd": 7,
+      "outside_2sd_fraction": 0.017369727047146403,
+      "z_median": 2.5533146256533576e-14,
+      "z_p95": 0.24929032138600335,
+      "z_max": 387.6249132454226
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.006289633502660869,
+      "seconds": 39.245
+    },
+    "metrics_candidate": {
+      "error": 0.006289633502660869,
+      "seconds": 39.345
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 2 r10 s1 budget 10",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "875d7d3ef374d59779299bf7a1754aff809c7756e66d922bb118ef913a626a62",
+    "candidate_key": "8f8ae03282478aeba239e9f433dcf216e4b64b12c8d7f676fb1f8a4ac92e3b6f",
+    "base": {
+      "n": 435,
+      "mae": 0.11630998373537901,
+      "brier": 0.1855591869059398,
+      "outside_2sd": 164,
+      "outside_2sd_fraction": 0.37701149425287356,
+      "z_median": 1.501914724520693,
+      "z_p95": 7.054635023722773,
+      "z_max": 73123930.45187683
+    },
+    "candidate": {
+      "n": 435,
+      "mae": 0.11630998373537901,
+      "brier": 0.1855591869059398,
+      "outside_2sd": 164,
+      "outside_2sd_fraction": 0.37701149425287356,
+      "z_median": 1.501914724520693,
+      "z_p95": 7.054635023722773,
+      "z_max": 73123930.45187683
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.116309983735379,
+      "seconds": 1.898
+    },
+    "metrics_candidate": {
+      "error": 0.116309983735379,
+      "seconds": 1.95
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 2 r10 s1 budget 25",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "05ba429c60461ab5245152c7b49f1fd1db4ac7fb335528fd22061273b508659c",
+    "candidate_key": "2d618079869c9104378c21f44541657c822f7b28c2b050bc9be09fa3d96d2369",
+    "base": {
+      "n": 435,
+      "mae": 0.0744641136325049,
+      "brier": 0.17181369750106013,
+      "outside_2sd": 112,
+      "outside_2sd_fraction": 0.2574712643678161,
+      "z_median": 0.5238369487549804,
+      "z_p95": 6.511809608927488,
+      "z_max": 73123930.45187683
+    },
+    "candidate": {
+      "n": 435,
+      "mae": 0.0744641136325049,
+      "brier": 0.17181369750106013,
+      "outside_2sd": 112,
+      "outside_2sd_fraction": 0.2574712643678161,
+      "z_median": 0.5238369487549804,
+      "z_p95": 6.511809608927488,
+      "z_max": 73123930.45187683
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.07446411363250488,
+      "seconds": 3.397
+    },
+    "metrics_candidate": {
+      "error": 0.07446411363250488,
+      "seconds": 3.487
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 2 r10 s1 budget 50",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "adf31994915317ec3908ac95a87d06a2fa43882f16953e7d14123cf5bdda5fc3",
+    "candidate_key": "50b75cc1c61ccd3b0f40013801b5da8eeae85a8bde93c884853a15e0f9f0f7e8",
+    "base": {
+      "n": 435,
+      "mae": 4.194292183682889e-17,
+      "brier": 0.16063279359774,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 1.1388832045553923e-14,
+      "z_p95": 2.009741987426173e-13,
+      "z_max": 2.489327426306549e-07
+    },
+    "candidate": {
+      "n": 435,
+      "mae": 4.194292183682889e-17,
+      "brier": 0.16063279359774,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 1.1388832045553923e-14,
+      "z_p95": 2.009741987426173e-13,
+      "z_max": 2.489327426306549e-07
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 4.194292183682889e-17,
+      "seconds": 4.642
+    },
+    "metrics_candidate": {
+      "error": 4.194292183682889e-17,
+      "seconds": 4.86
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 2 r10 s1 budget 100",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "dc2d0046823c4433dbca0a50ecbe6b4a33d3c6965023022d638a22acac2cb877",
+    "candidate_key": "796053a91c58f11d6de5ca9c8e99287896b8455d1280cfc50fce7ecdaf3b1589",
+    "base": {
+      "n": 435,
+      "mae": 3.440833984275146e-17,
+      "brier": 0.16063279359774,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 8.362802107058914e-15,
+      "z_p95": 1.5713508640545506e-13,
+      "z_max": 1.5051695638530313e-07
+    },
+    "candidate": {
+      "n": 435,
+      "mae": 3.440833984275146e-17,
+      "brier": 0.16063279359774,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 8.362802107058914e-15,
+      "z_p95": 1.5713508640545506e-13,
+      "z_max": 1.5051695638530313e-07
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 3.440833984275146e-17,
+      "seconds": 9.181
+    },
+    "metrics_candidate": {
+      "error": 3.440833984275146e-17,
+      "seconds": 9.489
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 2 r10 s1 budget 200",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "c956ddc05edd2fc41a47b324a081290288c5ac9fbc7fd0b53f998c7d1673d149",
+    "candidate_key": "14ad3755eebf1e4760d48114e53f5683f929b3ef17435d3547233faee5a43844",
+    "base": {
+      "n": 435,
+      "mae": 3.880347113231684e-17,
+      "brier": 0.16063279359774,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 7.0462410472221436e-15,
+      "z_p95": 1.5713508640545506e-13,
+      "z_max": 2.2577543457795478e-07
+    },
+    "candidate": {
+      "n": 435,
+      "mae": 3.880347113231684e-17,
+      "brier": 0.16063279359774,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 7.0462410472221436e-15,
+      "z_p95": 1.5713508640545506e-13,
+      "z_max": 2.2577543457795478e-07
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 3.880347113231684e-17,
+      "seconds": 10.38
+    },
+    "metrics_candidate": {
+      "error": 3.880347113231684e-17,
+      "seconds": 10.457
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "conflict m s1 budget 0.5",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "dcbd767bde110a4821d5dfdb484f80ce574372746677ceb429aab4d50e94daaa",
+    "candidate_key": "8de7464e066460437daa28e7827a02c41c6d9a230045f2a774a6cd7cb2704db8",
+    "base": {
+      "n": 79,
+      "mae": 0.1363021363059383,
+      "brier": 0.11791937066438837,
+      "outside_2sd": 25,
+      "outside_2sd_fraction": 0.31645569620253167,
+      "z_median": 1.0590561420923017,
+      "z_p95": 8.601489384708431,
+      "z_max": 10.557047573395778
+    },
+    "candidate": {
+      "n": 79,
+      "mae": 0.1363021363059383,
+      "brier": 0.11791937066438837,
+      "outside_2sd": 25,
+      "outside_2sd_fraction": 0.31645569620253167,
+      "z_median": 1.0590561420923017,
+      "z_p95": 8.601489384708431,
+      "z_max": 10.557047573395778
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.13856487356013675,
+      "seconds": 8.52
+    },
+    "metrics_candidate": {
+      "error": 0.13856487356013675,
+      "seconds": 8.373
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "conflict m s1 budget 1",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "c89ace0048c1902a0a9b6233393226b3017731dd91f3da9c311328487448be7c",
+    "candidate_key": "548238ccb83880cc929348d9df291538eca2b23ab4284843eb1d01c5fa800674",
+    "base": {
+      "n": 79,
+      "mae": 0.1022903686940845,
+      "brier": 0.08179895759692396,
+      "outside_2sd": 14,
+      "outside_2sd_fraction": 0.17721518987341772,
+      "z_median": 0.7289708696142025,
+      "z_p95": 4.098029056480343,
+      "z_max": 9.456597191092667
+    },
+    "candidate": {
+      "n": 79,
+      "mae": 0.1022903686940845,
+      "brier": 0.08179895759692396,
+      "outside_2sd": 14,
+      "outside_2sd_fraction": 0.17721518987341772,
+      "z_median": 0.7289708696142025,
+      "z_p95": 4.098029056480343,
+      "z_max": 9.456597191092667
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.10497825304343116,
+      "seconds": 10.096
+    },
+    "metrics_candidate": {
+      "error": 0.10497825304343116,
+      "seconds": 10.158
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "conflict m s1 budget 2",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "98d0ac773177f721c338d44038cdc359a2183957e5fd59c6a3cfba05c27a8161",
+    "candidate_key": "24fe5ad8bea52351163145aa19543b62f5077460cad82e906bfe743ce8936067",
+    "base": {
+      "n": 79,
+      "mae": 0.0946968179556019,
+      "brier": 0.09284571290744222,
+      "outside_2sd": 9,
+      "outside_2sd_fraction": 0.11392405063291139,
+      "z_median": 0.6304745995253261,
+      "z_p95": 2.5533669324752952,
+      "z_max": 9.36621294185492
+    },
+    "candidate": {
+      "n": 79,
+      "mae": 0.0946968179556019,
+      "brier": 0.09284571290744222,
+      "outside_2sd": 9,
+      "outside_2sd_fraction": 0.11392405063291139,
+      "z_median": 0.6304745995253261,
+      "z_p95": 2.5533669324752952,
+      "z_max": 9.36621294185492
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.09747962168917958,
+      "seconds": 10.674
+    },
+    "metrics_candidate": {
+      "error": 0.09747962168917958,
+      "seconds": 11.036
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "conflict m s1 budget 4",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "bfe1597897201cb2d6a506d5cf2dcf9020241706ec985d0ef2c32cb43f55b985",
+    "candidate_key": "54eaae2eef7326e35fc7191ce8126a17a7e4700bb2b9488e451021e472818b4c",
+    "base": {
+      "n": 79,
+      "mae": 0.09679201845578701,
+      "brier": 0.09258372292015599,
+      "outside_2sd": 10,
+      "outside_2sd_fraction": 0.12658227848101267,
+      "z_median": 0.6213876915805548,
+      "z_p95": 3.5197831026244373,
+      "z_max": 9.986824304921672
+    },
+    "candidate": {
+      "n": 79,
+      "mae": 0.09679201845578701,
+      "brier": 0.09258372292015599,
+      "outside_2sd": 10,
+      "outside_2sd_fraction": 0.12658227848101267,
+      "z_median": 0.6213876915805548,
+      "z_p95": 3.5197831026244373,
+      "z_max": 9.986824304921672
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.09954863218311236,
+      "seconds": 12.501
+    },
+    "metrics_candidate": {
+      "error": 0.09954863218311236,
+      "seconds": 12.345
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "conflict m s1 budget 8",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "91750d86cf888882a23bdecabe691d0a5f67613f0898202dde9838c025c3d2fa",
+    "candidate_key": "f2c48dd95df74a9c1c504061c624d398a3537222176a0141c6422cc87538085b",
+    "base": {
+      "n": 79,
+      "mae": 0.08671713252773039,
+      "brier": 0.10898106574214513,
+      "outside_2sd": 14,
+      "outside_2sd_fraction": 0.17721518987341772,
+      "z_median": 0.7367155619482927,
+      "z_p95": 4.447758561952332,
+      "z_max": 13.919927657555682
+    },
+    "candidate": {
+      "n": 79,
+      "mae": 0.08671713252773039,
+      "brier": 0.10898106574214513,
+      "outside_2sd": 14,
+      "outside_2sd_fraction": 0.17721518987341772,
+      "z_median": 0.7367155619482927,
+      "z_p95": 4.447758561952332,
+      "z_max": 13.919927657555682
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.08959968232915644,
+      "seconds": 15.322
+    },
+    "metrics_candidate": {
+      "error": 0.08959968232915644,
+      "seconds": 15.38
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "conflict m s1 budget 16",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "f5195db1a8e286aba96dadf3671dbf4edcfa6fd0f85bd0ed813cf7606646962d",
+    "candidate_key": "c9029a5a02985b34549b6e518d014a84bef10c8af1efd6c6cd3989a58978f541",
+    "base": {
+      "n": 79,
+      "mae": 0.08952282956792722,
+      "brier": 0.11902354786920252,
+      "outside_2sd": 13,
+      "outside_2sd_fraction": 0.16455696202531644,
+      "z_median": 0.6814405855489194,
+      "z_p95": 4.454069126895449,
+      "z_max": 13.919927657555682
+    },
+    "candidate": {
+      "n": 79,
+      "mae": 0.08952282956792722,
+      "brier": 0.11902354786920252,
+      "outside_2sd": 13,
+      "outside_2sd_fraction": 0.16455696202531644,
+      "z_median": 0.6814405855489194,
+      "z_p95": 4.454069126895449,
+      "z_max": 13.919927657555682
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.09237030815635082,
+      "seconds": 29.959
+    },
+    "metrics_candidate": {
+      "error": 0.09237030815635082,
+      "seconds": 29.802
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "replay s3 budget 10",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "01c35ae7ebea3ab647c669772226cb28ebd0e6030ac6fe13fe5b847047bd7853",
+    "candidate_key": "9c2de7e8459d3edd849f703120448628bef6440ac353711ecd3791520d030908",
+    "base": {
+      "n": 200,
+      "mae": 0.1519398098537849,
+      "brier": null,
+      "outside_2sd": 107,
+      "outside_2sd_fraction": 0.535,
+      "z_median": 2.8446146261638603,
+      "z_p95": 58841.56976183799,
+      "z_max": 223597.96509498433
+    },
+    "candidate": {
+      "n": 200,
+      "mae": 0.1519398098537849,
+      "brier": null,
+      "outside_2sd": 107,
+      "outside_2sd_fraction": 0.535,
+      "z_median": 2.8446146261638603,
+      "z_p95": 58841.56976183799,
+      "z_max": 223597.96509498433
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.15193980985378494,
+      "seconds": 4.361775918001513
+    },
+    "metrics_candidate": {
+      "error": 0.15193980985378494,
+      "seconds": 4.3320999030020175
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "replay s3 budget 25",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "420f0218c7c17f96835d50e885119e2e6c644b4b7fae08de6c9f322e619701e2",
+    "candidate_key": "6c1aef6a41dedb6c389c2837fb48d1707b3b65ef682b1b77d815c417c4dbd921",
+    "base": {
+      "n": 200,
+      "mae": 0.14540469048759547,
+      "brier": null,
+      "outside_2sd": 122,
+      "outside_2sd_fraction": 0.61,
+      "z_median": 2.7225984428673837,
+      "z_p95": 58841.56976183799,
+      "z_max": 223597.96509498433
+    },
+    "candidate": {
+      "n": 200,
+      "mae": 0.14540469048759547,
+      "brier": null,
+      "outside_2sd": 122,
+      "outside_2sd_fraction": 0.61,
+      "z_median": 2.7225984428673837,
+      "z_p95": 58841.56976183799,
+      "z_max": 223597.96509498433
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.14540469048759547,
+      "seconds": 5.295703645000231
+    },
+    "metrics_candidate": {
+      "error": 0.14540469048759547,
+      "seconds": 5.289093854002203
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "replay s3 budget 50",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "48f2b2e332c01badfd9c4156bfeadb3e8673a0e2383efe6435d7039e59b14447",
+    "candidate_key": "d812bec004a8aa6d772fab3114686ec4623a0c53a399004bb8ff9d5f521d7ce6",
+    "base": {
+      "n": 200,
+      "mae": 0.14314469166437518,
+      "brier": null,
+      "outside_2sd": 123,
+      "outside_2sd_fraction": 0.615,
+      "z_median": 2.7665108555498574,
+      "z_p95": 58841.56976183799,
+      "z_max": 223597.96509498422
+    },
+    "candidate": {
+      "n": 200,
+      "mae": 0.14314469166437518,
+      "brier": null,
+      "outside_2sd": 123,
+      "outside_2sd_fraction": 0.615,
+      "z_median": 2.7665108555498574,
+      "z_p95": 58841.56976183799,
+      "z_max": 223597.96509498422
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.14314469166437518,
+      "seconds": 6.972015370999998
+    },
+    "metrics_candidate": {
+      "error": 0.14314469166437518,
+      "seconds": 6.869183276992771
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "replay s3 budget 100",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "ccb668020b56c193a76efcbcef32e63705e2e133ce2d1216beb598727507c28a",
+    "candidate_key": "e2e7e02c157859a65ec8066a0aeac3753d9664b9e2a0582e68aefed6bcdf24b1",
+    "base": {
+      "n": 200,
+      "mae": 0.14202917946044943,
+      "brier": null,
+      "outside_2sd": 123,
+      "outside_2sd_fraction": 0.615,
+      "z_median": 2.7665108555498574,
+      "z_p95": 58841.56976183799,
+      "z_max": 223597.96509498422
+    },
+    "candidate": {
+      "n": 200,
+      "mae": 0.14202917946044943,
+      "brier": null,
+      "outside_2sd": 123,
+      "outside_2sd_fraction": 0.615,
+      "z_median": 2.7665108555498574,
+      "z_p95": 58841.56976183799,
+      "z_max": 223597.96509498422
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.1420291794604494,
+      "seconds": 10.088621190997856
+    },
+    "metrics_candidate": {
+      "error": 0.1420291794604494,
+      "seconds": 10.20763111999986
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "minedsearch gated n16 d3 s9 budget 4",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "5dedde2cf23146bdc136878a529ea40f40f4711bd53478c922c57d107ab1166b",
+    "candidate_key": "52349116ecde66d7a4f97daa96de74727865851ee14a6b20ee79ee25816d997b",
+    "base": {
+      "n": 16,
+      "mae": 0.02102446269523711,
+      "brier": 0.11352055978043482,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.7162400778596186,
+      "z_p95": 1.6036642823343024,
+      "z_max": 1.6036642823343024
+    },
+    "candidate": {
+      "n": 16,
+      "mae": 0.02102446269523711,
+      "brier": 0.11352055978043482,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.7162400778596186,
+      "z_p95": 1.6036642823343024,
+      "z_max": 1.6036642823343024
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.19999999999999998,
+      "seconds": 41.369
+    },
+    "metrics_candidate": {
+      "error": 0.19999999999999998,
+      "seconds": 41.437
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "minedsearch gated n16 d3 s9 budget 8",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "aafea8e859b69b57e029ee74df0f2c7f72c3bcc2cf2fcde6958203ad1c2f1072",
+    "candidate_key": "1d83245ba3fbd38e25a254869025f02f4d37fb731eaa1b9ae8dff11a9788b4fb",
+    "base": {
+      "n": 31,
+      "mae": 0.019903663725108288,
+      "brier": 0.11309955378747691,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.5664758674058248,
+      "z_p95": 1.6036642823343024,
+      "z_max": 1.6036642823343024
+    },
+    "candidate": {
+      "n": 31,
+      "mae": 0.019903663725108288,
+      "brier": 0.11309955378747691,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.5664758674058248,
+      "z_p95": 1.6036642823343024,
+      "z_max": 1.6036642823343024
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.03003888577216019,
+      "seconds": 39.441
+    },
+    "metrics_candidate": {
+      "error": 0.03003888577216019,
+      "seconds": 38.87
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "minedsearch gated n16 d3 s9 budget 16",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "84cf1a494d23d36c2432696424d77fd208a756422dc1ce5de804fd62791334cc",
+    "candidate_key": "b6e0ad5acf52291f6d0cfb7f756e08e862f1e66bba1d49b824b979d662a3e5fd",
+    "base": {
+      "n": 31,
+      "mae": 0.019903663725108288,
+      "brier": 0.11309955378747691,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.5664758674058248,
+      "z_p95": 1.6036642823343024,
+      "z_max": 1.6036642823343024
+    },
+    "candidate": {
+      "n": 31,
+      "mae": 0.019903663725108288,
+      "brier": 0.11309955378747691,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.5664758674058248,
+      "z_p95": 1.6036642823343024,
+      "z_max": 1.6036642823343024
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.03003888577216019,
+      "seconds": 40.796
+    },
+    "metrics_candidate": {
+      "error": 0.03003888577216019,
+      "seconds": 41.559
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "minedsearch gated n16 d3 s9 budget 32",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "8dd366f3fc596e862b315631e3ee0533cf3a9af7bdb4f46740a08f27d3637dfc",
+    "candidate_key": "92c49648887d4d0d58b0de96bd5f18a2c73cb756fe53fc51e7a202d0fabac52f",
+    "base": {
+      "n": 32,
+      "mae": 0.02102446269523711,
+      "brier": 0.11352055978043482,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.7162400778596186,
+      "z_p95": 1.6036642823343024,
+      "z_max": 1.6036642823343024
+    },
+    "candidate": {
+      "n": 32,
+      "mae": 0.02102446269523711,
+      "brier": 0.11352055978043482,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.7162400778596186,
+      "z_p95": 1.6036642823343024,
+      "z_max": 1.6036642823343024
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.02102446269523711,
+      "seconds": 39.918
+    },
+    "metrics_candidate": {
+      "error": 0.02102446269523711,
+      "seconds": 39.611
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "minedsearch gated n16 d3 s9 budget 64",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "19cb9ebfe20b7cf617685be112419b477e61499ba0e0ec773c4fd7676f5f243c",
+    "candidate_key": "4fec1b32af7d57c0e7d7d12b13da6da9479afaa25974f53a9ee787a64aa372fb",
+    "base": {
+      "n": 32,
+      "mae": 0.02102446269523711,
+      "brier": 0.11352055978043482,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.7162400778596186,
+      "z_p95": 1.6036642823343024,
+      "z_max": 1.6036642823343024
+    },
+    "candidate": {
+      "n": 32,
+      "mae": 0.02102446269523711,
+      "brier": 0.11352055978043482,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.7162400778596186,
+      "z_p95": 1.6036642823343024,
+      "z_max": 1.6036642823343024
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.02102446269523711,
+      "seconds": 41.657
+    },
+    "metrics_candidate": {
+      "error": 0.02102446269523711,
+      "seconds": 40.823
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "minedsearch gated n16 d3 s9 budget 128",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "cb8ee492433d002c50fe4a22f457f4f4131fe833ac54a7c943f33bc8a46eb718",
+    "candidate_key": "50972657fd82f4d0888d9a2f89f98b0af14897fc58be960bc1a28c6e908a494e",
+    "base": {
+      "n": 32,
+      "mae": 0.02102446269523711,
+      "brier": 0.11352055978043482,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.7162400778596186,
+      "z_p95": 1.6036642823343024,
+      "z_max": 1.6036642823343024
+    },
+    "candidate": {
+      "n": 32,
+      "mae": 0.02102446269523711,
+      "brier": 0.11352055978043482,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.7162400778596186,
+      "z_p95": 1.6036642823343024,
+      "z_max": 1.6036642823343024
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.02102446269523711,
+      "seconds": 51.83
+    },
+    "metrics_candidate": {
+      "error": 0.02102446269523711,
+      "seconds": 44.463
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 4 extend s2 budget 1",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "70a9e8f9cbbc78d259ee2dd38145ca6540b0c8c8e609e129a120afca1bd34d8f",
+    "candidate_key": "5040ce785b7191bedfb3706ed3ff40398ef102f28167c9d0ac58e90c680582d0",
+    "base": {
+      "n": 137,
+      "mae": 0.11922992269882723,
+      "brier": 0.21413432571890562,
+      "outside_2sd": 55,
+      "outside_2sd_fraction": 0.40145985401459855,
+      "z_median": 1.5591458243672531,
+      "z_p95": 10.822146122197976,
+      "z_max": 33629137.15026566
+    },
+    "candidate": {
+      "n": 137,
+      "mae": 0.11922992269882723,
+      "brier": 0.21413432571890562,
+      "outside_2sd": 55,
+      "outside_2sd_fraction": 0.40145985401459855,
+      "z_median": 1.5591458243672531,
+      "z_p95": 10.822146122197976,
+      "z_max": 33629137.15026566
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.11922992269882725,
+      "seconds": 6.545
+    },
+    "metrics_candidate": {
+      "error": 0.11922992269882725,
+      "seconds": 6.867
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 4 extend s2 budget 2",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "fc5c502b3b37085c24756f3dbcdbcc1d42d66e5aa0c5a174ae3633d44ab8d1c4",
+    "candidate_key": "b6b7069aace1d5f55bb71171b529bfc1bfbdbdd2af0aca1a06d2c0a273682d36",
+    "base": {
+      "n": 137,
+      "mae": 0.09306248878670821,
+      "brier": 0.21572649985256892,
+      "outside_2sd": 39,
+      "outside_2sd_fraction": 0.2846715328467153,
+      "z_median": 0.6914099205992069,
+      "z_p95": 5.876791308969514,
+      "z_max": 10.822146122197976
+    },
+    "candidate": {
+      "n": 137,
+      "mae": 0.09306248878670821,
+      "brier": 0.21572649985256892,
+      "outside_2sd": 39,
+      "outside_2sd_fraction": 0.2846715328467153,
+      "z_median": 0.6914099205992069,
+      "z_p95": 5.876791308969514,
+      "z_max": 10.822146122197976
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.09306248878670821,
+      "seconds": 8.161
+    },
+    "metrics_candidate": {
+      "error": 0.09306248878670821,
+      "seconds": 8.351
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 4 extend s2 budget 5",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "cfa13651218e5d2e75ed7a888c32baf17eba9b787ba6779db84395831d774bf2",
+    "candidate_key": "253dc88f1b8ef4ace2607b8a2dd49b636a90912715f8d998d3cd0092c4dab9bb",
+    "base": {
+      "n": 137,
+      "mae": 0.08187799607131971,
+      "brier": 0.19106258213837293,
+      "outside_2sd": 58,
+      "outside_2sd_fraction": 0.4233576642335766,
+      "z_median": 0.6573747137649616,
+      "z_p95": 66.14273941935534,
+      "z_max": 224.37188485263115
+    },
+    "candidate": {
+      "n": 137,
+      "mae": 0.08187799607131971,
+      "brier": 0.19106258213837293,
+      "outside_2sd": 58,
+      "outside_2sd_fraction": 0.4233576642335766,
+      "z_median": 0.6573747137649616,
+      "z_p95": 66.14273941935534,
+      "z_max": 224.37188485263115
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.08187799607131971,
+      "seconds": 10.888
+    },
+    "metrics_candidate": {
+      "error": 0.08187799607131971,
+      "seconds": 10.917
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 4 extend s2 budget 10",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "4befedc1de031df95cacd4bbb2642a16863c48aa2e8a3f7a55b46ce2e8727ebd",
+    "candidate_key": "7860d3a0c33a2bf64be9cf2dfa111930977963c9576048ded17d566281b964a4",
+    "base": {
+      "n": 137,
+      "mae": 0.02491272951752415,
+      "brier": 0.1991588105524137,
+      "outside_2sd": 24,
+      "outside_2sd_fraction": 0.17518248175182483,
+      "z_median": 5.072411435088307e-14,
+      "z_p95": 40.71983963973773,
+      "z_max": 11003058.929282531
+    },
+    "candidate": {
+      "n": 137,
+      "mae": 0.02491272951752415,
+      "brier": 0.1991588105524137,
+      "outside_2sd": 24,
+      "outside_2sd_fraction": 0.17518248175182483,
+      "z_median": 5.072411435088307e-14,
+      "z_p95": 40.71983963973773,
+      "z_max": 11003058.929282531
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.024912729517524147,
+      "seconds": 12.229
+    },
+    "metrics_candidate": {
+      "error": 0.024912729517524147,
+      "seconds": 12.047
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 4 extend s2 budget 25",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "171532a0eb9c83928a778a33431b3cde6155711198d62b6eeb48b97fed73179a",
+    "candidate_key": "96d93e96d7c20e6f08b18432186f7053da7821e5b815ef6d171c0787108916e1",
+    "base": {
+      "n": 137,
+      "mae": 7.556810003379259e-17,
+      "brier": 0.1894101605746271,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 2.5469601627860832e-14,
+      "z_p95": 4.135608967947058e-08,
+      "z_max": 1.207176324733539e-07
+    },
+    "candidate": {
+      "n": 137,
+      "mae": 7.556810003379259e-17,
+      "brier": 0.1894101605746271,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 2.5469601627860832e-14,
+      "z_p95": 4.135608967947058e-08,
+      "z_max": 1.207176324733539e-07
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 7.556810003379259e-17,
+      "seconds": 12.549
+    },
+    "metrics_candidate": {
+      "error": 7.556810003379259e-17,
+      "seconds": 12.623
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 4 extend s2 budget 100",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "68b212b26452e3fbbc9cc440dd03539bc65a67861bf8fbdeaa608ef4069f02f0",
+    "candidate_key": "30a6cb166832b5aa4b6c589d6ab5223181240b4d210761b693b24c7d5a71058a",
+    "base": {
+      "n": 137,
+      "mae": 7.354214560929413e-17,
+      "brier": 0.1894101605746271,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 2.5469601627860832e-14,
+      "z_p95": 3.5382775871781075e-13,
+      "z_max": 9.390504237836935e-08
+    },
+    "candidate": {
+      "n": 137,
+      "mae": 7.354214560929413e-17,
+      "brier": 0.1894101605746271,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 2.5469601627860832e-14,
+      "z_p95": 3.5382775871781075e-13,
+      "z_max": 9.390504237836935e-08
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 7.354214560929413e-17,
+      "seconds": 12.157
+    },
+    "metrics_candidate": {
+      "error": 7.354214560929413e-17,
+      "seconds": 12.058
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 4 extend s2 budget 200",
+    "source": "docs/history/i183_lookup/midpoint/benchmarks/curves.json",
+    "base_key": "618fb1c57b2b42b9b798261501f9bb92924269185dcbc4729c5f2f0600d4c1cd",
+    "candidate_key": "a55e0c14e0a867fe9f39ad920ac918cceba463c9fbd3ff22aa4b6010239f083b",
+    "base": {
+      "n": 137,
+      "mae": 7.354214560929413e-17,
+      "brier": 0.1894101605746271,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 2.5469601627860832e-14,
+      "z_p95": 3.5382775871781075e-13,
+      "z_max": 9.390504237836935e-08
+    },
+    "candidate": {
+      "n": 137,
+      "mae": 7.354214560929413e-17,
+      "brier": 0.1894101605746271,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 2.5469601627860832e-14,
+      "z_p95": 3.5382775871781075e-13,
+      "z_max": 9.390504237836935e-08
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 7.354214560929413e-17,
+      "seconds": 11.793
+    },
+    "metrics_candidate": {
+      "error": 7.354214560929413e-17,
+      "seconds": 11.745
+    }
+  }
+]

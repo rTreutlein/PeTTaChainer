@@ -1,0 +1,118 @@
+{
+  "code_commit": "0a1152648fafa0c5e79c9fcf701d02abaf511c55",
+  "base_commit": "8538013b18de3e7bdbc94b298d964e821e5c342f",
+  "verify": {
+    "exit": 0,
+    "cache_key": "56e97c56002e",
+    "wall_seconds": 156,
+    "metta_passed": 164,
+    "python_tests": 1151,
+    "python_files": 88,
+    "python_units": 95,
+    "expected_failures": 23,
+    "skipped": 4,
+    "available_query_aborts": 0
+  },
+  "comparisons": {
+    "quick": {
+      "source": "/nexus/Dev/OpenCog/bench/results/compare/8538013b_vs_8538013b-d61d9289e_quick",
+      "exit": 0,
+      "verdict": "PASS",
+      "base": [
+        "8538013b",
+        "8538013b18de3e7bdbc94b298d964e821e5c342f",
+        "dd6a51d81d241cde3b3fc8ebc46368db7f152993"
+      ],
+      "candidate": [
+        "8538013b-d61d9289e",
+        "8538013b18de3e7bdbc94b298d964e821e5c342f+61d9289e",
+        "16e27adca7c2850ad1c85d48725ad208d0c3ac14"
+      ],
+      "regressions": [],
+      "false_flags": [],
+      "accuracy_changed": [],
+      "executed": 9,
+      "reused": 10,
+      "wall_seconds": 78.4
+    },
+    "full": {
+      "source": "/nexus/Dev/OpenCog/bench/results/compare/8538013b_vs_8538013b-d8ea83011_full",
+      "exit": 0,
+      "verdict": "PASS",
+      "base": [
+        "8538013b",
+        "8538013b18de3e7bdbc94b298d964e821e5c342f",
+        "dd6a51d81d241cde3b3fc8ebc46368db7f152993"
+      ],
+      "candidate": [
+        "8538013b-d8ea83011",
+        "8538013b18de3e7bdbc94b298d964e821e5c342f+8ea83011",
+        "16e27adca7c2850ad1c85d48725ad208d0c3ac14"
+      ],
+      "regressions": [],
+      "false_flags": [],
+      "accuracy_changed": [],
+      "executed": 2,
+      "reused": 43,
+      "wall_seconds": 440.7
+    },
+    "anchor-canary": {
+      "source": "/nexus/Dev/OpenCog/bench/results/compare/anchor-b4065459_vs_8538013b-d61d9289e_canary",
+      "exit": 0,
+      "verdict": "PASS",
+      "base": [
+        "b4065459",
+        "b40654592d561bdc91e27c1a50365571720ae137",
+        "cc5754d2bc48be5fe6bd33b83bad54bda70b27d8"
+      ],
+      "candidate": [
+        "8538013b-d61d9289e",
+        "8538013b18de3e7bdbc94b298d964e821e5c342f+61d9289e",
+        "16e27adca7c2850ad1c85d48725ad208d0c3ac14"
+      ],
+      "regressions": [],
+      "false_flags": [],
+      "accuracy_changed": [
+        "live b50 5 shifts s1",
+        "conflict pln-stated l spq4 s1",
+        "conflict pln-reliable l spq4 s1",
+        "scale m spq4 r10 s1"
+      ],
+      "executed": 11,
+      "reused": 6,
+      "wall_seconds": 102.6
+    },
+    "master-canary": {
+      "source": "/nexus/Dev/OpenCog/bench/results/compare/8538013b_vs_8538013b-d8ea83011_canary",
+      "exit": 0,
+      "verdict": "PASS",
+      "base": [
+        "8538013b",
+        "8538013b18de3e7bdbc94b298d964e821e5c342f",
+        "dd6a51d81d241cde3b3fc8ebc46368db7f152993"
+      ],
+      "candidate": [
+        "8538013b-d8ea83011",
+        "8538013b18de3e7bdbc94b298d964e821e5c342f+8ea83011",
+        "16e27adca7c2850ad1c85d48725ad208d0c3ac14"
+      ],
+      "regressions": [],
+      "false_flags": [],
+      "accuracy_changed": [],
+      "executed": 6,
+      "reused": 6,
+      "wall_seconds": 9.0
+    },
+    "curves": {
+      "source": "/nexus/Dev/OpenCog/bench/results/compare/8538013b_vs_8538013b-d61d9289e_curves",
+      "exit": 0,
+      "verdict": "completed-descriptive-profile",
+      "base": "8538013b",
+      "candidate": "8538013b-d61d9289e",
+      "families": 10,
+      "paired_points": 56,
+      "changed_errors": 0,
+      "wall_seconds": 649
+    }
+  }
+}

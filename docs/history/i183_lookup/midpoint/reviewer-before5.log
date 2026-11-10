@@ -1,0 +1,3 @@
+dup_reports | (And A B) => ['(: (merge/revision (merge/revision r2 r1) (conjunction a)) (And A B) (STV 0.6666666666666659 0.9966442953020134))']
+single_report | (And A B) => ['(: (merge/revision r1 (conjunction a)) (And A B) (STV 0.5 0.9949748743718593))']
+nine_weak | (And A B) => ['(: (merge/revision r1 (conjunction a)) (And A B) (STV 0.5027901785714286 0.18099181900818098))']

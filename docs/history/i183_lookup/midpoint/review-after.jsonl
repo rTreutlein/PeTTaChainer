@@ -1,0 +1,58 @@
+{"case": "conflict", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.33333052748398234, 0.9933110088252738], "proof": "(merge/revision report (conjunction a b))"}]}
+{"case": "conflict", "query": "(Not (And A B))", "steps": 400, "answers": [{"tv": ["STV", 0.6666694725160176, 0.9933110088252738], "proof": "(negated (merge/revision report (conjunction a b)))"}]}
+{"case": "conflict", "query": "A", "steps": 400, "answers": [{"tv": ["STV", 0.666663860877763, 0.0007363385191103254], "proof": "(node (conjunction a b report))"}]}
+{"case": "conflict", "query": "B", "steps": 400, "answers": [{"tv": ["STV", 0.666663860877763, 0.0007363385191103254], "proof": "(node (conjunction a b report))"}]}
+{"case": "atomic_conflict", "query": "A", "steps": 400, "answers": [{"tv": ["STV", 0.5, 0.9949748743718593], "proof": "(merge/revision p2 p1)"}]}
+{"case": "rule_conj", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.27272309872865363, 0.9927073422250229], "proof": "(merge/revision report (conjunction (by r1 x) (by r2 y)))"}]}
+{"case": "rule_conj", "query": "A", "steps": 400, "answers": [{"tv": ["STV", 1.0, 0.9999], "proof": "(factored-revision (by r1 x) (prior (STV 1.0 0.9867109082677673)) ((node-message 0 report (by r2 y) (likelihood (And 0 1) 0 1.2625943789298262e-05 (target B) ((point 0.5) (beta 59399.7499994375 1.0e-12))))))"}]}
+{"case": "rule_whole", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.0, 0.99], "proof": "(factored-revision (by r x) (prior (STV 1.0 0.9867109082677673)) (((reported with cpu (prior (STV 0.5 0.0))) report)))"}]}
+{"case": "partial", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.0, 0.99], "proof": "report"}]}
+{"case": "partial", "query": "B", "steps": 400, "answers": [{"tv": ["STV", 2.5251249936871898e-05, 0.0004269094749546832], "proof": "(node (conjunction a report))"}]}
+{"case": "partial", "query": "A", "steps": 400, "answers": [{"tv": ["STV", 0.9999747487500631, 0.0006246687292999585], "proof": "(node (conjunction a report))"}]}
+{"case": "hide_weak", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.010000000000000009, 0.9900990099009901], "proof": "(merge/revision (conjunction a) report)"}]}
+{"case": "hide_weak", "query": "A", "steps": 400, "answers": [{"tv": ["STV", 0.005037561870304862, 0.0687052621766503], "proof": "(node (conjunction a report))"}]}
+{"case": "hide_weak", "query": "(Not (And A B))", "steps": 400, "answers": [{"tv": ["STV", 0.99, 0.9900990099009901], "proof": "(negated (merge/revision (conjunction a) report))"}]}
+{"case": "hide_weak2", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.010000000000125022, 0.9900990099008675], "proof": "(merge/revision (conjunction a b) report)"}]}
+{"case": "order_parts_first", "query": "A", "steps": 400, "answers": [{"tv": ["STV", 0.005037561870304862, 0.0687052621766503], "proof": "(node (conjunction a report))"}]}
+{"case": "order_parts_first", "query": "B", "steps": 400, "answers": [{"tv": ["STV", 0.5025124996859376, 0.002451823353160243], "proof": "(node (conjunction a report))"}]}
+{"case": "order_parts_first", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.010000000000000009, 0.9900990099009901], "proof": "(merge/revision (conjunction a) report)"}]}
+{"case": "order_parts_first", "query": "A", "steps": 400, "answers": [{"tv": ["STV", 0.005037561870304862, 0.0687052621766503], "proof": "(node (conjunction a report))"}]}
+{"case": "order_whole_first", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.010000000000000009, 0.9900990099009901], "proof": "(merge/revision (conjunction a) report)"}]}
+{"case": "order_whole_first", "query": "A", "steps": 400, "answers": [{"tv": ["STV", 0.005037561870304862, 0.0687052621766503], "proof": "(node (conjunction a report))"}]}
+{"case": "order_whole_first", "query": "B", "steps": 400, "answers": [{"tv": ["STV", 0.5025124996859376, 0.002451823353160243], "proof": "(node (conjunction a report))"}]}
+{"case": "order_whole_first", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.010000000000000009, 0.9900990099009901], "proof": "(merge/revision (conjunction a) report)"}]}
+{"case": "reorder", "query": "(And C A B)", "steps": 400, "answers": [{"tv": ["STV", 1.8037257759628302e-06, 0.004318274947876658], "proof": "(node (conjunction report))"}]}
+{"case": "reorder", "query": "(And A B C)", "steps": 400, "answers": [{"tv": ["STV", 0.0, 0.99], "proof": "report"}]}
+{"case": "premise_rule", "query": "C", "steps": 400, "answers": [{"tv": ["STV", 0.9, 0.9899994169813887], "proof": "(conditioned report (conditioned (node-message 0 (given true) cpu (likelihood (And 0 1) 0 1.0 (target B) ((point 0.5) (beta 1.0 1.0)))) (conditioned (node-message 1 (given true) (given true) (likelihood (And 0 1) 1 1.0 (A target) ((point 1.0) (point 0.5)))) (by r (conjunction (given true) (given true))) (by r (conjunction (given true) (given false)))) (conditioned cpu (by r (conjunction (given false) (given true))) (by r (conjunction (given false) (given false))))) (conditioned (node-message 0 (given false) cpu (likelihood (And 0 1) 0 0.0 (target B) ((point 0.5) (beta 1.0 1.0)))) (conditioned (node-message 1 (given false) (given true) (likelihood (And 0 1) 1 0.0 (A target) ((point 1.0) (point 0.5)))) (by r (conjunction (given true) (given true))) (by r (conjunction (given true) (given false)))) (conditioned cpu (by r (conjunction (given false) (given true))) (by r (conjunction (given false) (given false))))))"}]}
+{"case": "premise_rule", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 1, 0.8], "proof": "report"}]}
+{"case": "premise_rule_conflict", "query": "C", "steps": 400, "answers": [{"tv": ["STV", 0.9, 0.9899999464657971], "proof": "(by r (conjunction a b))"}]}
+{"case": "pattern", "query": "(And (P $x) (Q $x))", "steps": 400, "answers": [{"tv": ["STV", 1, 0.9], "proof": "report"}]}
+{"case": "pattern", "query": "(P a)", "steps": 400, "answers": [{"tv": ["STV", 0.9997223764575235, 1.9984014443252817e-17], "proof": "(node (conjunction report))"}]}
+{"case": "pattern", "query": "(And (P a) (Q a))", "steps": 400, "answers": [{"tv": ["STV", 1, 0.9], "proof": "report"}]}
+{"case": "pattern_not", "query": "(And (P $x) (Q $x))", "steps": 400, "answers": [{"tv": ["STV", 0.0, 0.9], "proof": "report"}, {"tv": ["STV", 1, 0.8181611546663349], "proof": "(conjunction pb qb)"}]}
+{"case": "pattern_not", "query": "(Not (And (P $x) (Q $x)))", "steps": 400, "answers": [{"tv": ["STV", 1.0, 0.9], "proof": "(negated report)"}, {"tv": ["STV", 0, 0.8181611546663349], "proof": "(negated (conjunction pb qb))"}]}
+{"case": "issue4", "query": "(Not (And (Member sk_watch_1 watch) (Agent sk_watch_1 sk_group_1) (Ongoing sk_watch_1)))", "steps": 400, "answers": [{"tv": ["STV", 1.0, 0.99], "proof": "(negated s1_not)"}]}
+{"case": "issue4", "query": "(And (Member sk_watch_1 watch) (Agent sk_watch_1 sk_group_1) (Ongoing sk_watch_1))", "steps": 400, "answers": [{"tv": ["STV", 0.0, 0.99], "proof": "s1_not"}]}
+{"case": "late_evidence", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 1, 0.5], "proof": "report"}]}
+{"case": "late_evidence", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.010000000000000009, 0.9900990099009901], "proof": "(merge/revision (conjunction a) report)"}]}
+{"case": "or_conflict", "query": "(Or A B)", "steps": 400, "answers": [{"tv": ["STV", 0.5, 0.9949748743718593], "proof": "(merge/revision report (conjunction a))"}]}
+{"case": "or_conflict", "query": "A", "steps": 400, "answers": [{"tv": ["STV", 0.666663860877763, 0.0004373633163458808], "proof": "(node (conjunction a report))"}]}
+{"case": "hide_strong", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.5, 0.9949748743718593], "proof": "(merge/revision report (conjunction a))"}]}
+{"case": "hide_strong", "query": "(Not (And A B))", "steps": 400, "answers": [{"tv": ["STV", 0.5, 0.9949748743718593], "proof": "(negated (merge/revision report (conjunction a)))"}]}
+{"case": "hide_strong", "query": "A", "steps": 400, "answers": [{"tv": ["STV", 0.33333613912295784, 0.00043736331634405774], "proof": "(node (conjunction a report))"}]}
+{"case": "or_noreport", "query": "(Or A B)", "steps": 400, "answers": []}
+{"case": "and_noreport_false", "query": "(And A B)", "steps": 400, "answers": []}
+{"case": "atomic_premise", "query": "C", "steps": 400, "answers": [{"tv": ["STV", 0.9, 0.9899993377132467], "proof": "(by r p)"}]}
+{"case": "or_report_parts", "query": "(Or A B)", "steps": 400, "answers": [{"tv": ["STV", 0.49999999999684314, 0.9949748743718277], "proof": "(merge/revision report (conjunction a b))"}]}
+{"case": "assume_conflict", "query": "(Assuming (Not A) (And A B))", "steps": 400, "answers": [{"tv": ["STV", 0.0, 0.9999], "proof": "(assuming (settled (ctx proof 0)))"}]}
+{"case": "assume_conflict", "query": "(Assuming (: na A (STV 0 0.99)) (And A B))", "steps": 400, "answers": "query/3: Domain error: `weighted_assumption' expected, found `[:,na,'A',['STV',0,0.99]]' (unsupported weighted assumption)"}
+{"case": "zero_steps", "query": "(And A B C)", "steps": 0, "answers": [{"tv": ["STV", 0.0, 0.99], "proof": "report"}]}
+{"case": "zero_steps", "query": "(And A B C)", "steps": 400, "answers": [{"tv": ["STV", 0.0, 0.99], "proof": "report"}]}
+{"case": "shared_atomic", "query": "B", "steps": 400, "answers": [{"tv": ["STV", 0.5, 0.9933110088252248], "proof": "(merge/revision (by r1 a) (negated (by r2 a)))"}]}
+{"case": "shared_atomic", "query": "(Not B)", "steps": 400, "answers": [{"tv": ["STV", 0.5, 0.9933110088252248], "proof": "(negated (merge/revision (by r1 a) (negated (by r2 a))))"}]}
+{"case": "cycle", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.8, 0.9], "proof": "report"}]}
+{"case": "cycle", "query": "C", "steps": 400, "answers": [{"tv": ["STV", 0.9, 0.0480463696599931], "proof": "(conditioned report (conditioned (node-message 0 (given true) cpu (likelihood (And 0 1) 0 1.0 (target B) ((point 0.5) (beta 1.0 1.0)))) (conditioned (node-message 1 (given true) (given true) (likelihood (And 0 1) 1 1.0 (A target) ((point 1.0) (point 0.5)))) (by r1 (conjunction (given true) (given true))) (by r1 (conjunction (given true) (given false)))) (conditioned cpu (by r1 (conjunction (given false) (given true))) (by r1 (conjunction (given false) (given false))))) (conditioned (node-message 0 (given false) cpu (likelihood (And 0 1) 0 0.0 (target B) ((point 0.5) (beta 1.0 1.0)))) (conditioned (node-message 1 (given false) (given true) (likelihood (And 0 1) 1 0.0 (A target) ((point 1.0) (point 0.5)))) (by r1 (conjunction (given true) (given true))) (by r1 (conjunction (given true) (given false)))) (conditioned cpu (by r1 (conjunction (given false) (given true))) (by r1 (conjunction (given false) (given false))))))"}]}
+{"case": "proj_part", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.8, 0.9], "proof": "report"}]}
+{"case": "proj_part", "query": "A", "steps": 400, "answers": [{"tv": ["STV", 0.799915174473457, 0.0010928030131437004], "proof": "(node-message 0 report b (likelihood (And 0 1) 0 0.7999166898083866 (target B) ((point 0.5) (beta 79200.99999999993 1.0))))"}]}
+{"case": "proj_negpart", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.0, 0.9], "proof": "report"}]}
+{"case": "proj_negpart", "query": "A", "steps": 400, "answers": [{"tv": ["STV", 8.925929630892974e-21, 0.9999999999999996], "proof": "(factored-revision (negated (by r (negated report))) (prior (STV 0.0 0.9549861971815992)) ((node-message 0 report b (likelihood (And 0 1) 0 0.00013885031935573447 (target B) ((point 0.5) (beta 79200.99999999993 1.0))))))"}]}

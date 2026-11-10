@@ -1,0 +1,3306 @@
+[
+  {
+    "suite": "supplynet",
+    "case": "stage 1 b25 s2",
+    "source": "docs/history/i183_lookup/review/benchmarks/quick.json",
+    "base_key": "fa8b66c84a455eef510f67aeffdb9ad658301d25173fc414927f70846573aff9",
+    "candidate_key": "0e215d13bb5e2d9c7afd62be7106ea56d09f434455e6fbcbf6f65f56e0f8eb8a",
+    "base": {
+      "n": 218,
+      "mae": 0.014189093281144323,
+      "brier": 0.043104730388312223,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.07358561909261746,
+      "z_p95": 1.2950022324084873,
+      "z_max": 1.753209379776326
+    },
+    "candidate": {
+      "n": 218,
+      "mae": 0.014189093281144323,
+      "brier": 0.043104730388312223,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.07358561909261746,
+      "z_p95": 1.2950022324084873,
+      "z_max": 1.753209379776326
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.014189093281144321,
+      "brier": 0.043104730388312223,
+      "coverage": 1.0,
+      "seconds": 1.793
+    },
+    "metrics_candidate": {
+      "error": 0.014189093281144321,
+      "brier": 0.043104730388312223,
+      "coverage": 1.0,
+      "seconds": 2.88
+    }
+  },
+  {
+    "suite": "supplynet",
+    "case": "stage 3 timed b100 s3",
+    "source": "docs/history/i183_lookup/review/benchmarks/quick.json",
+    "base_key": "a38d4f1d0354f14d947828bdb8ff101c803a10c00ec1b5cde875a141002272a0",
+    "candidate_key": "2b12c01558098eebda8bfde2d2d87d051d283f3527b6b9568a0c9df48548149a",
+    "base": {
+      "n": 403,
+      "mae": 0.0007757049501772663,
+      "brier": 0.17112661131836343,
+      "outside_2sd": 6,
+      "outside_2sd_fraction": 0.01488833746898263,
+      "z_median": 1.533370623438985e-14,
+      "z_p95": 4.1813329304752026e-08,
+      "z_max": 41.20637126363235
+    },
+    "candidate": {
+      "n": 403,
+      "mae": 0.0007757049501772663,
+      "brier": 0.17112661131836343,
+      "outside_2sd": 6,
+      "outside_2sd_fraction": 0.01488833746898263,
+      "z_median": 1.533370623438985e-14,
+      "z_p95": 4.1813329304752026e-08,
+      "z_max": 41.20637126363235
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.000775704950177266,
+      "brier": 0.17112661131836338,
+      "coverage": 1.0,
+      "seconds": 9.573
+    },
+    "metrics_candidate": {
+      "error": 0.000775704950177266,
+      "brier": 0.17112661131836338,
+      "coverage": 1.0,
+      "seconds": 13.595
+    }
+  },
+  {
+    "suite": "supplynet",
+    "case": "stage 3 untimed b50 s4",
+    "source": "docs/history/i183_lookup/review/benchmarks/quick.json",
+    "base_key": "ce61077196be475a65942d31b9522629bb645af31fe282d91d96902137a3e908",
+    "candidate_key": "37603495cbe9fa21b8e57569546c69bfb44cdfe98643a219c8cce58e07653870",
+    "base": {
+      "n": 376,
+      "mae": 0.0003946364901928634,
+      "brier": 0.13186872940352254,
+      "outside_2sd": 6,
+      "outside_2sd_fraction": 0.015957446808510637,
+      "z_median": 1.5843119761671267e-14,
+      "z_p95": 1.7198813145992236e-13,
+      "z_max": 20.68392843176349
+    },
+    "candidate": {
+      "n": 376,
+      "mae": 0.0003946364901928634,
+      "brier": 0.13186872940352254,
+      "outside_2sd": 6,
+      "outside_2sd_fraction": 0.015957446808510637,
+      "z_median": 1.5843119761671267e-14,
+      "z_p95": 1.7198813145992236e-13,
+      "z_max": 20.68392843176349
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0003946364901928635,
+      "brier": 0.13186872940352254,
+      "coverage": 1.0,
+      "seconds": 9.545
+    },
+    "metrics_candidate": {
+      "error": 0.0003946364901928635,
+      "brier": 0.13186872940352254,
+      "coverage": 1.0,
+      "seconds": 14.299
+    }
+  },
+  {
+    "suite": "scale",
+    "case": "l spq4 s1",
+    "source": "docs/history/i183_lookup/review/benchmarks/quick.json",
+    "base_key": "a228eaee6ee5d72d587728b74dc9a18f6343f901623a1e6c213952142a6a436b",
+    "candidate_key": "c3814809e3405a5882c6ae3906c54fe1a4058a2b70a8af86640039811d5fff0f",
+    "base": {
+      "n": 1252,
+      "mae": 0.0038075538159404493,
+      "brier": 0.04320015688406147,
+      "outside_2sd": 398,
+      "outside_2sd_fraction": 0.31789137380191695,
+      "z_median": 0.31998951964563555,
+      "z_p95": 4671947.165925031,
+      "z_max": 94010161.27522375
+    },
+    "candidate": {
+      "n": 1252,
+      "mae": 0.0038075538159404493,
+      "brier": 0.04320015688406147,
+      "outside_2sd": 398,
+      "outside_2sd_fraction": 0.31789137380191695,
+      "z_median": 0.31998951964563555,
+      "z_p95": 4671947.165925031,
+      "z_max": 94010161.27522375
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.00380755381594045,
+      "brier": 0.043200156884061466,
+      "coverage": 1.0,
+      "seconds": 39.164
+    },
+    "metrics_candidate": {
+      "error": 0.00380755381594045,
+      "brier": 0.043200156884061466,
+      "coverage": 1.0,
+      "seconds": 46.006
+    }
+  },
+  {
+    "suite": "conflict",
+    "case": "pln-sources m spq1 s2",
+    "source": "docs/history/i183_lookup/review/benchmarks/quick.json",
+    "base_key": "e7367d853cc69524618eecdd4a77b070ffd01d090e0a2767a211ad7301dfb704",
+    "candidate_key": "7e7c96bf09d6f94213079e4f9b23c5457d6be338ccce7036d03594ce973909a4",
+    "base": {
+      "n": 79,
+      "mae": 0.07055759283867112,
+      "brier": 0.10344018086075733,
+      "outside_2sd": 7,
+      "outside_2sd_fraction": 0.08860759493670886,
+      "z_median": 0.48313559339003453,
+      "z_p95": 2.8604448013695603,
+      "z_max": 4.6167429448509605
+    },
+    "candidate": {
+      "n": 79,
+      "mae": 0.07055759283867112,
+      "brier": 0.10344018086075733,
+      "outside_2sd": 7,
+      "outside_2sd_fraction": 0.08860759493670886,
+      "z_median": 0.48313559339003453,
+      "z_p95": 2.8604448013695603,
+      "z_max": 4.6167429448509605
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.07448327286770319,
+      "brier": 0.10527217859999786,
+      "coverage": 0.9875,
+      "seconds": 9.511
+    },
+    "metrics_candidate": {
+      "error": 0.07448327286770319,
+      "brier": 0.10527217859999786,
+      "coverage": 0.9875,
+      "seconds": 14.923
+    }
+  },
+  {
+    "suite": "learned",
+    "case": "stage 3 timed learned b50 s1",
+    "source": "docs/history/i183_lookup/review/benchmarks/quick.json",
+    "base_key": "9ae33fa69568fd4c5556cc91e16eb0974c7b6b1acdcb7400b9dfa69f8b2fe964",
+    "candidate_key": "c7f6208f679b38e3b39e3d3e663b98f809f7b79fa3e8fc19ef2b58719f7c5b7b",
+    "base": {
+      "n": 202,
+      "mae": 0.08152441295531578,
+      "brier": 0.11624614733633676,
+      "outside_2sd": 19,
+      "outside_2sd_fraction": 0.09405940594059406,
+      "z_median": 0.7875859124305826,
+      "z_p95": 2.268498640161582,
+      "z_max": 7.02635719784976
+    },
+    "candidate": {
+      "n": 202,
+      "mae": 0.08152441295531578,
+      "brier": 0.11624614733633676,
+      "outside_2sd": 19,
+      "outside_2sd_fraction": 0.09405940594059406,
+      "z_median": 0.7875859124305826,
+      "z_p95": 2.268498640161582,
+      "z_max": 7.02635719784976
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.08152441295531578,
+      "brier": 0.11624614733633674,
+      "coverage": 1.0,
+      "seconds": 13.549
+    },
+    "metrics_candidate": {
+      "error": 0.08152441295531578,
+      "brier": 0.11624614733633674,
+      "coverage": 1.0,
+      "seconds": 23.11
+    }
+  },
+  {
+    "suite": "replay",
+    "case": "b25 s4",
+    "source": "docs/history/i183_lookup/review/benchmarks/quick.json",
+    "base_key": "cd646d2ae677e7bfd20feca14d9136be4f4365ed792354e99e2b2f01f66baef4",
+    "candidate_key": "c9861de0a65882c511cdadde049bc0ba592b2c79b5e6c4083feed2d4798d53dc",
+    "base": {
+      "n": 200,
+      "mae": 0.1268842312532735,
+      "brier": null,
+      "outside_2sd": 78,
+      "outside_2sd_fraction": 0.39,
+      "z_median": 1.6708508351225526,
+      "z_p95": 107.0229226210069,
+      "z_max": 223597.96509498433
+    },
+    "candidate": {
+      "n": 200,
+      "mae": 0.1268842312532735,
+      "brier": null,
+      "outside_2sd": 78,
+      "outside_2sd_fraction": 0.39,
+      "z_median": 1.6708508351225526,
+      "z_p95": 107.0229226210069,
+      "z_max": 223597.96509498433
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.1268842312532735,
+      "brier": 0.07750696312564949,
+      "coverage": 1.0,
+      "regret": 229.41387962415365,
+      "seconds": 4.202024302999234
+    },
+    "metrics_candidate": {
+      "error": 0.1268842312532735,
+      "brier": 0.07750696312564949,
+      "coverage": 1.0,
+      "regret": 229.41387962415365,
+      "seconds": 5.649351150994335
+    }
+  },
+  {
+    "suite": "replay",
+    "case": "b50 s4",
+    "source": "docs/history/i183_lookup/review/benchmarks/quick.json",
+    "base_key": "0fcdfee8c4aa4ddf6539aa37d47b91c97e96df5859f8dbdbd36bf7bcae3c8b13",
+    "candidate_key": "929b5d5b159a64e79b2522f3038717149917d0c6e4452511b383ff34954dc490",
+    "base": {
+      "n": 200,
+      "mae": 0.11626801520221852,
+      "brier": null,
+      "outside_2sd": 87,
+      "outside_2sd_fraction": 0.435,
+      "z_median": 1.7794383052900586,
+      "z_p95": 107.0229226210069,
+      "z_max": 223597.96509498433
+    },
+    "candidate": {
+      "n": 200,
+      "mae": 0.11626801520221852,
+      "brier": null,
+      "outside_2sd": 87,
+      "outside_2sd_fraction": 0.435,
+      "z_median": 1.7794383052900586,
+      "z_p95": 107.0229226210069,
+      "z_max": 223597.96509498433
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.11626801520221854,
+      "brier": 0.0753031263051767,
+      "coverage": 1.0,
+      "regret": 229.41388297076332,
+      "seconds": 6.78335504000097
+    },
+    "metrics_candidate": {
+      "error": 0.11626801520221854,
+      "brier": 0.0753031263051767,
+      "coverage": 1.0,
+      "regret": 229.41388297076332,
+      "seconds": 12.79301939600009
+    }
+  },
+  {
+    "suite": "combinet",
+    "case": "n2 s1",
+    "source": "docs/history/i183_lookup/review/benchmarks/quick.json",
+    "base_key": "72248f4ad25e23aef5c9d7bbdb0ade46ff92ef3f09b00767e6ab88c5d84d9e31",
+    "candidate_key": "bf3f4aa32cd565e3780cff59f00fa21687a77ce30eb31abd153d056ecf724cc7",
+    "base": {
+      "n": 91,
+      "mae": 0.08313863036537834,
+      "brier": 0.16509307182425262,
+      "outside_2sd": 61,
+      "outside_2sd_fraction": 0.6703296703296703,
+      "z_median": 26.735535325992192,
+      "z_p95": 107.63132531039544,
+      "z_max": 128.46639695062495
+    },
+    "candidate": {
+      "n": 91,
+      "mae": 0.08313863036537834,
+      "brier": 0.16509307182425262,
+      "outside_2sd": 61,
+      "outside_2sd_fraction": 0.6703296703296703,
+      "z_median": 26.735535325992192,
+      "z_p95": 107.63132531039544,
+      "z_max": 128.46639695062495
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.09231358320604027,
+      "brier": 0.17273469536006988,
+      "coverage": 0.91,
+      "seconds": 0.594
+    },
+    "metrics_candidate": {
+      "error": 0.09231358320604027,
+      "brier": 0.17273469536006988,
+      "coverage": 0.91,
+      "seconds": 0.884
+    }
+  },
+  {
+    "suite": "supplynet",
+    "case": "stage 1 b100 s3",
+    "source": "docs/history/i183_lookup/review/benchmarks/full.json",
+    "base_key": "3a27925152683226f3a01a98022b613443c119d2335269bf1d85cf9638424d47",
+    "candidate_key": "68588032469673394f51e34818725f18005003e78531684be56351d773b9add1",
+    "base": {
+      "n": 227,
+      "mae": 0.005122997174988368,
+      "brier": 0.010307637735114866,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.018803177913332796,
+      "z_p95": 0.6122905386834593,
+      "z_max": 1.8347090158432005
+    },
+    "candidate": {
+      "n": 227,
+      "mae": 0.005122997174988368,
+      "brier": 0.010307637735114866,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.018803177913332796,
+      "z_p95": 0.6122905386834593,
+      "z_max": 1.8347090158432005
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.005122997174988368,
+      "brier": 0.010307637735114865,
+      "coverage": 1.0,
+      "seconds": 4.486
+    },
+    "metrics_candidate": {
+      "error": 0.005122997174988368,
+      "brier": 0.010307637735114865,
+      "coverage": 1.0,
+      "seconds": 5.572
+    }
+  },
+  {
+    "suite": "supplynet",
+    "case": "stage 3 timed b25 s3",
+    "source": "docs/history/i183_lookup/review/benchmarks/full.json",
+    "base_key": "2cdea3b3efc046fd0fc96489c0f52e4b779353d099b0ef6e6bd0014e315e209c",
+    "candidate_key": "bb9df517c0ac2c3a169f992523f05c73e4740fab6e59a334e58a8320a6d04902",
+    "base": {
+      "n": 403,
+      "mae": 0.0038204805229916975,
+      "brier": 0.1725504348747468,
+      "outside_2sd": 9,
+      "outside_2sd_fraction": 0.022332506203473945,
+      "z_median": 1.5701700572546068e-14,
+      "z_p95": 2.6693748752737643e-08,
+      "z_max": 75.59257329760734
+    },
+    "candidate": {
+      "n": 403,
+      "mae": 0.0038204805229916975,
+      "brier": 0.1725504348747468,
+      "outside_2sd": 9,
+      "outside_2sd_fraction": 0.022332506203473945,
+      "z_median": 1.5701700572546068e-14,
+      "z_p95": 2.6693748752737643e-08,
+      "z_max": 75.59257329760734
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.003820480522991697,
+      "brier": 0.17255043487474683,
+      "coverage": 1.0,
+      "seconds": 7.768
+    },
+    "metrics_candidate": {
+      "error": 0.003820480522991697,
+      "brier": 0.17255043487474683,
+      "coverage": 1.0,
+      "seconds": 6.998
+    }
+  },
+  {
+    "suite": "supplynet",
+    "case": "stage 3 timed b50 s3",
+    "source": "docs/history/i183_lookup/review/benchmarks/full.json",
+    "base_key": "e49f0baf27c30ad7807a3787b96bc23dbcf621c6da3c4e83f877de8c176e8ca9",
+    "candidate_key": "ee1548027df98d72e957c9ac8c8cd4280da7f2f3784fcd105dc9adea5077df12",
+    "base": {
+      "n": 403,
+      "mae": 0.0013386529794111419,
+      "brier": 0.17121667539395732,
+      "outside_2sd": 6,
+      "outside_2sd_fraction": 0.01488833746898263,
+      "z_median": 1.5526090800235886e-14,
+      "z_p95": 3.5684483272571016e-08,
+      "z_max": 82.67826119517535
+    },
+    "candidate": {
+      "n": 403,
+      "mae": 0.0013386529794111419,
+      "brier": 0.17121667539395732,
+      "outside_2sd": 6,
+      "outside_2sd_fraction": 0.01488833746898263,
+      "z_median": 1.5526090800235886e-14,
+      "z_p95": 3.5684483272571016e-08,
+      "z_max": 82.67826119517535
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0013386529794111423,
+      "brier": 0.1712166753939573,
+      "coverage": 1.0,
+      "seconds": 12.543
+    },
+    "metrics_candidate": {
+      "error": 0.0013386529794111423,
+      "brier": 0.1712166753939573,
+      "coverage": 1.0,
+      "seconds": 12.154
+    }
+  },
+  {
+    "suite": "supplynet",
+    "case": "stage 3 untimed b25 s4",
+    "source": "docs/history/i183_lookup/review/benchmarks/full.json",
+    "base_key": "d38b5576eeb8a948b99a70901a00e7f50e429da8cc22fd05075e7ae52393b67f",
+    "candidate_key": "565e55994ea8c68c3ae022b7047dbe6efa768ca4d0f7de9a5754c51a1951df8f",
+    "base": {
+      "n": 376,
+      "mae": 0.0003946364901928589,
+      "brier": 0.13186872940352254,
+      "outside_2sd": 6,
+      "outside_2sd_fraction": 0.015957446808510637,
+      "z_median": 1.438696212596497e-14,
+      "z_p95": 3.3054393977882526e-13,
+      "z_max": 20.68392843176349
+    },
+    "candidate": {
+      "n": 376,
+      "mae": 0.0003946364901928589,
+      "brier": 0.13186872940352254,
+      "outside_2sd": 6,
+      "outside_2sd_fraction": 0.015957446808510637,
+      "z_median": 1.438696212596497e-14,
+      "z_p95": 3.3054393977882526e-13,
+      "z_max": 20.68392843176349
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0003946364901928588,
+      "brier": 0.1318687294035225,
+      "coverage": 1.0,
+      "seconds": 9.529
+    },
+    "metrics_candidate": {
+      "error": 0.0003946364901928588,
+      "brier": 0.1318687294035225,
+      "coverage": 1.0,
+      "seconds": 6.94
+    }
+  },
+  {
+    "suite": "supplynet",
+    "case": "stage 3 untimed b100 s4",
+    "source": "docs/history/i183_lookup/review/benchmarks/full.json",
+    "base_key": "8a8dcd391bde3403afcef642e57419b05fbd348ab362a5dfc97afd1103eb732a",
+    "candidate_key": "d40075e6ad49093ecbe0f05b7492143d8b7f73f48c6a34e44d7ba0723392f64c",
+    "base": {
+      "n": 376,
+      "mae": 0.0003946364901928643,
+      "brier": 0.13186872940352254,
+      "outside_2sd": 6,
+      "outside_2sd_fraction": 0.015957446808510637,
+      "z_median": 1.6938956870680688e-14,
+      "z_p95": 1.8684738463814717e-13,
+      "z_max": 20.68392843176349
+    },
+    "candidate": {
+      "n": 376,
+      "mae": 0.0003946364901928643,
+      "brier": 0.13186872940352254,
+      "outside_2sd": 6,
+      "outside_2sd_fraction": 0.015957446808510637,
+      "z_median": 1.6938956870680688e-14,
+      "z_p95": 1.8684738463814717e-13,
+      "z_max": 20.68392843176349
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0003946364901928643,
+      "brier": 0.13186872940352254,
+      "coverage": 1.0,
+      "seconds": 15.128
+    },
+    "metrics_candidate": {
+      "error": 0.0003946364901928643,
+      "brier": 0.13186872940352254,
+      "coverage": 1.0,
+      "seconds": 13.881
+    }
+  },
+  {
+    "suite": "supplynet",
+    "case": "stage 3 timed soft0.9 b100 s3",
+    "source": "docs/history/i183_lookup/review/benchmarks/full.json",
+    "base_key": "e3f5c6f7775959753b95f1ed33ab2a743800a682a6414902fa3a34014ec78cd9",
+    "candidate_key": "6b395c5651f649dc086ceeb97c862ba1ec866454e7a5d48f6ef9c27cf03f9f75",
+    "base": {
+      "n": 402,
+      "mae": 0.009330624209308273,
+      "brier": 0.17287381069192917,
+      "outside_2sd": 12,
+      "outside_2sd_fraction": 0.029850746268656716,
+      "z_median": 2.6560289100662732e-14,
+      "z_p95": 0.3018808378650431,
+      "z_max": 394.27171679499463
+    },
+    "candidate": {
+      "n": 402,
+      "mae": 0.009330624209308273,
+      "brier": 0.17287381069192917,
+      "outside_2sd": 12,
+      "outside_2sd_fraction": 0.029850746268656716,
+      "z_median": 2.6560289100662732e-14,
+      "z_p95": 0.3018808378650431,
+      "z_max": 394.27171679499463
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.010548166084719418,
+      "brier": 0.17306519081428173,
+      "coverage": 0.9975186104218362,
+      "seconds": 29.512
+    },
+    "metrics_candidate": {
+      "error": 0.010548166084719418,
+      "brier": 0.17306519081428173,
+      "coverage": 0.9975186104218362,
+      "seconds": 28.792
+    }
+  },
+  {
+    "suite": "supplynet",
+    "case": "stage 3 untimed soft0.9 b100 s4",
+    "source": "docs/history/i183_lookup/review/benchmarks/full.json",
+    "base_key": "cdfeca4e6120fbd05e6a88bb9bdce27ccdaee8a3dc2217e63be6bbb92a5092e5",
+    "candidate_key": "67961a0c8dcb9847cd9346f2e83a0ad7c37f3f14c07e11f57275d8cbca5b8288",
+    "base": {
+      "n": 370,
+      "mae": 0.006946304426737669,
+      "brier": 0.13574427866363917,
+      "outside_2sd": 8,
+      "outside_2sd_fraction": 0.021621621621621623,
+      "z_median": 2.2398734352655615e-14,
+      "z_p95": 0.03625308335136824,
+      "z_max": 4.353998078786092
+    },
+    "candidate": {
+      "n": 370,
+      "mae": 0.006946304426737669,
+      "brier": 0.13574427866363917,
+      "outside_2sd": 8,
+      "outside_2sd_fraction": 0.021621621621621623,
+      "z_median": 2.2398734352655615e-14,
+      "z_p95": 0.03625308335136824,
+      "z_max": 4.353998078786092
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.014814182547587595,
+      "brier": 0.13756750825943215,
+      "coverage": 0.9840425531914894,
+      "seconds": 42.964
+    },
+    "metrics_candidate": {
+      "error": 0.014814182547587595,
+      "brier": 0.13756750825943215,
+      "coverage": 0.9840425531914894,
+      "seconds": 41.753
+    }
+  },
+  {
+    "suite": "scale",
+    "case": "l spq16 s1",
+    "source": "docs/history/i183_lookup/review/benchmarks/full.json",
+    "base_key": "ae5c70ab850987c863f6a0034a353b3abd6f3e985dd4e33a82ed88be1587c2bb",
+    "candidate_key": "fbcbc8103c738f0880176f38e6faa5ed2a74c26e23f674d18f2b31a68e40b8ad",
+    "base": {
+      "n": 1252,
+      "mae": 0.000928412641808061,
+      "brier": 0.04303120682747965,
+      "outside_2sd": 167,
+      "outside_2sd_fraction": 0.13338658146964857,
+      "z_median": 3.576686097048714e-08,
+      "z_p95": 63587.78261866947,
+      "z_max": 29793824.798179567
+    },
+    "candidate": {
+      "n": 1252,
+      "mae": 0.000928412641808061,
+      "brier": 0.04303120682747965,
+      "outside_2sd": 167,
+      "outside_2sd_fraction": 0.13338658146964857,
+      "z_median": 3.576686097048714e-08,
+      "z_p95": 63587.78261866947,
+      "z_max": 29793824.798179567
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0009284126418080606,
+      "brier": 0.043031206827479636,
+      "coverage": 1.0,
+      "seconds": 112.596
+    },
+    "metrics_candidate": {
+      "error": 0.0009284126418080606,
+      "brier": 0.043031206827479636,
+      "coverage": 1.0,
+      "seconds": 111.252
+    }
+  },
+  {
+    "suite": "scale",
+    "case": "s spq1 s1",
+    "source": "docs/history/i183_lookup/review/benchmarks/full.json",
+    "base_key": "45077391862d0cc6d831b3c34af944839da937039e85a44bad909eeb66910ec8",
+    "candidate_key": "19b3acb0060f9c4325e07ddc6bbe1af04cf286258cc4286578189f891e83d4cc",
+    "base": {
+      "n": 136,
+      "mae": 0.018373090079909227,
+      "brier": 0.15872105521744112,
+      "outside_2sd": 84,
+      "outside_2sd_fraction": 0.6176470588235294,
+      "z_median": 8.321287396037537,
+      "z_p95": 21587107.795639236,
+      "z_max": 59212870.74805801
+    },
+    "candidate": {
+      "n": 136,
+      "mae": 0.018373090079909227,
+      "brier": 0.15872105521744112,
+      "outside_2sd": 84,
+      "outside_2sd_fraction": 0.6176470588235294,
+      "z_median": 8.321287396037537,
+      "z_p95": 21587107.795639236,
+      "z_max": 59212870.74805801
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.018373090079909227,
+      "brier": 0.15872105521744112,
+      "coverage": 1.0,
+      "seconds": 2.578
+    },
+    "metrics_candidate": {
+      "error": 0.018373090079909227,
+      "brier": 0.15872105521744112,
+      "coverage": 1.0,
+      "seconds": 3.279
+    }
+  },
+  {
+    "suite": "conflict",
+    "case": "pln-sources m spq4 s2",
+    "source": "docs/history/i183_lookup/review/benchmarks/full.json",
+    "base_key": "37b6056d91dad81e33a98ead409f80e4d178dcac2e37bfeb78e2c82c763a6eee",
+    "candidate_key": "5ac05e56930a6c64764006d8c535c31576bd22a680944353449f6ec2fbdbfdaa",
+    "base": {
+      "n": 79,
+      "mae": 0.07149177052218327,
+      "brier": 0.10602041821820116,
+      "outside_2sd": 6,
+      "outside_2sd_fraction": 0.0759493670886076,
+      "z_median": 0.4944001291741146,
+      "z_p95": 2.4513247636253688,
+      "z_max": 4.860263844961266
+    },
+    "candidate": {
+      "n": 79,
+      "mae": 0.07149177052218327,
+      "brier": 0.10602041821820116,
+      "outside_2sd": 6,
+      "outside_2sd_fraction": 0.0759493670886076,
+      "z_median": 0.4944001291741146,
+      "z_p95": 2.4513247636253688,
+      "z_max": 4.860263844961266
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.07540577333017143,
+      "brier": 0.10782016299047363,
+      "coverage": 0.9875,
+      "seconds": 18.655
+    },
+    "metrics_candidate": {
+      "error": 0.07540577333017143,
+      "brier": 0.10782016299047363,
+      "coverage": 0.9875,
+      "seconds": 16.358
+    }
+  },
+  {
+    "suite": "conflict",
+    "case": "pln-sources m spq4 s3",
+    "source": "docs/history/i183_lookup/review/benchmarks/full.json",
+    "base_key": "5db856f25b1c199d79abf9a8ed39544536f8fad85964e8418f008e2f8bef006a",
+    "candidate_key": "ee37d45dcde42153bff9de100762c64af19f8650d07ff52210d7e2408d30c2e7",
+    "base": {
+      "n": 80,
+      "mae": 0.17763551825638893,
+      "brier": 0.13518616233046285,
+      "outside_2sd": 31,
+      "outside_2sd_fraction": 0.3875,
+      "z_median": 1.4810560656239247,
+      "z_p95": 8.083578128894697,
+      "z_max": 16.952358410745582
+    },
+    "candidate": {
+      "n": 80,
+      "mae": 0.17763551825638893,
+      "brier": 0.13518616233046285,
+      "outside_2sd": 31,
+      "outside_2sd_fraction": 0.3875,
+      "z_median": 1.4810560656239247,
+      "z_p95": 8.083578128894697,
+      "z_max": 16.952358410745582
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.17763551825638896,
+      "brier": 0.13518616233046282,
+      "coverage": 1.0,
+      "seconds": 17.038
+    },
+    "metrics_candidate": {
+      "error": 0.17763551825638896,
+      "brier": 0.13518616233046282,
+      "coverage": 1.0,
+      "seconds": 13.926
+    }
+  },
+  {
+    "suite": "conflict",
+    "case": "pln-reliable l spq4 s1",
+    "source": "docs/history/i183_lookup/review/benchmarks/full.json",
+    "base_key": "92eb8eb7de24c5b5ca49841b8e8ebabba1a2c465d9e0449f63ab2326a984c311",
+    "candidate_key": "6c8fd7e1f8f7aec11c3262aa8142ab8e5557e24c8c45b584070dc015b589d5c8",
+    "base": {
+      "n": 160,
+      "mae": 0.05407387445418048,
+      "brier": 0.07161101038515104,
+      "outside_2sd": 2,
+      "outside_2sd_fraction": 0.0125,
+      "z_median": 0.16776552088832158,
+      "z_p95": 1.0973236837228355,
+      "z_max": 8.056271598057318
+    },
+    "candidate": {
+      "n": 160,
+      "mae": 0.05407387445418048,
+      "brier": 0.07161101038515104,
+      "outside_2sd": 2,
+      "outside_2sd_fraction": 0.0125,
+      "z_median": 0.16776552088832158,
+      "z_p95": 1.0973236837228355,
+      "z_max": 8.056271598057318
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.05407387445418048,
+      "brier": 0.07161101038515102,
+      "coverage": 1.0,
+      "seconds": 60.434
+    },
+    "metrics_candidate": {
+      "error": 0.05407387445418048,
+      "brier": 0.07161101038515102,
+      "coverage": 1.0,
+      "seconds": 54.153
+    }
+  },
+  {
+    "suite": "learned",
+    "case": "stage 3 timed learned b50 r200 s1",
+    "source": "docs/history/i183_lookup/review/benchmarks/full.json",
+    "base_key": "80d0175a4fde176ecda23c4a925bbb4c38cc3f74e6b20adcfaa0e4dbaf68ecd7",
+    "candidate_key": "ce5673e6f594b713fc0198b75027708efd1c559b1825b3f333c7af89a17e6000",
+    "base": {
+      "n": 202,
+      "mae": 0.08152441295531578,
+      "brier": 0.11624614733633676,
+      "outside_2sd": 19,
+      "outside_2sd_fraction": 0.09405940594059406,
+      "z_median": 0.7875859124305826,
+      "z_p95": 2.268498640161582,
+      "z_max": 7.02635719784976
+    },
+    "candidate": {
+      "n": 202,
+      "mae": 0.08152441295531578,
+      "brier": 0.11624614733633676,
+      "outside_2sd": 19,
+      "outside_2sd_fraction": 0.09405940594059406,
+      "z_median": 0.7875859124305826,
+      "z_p95": 2.268498640161582,
+      "z_max": 7.02635719784976
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.08152441295531578,
+      "brier": 0.11624614733633674,
+      "coverage": 1.0,
+      "seconds": 20.682
+    },
+    "metrics_candidate": {
+      "error": 0.08152441295531578,
+      "brier": 0.11624614733633674,
+      "coverage": 1.0,
+      "seconds": 20.356
+    }
+  },
+  {
+    "suite": "supplynet",
+    "case": "stage 4 extend b50 s2",
+    "source": "docs/history/i183_lookup/review/benchmarks/full.json",
+    "base_key": "3d23e3392868026b6bcffccc5f94e822a3c7da1d0b66f716c63a7d865a5da083",
+    "candidate_key": "ad32c2ef1180c1dae7b1cf3aab1b85b66b0e8ff38be623e6d1eb0b0b68c5ec35",
+    "base": {
+      "n": 137,
+      "mae": 7.354214560929413e-17,
+      "brier": 0.1894101605746271,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 2.5469601627860832e-14,
+      "z_p95": 3.5382775871781075e-13,
+      "z_max": 9.390504237836935e-08
+    },
+    "candidate": {
+      "n": 137,
+      "mae": 7.354214560929413e-17,
+      "brier": 0.1894101605746271,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 2.5469601627860832e-14,
+      "z_p95": 3.5382775871781075e-13,
+      "z_max": 9.390504237836935e-08
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 7.354214560929413e-17,
+      "brier": 0.1894101605746271,
+      "coverage": 1.0,
+      "seconds": 19.014,
+      "regret": 0.0,
+      "agreement": 1.0
+    },
+    "metrics_candidate": {
+      "error": 7.354214560929413e-17,
+      "brier": 0.1894101605746271,
+      "coverage": 1.0,
+      "seconds": 17.473,
+      "regret": 0.0,
+      "agreement": 1.0
+    }
+  },
+  {
+    "suite": "learned",
+    "case": "stage 3 timed learned b50 r200 s2",
+    "source": "docs/history/i183_lookup/review/benchmarks/full.json",
+    "base_key": "11a9f8663eb47b847ff5e9798da47de8961d21fa69193df51d7c89ff60c26888",
+    "candidate_key": "0a4a3c71bf6f30b629cf7f79a86e5537ff8d2d4d99e7614190139b9b6bfca3f5",
+    "base": {
+      "n": 207,
+      "mae": 0.06015690898331763,
+      "brier": 0.18374816612492972,
+      "outside_2sd": 15,
+      "outside_2sd_fraction": 0.07246376811594203,
+      "z_median": 0.6151785397922066,
+      "z_p95": 2.2718239975411127,
+      "z_max": 7.028312088402942
+    },
+    "candidate": {
+      "n": 207,
+      "mae": 0.06015690898331763,
+      "brier": 0.18374816612492972,
+      "outside_2sd": 15,
+      "outside_2sd_fraction": 0.07246376811594203,
+      "z_median": 0.6151785397922066,
+      "z_p95": 2.2718239975411127,
+      "z_max": 7.028312088402942
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.06015690898331764,
+      "brier": 0.1837481661249297,
+      "coverage": 1.0,
+      "seconds": 22.0
+    },
+    "metrics_candidate": {
+      "error": 0.06015690898331764,
+      "brier": 0.1837481661249297,
+      "coverage": 1.0,
+      "seconds": 19.118
+    }
+  },
+  {
+    "suite": "learned",
+    "case": "stage 3 untimed learned mined b50 r50 h10 s3",
+    "source": "docs/history/i183_lookup/review/benchmarks/full.json",
+    "base_key": "8626a56ae4b493ed3c5efa30aeb2aac08ba98b9286f01ce8d2d4d241bfefec18",
+    "candidate_key": "b81f922bb05be5d0cae8ec8f0c4c16f9ae70b8568f2fce89c354ac441d1d7fad",
+    "base": {
+      "n": 54,
+      "mae": 0.23318340773495258,
+      "brier": 0.29208504130043383,
+      "outside_2sd": 19,
+      "outside_2sd_fraction": 0.35185185185185186,
+      "z_median": 1.0087989714585566,
+      "z_p95": 5.480211257658907,
+      "z_max": 17.512021550492594
+    },
+    "candidate": {
+      "n": 54,
+      "mae": 0.23318340773495258,
+      "brier": 0.29208504130043383,
+      "outside_2sd": 19,
+      "outside_2sd_fraction": 0.35185185185185186,
+      "z_median": 1.0087989714585566,
+      "z_p95": 5.480211257658907,
+      "z_max": 17.512021550492594
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.23923042888727572,
+      "brier": 0.29058200411113255,
+      "coverage": 0.9642857142857143,
+      "seconds": 76.631
+    },
+    "metrics_candidate": {
+      "error": 0.23923042888727572,
+      "brier": 0.29058200411113255,
+      "coverage": 0.9642857142857143,
+      "seconds": 78.354
+    }
+  },
+  {
+    "suite": "replay",
+    "case": "b25 s1",
+    "source": "docs/history/i183_lookup/review/benchmarks/full.json",
+    "base_key": "933d7fa1f5a4db60991b12815ab7f8f9f204e25e9e29bfd73ee82bb7b226726a",
+    "candidate_key": "b8a17a394068227d17fbc51633a0519694a8ad43d018e3c6876a0eef3c53dc29",
+    "base": {
+      "n": 200,
+      "mae": 0.10762090007194657,
+      "brier": null,
+      "outside_2sd": 95,
+      "outside_2sd_fraction": 0.475,
+      "z_median": 1.928044426605166,
+      "z_p95": 169.78956450532826,
+      "z_max": 207237.13838071717
+    },
+    "candidate": {
+      "n": 200,
+      "mae": 0.10762090007194657,
+      "brier": null,
+      "outside_2sd": 95,
+      "outside_2sd_fraction": 0.475,
+      "z_median": 1.928044426605166,
+      "z_p95": 169.78956450532826,
+      "z_max": 207237.13838071717
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.10762090007194657,
+      "brier": 0.04387572260861578,
+      "coverage": 1.0,
+      "regret": 627.499801934466,
+      "seconds": 5.866715630000726
+    },
+    "metrics_candidate": {
+      "error": 0.10762090007194657,
+      "brier": 0.04387572260861578,
+      "coverage": 1.0,
+      "regret": 627.499801934466,
+      "seconds": 5.211856877998798
+    }
+  },
+  {
+    "suite": "fuzz",
+    "case": "all n100 s22",
+    "source": "docs/history/i183_lookup/review/benchmarks/full.json",
+    "base_key": "e67f78d15f7329e6ab1e26e388a3a635a595b6da3b40753085f3e78e7516f810",
+    "candidate_key": "a27c898814b43f592dadbb08689a965aab7a183fae4b6820fc9c17101cc36588",
+    "base": {},
+    "candidate": {},
+    "changed_values": 0,
+    "metrics_base": {
+      "flagged": 8,
+      "unsupported": 0,
+      "crashed": 0,
+      "error": 0.00816439741370844,
+      "answered": 365,
+      "seconds": 32
+    },
+    "metrics_candidate": {
+      "flagged": 8,
+      "unsupported": 0,
+      "crashed": 0,
+      "error": 0.00816439741370844,
+      "answered": 365,
+      "seconds": 35
+    }
+  },
+  {
+    "suite": "ona",
+    "case": "conditioning s1",
+    "source": "docs/history/i183_lookup/review/benchmarks/master-canary.json",
+    "base_key": "8e0804cc94cfd662ca6c0aa1b1060013ce2235874a4afc08e959ffe6d46a8bf5",
+    "candidate_key": "f1b51488bb864010e183a19b64e174ccabc7e300d47fb31608ba496d8dae1478",
+    "base": {},
+    "candidate": {},
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0,
+      "seconds": 6.787117137000223
+    },
+    "metrics_candidate": {
+      "error": 0.0,
+      "seconds": 10.411222226999598
+    }
+  },
+  {
+    "suite": "ona",
+    "case": "identitymatching s8",
+    "source": "docs/history/i183_lookup/review/benchmarks/master-canary.json",
+    "base_key": "9706d1fea8263b6800223bf92fffd8cece12f37e8001fdb5bf0007eb439a91fa",
+    "candidate_key": "b645bee7056c4e62dfe741b51ff72475203ece2ea95452edac2571fa361a63da",
+    "base": {},
+    "candidate": {},
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.4375,
+      "seconds": 9.45422110499976
+    },
+    "metrics_candidate": {
+      "error": 0.4375,
+      "seconds": 12.431550088000222
+    }
+  },
+  {
+    "suite": "live",
+    "case": "b50 5 shifts s1",
+    "source": "docs/history/i183_lookup/review/benchmarks/master-canary.json",
+    "base_key": "299fbdd1fe9a123f2f169278fd6689c525de1035b72a4d3094b649df88386975",
+    "candidate_key": "f4b2a7d28aedc7c008f4c461b50d66496de99e17fad69cdcd6c8f7c8e923b99a",
+    "base": {
+      "n": 50,
+      "mae": 0.10501985094963397,
+      "brier": null,
+      "outside_2sd": 17,
+      "outside_2sd_fraction": 0.34,
+      "z_median": 1.2203392387181475,
+      "z_p95": 114.91683464136968,
+      "z_max": 158.6034820004612
+    },
+    "candidate": {
+      "n": 50,
+      "mae": 0.10501985094963397,
+      "brier": null,
+      "outside_2sd": 17,
+      "outside_2sd_fraction": 0.34,
+      "z_median": 1.2203392387181475,
+      "z_p95": 114.91683464136968,
+      "z_max": 158.6034820004612
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.10501985094963397,
+      "brier": 0.031950592544410406,
+      "coverage": 1.0,
+      "regret": 72.78330494981489,
+      "seconds": 6.729488405000666
+    },
+    "metrics_candidate": {
+      "error": 0.10501985094963397,
+      "brier": 0.031950592544410406,
+      "coverage": 1.0,
+      "regret": 72.78330494981489,
+      "seconds": 9.267497343993455
+    }
+  },
+  {
+    "suite": "conflict",
+    "case": "pln-stated l spq4 s1",
+    "source": "docs/history/i183_lookup/review/benchmarks/master-canary.json",
+    "base_key": "733026c94f9bf0cc0c01057f4b8e5c141bb71d1a353ca52f25b27974fac033a5",
+    "candidate_key": "d65753f3361bd9a1fd7dff7f21cfe104472e7a10e23878f371ad08b235fd475a",
+    "base": {
+      "n": 160,
+      "mae": 0.032098529973975984,
+      "brier": 0.06762840268711522,
+      "outside_2sd": 135,
+      "outside_2sd_fraction": 0.84375,
+      "z_median": 6.659520190397441,
+      "z_p95": 46301.09561339057,
+      "z_max": 2293022.174865368
+    },
+    "candidate": {
+      "n": 160,
+      "mae": 0.032098529973975984,
+      "brier": 0.06762840268711522,
+      "outside_2sd": 135,
+      "outside_2sd_fraction": 0.84375,
+      "z_median": 6.659520190397441,
+      "z_p95": 46301.09561339057,
+      "z_max": 2293022.174865368
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.032098529973975984,
+      "brier": 0.0676284026871152,
+      "coverage": 1.0,
+      "seconds": 18.123
+    },
+    "metrics_candidate": {
+      "error": 0.032098529973975984,
+      "brier": 0.0676284026871152,
+      "coverage": 1.0,
+      "seconds": 22.574
+    }
+  },
+  {
+    "suite": "scale",
+    "case": "m spq4 r10 s1",
+    "source": "docs/history/i183_lookup/review/benchmarks/master-canary.json",
+    "base_key": "ee6f186d591114922a379c9753b872acf23922227d2ec757af2bd34fb79eda03",
+    "candidate_key": "1394872091a134f3368fee9191c55b286051ea2a9bda442fc13eb784ab6261af",
+    "base": {
+      "n": 645,
+      "mae": 0.0026464081046593257,
+      "brier": 0.08220700877374264,
+      "outside_2sd": 186,
+      "outside_2sd_fraction": 0.28837209302325584,
+      "z_median": 0.026835035359335145,
+      "z_p95": 1030038.7802180669,
+      "z_max": 28608240.812709928
+    },
+    "candidate": {
+      "n": 645,
+      "mae": 0.0026464081046593257,
+      "brier": 0.08220700877374264,
+      "outside_2sd": 186,
+      "outside_2sd_fraction": 0.28837209302325584,
+      "z_median": 0.026835035359335145,
+      "z_p95": 1030038.7802180669,
+      "z_max": 28608240.812709928
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0026464081046593257,
+      "brier": 0.08220700877374264,
+      "coverage": 1.0,
+      "seconds": 22.836
+    },
+    "metrics_candidate": {
+      "error": 0.0026464081046593257,
+      "brier": 0.08220700877374264,
+      "coverage": 1.0,
+      "seconds": 26.576
+    }
+  },
+  {
+    "suite": "ona",
+    "case": "conditioning s1",
+    "source": "docs/history/i183_lookup/review/benchmarks/anchor-canary.json",
+    "base_key": "a2351ca5451dd512140e1ad5a633978f6cedebeac7abd9760479f7749c33c080",
+    "candidate_key": "f1b51488bb864010e183a19b64e174ccabc7e300d47fb31608ba496d8dae1478",
+    "base": {},
+    "candidate": {},
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0,
+      "seconds": 3.3750031780000427
+    },
+    "metrics_candidate": {
+      "error": 0.0,
+      "seconds": 10.411222226999598
+    }
+  },
+  {
+    "suite": "ona",
+    "case": "identitymatching s8",
+    "source": "docs/history/i183_lookup/review/benchmarks/anchor-canary.json",
+    "base_key": "8c0b2dc343f70be8dfc2513abdb234e61efc979a2f21d3cad28684f4b2dd9d53",
+    "candidate_key": "b645bee7056c4e62dfe741b51ff72475203ece2ea95452edac2571fa361a63da",
+    "base": {},
+    "candidate": {},
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.4375,
+      "seconds": 4.251109255999836
+    },
+    "metrics_candidate": {
+      "error": 0.4375,
+      "seconds": 12.431550088000222
+    }
+  },
+  {
+    "suite": "live",
+    "case": "b50 5 shifts s1",
+    "source": "docs/history/i183_lookup/review/benchmarks/anchor-canary.json",
+    "base_key": "4189a52205f259421f142266a8d1a4f9c6ace2a74a909c435be8136bdd9845c1",
+    "candidate_key": "f4b2a7d28aedc7c008f4c461b50d66496de99e17fad69cdcd6c8f7c8e923b99a",
+    "base": {
+      "n": 50,
+      "mae": 0.09812707817829412,
+      "brier": null,
+      "outside_2sd": 18,
+      "outside_2sd_fraction": 0.36,
+      "z_median": 1.234043289380414,
+      "z_p95": 141.68611681616323,
+      "z_max": 223.16413434925937
+    },
+    "candidate": {
+      "n": 50,
+      "mae": 0.10501985094963397,
+      "brier": null,
+      "outside_2sd": 17,
+      "outside_2sd_fraction": 0.34,
+      "z_median": 1.2203392387181475,
+      "z_p95": 114.91683464136968,
+      "z_max": 158.6034820004612
+    },
+    "changed_values": 50,
+    "metrics_base": {
+      "error": 0.09812707817829412,
+      "brier": 0.02632017229441637,
+      "coverage": 1.0,
+      "regret": 59.783305192500364,
+      "seconds": 3.48536945899923
+    },
+    "metrics_candidate": {
+      "error": 0.10501985094963397,
+      "brier": 0.031950592544410406,
+      "coverage": 1.0,
+      "regret": 72.78330494981489,
+      "seconds": 9.267497343993455
+    }
+  },
+  {
+    "suite": "conflict",
+    "case": "pln-stated l spq4 s1",
+    "source": "docs/history/i183_lookup/review/benchmarks/anchor-canary.json",
+    "base_key": "055af41f43462f756a7862e4b59ec6c06151bb89288790d7b76d468069b2df26",
+    "candidate_key": "d65753f3361bd9a1fd7dff7f21cfe104472e7a10e23878f371ad08b235fd475a",
+    "base": {
+      "n": 70,
+      "mae": 0.3359619022337566,
+      "brier": 0.20921992742435228,
+      "outside_2sd": 60,
+      "outside_2sd_fraction": 0.8571428571428571,
+      "z_median": 3.3939646856721186,
+      "z_p95": 14.597320092271259,
+      "z_max": 15.336890182918358
+    },
+    "candidate": {
+      "n": 160,
+      "mae": 0.032098529973975984,
+      "brier": 0.06762840268711522,
+      "outside_2sd": 135,
+      "outside_2sd_fraction": 0.84375,
+      "z_median": 6.659520190397441,
+      "z_p95": 46301.09561339057,
+      "z_max": 2293022.174865368
+    },
+    "changed_values": 160,
+    "metrics_base": {
+      "error": 0.38951467206185997,
+      "brier": 0.2321587182481541,
+      "coverage": 0.4375,
+      "seconds": 6.322
+    },
+    "metrics_candidate": {
+      "error": 0.032098529973975984,
+      "brier": 0.0676284026871152,
+      "coverage": 1.0,
+      "seconds": 22.574
+    }
+  },
+  {
+    "suite": "conflict",
+    "case": "pln-reliable l spq4 s1",
+    "source": "docs/history/i183_lookup/review/benchmarks/anchor-canary.json",
+    "base_key": "3391c029ea15d8fab43301f8b50b4694478b2a6f1098d64f95fb4cce5004c147",
+    "candidate_key": "6c8fd7e1f8f7aec11c3262aa8142ab8e5557e24c8c45b584070dc015b589d5c8",
+    "base": {
+      "n": 160,
+      "mae": 0.10701442503095535,
+      "brier": 0.08484607898568726,
+      "outside_2sd": 70,
+      "outside_2sd_fraction": 0.4375,
+      "z_median": 1.8347050821864868,
+      "z_p95": 7.087532986156963,
+      "z_max": 20.46130201860141
+    },
+    "candidate": {
+      "n": 160,
+      "mae": 0.05407387445418048,
+      "brier": 0.07161101038515104,
+      "outside_2sd": 2,
+      "outside_2sd_fraction": 0.0125,
+      "z_median": 0.16776552088832158,
+      "z_p95": 1.0973236837228355,
+      "z_max": 8.056271598057318
+    },
+    "changed_values": 160,
+    "metrics_base": {
+      "error": 0.10701442503095535,
+      "brier": 0.08484607898568726,
+      "coverage": 1.0,
+      "seconds": 6.339
+    },
+    "metrics_candidate": {
+      "error": 0.05407387445418048,
+      "brier": 0.07161101038515102,
+      "coverage": 1.0,
+      "seconds": 54.153
+    }
+  },
+  {
+    "suite": "scale",
+    "case": "m spq4 r10 s1",
+    "source": "docs/history/i183_lookup/review/benchmarks/anchor-canary.json",
+    "base_key": "cb74791124c08764ce1c28808c2455b26c7ee3aeff28dd4bdf5f575d2e34b177",
+    "candidate_key": "1394872091a134f3368fee9191c55b286051ea2a9bda442fc13eb784ab6261af",
+    "base": {
+      "n": 645,
+      "mae": 0.003033771334374448,
+      "brier": 0.0823646813525237,
+      "outside_2sd": 185,
+      "outside_2sd_fraction": 0.2868217054263566,
+      "z_median": 0.09911048901338396,
+      "z_p95": 16.410497194497463,
+      "z_max": 72.29791320480322
+    },
+    "candidate": {
+      "n": 645,
+      "mae": 0.0026464081046593257,
+      "brier": 0.08220700877374264,
+      "outside_2sd": 186,
+      "outside_2sd_fraction": 0.28837209302325584,
+      "z_median": 0.026835035359335145,
+      "z_p95": 1030038.7802180669,
+      "z_max": 28608240.812709928
+    },
+    "changed_values": 645,
+    "metrics_base": {
+      "error": 0.0030337713343744485,
+      "brier": 0.0823646813525237,
+      "coverage": 1.0,
+      "seconds": 13.636
+    },
+    "metrics_candidate": {
+      "error": 0.0026464081046593257,
+      "brier": 0.08220700877374264,
+      "coverage": 1.0,
+      "seconds": 26.576
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "scale l s1 budget 0.5",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "9e00f19307f10d8721c280c6c4bac0240c9707237eb115a12006968cb3f06301",
+    "candidate_key": "f411f98fed05185b3ccfa49d9a35ec92887d32fc3e4c8a36b67385cad85c2222",
+    "base": {
+      "n": 1252,
+      "mae": 0.0743556716962884,
+      "brier": 0.0625871532332084,
+      "outside_2sd": 692,
+      "outside_2sd_fraction": 0.5527156549520766,
+      "z_median": 2.8644678934223986,
+      "z_p95": 323077.6242516939,
+      "z_max": 299380880.5977346
+    },
+    "candidate": {
+      "n": 1252,
+      "mae": 0.0743556716962884,
+      "brier": 0.0625871532332084,
+      "outside_2sd": 692,
+      "outside_2sd_fraction": 0.5527156549520766,
+      "z_median": 2.8644678934223986,
+      "z_p95": 323077.6242516939,
+      "z_max": 299380880.5977346
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.07435567169628839,
+      "seconds": 10.206
+    },
+    "metrics_candidate": {
+      "error": 0.07435567169628839,
+      "seconds": 10.162
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "scale l s1 budget 1",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "6449b7a7bf3f543efd9830c9a163dd2f411de0d249bd8293b65e7df589ee2b84",
+    "candidate_key": "e59f6678426aa5da57b0749d58bef3b6b70730b941857121b98dcd021131f39a",
+    "base": {
+      "n": 1252,
+      "mae": 0.02693459933631704,
+      "brier": 0.05185336243623873,
+      "outside_2sd": 720,
+      "outside_2sd_fraction": 0.5750798722044729,
+      "z_median": 4.110536435065871,
+      "z_p95": 44168926.63464302,
+      "z_max": 299380880.5977346
+    },
+    "candidate": {
+      "n": 1252,
+      "mae": 0.02693459933631704,
+      "brier": 0.05185336243623873,
+      "outside_2sd": 720,
+      "outside_2sd_fraction": 0.5750798722044729,
+      "z_median": 4.110536435065871,
+      "z_p95": 44168926.63464302,
+      "z_max": 299380880.5977346
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.026934599336317037,
+      "seconds": 13.173
+    },
+    "metrics_candidate": {
+      "error": 0.026934599336317037,
+      "seconds": 12.764
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "scale l s1 budget 2",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "b55e5cb77f14f897eeed9672ff855965d298e050d8d57d37528f52cf6ca0e368",
+    "candidate_key": "c8c640eb54d555f8d0e339ba3e1a8d794ed8b2bd161d79df67b212bf199ea8a8",
+    "base": {
+      "n": 1252,
+      "mae": 0.01571354552115314,
+      "brier": 0.04710340458761281,
+      "outside_2sd": 649,
+      "outside_2sd_fraction": 0.518370607028754,
+      "z_median": 2.265237934590755,
+      "z_p95": 13103652.198883597,
+      "z_max": 309040232.43977934
+    },
+    "candidate": {
+      "n": 1252,
+      "mae": 0.01571354552115314,
+      "brier": 0.04710340458761281,
+      "outside_2sd": 649,
+      "outside_2sd_fraction": 0.518370607028754,
+      "z_median": 2.265237934590755,
+      "z_p95": 13103652.198883597,
+      "z_max": 309040232.43977934
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.015713545521153144,
+      "seconds": 24.148
+    },
+    "metrics_candidate": {
+      "error": 0.015713545521153144,
+      "seconds": 23.408
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "scale l s1 budget 8",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "735d95b053d65ea735bac03024970a332008f6f23b2765713a11eae5a71857c1",
+    "candidate_key": "a50e762e4629ffb2e7b212ba938b7204150351c826e677f83e036ae2ada4ff84",
+    "base": {
+      "n": 1252,
+      "mae": 0.0033075096624948066,
+      "brier": 0.0431863692596279,
+      "outside_2sd": 394,
+      "outside_2sd_fraction": 0.3146964856230032,
+      "z_median": 0.29507345900995374,
+      "z_p95": 2748767.8232664755,
+      "z_max": 38139585.9707831
+    },
+    "candidate": {
+      "n": 1252,
+      "mae": 0.0033075096624948066,
+      "brier": 0.0431863692596279,
+      "outside_2sd": 394,
+      "outside_2sd_fraction": 0.3146964856230032,
+      "z_median": 0.29507345900995374,
+      "z_p95": 2748767.8232664755,
+      "z_max": 38139585.9707831
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0033075096624948066,
+      "seconds": 51.926
+    },
+    "metrics_candidate": {
+      "error": 0.0033075096624948066,
+      "seconds": 51.788
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "scale l s1 budget 32",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "3f3604cc5a0db4a973b2a0b4093f7d429b9125de4909bfc5b009ef7cc5b3646d",
+    "candidate_key": "ae771f8abcc997caf546e5f169f97554c75c5c236eb508f8590b6927c3d528b8",
+    "base": {
+      "n": 1252,
+      "mae": 1.8469663032023337e-05,
+      "brier": 0.04280349974280052,
+      "outside_2sd": 110,
+      "outside_2sd_fraction": 0.0878594249201278,
+      "z_median": 5.174530957967838e-08,
+      "z_p95": 458.80627188616296,
+      "z_max": 161631.57662594988
+    },
+    "candidate": {
+      "n": 1252,
+      "mae": 1.8469663032023337e-05,
+      "brier": 0.04280349974280052,
+      "outside_2sd": 110,
+      "outside_2sd_fraction": 0.0878594249201278,
+      "z_median": 5.174530957967838e-08,
+      "z_p95": 458.80627188616296,
+      "z_max": 161631.57662594988
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 1.8469663032023333e-05,
+      "seconds": 126.391
+    },
+    "metrics_candidate": {
+      "error": 1.8469663032023333e-05,
+      "seconds": 125.418
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "scale m s1 budget 0.5",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "7253fa9243bc610de8c26dff94a3e9f23814735d38e7686126ab5563b8a04e24",
+    "candidate_key": "e71aa128731b70345538e2be2da4290ba0be89d862ff619758f15903213cfdeb",
+    "base": {
+      "n": 645,
+      "mae": 0.0966448056817588,
+      "brier": 0.1149501694763936,
+      "outside_2sd": 388,
+      "outside_2sd_fraction": 0.6015503875968993,
+      "z_median": 2.5100355480019045,
+      "z_p95": 442.8422296842523,
+      "z_max": 25504924.599502467
+    },
+    "candidate": {
+      "n": 645,
+      "mae": 0.0966448056817588,
+      "brier": 0.1149501694763936,
+      "outside_2sd": 388,
+      "outside_2sd_fraction": 0.6015503875968993,
+      "z_median": 2.5100355480019045,
+      "z_p95": 442.8422296842523,
+      "z_max": 25504924.599502467
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0966448056817588,
+      "seconds": 7.892
+    },
+    "metrics_candidate": {
+      "error": 0.0966448056817588,
+      "seconds": 7.979
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "scale m s1 budget 1",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "7c7325b253a8de9b360ede792ec178f10ffcf91a28b4695760c847861418d065",
+    "candidate_key": "550e968fbaf4a921198a60aca607d107d86a81aa49d4da5fe8bf0e95b7855fdb",
+    "base": {
+      "n": 645,
+      "mae": 0.0035779573155398474,
+      "brier": 0.08220058325478524,
+      "outside_2sd": 256,
+      "outside_2sd_fraction": 0.39689922480620154,
+      "z_median": 0.7338120827751573,
+      "z_p95": 1497499.5129500022,
+      "z_max": 30280206.1586529
+    },
+    "candidate": {
+      "n": 645,
+      "mae": 0.0035779573155398474,
+      "brier": 0.08220058325478524,
+      "outside_2sd": 256,
+      "outside_2sd_fraction": 0.39689922480620154,
+      "z_median": 0.7338120827751573,
+      "z_p95": 1497499.5129500022,
+      "z_max": 30280206.1586529
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0035779573155398483,
+      "seconds": 12.737
+    },
+    "metrics_candidate": {
+      "error": 0.0035779573155398483,
+      "seconds": 12.676
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "scale m s1 budget 2",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "7f199e59acaef46558a2537376f273ef557f400be80bc8240c99b12437a7a87d",
+    "candidate_key": "07194abfd0fefc943e73e8f2dcb6739b93a3583dae8197a705533fb52ac4423a",
+    "base": {
+      "n": 645,
+      "mae": 0.00337765011999126,
+      "brier": 0.08217276900322569,
+      "outside_2sd": 237,
+      "outside_2sd_fraction": 0.3674418604651163,
+      "z_median": 0.4869562909070676,
+      "z_p95": 1551894.285832787,
+      "z_max": 30135290.691098236
+    },
+    "candidate": {
+      "n": 645,
+      "mae": 0.00337765011999126,
+      "brier": 0.08217276900322569,
+      "outside_2sd": 237,
+      "outside_2sd_fraction": 0.3674418604651163,
+      "z_median": 0.4869562909070676,
+      "z_p95": 1551894.285832787,
+      "z_max": 30135290.691098236
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0033776501199912607,
+      "seconds": 17.685
+    },
+    "metrics_candidate": {
+      "error": 0.0033776501199912607,
+      "seconds": 17.583
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "scale m s1 budget 4",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "4a92293e8400b56e177d8e1ad91d074ace570836c24070eb2badde991ecbe0dd",
+    "candidate_key": "25504a598473c5e51b9cce58eeb9d95f8d39f67ca418e7a2f6dcdab9cab58aa2",
+    "base": {
+      "n": 645,
+      "mae": 0.0026464081046593257,
+      "brier": 0.08220700877374264,
+      "outside_2sd": 186,
+      "outside_2sd_fraction": 0.28837209302325584,
+      "z_median": 0.026835035359335145,
+      "z_p95": 1030038.7802180669,
+      "z_max": 28608240.812709928
+    },
+    "candidate": {
+      "n": 645,
+      "mae": 0.0026464081046593257,
+      "brier": 0.08220700877374264,
+      "outside_2sd": 186,
+      "outside_2sd_fraction": 0.28837209302325584,
+      "z_median": 0.026835035359335145,
+      "z_p95": 1030038.7802180669,
+      "z_max": 28608240.812709928
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0026464081046593257,
+      "seconds": 23.124
+    },
+    "metrics_candidate": {
+      "error": 0.0026464081046593257,
+      "seconds": 22.999
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "scale m s1 budget 8",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "db8d44d73ccf4b0527cafaf56f0a33c862a602e85c412aff900f4a74b6a927d9",
+    "candidate_key": "16ce50de0ad065ab39264f826523b3b3badb056a6318d45d0352e62771297d00",
+    "base": {
+      "n": 645,
+      "mae": 0.002146985467159363,
+      "brier": 0.08214027490222553,
+      "outside_2sd": 152,
+      "outside_2sd_fraction": 0.23565891472868217,
+      "z_median": 0.006243622416536738,
+      "z_p95": 213445.64417341675,
+      "z_max": 22639475.215597346
+    },
+    "candidate": {
+      "n": 645,
+      "mae": 0.002146985467159363,
+      "brier": 0.08214027490222553,
+      "outside_2sd": 152,
+      "outside_2sd_fraction": 0.23565891472868217,
+      "z_median": 0.006243622416536738,
+      "z_p95": 213445.64417341675,
+      "z_max": 22639475.215597346
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.002146985467159363,
+      "seconds": 32.872
+    },
+    "metrics_candidate": {
+      "error": 0.002146985467159363,
+      "seconds": 32.77
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "scale m s1 budget 16",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "c7f1557974fd3971754cd331e125bb57ff9179e07b5cee779e08e426b9221069",
+    "candidate_key": "034a940586b2900b1f282cddf130ce4eee91be6b285c30962497b9264aeecc48",
+    "base": {
+      "n": 645,
+      "mae": 9.486150986267614e-05,
+      "brier": 0.08229128652817273,
+      "outside_2sd": 63,
+      "outside_2sd_fraction": 0.09767441860465116,
+      "z_median": 2.2379113857709837e-06,
+      "z_p95": 2207.5925396648468,
+      "z_max": 1893333.1986433342
+    },
+    "candidate": {
+      "n": 645,
+      "mae": 9.486150986267614e-05,
+      "brier": 0.08229128652817273,
+      "outside_2sd": 63,
+      "outside_2sd_fraction": 0.09767441860465116,
+      "z_median": 2.2379113857709837e-06,
+      "z_p95": 2207.5925396648468,
+      "z_max": 1893333.1986433342
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 9.486150986267614e-05,
+      "seconds": 55.544
+    },
+    "metrics_candidate": {
+      "error": 9.486150986267614e-05,
+      "seconds": 55.169
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "scale m s1 budget 32",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "915930e731cfd4f63eb87945622d9f65bc4a0a25f133400e6cbedefc1bae3f01",
+    "candidate_key": "e4527de1627a923550d699b05322624fd85836c1ab620ec9232b6239d5065f28",
+    "base": {
+      "n": 645,
+      "mae": 0.00010844976109559401,
+      "brier": 0.08229169110183694,
+      "outside_2sd": 64,
+      "outside_2sd_fraction": 0.09922480620155039,
+      "z_median": 2.4747115851945806e-06,
+      "z_p95": 7113.115828155495,
+      "z_max": 1888900.68376802
+    },
+    "candidate": {
+      "n": 645,
+      "mae": 0.00010844976109559401,
+      "brier": 0.08229169110183694,
+      "outside_2sd": 64,
+      "outside_2sd_fraction": 0.09922480620155039,
+      "z_median": 2.4747115851945806e-06,
+      "z_p95": 7113.115828155495,
+      "z_max": 1888900.68376802
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.00010844976109559402,
+      "seconds": 59.003
+    },
+    "metrics_candidate": {
+      "error": 0.00010844976109559402,
+      "seconds": 58.538
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 3 timed s2 budget 10",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "c2bd30733658775d5ff48234d7cef9266573a123eae0130947cb3d9eaff51140",
+    "candidate_key": "62f762779f1c011cc91da06e73b5bb6031e579c1e08098ee9aaf2aafea1bbf49",
+    "base": {
+      "n": 559,
+      "mae": 0.14711024821080704,
+      "brier": 0.19414236238645072,
+      "outside_2sd": 270,
+      "outside_2sd_fraction": 0.48300536672629696,
+      "z_median": 1.8944813116764285,
+      "z_p95": 9.530744938853104,
+      "z_max": 11470168.945810376
+    },
+    "candidate": {
+      "n": 559,
+      "mae": 0.14711024821080704,
+      "brier": 0.19414236238645072,
+      "outside_2sd": 270,
+      "outside_2sd_fraction": 0.48300536672629696,
+      "z_median": 1.8944813116764285,
+      "z_p95": 9.530744938853104,
+      "z_max": 11470168.945810376
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.17280099175029492,
+      "seconds": 3.424
+    },
+    "metrics_candidate": {
+      "error": 0.17280099175029492,
+      "seconds": 3.512
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 3 timed s2 budget 25",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "d2d2b74e4c056afe4e8ecc3494068da3f2d9a7beadbfe8715b991533e0875669",
+    "candidate_key": "af4b313f194b8b2f6c33bc6ed2cdc7712f318ef0698860f7b2edeedd2c77d93d",
+    "base": {
+      "n": 616,
+      "mae": 0.0027772414708428614,
+      "brier": 0.14662502615627407,
+      "outside_2sd": 18,
+      "outside_2sd_fraction": 0.02922077922077922,
+      "z_median": 2.1067219040746497e-14,
+      "z_p95": 2.6235599293596683e-08,
+      "z_max": 87.31597258222335
+    },
+    "candidate": {
+      "n": 616,
+      "mae": 0.0027772414708428614,
+      "brier": 0.14662502615627407,
+      "outside_2sd": 18,
+      "outside_2sd_fraction": 0.02922077922077922,
+      "z_median": 2.1067219040746497e-14,
+      "z_p95": 2.6235599293596683e-08,
+      "z_max": 87.31597258222335
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.004386376611713919,
+      "seconds": 9.27
+    },
+    "metrics_candidate": {
+      "error": 0.004386376611713919,
+      "seconds": 9.6
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 3 timed s2 budget 50",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "318145e72051b5c81bb4bfd50e012f6c1b6cb3721c6b960a29913b765107ae2d",
+    "candidate_key": "48570ed96a7d9013ffcf92539dcd18de96a107f2f5eb6c3f2ff0f281c55a7548",
+    "base": {
+      "n": 618,
+      "mae": 0.0017077976997069491,
+      "brier": 0.14594297015783414,
+      "outside_2sd": 16,
+      "outside_2sd_fraction": 0.025889967637540454,
+      "z_median": 1.948994146225401e-14,
+      "z_p95": 7.543945689052283e-08,
+      "z_max": 87.31597258222335
+    },
+    "candidate": {
+      "n": 618,
+      "mae": 0.0017077976997069491,
+      "brier": 0.14594297015783414,
+      "outside_2sd": 16,
+      "outside_2sd_fraction": 0.025889967637540454,
+      "z_median": 1.948994146225401e-14,
+      "z_p95": 7.543945689052283e-08,
+      "z_max": 87.31597258222335
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0017077976997069498,
+      "seconds": 14.352
+    },
+    "metrics_candidate": {
+      "error": 0.0017077976997069498,
+      "seconds": 14.622
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 3 timed s2 budget 100",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "3960bc700e28dc78089eec290634e924248e990c655b731ce67d6ac0de71e843",
+    "candidate_key": "2918b12c923a57a51326390ba342286b1a7d999150e1b90f938f5ea6c23eb302",
+    "base": {
+      "n": 618,
+      "mae": 0.0016927335351865067,
+      "brier": 0.14594425561251304,
+      "outside_2sd": 16,
+      "outside_2sd_fraction": 0.025889967637540454,
+      "z_median": 1.5500034391403202e-14,
+      "z_p95": 7.119627528663748e-13,
+      "z_max": 87.31597258222335
+    },
+    "candidate": {
+      "n": 618,
+      "mae": 0.0016927335351865067,
+      "brier": 0.14594425561251304,
+      "outside_2sd": 16,
+      "outside_2sd_fraction": 0.025889967637540454,
+      "z_median": 1.5500034391403202e-14,
+      "z_p95": 7.119627528663748e-13,
+      "z_max": 87.31597258222335
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0016927335351865065,
+      "seconds": 15.252
+    },
+    "metrics_candidate": {
+      "error": 0.0016927335351865065,
+      "seconds": 15.314
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 3 timed s2 budget 200",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "dbffbdc40b501f23fdbfacdaba6f287da99241684d4c0f91a0599dea081f8034",
+    "candidate_key": "64c8e5ea35946f97f797f19fc8e87192ff16031c748ab13d60ee3f98f719f3b6",
+    "base": {
+      "n": 618,
+      "mae": 0.0016927335351865067,
+      "brier": 0.14594425561251304,
+      "outside_2sd": 16,
+      "outside_2sd_fraction": 0.025889967637540454,
+      "z_median": 1.531096180922401e-14,
+      "z_p95": 3.9406157182958407e-13,
+      "z_max": 87.31597258222335
+    },
+    "candidate": {
+      "n": 618,
+      "mae": 0.0016927335351865067,
+      "brier": 0.14594425561251304,
+      "outside_2sd": 16,
+      "outside_2sd_fraction": 0.025889967637540454,
+      "z_median": 1.531096180922401e-14,
+      "z_p95": 3.9406157182958407e-13,
+      "z_max": 87.31597258222335
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0016927335351865065,
+      "seconds": 16.541
+    },
+    "metrics_candidate": {
+      "error": 0.0016927335351865065,
+      "seconds": 16.274
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 3 untimed s3 budget 10",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "aa2829e0bb48dc9e64d38536fa1fc3dfc1d1ab8e7d7c22918926906f9b8e3fd1",
+    "candidate_key": "aa0c50e601f38adb0e98c2fcd73521281ca50635ffd7a1a896afbbc462ce794f",
+    "base": {
+      "n": 539,
+      "mae": 0.1428263241536419,
+      "brier": 0.2163067324007135,
+      "outside_2sd": 206,
+      "outside_2sd_fraction": 0.3821892393320965,
+      "z_median": 1.4880611238759378,
+      "z_p95": 6.923072771905219,
+      "z_max": 23.35433775644076
+    },
+    "candidate": {
+      "n": 539,
+      "mae": 0.1428263241536419,
+      "brier": 0.2163067324007135,
+      "outside_2sd": 206,
+      "outside_2sd_fraction": 0.3821892393320965,
+      "z_median": 1.4880611238759378,
+      "z_p95": 6.923072771905219,
+      "z_max": 23.35433775644076
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.17296249681239634,
+      "seconds": 3.603
+    },
+    "metrics_candidate": {
+      "error": 0.17296249681239634,
+      "seconds": 3.758
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 3 untimed s3 budget 25",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "445b33a1b4bfd4b4325c7a5468bbd14fe15ac6c0969ef8ae0d358bdfa3aef457",
+    "candidate_key": "f54b28943dd1c5b5a4fca244f2e70e866ff1b90a9991a7c0a0fa7e309e171d67",
+    "base": {
+      "n": 598,
+      "mae": 0.002317064743439667,
+      "brier": 0.1563330449037317,
+      "outside_2sd": 10,
+      "outside_2sd_fraction": 0.016722408026755852,
+      "z_median": 1.5424911993181154e-14,
+      "z_p95": 3.08511839168929e-13,
+      "z_max": 75.59257329760734
+    },
+    "candidate": {
+      "n": 598,
+      "mae": 0.002317064743439667,
+      "brier": 0.1563330449037317,
+      "outside_2sd": 10,
+      "outside_2sd_fraction": 0.016722408026755852,
+      "z_median": 1.5424911993181154e-14,
+      "z_p95": 3.08511839168929e-13,
+      "z_max": 75.59257329760734
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0023170647434396664,
+      "seconds": 10.2
+    },
+    "metrics_candidate": {
+      "error": 0.0023170647434396664,
+      "seconds": 10.069
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 3 untimed s3 budget 50",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "c9ea60b4e66cba6c9209e59478f61574deb3e0ef8704935a7328dba5f7697417",
+    "candidate_key": "13a498d198772447ba4f6588600c497319c7a209a50ecd532f0f0d6c473afa9a",
+    "base": {
+      "n": 598,
+      "mae": 0.0009770572094605092,
+      "brier": 0.15576315116455552,
+      "outside_2sd": 8,
+      "outside_2sd_fraction": 0.013377926421404682,
+      "z_median": 1.5005136170623605e-14,
+      "z_p95": 2.482436091077837e-11,
+      "z_max": 75.59257329760734
+    },
+    "candidate": {
+      "n": 598,
+      "mae": 0.0009770572094605092,
+      "brier": 0.15576315116455552,
+      "outside_2sd": 8,
+      "outside_2sd_fraction": 0.013377926421404682,
+      "z_median": 1.5005136170623605e-14,
+      "z_p95": 2.482436091077837e-11,
+      "z_max": 75.59257329760734
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.000977057209460509,
+      "seconds": 15.301
+    },
+    "metrics_candidate": {
+      "error": 0.000977057209460509,
+      "seconds": 15.803
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 3 untimed s3 budget 100",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "12ad7238277e02787d8c5f7b3ed288b25b339b24c8f9df1a22cf7a9d6748a5b2",
+    "candidate_key": "4e48f2ccfd414b429eae97feb7d89cd841156cda06444d5917d3434ed01051e3",
+    "base": {
+      "n": 598,
+      "mae": 0.0009770572094605088,
+      "brier": 0.15576315116455552,
+      "outside_2sd": 8,
+      "outside_2sd_fraction": 0.013377926421404682,
+      "z_median": 1.4755873579622975e-14,
+      "z_p95": 1.3937776434917342e-08,
+      "z_max": 75.59257329760734
+    },
+    "candidate": {
+      "n": 598,
+      "mae": 0.0009770572094605088,
+      "brier": 0.15576315116455552,
+      "outside_2sd": 8,
+      "outside_2sd_fraction": 0.013377926421404682,
+      "z_median": 1.4755873579622975e-14,
+      "z_p95": 1.3937776434917342e-08,
+      "z_max": 75.59257329760734
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0009770572094605085,
+      "seconds": 16.639
+    },
+    "metrics_candidate": {
+      "error": 0.0009770572094605085,
+      "seconds": 16.821
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 3 untimed s3 budget 200",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "79f8ec35e3a9f6433e6536800c4b9f00d66973bbcacc1256f360ec58dcf77372",
+    "candidate_key": "6b2bcfc51e0ec186bd26c2ccde53ae984aaa9a7d59a8cb8a6a4920cb49989d65",
+    "base": {
+      "n": 598,
+      "mae": 0.0009770571683084708,
+      "brier": 0.15576315117005565,
+      "outside_2sd": 8,
+      "outside_2sd_fraction": 0.013377926421404682,
+      "z_median": 1.4506610988622345e-14,
+      "z_p95": 3.539676552617061e-13,
+      "z_max": 75.59257329760734
+    },
+    "candidate": {
+      "n": 598,
+      "mae": 0.0009770571683084708,
+      "brier": 0.15576315117005565,
+      "outside_2sd": 8,
+      "outside_2sd_fraction": 0.013377926421404682,
+      "z_median": 1.4506610988622345e-14,
+      "z_p95": 3.539676552617061e-13,
+      "z_max": 75.59257329760734
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.0009770571683084706,
+      "seconds": 18.324
+    },
+    "metrics_candidate": {
+      "error": 0.0009770571683084706,
+      "seconds": 18.096
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 3 timed soft0.9 s3 budget 25",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "7f810bf7506e8e48b8a58412a5883533a9be6efc01119cc8b6ca266bf2fff27d",
+    "candidate_key": "d66dae3539882c7cb1641d12f038f6b5b73d79e4af9d5febd4e55e19f9065b81",
+    "base": {
+      "n": 394,
+      "mae": 0.01596987207424886,
+      "brier": 0.17969810106323844,
+      "outside_2sd": 22,
+      "outside_2sd_fraction": 0.05583756345177665,
+      "z_median": 2.6043022426226082e-14,
+      "z_p95": 3.001506842051752,
+      "z_max": 387.4945790527386
+    },
+    "candidate": {
+      "n": 394,
+      "mae": 0.01596987207424886,
+      "brier": 0.17969810106323844,
+      "outside_2sd": 22,
+      "outside_2sd_fraction": 0.05583756345177665,
+      "z_median": 2.6043022426226082e-14,
+      "z_p95": 3.001506842051752,
+      "z_max": 387.4945790527386
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.02410959181562126,
+      "seconds": 13.216
+    },
+    "metrics_candidate": {
+      "error": 0.02410959181562126,
+      "seconds": 12.83
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 3 timed soft0.9 s3 budget 400",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "a70528aed9f346836dcfd6b9853dda42088f77066fd0260f28d9e30d1b686e08",
+    "candidate_key": "3abe84240abf616e8539df96af1ebc51c78a247df0a46e95f16329ad5212c43b",
+    "base": {
+      "n": 403,
+      "mae": 0.006289633502660869,
+      "brier": 0.1719537886680329,
+      "outside_2sd": 7,
+      "outside_2sd_fraction": 0.017369727047146403,
+      "z_median": 2.5533146256533576e-14,
+      "z_p95": 0.24929032138600335,
+      "z_max": 387.6249132454226
+    },
+    "candidate": {
+      "n": 403,
+      "mae": 0.006289633502660869,
+      "brier": 0.1719537886680329,
+      "outside_2sd": 7,
+      "outside_2sd_fraction": 0.017369727047146403,
+      "z_median": 2.5533146256533576e-14,
+      "z_p95": 0.24929032138600335,
+      "z_max": 387.6249132454226
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.006289633502660869,
+      "seconds": 39.245
+    },
+    "metrics_candidate": {
+      "error": 0.006289633502660869,
+      "seconds": 40.493
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 2 r10 s1 budget 10",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "875d7d3ef374d59779299bf7a1754aff809c7756e66d922bb118ef913a626a62",
+    "candidate_key": "07a42176be1a5e1ae5324caf5bd334474fd052942797b462d7b40b3995b9f45f",
+    "base": {
+      "n": 435,
+      "mae": 0.11630998373537901,
+      "brier": 0.1855591869059398,
+      "outside_2sd": 164,
+      "outside_2sd_fraction": 0.37701149425287356,
+      "z_median": 1.501914724520693,
+      "z_p95": 7.054635023722773,
+      "z_max": 73123930.45187683
+    },
+    "candidate": {
+      "n": 435,
+      "mae": 0.11630998373537901,
+      "brier": 0.1855591869059398,
+      "outside_2sd": 164,
+      "outside_2sd_fraction": 0.37701149425287356,
+      "z_median": 1.501914724520693,
+      "z_p95": 7.054635023722773,
+      "z_max": 73123930.45187683
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.116309983735379,
+      "seconds": 1.898
+    },
+    "metrics_candidate": {
+      "error": 0.116309983735379,
+      "seconds": 1.975
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 2 r10 s1 budget 25",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "05ba429c60461ab5245152c7b49f1fd1db4ac7fb335528fd22061273b508659c",
+    "candidate_key": "db99257c21936f66064e83d25357b1dc50d33129d26a07ed1bf6a4e014cae8ef",
+    "base": {
+      "n": 435,
+      "mae": 0.0744641136325049,
+      "brier": 0.17181369750106013,
+      "outside_2sd": 112,
+      "outside_2sd_fraction": 0.2574712643678161,
+      "z_median": 0.5238369487549804,
+      "z_p95": 6.511809608927488,
+      "z_max": 73123930.45187683
+    },
+    "candidate": {
+      "n": 435,
+      "mae": 0.0744641136325049,
+      "brier": 0.17181369750106013,
+      "outside_2sd": 112,
+      "outside_2sd_fraction": 0.2574712643678161,
+      "z_median": 0.5238369487549804,
+      "z_p95": 6.511809608927488,
+      "z_max": 73123930.45187683
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.07446411363250488,
+      "seconds": 3.397
+    },
+    "metrics_candidate": {
+      "error": 0.07446411363250488,
+      "seconds": 3.426
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 2 r10 s1 budget 50",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "adf31994915317ec3908ac95a87d06a2fa43882f16953e7d14123cf5bdda5fc3",
+    "candidate_key": "8b311f919470446c093cd81f86f5e681836bceb3094f47697d8ff62e8814fe1c",
+    "base": {
+      "n": 435,
+      "mae": 4.194292183682889e-17,
+      "brier": 0.16063279359774,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 1.1388832045553923e-14,
+      "z_p95": 2.009741987426173e-13,
+      "z_max": 2.489327426306549e-07
+    },
+    "candidate": {
+      "n": 435,
+      "mae": 4.194292183682889e-17,
+      "brier": 0.16063279359774,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 1.1388832045553923e-14,
+      "z_p95": 2.009741987426173e-13,
+      "z_max": 2.489327426306549e-07
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 4.194292183682889e-17,
+      "seconds": 4.642
+    },
+    "metrics_candidate": {
+      "error": 4.194292183682889e-17,
+      "seconds": 4.703
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 2 r10 s1 budget 100",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "dc2d0046823c4433dbca0a50ecbe6b4a33d3c6965023022d638a22acac2cb877",
+    "candidate_key": "aab26a1cc45b4fb8fe48fffeefed71e2fcf3a40fc3784449a6cf31845cbc8e34",
+    "base": {
+      "n": 435,
+      "mae": 3.440833984275146e-17,
+      "brier": 0.16063279359774,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 8.362802107058914e-15,
+      "z_p95": 1.5713508640545506e-13,
+      "z_max": 1.5051695638530313e-07
+    },
+    "candidate": {
+      "n": 435,
+      "mae": 3.440833984275146e-17,
+      "brier": 0.16063279359774,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 8.362802107058914e-15,
+      "z_p95": 1.5713508640545506e-13,
+      "z_max": 1.5051695638530313e-07
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 3.440833984275146e-17,
+      "seconds": 9.181
+    },
+    "metrics_candidate": {
+      "error": 3.440833984275146e-17,
+      "seconds": 9.617
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 2 r10 s1 budget 200",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "c956ddc05edd2fc41a47b324a081290288c5ac9fbc7fd0b53f998c7d1673d149",
+    "candidate_key": "4cb5a9436d7c27f9ffba4860f85b47416519e08ca613913276bea693231e9446",
+    "base": {
+      "n": 435,
+      "mae": 3.880347113231684e-17,
+      "brier": 0.16063279359774,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 7.0462410472221436e-15,
+      "z_p95": 1.5713508640545506e-13,
+      "z_max": 2.2577543457795478e-07
+    },
+    "candidate": {
+      "n": 435,
+      "mae": 3.880347113231684e-17,
+      "brier": 0.16063279359774,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 7.0462410472221436e-15,
+      "z_p95": 1.5713508640545506e-13,
+      "z_max": 2.2577543457795478e-07
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 3.880347113231684e-17,
+      "seconds": 10.38
+    },
+    "metrics_candidate": {
+      "error": 3.880347113231684e-17,
+      "seconds": 10.409
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "conflict m s1 budget 0.5",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "dcbd767bde110a4821d5dfdb484f80ce574372746677ceb429aab4d50e94daaa",
+    "candidate_key": "8a0daad853b98e333aa42eeb257c38764b1efea43c653ab00236d387ce1fc999",
+    "base": {
+      "n": 79,
+      "mae": 0.1363021363059383,
+      "brier": 0.11791937066438837,
+      "outside_2sd": 25,
+      "outside_2sd_fraction": 0.31645569620253167,
+      "z_median": 1.0590561420923017,
+      "z_p95": 8.601489384708431,
+      "z_max": 10.557047573395778
+    },
+    "candidate": {
+      "n": 79,
+      "mae": 0.1363021363059383,
+      "brier": 0.11791937066438837,
+      "outside_2sd": 25,
+      "outside_2sd_fraction": 0.31645569620253167,
+      "z_median": 1.0590561420923017,
+      "z_p95": 8.601489384708431,
+      "z_max": 10.557047573395778
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.13856487356013675,
+      "seconds": 8.52
+    },
+    "metrics_candidate": {
+      "error": 0.13856487356013675,
+      "seconds": 8.444
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "conflict m s1 budget 1",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "c89ace0048c1902a0a9b6233393226b3017731dd91f3da9c311328487448be7c",
+    "candidate_key": "21b03747f657d44732809cfbfaeead0f02b2e7da0cc84e386df7fc021d4214cd",
+    "base": {
+      "n": 79,
+      "mae": 0.1022903686940845,
+      "brier": 0.08179895759692396,
+      "outside_2sd": 14,
+      "outside_2sd_fraction": 0.17721518987341772,
+      "z_median": 0.7289708696142025,
+      "z_p95": 4.098029056480343,
+      "z_max": 9.456597191092667
+    },
+    "candidate": {
+      "n": 79,
+      "mae": 0.1022903686940845,
+      "brier": 0.08179895759692396,
+      "outside_2sd": 14,
+      "outside_2sd_fraction": 0.17721518987341772,
+      "z_median": 0.7289708696142025,
+      "z_p95": 4.098029056480343,
+      "z_max": 9.456597191092667
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.10497825304343116,
+      "seconds": 10.096
+    },
+    "metrics_candidate": {
+      "error": 0.10497825304343116,
+      "seconds": 10.125
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "conflict m s1 budget 2",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "98d0ac773177f721c338d44038cdc359a2183957e5fd59c6a3cfba05c27a8161",
+    "candidate_key": "40aaa1b92fe456bd6a44d4779ba623cd8bd50e903fc7b2f997bc112d3687c2a0",
+    "base": {
+      "n": 79,
+      "mae": 0.0946968179556019,
+      "brier": 0.09284571290744222,
+      "outside_2sd": 9,
+      "outside_2sd_fraction": 0.11392405063291139,
+      "z_median": 0.6304745995253261,
+      "z_p95": 2.5533669324752952,
+      "z_max": 9.36621294185492
+    },
+    "candidate": {
+      "n": 79,
+      "mae": 0.0946968179556019,
+      "brier": 0.09284571290744222,
+      "outside_2sd": 9,
+      "outside_2sd_fraction": 0.11392405063291139,
+      "z_median": 0.6304745995253261,
+      "z_p95": 2.5533669324752952,
+      "z_max": 9.36621294185492
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.09747962168917958,
+      "seconds": 10.674
+    },
+    "metrics_candidate": {
+      "error": 0.09747962168917958,
+      "seconds": 10.963
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "conflict m s1 budget 4",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "bfe1597897201cb2d6a506d5cf2dcf9020241706ec985d0ef2c32cb43f55b985",
+    "candidate_key": "9f1d45a7f94ebbe9f7a7947dd184f76fddba1c211095562ed4b67863c4a6ac54",
+    "base": {
+      "n": 79,
+      "mae": 0.09679201845578701,
+      "brier": 0.09258372292015599,
+      "outside_2sd": 10,
+      "outside_2sd_fraction": 0.12658227848101267,
+      "z_median": 0.6213876915805548,
+      "z_p95": 3.5197831026244373,
+      "z_max": 9.986824304921672
+    },
+    "candidate": {
+      "n": 79,
+      "mae": 0.09679201845578701,
+      "brier": 0.09258372292015599,
+      "outside_2sd": 10,
+      "outside_2sd_fraction": 0.12658227848101267,
+      "z_median": 0.6213876915805548,
+      "z_p95": 3.5197831026244373,
+      "z_max": 9.986824304921672
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.09954863218311236,
+      "seconds": 12.501
+    },
+    "metrics_candidate": {
+      "error": 0.09954863218311236,
+      "seconds": 12.643
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "conflict m s1 budget 8",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "91750d86cf888882a23bdecabe691d0a5f67613f0898202dde9838c025c3d2fa",
+    "candidate_key": "84e4c40e79ef81388964fc5a0eb7a3760ad2410e394fb70df7b3df3514716064",
+    "base": {
+      "n": 79,
+      "mae": 0.08671713252773039,
+      "brier": 0.10898106574214513,
+      "outside_2sd": 14,
+      "outside_2sd_fraction": 0.17721518987341772,
+      "z_median": 0.7367155619482927,
+      "z_p95": 4.447758561952332,
+      "z_max": 13.919927657555682
+    },
+    "candidate": {
+      "n": 79,
+      "mae": 0.08671713252773039,
+      "brier": 0.10898106574214513,
+      "outside_2sd": 14,
+      "outside_2sd_fraction": 0.17721518987341772,
+      "z_median": 0.7367155619482927,
+      "z_p95": 4.447758561952332,
+      "z_max": 13.919927657555682
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.08959968232915644,
+      "seconds": 15.322
+    },
+    "metrics_candidate": {
+      "error": 0.08959968232915644,
+      "seconds": 15.376
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "conflict m s1 budget 16",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "f5195db1a8e286aba96dadf3671dbf4edcfa6fd0f85bd0ed813cf7606646962d",
+    "candidate_key": "5cc24feb54fad5279ea21ccea975dc0b56746e7341f0f026bd447a4f152784cd",
+    "base": {
+      "n": 79,
+      "mae": 0.08952282956792722,
+      "brier": 0.11902354786920252,
+      "outside_2sd": 13,
+      "outside_2sd_fraction": 0.16455696202531644,
+      "z_median": 0.6814405855489194,
+      "z_p95": 4.454069126895449,
+      "z_max": 13.919927657555682
+    },
+    "candidate": {
+      "n": 79,
+      "mae": 0.08952282956792722,
+      "brier": 0.11902354786920252,
+      "outside_2sd": 13,
+      "outside_2sd_fraction": 0.16455696202531644,
+      "z_median": 0.6814405855489194,
+      "z_p95": 4.454069126895449,
+      "z_max": 13.919927657555682
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.09237030815635082,
+      "seconds": 29.959
+    },
+    "metrics_candidate": {
+      "error": 0.09237030815635082,
+      "seconds": 29.526
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "replay s3 budget 10",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "01c35ae7ebea3ab647c669772226cb28ebd0e6030ac6fe13fe5b847047bd7853",
+    "candidate_key": "8078bc586a96fa2b0c0fce1e0d9d02ddbcefda7b4e86095f46ee9850213e5fc8",
+    "base": {
+      "n": 200,
+      "mae": 0.1519398098537849,
+      "brier": null,
+      "outside_2sd": 107,
+      "outside_2sd_fraction": 0.535,
+      "z_median": 2.8446146261638603,
+      "z_p95": 58841.56976183799,
+      "z_max": 223597.96509498433
+    },
+    "candidate": {
+      "n": 200,
+      "mae": 0.1519398098537849,
+      "brier": null,
+      "outside_2sd": 107,
+      "outside_2sd_fraction": 0.535,
+      "z_median": 2.8446146261638603,
+      "z_p95": 58841.56976183799,
+      "z_max": 223597.96509498433
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.15193980985378494,
+      "seconds": 4.361775918001513
+    },
+    "metrics_candidate": {
+      "error": 0.15193980985378494,
+      "seconds": 4.441462388989748
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "replay s3 budget 25",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "420f0218c7c17f96835d50e885119e2e6c644b4b7fae08de6c9f322e619701e2",
+    "candidate_key": "63736f0e9730d369e09a081facf3506642b73eab40f2288bbff2a4cfdced5aea",
+    "base": {
+      "n": 200,
+      "mae": 0.14540469048759547,
+      "brier": null,
+      "outside_2sd": 122,
+      "outside_2sd_fraction": 0.61,
+      "z_median": 2.7225984428673837,
+      "z_p95": 58841.56976183799,
+      "z_max": 223597.96509498433
+    },
+    "candidate": {
+      "n": 200,
+      "mae": 0.14540469048759547,
+      "brier": null,
+      "outside_2sd": 122,
+      "outside_2sd_fraction": 0.61,
+      "z_median": 2.7225984428673837,
+      "z_p95": 58841.56976183799,
+      "z_max": 223597.96509498433
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.14540469048759547,
+      "seconds": 5.295703645000231
+    },
+    "metrics_candidate": {
+      "error": 0.14540469048759547,
+      "seconds": 5.404172035998272
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "replay s3 budget 50",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "48f2b2e332c01badfd9c4156bfeadb3e8673a0e2383efe6435d7039e59b14447",
+    "candidate_key": "30d12b0f2edf0b040979f12475696f26d1ee33885ff2cc47607724d893fe65c1",
+    "base": {
+      "n": 200,
+      "mae": 0.14314469166437518,
+      "brier": null,
+      "outside_2sd": 123,
+      "outside_2sd_fraction": 0.615,
+      "z_median": 2.7665108555498574,
+      "z_p95": 58841.56976183799,
+      "z_max": 223597.96509498422
+    },
+    "candidate": {
+      "n": 200,
+      "mae": 0.14314469166437518,
+      "brier": null,
+      "outside_2sd": 123,
+      "outside_2sd_fraction": 0.615,
+      "z_median": 2.7665108555498574,
+      "z_p95": 58841.56976183799,
+      "z_max": 223597.96509498422
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.14314469166437518,
+      "seconds": 6.972015370999998
+    },
+    "metrics_candidate": {
+      "error": 0.14314469166437518,
+      "seconds": 6.9816856300003565
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "replay s3 budget 100",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "ccb668020b56c193a76efcbcef32e63705e2e133ce2d1216beb598727507c28a",
+    "candidate_key": "8bc00409c5c171a6752ea05a5542aff970398156f2d5d021b774acb66d3d95aa",
+    "base": {
+      "n": 200,
+      "mae": 0.14202917946044943,
+      "brier": null,
+      "outside_2sd": 123,
+      "outside_2sd_fraction": 0.615,
+      "z_median": 2.7665108555498574,
+      "z_p95": 58841.56976183799,
+      "z_max": 223597.96509498422
+    },
+    "candidate": {
+      "n": 200,
+      "mae": 0.14202917946044943,
+      "brier": null,
+      "outside_2sd": 123,
+      "outside_2sd_fraction": 0.615,
+      "z_median": 2.7665108555498574,
+      "z_p95": 58841.56976183799,
+      "z_max": 223597.96509498422
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.1420291794604494,
+      "seconds": 10.088621190997856
+    },
+    "metrics_candidate": {
+      "error": 0.1420291794604494,
+      "seconds": 9.900392879997526
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "minedsearch gated n16 d3 s9 budget 4",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "5dedde2cf23146bdc136878a529ea40f40f4711bd53478c922c57d107ab1166b",
+    "candidate_key": "635c1848e01738f1e3491339dfeaea65bf524078ed3027561c4ac41385923fe1",
+    "base": {
+      "n": 16,
+      "mae": 0.02102446269523711,
+      "brier": 0.11352055978043482,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.7162400778596186,
+      "z_p95": 1.6036642823343024,
+      "z_max": 1.6036642823343024
+    },
+    "candidate": {
+      "n": 16,
+      "mae": 0.02102446269523711,
+      "brier": 0.11352055978043482,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.7162400778596186,
+      "z_p95": 1.6036642823343024,
+      "z_max": 1.6036642823343024
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.19999999999999998,
+      "seconds": 41.369
+    },
+    "metrics_candidate": {
+      "error": 0.19999999999999998,
+      "seconds": 41.382
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "minedsearch gated n16 d3 s9 budget 8",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "aafea8e859b69b57e029ee74df0f2c7f72c3bcc2cf2fcde6958203ad1c2f1072",
+    "candidate_key": "c2bd2411ded1408c789a2013dd3f1374e45fba6d24ec7e5000d49437091ca59e",
+    "base": {
+      "n": 31,
+      "mae": 0.019903663725108288,
+      "brier": 0.11309955378747691,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.5664758674058248,
+      "z_p95": 1.6036642823343024,
+      "z_max": 1.6036642823343024
+    },
+    "candidate": {
+      "n": 31,
+      "mae": 0.019903663725108288,
+      "brier": 0.11309955378747691,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.5664758674058248,
+      "z_p95": 1.6036642823343024,
+      "z_max": 1.6036642823343024
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.03003888577216019,
+      "seconds": 39.441
+    },
+    "metrics_candidate": {
+      "error": 0.03003888577216019,
+      "seconds": 38.834
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "minedsearch gated n16 d3 s9 budget 16",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "84cf1a494d23d36c2432696424d77fd208a756422dc1ce5de804fd62791334cc",
+    "candidate_key": "403052fbae7003c5cf8133c5aaf08e4b24708ad2989f31db4700aef8d9710dab",
+    "base": {
+      "n": 31,
+      "mae": 0.019903663725108288,
+      "brier": 0.11309955378747691,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.5664758674058248,
+      "z_p95": 1.6036642823343024,
+      "z_max": 1.6036642823343024
+    },
+    "candidate": {
+      "n": 31,
+      "mae": 0.019903663725108288,
+      "brier": 0.11309955378747691,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.5664758674058248,
+      "z_p95": 1.6036642823343024,
+      "z_max": 1.6036642823343024
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.03003888577216019,
+      "seconds": 40.796
+    },
+    "metrics_candidate": {
+      "error": 0.03003888577216019,
+      "seconds": 41.154
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "minedsearch gated n16 d3 s9 budget 32",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "8dd366f3fc596e862b315631e3ee0533cf3a9af7bdb4f46740a08f27d3637dfc",
+    "candidate_key": "2906728d2ba60617771b6c51a974848c5b7ba6157d1f161bab868fdd7afd31a7",
+    "base": {
+      "n": 32,
+      "mae": 0.02102446269523711,
+      "brier": 0.11352055978043482,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.7162400778596186,
+      "z_p95": 1.6036642823343024,
+      "z_max": 1.6036642823343024
+    },
+    "candidate": {
+      "n": 32,
+      "mae": 0.02102446269523711,
+      "brier": 0.11352055978043482,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.7162400778596186,
+      "z_p95": 1.6036642823343024,
+      "z_max": 1.6036642823343024
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.02102446269523711,
+      "seconds": 39.918
+    },
+    "metrics_candidate": {
+      "error": 0.02102446269523711,
+      "seconds": 39.724
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "minedsearch gated n16 d3 s9 budget 64",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "19cb9ebfe20b7cf617685be112419b477e61499ba0e0ec773c4fd7676f5f243c",
+    "candidate_key": "7a64ada7bb57891bd8356f4d300c247494a0337805078e1d3c43d37632d4c473",
+    "base": {
+      "n": 32,
+      "mae": 0.02102446269523711,
+      "brier": 0.11352055978043482,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.7162400778596186,
+      "z_p95": 1.6036642823343024,
+      "z_max": 1.6036642823343024
+    },
+    "candidate": {
+      "n": 32,
+      "mae": 0.02102446269523711,
+      "brier": 0.11352055978043482,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.7162400778596186,
+      "z_p95": 1.6036642823343024,
+      "z_max": 1.6036642823343024
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.02102446269523711,
+      "seconds": 41.657
+    },
+    "metrics_candidate": {
+      "error": 0.02102446269523711,
+      "seconds": 39.528
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "minedsearch gated n16 d3 s9 budget 128",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "cb8ee492433d002c50fe4a22f457f4f4131fe833ac54a7c943f33bc8a46eb718",
+    "candidate_key": "da39ee284a97b05e03b7717cd40e94a9e2ce4b5074c000b828b7d9605883812b",
+    "base": {
+      "n": 32,
+      "mae": 0.02102446269523711,
+      "brier": 0.11352055978043482,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.7162400778596186,
+      "z_p95": 1.6036642823343024,
+      "z_max": 1.6036642823343024
+    },
+    "candidate": {
+      "n": 32,
+      "mae": 0.02102446269523711,
+      "brier": 0.11352055978043482,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 0.7162400778596186,
+      "z_p95": 1.6036642823343024,
+      "z_max": 1.6036642823343024
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.02102446269523711,
+      "seconds": 51.83
+    },
+    "metrics_candidate": {
+      "error": 0.02102446269523711,
+      "seconds": 42.838
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 4 extend s2 budget 1",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "70a9e8f9cbbc78d259ee2dd38145ca6540b0c8c8e609e129a120afca1bd34d8f",
+    "candidate_key": "0f69d5a27a319a66c3050d0a79fa1a7c0d31f64c177500709c76ca32c5e9ed5f",
+    "base": {
+      "n": 137,
+      "mae": 0.11922992269882723,
+      "brier": 0.21413432571890562,
+      "outside_2sd": 55,
+      "outside_2sd_fraction": 0.40145985401459855,
+      "z_median": 1.5591458243672531,
+      "z_p95": 10.822146122197976,
+      "z_max": 33629137.15026566
+    },
+    "candidate": {
+      "n": 137,
+      "mae": 0.11922992269882723,
+      "brier": 0.21413432571890562,
+      "outside_2sd": 55,
+      "outside_2sd_fraction": 0.40145985401459855,
+      "z_median": 1.5591458243672531,
+      "z_p95": 10.822146122197976,
+      "z_max": 33629137.15026566
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.11922992269882725,
+      "seconds": 6.545
+    },
+    "metrics_candidate": {
+      "error": 0.11922992269882725,
+      "seconds": 6.728
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 4 extend s2 budget 2",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "fc5c502b3b37085c24756f3dbcdbcc1d42d66e5aa0c5a174ae3633d44ab8d1c4",
+    "candidate_key": "b402e07d7acfd6ee2d1f193a95cac16c475b82ee93e4cfc0d5870c740e5c8222",
+    "base": {
+      "n": 137,
+      "mae": 0.09306248878670821,
+      "brier": 0.21572649985256892,
+      "outside_2sd": 39,
+      "outside_2sd_fraction": 0.2846715328467153,
+      "z_median": 0.6914099205992069,
+      "z_p95": 5.876791308969514,
+      "z_max": 10.822146122197976
+    },
+    "candidate": {
+      "n": 137,
+      "mae": 0.09306248878670821,
+      "brier": 0.21572649985256892,
+      "outside_2sd": 39,
+      "outside_2sd_fraction": 0.2846715328467153,
+      "z_median": 0.6914099205992069,
+      "z_p95": 5.876791308969514,
+      "z_max": 10.822146122197976
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.09306248878670821,
+      "seconds": 8.161
+    },
+    "metrics_candidate": {
+      "error": 0.09306248878670821,
+      "seconds": 8.138
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 4 extend s2 budget 5",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "cfa13651218e5d2e75ed7a888c32baf17eba9b787ba6779db84395831d774bf2",
+    "candidate_key": "bb683ca5d7ac9c9b7f69b80c477181a395f36319aff5ac4b04fffec3f78f05d6",
+    "base": {
+      "n": 137,
+      "mae": 0.08187799607131971,
+      "brier": 0.19106258213837293,
+      "outside_2sd": 58,
+      "outside_2sd_fraction": 0.4233576642335766,
+      "z_median": 0.6573747137649616,
+      "z_p95": 66.14273941935534,
+      "z_max": 224.37188485263115
+    },
+    "candidate": {
+      "n": 137,
+      "mae": 0.08187799607131971,
+      "brier": 0.19106258213837293,
+      "outside_2sd": 58,
+      "outside_2sd_fraction": 0.4233576642335766,
+      "z_median": 0.6573747137649616,
+      "z_p95": 66.14273941935534,
+      "z_max": 224.37188485263115
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.08187799607131971,
+      "seconds": 10.888
+    },
+    "metrics_candidate": {
+      "error": 0.08187799607131971,
+      "seconds": 10.734
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 4 extend s2 budget 10",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "4befedc1de031df95cacd4bbb2642a16863c48aa2e8a3f7a55b46ce2e8727ebd",
+    "candidate_key": "68673eba3bcec4681e66726a7004cf095c15bbc23dcee83e9efb73595dd08b91",
+    "base": {
+      "n": 137,
+      "mae": 0.02491272951752415,
+      "brier": 0.1991588105524137,
+      "outside_2sd": 24,
+      "outside_2sd_fraction": 0.17518248175182483,
+      "z_median": 5.072411435088307e-14,
+      "z_p95": 40.71983963973773,
+      "z_max": 11003058.929282531
+    },
+    "candidate": {
+      "n": 137,
+      "mae": 0.02491272951752415,
+      "brier": 0.1991588105524137,
+      "outside_2sd": 24,
+      "outside_2sd_fraction": 0.17518248175182483,
+      "z_median": 5.072411435088307e-14,
+      "z_p95": 40.71983963973773,
+      "z_max": 11003058.929282531
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 0.024912729517524147,
+      "seconds": 12.229
+    },
+    "metrics_candidate": {
+      "error": 0.024912729517524147,
+      "seconds": 12.191
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 4 extend s2 budget 25",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "171532a0eb9c83928a778a33431b3cde6155711198d62b6eeb48b97fed73179a",
+    "candidate_key": "b7145c2182bbb45f0f7abc03daa273981893476c35d48b27f7973560d26c7228",
+    "base": {
+      "n": 137,
+      "mae": 7.556810003379259e-17,
+      "brier": 0.1894101605746271,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 2.5469601627860832e-14,
+      "z_p95": 4.135608967947058e-08,
+      "z_max": 1.207176324733539e-07
+    },
+    "candidate": {
+      "n": 137,
+      "mae": 7.556810003379259e-17,
+      "brier": 0.1894101605746271,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 2.5469601627860832e-14,
+      "z_p95": 4.135608967947058e-08,
+      "z_max": 1.207176324733539e-07
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 7.556810003379259e-17,
+      "seconds": 12.549
+    },
+    "metrics_candidate": {
+      "error": 7.556810003379259e-17,
+      "seconds": 12.589
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 4 extend s2 budget 100",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "68b212b26452e3fbbc9cc440dd03539bc65a67861bf8fbdeaa608ef4069f02f0",
+    "candidate_key": "8ea329a100c1c8b16c87c6f050a9431373937dd23d4fef0c2df56c697a0f6340",
+    "base": {
+      "n": 137,
+      "mae": 7.354214560929413e-17,
+      "brier": 0.1894101605746271,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 2.5469601627860832e-14,
+      "z_p95": 3.5382775871781075e-13,
+      "z_max": 9.390504237836935e-08
+    },
+    "candidate": {
+      "n": 137,
+      "mae": 7.354214560929413e-17,
+      "brier": 0.1894101605746271,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 2.5469601627860832e-14,
+      "z_p95": 3.5382775871781075e-13,
+      "z_max": 9.390504237836935e-08
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 7.354214560929413e-17,
+      "seconds": 12.157
+    },
+    "metrics_candidate": {
+      "error": 7.354214560929413e-17,
+      "seconds": 11.58
+    }
+  },
+  {
+    "suite": "curves",
+    "case": "stage 4 extend s2 budget 200",
+    "source": "docs/history/i183_lookup/review/benchmarks/curves.json",
+    "base_key": "618fb1c57b2b42b9b798261501f9bb92924269185dcbc4729c5f2f0600d4c1cd",
+    "candidate_key": "5740c87abc4d10529b98d38cce4c6f959dafe00f9dd004604e3f9f3b5cd82c61",
+    "base": {
+      "n": 137,
+      "mae": 7.354214560929413e-17,
+      "brier": 0.1894101605746271,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 2.5469601627860832e-14,
+      "z_p95": 3.5382775871781075e-13,
+      "z_max": 9.390504237836935e-08
+    },
+    "candidate": {
+      "n": 137,
+      "mae": 7.354214560929413e-17,
+      "brier": 0.1894101605746271,
+      "outside_2sd": 0,
+      "outside_2sd_fraction": 0.0,
+      "z_median": 2.5469601627860832e-14,
+      "z_p95": 3.5382775871781075e-13,
+      "z_max": 9.390504237836935e-08
+    },
+    "changed_values": 0,
+    "metrics_base": {
+      "error": 7.354214560929413e-17,
+      "seconds": 11.793
+    },
+    "metrics_candidate": {
+      "error": 7.354214560929413e-17,
+      "seconds": 11.59
+    }
+  }
+]

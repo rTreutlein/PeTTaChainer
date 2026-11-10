@@ -1,0 +1,519 @@
+{
+ "base": [
+  "b4065459",
+  "b40654592d561bdc91e27c1a50365571720ae137",
+  "cc5754d2bc48be5fe6bd33b83bad54bda70b27d8"
+ ],
+ "candidate": [
+  "7ecfdad9-dbeb6a684",
+  "7ecfdad9ad4b077e08cd66740d04df160d9f1784+beb6a684",
+  "c151b12d6114c63fb658dab69325bba01577b325"
+ ],
+ "profile": "canary",
+ "verdict": "PASS",
+ "regressions": [],
+ "false_flags": [],
+ "accuracy_changed": [
+  "live b50 5 shifts s1",
+  "conflict pln-stated l spq4 s1",
+  "conflict pln-reliable l spq4 s1",
+  "scale m spq4 r10 s1"
+ ],
+ "wall_seconds": 97.9,
+ "executed": 12,
+ "reused": 6,
+ "records": [
+  {
+   "suite": "ona",
+   "case": "conditioning s1",
+   "keys": {
+    "base": "a2351ca5451dd512140e1ad5a633978f6cedebeac7abd9760479f7749c33c080",
+    "candidate": "f1b51488bb864010e183a19b64e174ccabc7e300d47fb31608ba496d8dae1478"
+   },
+   "base": {
+    "exit": 0,
+    "started": 1794073877.7,
+    "ended": 1794073882.1,
+    "load": 17,
+    "run": "compare/anchor-b4065459_vs_13c6c9c5_canary/runs/base/ona/conditioning_s1",
+    "wall": 4.19,
+    "cpu": 4.15,
+    "peak_mb": 169.6,
+    "metrics": {
+     "error": 0.0,
+     "seconds": 3.3750031780000427
+    },
+    "kinds": {
+     "train": 0.275,
+     "test": 0.0
+    },
+    "key": "a2351ca5451dd512140e1ad5a633978f6cedebeac7abd9760479f7749c33c080",
+    "timing": {
+     "wall": 5.67,
+     "cpu": 5.79,
+     "peak_mb": 167.5,
+     "load": 1,
+     "run": "compare/anchor-b4065459_vs_13c6c9c5_canary/runs/base/ona/conditioning_s1_roman@dev-server"
+    },
+    "reused": true
+   },
+   "candidate": {
+    "exit": 0,
+    "started": 1794301592.9,
+    "ended": 1794301605.0,
+    "load": 20,
+    "run": "compare/anchor-b4065459_vs_7ecfdad9-dbeb6a684_canary/runs/candidate/ona/conditioning_s1",
+    "wall": 11.86,
+    "cpu": 12.1,
+    "peak_mb": 226.7,
+    "metrics": {
+     "error": 0.0,
+     "seconds": 10.411222226999598
+    },
+    "kinds": {
+     "train": 0.275,
+     "test": 0.0
+    },
+    "key": "f1b51488bb864010e183a19b64e174ccabc7e300d47fb31608ba496d8dae1478",
+    "timing": {
+     "wall": 11.86,
+     "cpu": 12.1,
+     "peak_mb": 226.7,
+     "load": 20,
+     "run": "compare/anchor-b4065459_vs_7ecfdad9-dbeb6a684_canary/runs/candidate/ona/conditioning_s1"
+    },
+    "reused": false
+   }
+  },
+  {
+   "suite": "ona",
+   "case": "identitymatching s8",
+   "keys": {
+    "base": "8c0b2dc343f70be8dfc2513abdb234e61efc979a2f21d3cad28684f4b2dd9d53",
+    "candidate": "b645bee7056c4e62dfe741b51ff72475203ece2ea95452edac2571fa361a63da"
+   },
+   "base": {
+    "exit": 0,
+    "started": 1794073877.7,
+    "ended": 1794073883.1,
+    "load": 17,
+    "run": "compare/anchor-b4065459_vs_13c6c9c5_canary/runs/base/ona/identitymatching_s8",
+    "wall": 5.21,
+    "cpu": 5.06,
+    "peak_mb": 179.6,
+    "metrics": {
+     "error": 0.4375,
+     "seconds": 4.251109255999836
+    },
+    "kinds": {
+     "train": 0.9,
+     "test": 0.5,
+     "novel": 0.375
+    },
+    "key": "8c0b2dc343f70be8dfc2513abdb234e61efc979a2f21d3cad28684f4b2dd9d53",
+    "timing": {
+     "wall": 6.84,
+     "cpu": 6.97,
+     "peak_mb": 178.8,
+     "load": 1,
+     "run": "compare/anchor-b4065459_vs_13c6c9c5_canary/runs/base/ona/identitymatching_s8_roman@dev-server"
+    },
+    "reused": true
+   },
+   "candidate": {
+    "exit": 0,
+    "started": 1794301592.9,
+    "ended": 1794301606.6,
+    "load": 20,
+    "run": "compare/anchor-b4065459_vs_7ecfdad9-dbeb6a684_canary/runs/candidate/ona/identitymatching_s8",
+    "wall": 13.61,
+    "cpu": 13.82,
+    "peak_mb": 251.6,
+    "metrics": {
+     "error": 0.4375,
+     "seconds": 12.431550088000222
+    },
+    "kinds": {
+     "train": 0.9,
+     "test": 0.5,
+     "novel": 0.375
+    },
+    "key": "b645bee7056c4e62dfe741b51ff72475203ece2ea95452edac2571fa361a63da",
+    "timing": {
+     "wall": 13.61,
+     "cpu": 13.82,
+     "peak_mb": 251.6,
+     "load": 20,
+     "run": "compare/anchor-b4065459_vs_7ecfdad9-dbeb6a684_canary/runs/candidate/ona/identitymatching_s8"
+    },
+    "reused": false
+   }
+  },
+  {
+   "suite": "live",
+   "case": "b50 5 shifts s1",
+   "keys": {
+    "base": "4189a52205f259421f142266a8d1a4f9c6ace2a74a909c435be8136bdd9845c1",
+    "candidate": "f4b2a7d28aedc7c008f4c461b50d66496de99e17fad69cdcd6c8f7c8e923b99a"
+   },
+   "base": {
+    "exit": 0,
+    "started": 1794073877.7,
+    "ended": 1794073883.1,
+    "load": 17,
+    "run": "compare/anchor-b4065459_vs_13c6c9c5_canary/runs/base/live/b50_5_shifts_s1",
+    "wall": 5.2,
+    "cpu": 5.09,
+    "peak_mb": 209.1,
+    "metrics": {
+     "error": 0.09812707817829412,
+     "brier": 0.02632017229441637,
+     "coverage": 1.0,
+     "regret": 59.783305192500364,
+     "seconds": 3.48536945899923
+    },
+    "key": "4189a52205f259421f142266a8d1a4f9c6ace2a74a909c435be8136bdd9845c1",
+    "timing": {
+     "wall": 7.07,
+     "cpu": 7.13,
+     "peak_mb": 208.3,
+     "load": 1,
+     "run": "compare/anchor-b4065459_vs_13c6c9c5_canary/runs/base/live/b50_5_shifts_s1_roman@dev-server"
+    },
+    "reused": true
+   },
+   "candidate": {
+    "exit": 0,
+    "started": 1794301592.9,
+    "ended": 1794301606.6,
+    "load": 20,
+    "run": "compare/anchor-b4065459_vs_7ecfdad9-dbeb6a684_canary/runs/candidate/live/b50_5_shifts_s1",
+    "wall": 13.47,
+    "cpu": 13.44,
+    "peak_mb": 294.0,
+    "metrics": {
+     "error": 0.10501985094963397,
+     "brier": 0.031950592544410406,
+     "coverage": 1.0,
+     "regret": 72.78330494981489,
+     "seconds": 9.267497343993455
+    },
+    "key": "f4b2a7d28aedc7c008f4c461b50d66496de99e17fad69cdcd6c8f7c8e923b99a",
+    "timing": {
+     "wall": 13.47,
+     "cpu": 13.44,
+     "peak_mb": 294.0,
+     "load": 20,
+     "run": "compare/anchor-b4065459_vs_7ecfdad9-dbeb6a684_canary/runs/candidate/live/b50_5_shifts_s1"
+    },
+    "reused": false
+   }
+  },
+  {
+   "suite": "conflict",
+   "case": "pln-stated l spq4 s1",
+   "keys": {
+    "base": "055af41f43462f756a7862e4b59ec6c06151bb89288790d7b76d468069b2df26",
+    "candidate": "d65753f3361bd9a1fd7dff7f21cfe104472e7a10e23878f371ad08b235fd475a"
+   },
+   "base": {
+    "exit": 0,
+    "started": 1794073877.7,
+    "ended": 1794073885.0,
+    "load": 17,
+    "run": "compare/anchor-b4065459_vs_13c6c9c5_canary/runs/base/conflict/pln-stated_l_spq4_s1",
+    "wall": 7.11,
+    "cpu": 7.44,
+    "peak_mb": 242.8,
+    "metrics": {
+     "error": 0.38951467206185997,
+     "brier": 0.2321587182481541,
+     "coverage": 0.4375,
+     "seconds": 6.322
+    },
+    "kinds": {
+     "component": 0.34323425183738127,
+     "system": 0.43579509228633884
+    },
+    "key": "055af41f43462f756a7862e4b59ec6c06151bb89288790d7b76d468069b2df26",
+    "timing": {
+     "wall": 10.28,
+     "cpu": 10.83,
+     "peak_mb": 243.2,
+     "load": 1,
+     "run": "compare/anchor-b4065459_vs_13c6c9c5_canary/runs/base/conflict/pln-stated_l_spq4_s1_roman@dev-server"
+    },
+    "reused": true
+   },
+   "candidate": {
+    "exit": 0,
+    "started": 1794301592.9,
+    "ended": 1794301616.9,
+    "load": 18,
+    "run": "compare/anchor-b4065459_vs_7ecfdad9-dbeb6a684_canary/runs/candidate/conflict/pln-stated_l_spq4_s1",
+    "wall": 23.83,
+    "cpu": 24.23,
+    "peak_mb": 363.2,
+    "metrics": {
+     "error": 0.032098529973975984,
+     "brier": 0.0676284026871152,
+     "coverage": 1.0,
+     "seconds": 22.574
+    },
+    "kinds": {
+     "component": 0.0309197490983217,
+     "system": 0.033277310849630246
+    },
+    "key": "d65753f3361bd9a1fd7dff7f21cfe104472e7a10e23878f371ad08b235fd475a",
+    "timing": {
+     "wall": 23.83,
+     "cpu": 24.23,
+     "peak_mb": 363.2,
+     "load": 18,
+     "run": "compare/anchor-b4065459_vs_7ecfdad9-dbeb6a684_canary/runs/candidate/conflict/pln-stated_l_spq4_s1"
+    },
+    "reused": false
+   }
+  },
+  {
+   "suite": "conflict",
+   "case": "pln-reliable l spq4 s1",
+   "keys": {
+    "base": "3391c029ea15d8fab43301f8b50b4694478b2a6f1098d64f95fb4cce5004c147",
+    "candidate": "6c8fd7e1f8f7aec11c3262aa8142ab8e5557e24c8c45b584070dc015b589d5c8"
+   },
+   "base": {
+    "exit": 0,
+    "started": 1794073877.7,
+    "ended": 1794073884.9,
+    "load": 17,
+    "run": "compare/anchor-b4065459_vs_13c6c9c5_canary/runs/base/conflict/pln-reliable_l_spq4_s1",
+    "wall": 7.14,
+    "cpu": 7.08,
+    "peak_mb": 244.0,
+    "metrics": {
+     "error": 0.10701442503095535,
+     "brier": 0.08484607898568726,
+     "coverage": 1.0,
+     "seconds": 6.339
+    },
+    "kinds": {
+     "component": 0.09760440309413188,
+     "system": 0.1164244469677788
+    },
+    "key": "3391c029ea15d8fab43301f8b50b4694478b2a6f1098d64f95fb4cce5004c147",
+    "timing": {
+     "wall": 10.04,
+     "cpu": 10.11,
+     "peak_mb": 243.1,
+     "load": 1,
+     "run": "compare/anchor-b4065459_vs_13c6c9c5_canary/runs/base/conflict/pln-reliable_l_spq4_s1_roman@dev-server"
+    },
+    "reused": true
+   },
+   "candidate": {
+    "exit": 0,
+    "started": 1794301592.9,
+    "ended": 1794301648.9,
+    "load": 16,
+    "run": "compare/anchor-b4065459_vs_7ecfdad9-dbeb6a684_canary/runs/candidate/conflict/pln-reliable_l_spq4_s1",
+    "wall": 55.89,
+    "cpu": 56.12,
+    "peak_mb": 286.2,
+    "metrics": {
+     "error": 0.05407387445418048,
+     "brier": 0.07161101038515102,
+     "coverage": 1.0,
+     "seconds": 54.153
+    },
+    "kinds": {
+     "component": 0.05287660230610276,
+     "system": 0.055271146602258195
+    },
+    "key": "6c8fd7e1f8f7aec11c3262aa8142ab8e5557e24c8c45b584070dc015b589d5c8",
+    "timing": {
+     "wall": 55.89,
+     "cpu": 56.12,
+     "peak_mb": 286.2,
+     "load": 16,
+     "run": "compare/anchor-b4065459_vs_7ecfdad9-dbeb6a684_canary/runs/candidate/conflict/pln-reliable_l_spq4_s1"
+    },
+    "reused": false
+   }
+  },
+  {
+   "suite": "scale",
+   "case": "m spq4 r10 s1",
+   "keys": {
+    "base": "cb74791124c08764ce1c28808c2455b26c7ee3aeff28dd4bdf5f575d2e34b177",
+    "candidate": "1394872091a134f3368fee9191c55b286051ea2a9bda442fc13eb784ab6261af"
+   },
+   "base": {
+    "exit": 0,
+    "started": 1794073877.6,
+    "ended": 1794073894.0,
+    "load": 14,
+    "run": "compare/anchor-b4065459_vs_13c6c9c5_canary/runs/base/scale/m_spq4_r10_s1",
+    "wall": 16.19,
+    "cpu": 16.41,
+    "peak_mb": 460.8,
+    "metrics": {
+     "error": 0.0030337713343744485,
+     "brier": 0.0823646813525237,
+     "coverage": 1.0,
+     "seconds": 13.636
+    },
+    "kinds": {
+     "blocked": 0.0028866874204247716,
+     "front": 0.01172060386753892,
+     "past_front": 0.0005940811079018103,
+     "past_storm": 0.00012077684365220593,
+     "storm": 0.004473940285538719
+    },
+    "key": "cb74791124c08764ce1c28808c2455b26c7ee3aeff28dd4bdf5f575d2e34b177",
+    "timing": {
+     "wall": 22.99,
+     "cpu": 23.44,
+     "peak_mb": 459.7,
+     "load": 1,
+     "run": "compare/anchor-b4065459_vs_13c6c9c5_canary/runs/base/scale/m_spq4_r10_s1_roman@dev-server"
+    },
+    "reused": true
+   },
+   "candidate": {
+    "exit": 0,
+    "started": 1794301592.8,
+    "ended": 1794301625.8,
+    "load": 17,
+    "run": "compare/anchor-b4065459_vs_7ecfdad9-dbeb6a684_canary/runs/candidate/scale/m_spq4_r10_s1",
+    "wall": 32.81,
+    "cpu": 33.24,
+    "peak_mb": 642.5,
+    "metrics": {
+     "error": 0.0026464081046593257,
+     "brier": 0.08220700877374264,
+     "coverage": 1.0,
+     "seconds": 26.576
+    },
+    "kinds": {
+     "blocked": 0.0025325358007841714,
+     "front": 0.010466902629686742,
+     "past_front": 5.659302750522579e-05,
+     "past_storm": 1.400586239452619e-05,
+     "storm": 0.003984771795425927
+    },
+    "key": "1394872091a134f3368fee9191c55b286051ea2a9bda442fc13eb784ab6261af",
+    "timing": {
+     "wall": 32.81,
+     "cpu": 33.24,
+     "peak_mb": 642.5,
+     "load": 17,
+     "run": "compare/anchor-b4065459_vs_7ecfdad9-dbeb6a684_canary/runs/candidate/scale/m_spq4_r10_s1"
+    },
+    "reused": false
+   }
+  }
+ ],
+ "belief_streams": [
+  {
+   "case": "b50 5 shifts s1",
+   "beliefs": 50,
+   "changed": 50,
+   "max_shift": 0.11371415360146675
+  }
+ ],
+ "anchor": true,
+ "quality_per_second": [
+  {
+   "suite": "ona",
+   "case": "conditioning s1",
+   "base_error": 0.0,
+   "candidate_error": 0.0,
+   "base_seconds": 4.555037822108716,
+   "candidate_seconds": 10.411222226999598,
+   "ratio": 2.29,
+   "base_per_round": null,
+   "candidate_per_round": null,
+   "verdict": "SLOWER AT EQUAL OR BETTER ERROR"
+  },
+  {
+   "suite": "ona",
+   "case": "identitymatching s8",
+   "base_error": 0.4375,
+   "candidate_error": 0.4375,
+   "base_seconds": 5.725112929940224,
+   "candidate_seconds": 12.431550088000222,
+   "ratio": 2.17,
+   "base_per_round": null,
+   "candidate_per_round": null,
+   "verdict": "SLOWER AT EQUAL OR BETTER ERROR"
+  },
+  {
+   "suite": "live",
+   "case": "b50 5 shifts s1",
+   "base_error": 0.09812707817829412,
+   "candidate_error": 0.10501985094963397,
+   "base_seconds": 4.755224810214713,
+   "candidate_seconds": 9.267497343993455,
+   "ratio": 1.95,
+   "base_per_round": 0.9510449620429426,
+   "candidate_per_round": 1.853499468798691,
+   "verdict": "slower, worse error"
+  },
+  {
+   "suite": "conflict",
+   "case": "pln-stated l spq4 s1",
+   "base_error": 0.38951467206185997,
+   "candidate_error": 0.032098529973975984,
+   "base_seconds": 9.123999999999999,
+   "candidate_seconds": 22.574,
+   "ratio": 2.47,
+   "base_per_round": null,
+   "candidate_per_round": null,
+   "verdict": "SLOWER AT EQUAL OR BETTER ERROR"
+  },
+  {
+   "suite": "conflict",
+   "case": "pln-reliable l spq4 s1",
+   "base_error": 0.10701442503095535,
+   "candidate_error": 0.05407387445418048,
+   "base_seconds": 8.895,
+   "candidate_seconds": 54.153,
+   "ratio": 6.09,
+   "base_per_round": null,
+   "candidate_per_round": null,
+   "verdict": "SLOWER AT EQUAL OR BETTER ERROR"
+  },
+  {
+   "suite": "scale",
+   "case": "m spq4 r10 s1",
+   "base_error": 0.0030337713343744485,
+   "candidate_error": 0.0026464081046593257,
+   "base_seconds": 19.369,
+   "candidate_seconds": 26.576,
+   "ratio": 1.37,
+   "base_per_round": 1.9369,
+   "candidate_per_round": 2.6576,
+   "verdict": "ok"
+  }
+ ],
+ "master": [
+  "8538013b",
+  "8538013b18de3e7bdbc94b298d964e821e5c342f"
+ ],
+ "behind_anchor": [
+  "ona conditioning s1 seconds vs anchor 4.555 -> 7.035",
+  "ona identitymatching s8 seconds vs anchor 5.725 -> 8.4",
+  "live b50 5 shifts s1 error vs anchor 0.09813 -> 0.105",
+  "live b50 5 shifts s1 brier vs anchor 0.02632 -> 0.03195",
+  "live b50 5 shifts s1 regret vs anchor 59.78 -> 72.78",
+  "live b50 5 shifts s1 seconds vs anchor 4.755 -> 6.262",
+  "conflict pln-stated l spq4 s1 seconds vs anchor 9.124 -> 16.01",
+  "conflict pln-reliable l spq4 s1 seconds vs anchor 8.895 -> 40.41"
+ ],
+ "progress": [
+  "ona identitymatching s8 seconds vs anchor 5.725 -> 8.4: master 13.75 -> candidate 12.43",
+  "conflict pln-stated l spq4 s1 seconds vs anchor 9.124 -> 16.01: master 26.23 -> candidate 22.57",
+  "conflict pln-reliable l spq4 s1 seconds vs anchor 8.895 -> 40.41: master 68.54 -> candidate 54.15"
+ ]
+}

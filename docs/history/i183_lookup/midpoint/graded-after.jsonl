@@ -1,0 +1,26 @@
+{"case": "half_strong", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.9926470588235294, 0.9900970683400333], "proof": "(merge/revision report (conjunction a))"}]}
+{"case": "half_weakrep", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.27545362903225806, 0.5218306154655444], "proof": "(merge/revision (conjunction a) report)"}]}
+{"case": "nine_strong", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.999390243902439, 0.9900109757314383], "proof": "(merge/revision report (conjunction a))"}]}
+{"case": "one_strong", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 1, 0.99], "proof": "report"}]}
+{"case": "half_tworep", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.38526785714285716, 0.9089269612263301], "proof": "(merge/revision report (conjunction a))"}]}
+{"case": "low_rep_lowA", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.10000000000000002, 0.9275766016713092], "proof": "(merge/revision report (conjunction a))"}]}
+{"case": "not_and_conflict", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.5, 0.9949748743718593], "proof": "(merge/revision report (conjunction a))"}]}
+{"case": "not_and_conflict", "query": "(Not (And A B))", "steps": 400, "answers": [{"tv": ["STV", 0.5, 0.9949748743718593], "proof": "(negated (merge/revision report (conjunction a)))"}]}
+{"case": "not_and_agree", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.0, 0.9949748743718593], "proof": "(merge/revision report (conjunction a))"}]}
+{"case": "neg_child", "query": "(And (Not A) B)", "steps": 400, "answers": [{"tv": ["STV", 0.5, 0.9949748743718593], "proof": "(merge/revision report (conjunction (negated a)))"}]}
+{"case": "nested", "query": "(Or (And A B) C)", "steps": 400, "answers": [{"tv": ["STV", 0.5, 0.9949748743718593], "proof": "(merge/revision report (conjunction c))"}]}
+{"case": "nested_inner", "query": "(Or (And A B) C)", "steps": 400, "answers": [{"tv": ["STV", 0.33333052748398234, 0.9933110088252738], "proof": "(merge/revision report (conjunction (conjunction a b)))"}]}
+{"case": "three", "query": "(And A B C)", "steps": 400, "answers": [{"tv": ["STV", 0.5, 0.9949748743718593], "proof": "(merge/revision report (conjunction a))"}]}
+{"case": "three", "query": "(And C A B)", "steps": 400, "answers": [{"tv": ["STV", 0.19999848487961233, 0.00027849297736643803], "proof": "(node (conjunction a report))"}]}
+{"case": "sh_rule_pos", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.3, 0.9], "proof": "report"}]}
+{"case": "sh_rule_pos", "query": "A", "steps": 400, "answers": [{"tv": ["STV", 0.4166859523258505, 0.0015696056551673142], "proof": "(node-message 0 report cpu (likelihood (And 0 1) 0 0.30005554012774227 (target B) ((point 0.5) (beta 1.0 1.0))))"}]}
+{"case": "sh_rule_neg", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.0, 0.9], "proof": "report"}]}
+{"case": "sh_rule_neg", "query": "A", "steps": 400, "answers": [{"tv": ["STV", 2.946381188552973e-17, 0.9999999999981486], "proof": "(factored-revision (negated (by r (negated report))) (prior (STV 0.0 0.9549861971815992)) ((node-message 0 report cpu (likelihood (And 0 1) 0 0.00013885031935573447 (target B) ((point 0.5) (beta 1.0 1.0))))))"}]}
+{"case": "sh_rule_neg_b", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.0, 0.9], "proof": "report"}]}
+{"case": "sh_graph", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.2999910361271947, 0.9000074921563559], "proof": "(merge/revision report (conjunction (node-message 0 r2 cpu (likelihood (And 0 1) 0 0.20008331019161346 (target C) ((point 0.5) (beta 1.0 1.0))))))"}]}
+{"case": "sh_graph", "query": "(And A C)", "steps": 400, "answers": [{"tv": ["STV", 0.20000084942507035, 0.9000091632809674], "proof": "(merge/revision r2 (conjunction (node-message 0 report cpu (likelihood (And 0 1) 0 0.30005554012774227 (target B) ((point 0.5) (beta 1.0 1.0))))))"}]}
+{"case": "sh_graph", "query": "A", "steps": 400, "answers": [{"tv": ["STV", 0.30868113002727404, 0.0009510616205942027], "proof": "(node (conjunction report r2))"}]}
+{"case": "sh_or_rule", "query": "(Or A B)", "steps": 400, "answers": [{"tv": ["STV", 0.7, 0.9], "proof": "report"}]}
+{"case": "dup_reports", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.6666666666666659, 0.9966442953020134], "proof": "(merge/revision (merge/revision r2 r1) (conjunction a))"}]}
+{"case": "single_report", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.5, 0.9949748743718593], "proof": "(merge/revision r1 (conjunction a))"}]}
+{"case": "nine_weak", "query": "(And A B)", "steps": 400, "answers": [{"tv": ["STV", 0.7265345982142857, 0.18099181900818098], "proof": "(merge/revision r1 (conjunction a))"}]}

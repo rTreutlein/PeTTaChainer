@@ -1,0 +1,292 @@
+{
+  "conflict": [
+    [
+      "(: report (Not (And A B)) (STV 1 0.99))",
+      "(: a A (STV 1 0.99))",
+      "(: b B (STV 1 0.99))"
+    ],
+    [
+      "(And A B)",
+      "(Not (And A B))",
+      "A",
+      "B"
+    ]
+  ],
+  "atomic_conflict": [
+    [
+      "(: p1 A (STV 1 0.99))",
+      "(: p2 A (STV 0 0.99))"
+    ],
+    [
+      "A"
+    ]
+  ],
+  "rule_conj": [
+    [
+      "(: report (Not (And A B)) (STV 1 0.99))",
+      "(: x X (STV 1 0.99))",
+      "(: y Y (STV 1 0.99))",
+      "(: r1 (Implication X A) (STV 1 0.99))",
+      "(: r2 (Implication Y B) (STV 1 0.99))"
+    ],
+    [
+      "(And A B)",
+      "A"
+    ]
+  ],
+  "rule_whole": [
+    [
+      "(: report (Not (And A B)) (STV 1 0.99))",
+      "(: x X (STV 1 0.99))",
+      "(: r (Implication X (And A B)) (STV 1 0.99))"
+    ],
+    [
+      "(And A B)"
+    ]
+  ],
+  "partial": [
+    [
+      "(: report (Not (And A B)) (STV 1 0.99))",
+      "(: a A (STV 1 0.99))"
+    ],
+    [
+      "(And A B)",
+      "B",
+      "A"
+    ]
+  ],
+  "hide_weak": [
+    [
+      "(: report (And A B) (STV 1 0.5))",
+      "(: a A (STV 0 0.99))"
+    ],
+    [
+      "(And A B)",
+      "A",
+      "(Not (And A B))"
+    ]
+  ],
+  "hide_weak2": [
+    [
+      "(: report (And A B) (STV 1 0.5))",
+      "(: a A (STV 0 0.99))",
+      "(: b B (STV 1 0.99))"
+    ],
+    [
+      "(And A B)"
+    ]
+  ],
+  "order_parts_first": [
+    [
+      "(: report (And A B) (STV 1 0.5))",
+      "(: a A (STV 0 0.99))"
+    ],
+    [
+      "A",
+      "B",
+      "(And A B)",
+      "A"
+    ]
+  ],
+  "order_whole_first": [
+    [
+      "(: report (And A B) (STV 1 0.5))",
+      "(: a A (STV 0 0.99))"
+    ],
+    [
+      "(And A B)",
+      "A",
+      "B",
+      "(And A B)"
+    ]
+  ],
+  "reorder": [
+    [
+      "(: report (Not (And A B C)) (STV 1 0.99))"
+    ],
+    [
+      "(And C A B)",
+      "(And A B C)"
+    ]
+  ],
+  "premise_rule": [
+    [
+      "(: report (And A B) (STV 1 0.8))",
+      "(: r (Implication (And A B) C) (STV 0.9 0.99))"
+    ],
+    [
+      "C",
+      "(And A B)"
+    ]
+  ],
+  "premise_rule_conflict": [
+    [
+      "(: report (Not (And A B)) (STV 1 0.99))",
+      "(: a A (STV 1 0.99))",
+      "(: b B (STV 1 0.99))",
+      "(: r (Implication (And A B) C) (STV 0.9 0.99))"
+    ],
+    [
+      "C"
+    ]
+  ],
+  "pattern": [
+    [
+      "(: report (And (P a) (Q a)) (STV 1 0.9))"
+    ],
+    [
+      "(And (P $x) (Q $x))",
+      "(P a)",
+      "(And (P a) (Q a))"
+    ]
+  ],
+  "pattern_not": [
+    [
+      "(: report (Not (And (P a) (Q a))) (STV 1 0.9))",
+      "(: pb (P b) (STV 1 0.9))",
+      "(: qb (Q b) (STV 1 0.9))"
+    ],
+    [
+      "(And (P $x) (Q $x))",
+      "(Not (And (P $x) (Q $x)))"
+    ]
+  ],
+  "issue4": [
+    [
+      "(: s1_not (Not (And (Member sk_watch_1 watch) (Agent sk_watch_1 sk_group_1) (Ongoing sk_watch_1))) (STV 1.0 0.99))"
+    ],
+    [
+      "(Not (And (Member sk_watch_1 watch) (Agent sk_watch_1 sk_group_1) (Ongoing sk_watch_1)))",
+      "(And (Member sk_watch_1 watch) (Agent sk_watch_1 sk_group_1) (Ongoing sk_watch_1))"
+    ]
+  ],
+  "late_evidence": [
+    [
+      "(: report (And A B) (STV 1 0.5))"
+    ],
+    [
+      "(And A B)",
+      "+(: a A (STV 0 0.99))",
+      "(And A B)"
+    ]
+  ],
+  "or_conflict": [
+    [
+      "(: report (Or A B) (STV 0 0.99))",
+      "(: a A (STV 1 0.99))"
+    ],
+    [
+      "(Or A B)",
+      "A"
+    ]
+  ],
+  "hide_strong": [
+    [
+      "(: report (And A B) (STV 1 0.99))",
+      "(: a A (STV 0 0.99))"
+    ],
+    [
+      "(And A B)",
+      "(Not (And A B))",
+      "A"
+    ]
+  ],
+  "or_noreport": [
+    [
+      "(: a A (STV 1 0.99))"
+    ],
+    [
+      "(Or A B)"
+    ]
+  ],
+  "and_noreport_false": [
+    [
+      "(: a A (STV 0 0.99))"
+    ],
+    [
+      "(And A B)"
+    ]
+  ],
+  "atomic_premise": [
+    [
+      "(: p A (STV 1 0.8))",
+      "(: r (Implication A C) (STV 0.9 0.99))"
+    ],
+    [
+      "C"
+    ]
+  ],
+  "or_report_parts": [
+    [
+      "(: report (Or A B) (STV 0 0.99))",
+      "(: a A (STV 1 0.99))",
+      "(: b B (STV 0 0.99))"
+    ],
+    [
+      "(Or A B)"
+    ]
+  ],
+  "assume_conflict": [
+    [
+      "(: report (And A B) (STV 1 0.99))"
+    ],
+    [
+      "(Assuming (Not A) (And A B))",
+      "(Assuming (: na A (STV 0 0.99)) (And A B))"
+    ]
+  ],
+  "zero_steps": [
+    [
+      "(: report (Not (And A B C)) (STV 1 0.99))",
+      "(: a A (STV 1 0.99))"
+    ],
+    [
+      "@(And A B C)",
+      "(And A B C)"
+    ]
+  ],
+  "shared_atomic": [
+    [
+      "(: a A (STV 1 0.99))",
+      "(: r1 (Implication A B) (STV 1 0.99))",
+      "(: r2 (Implication A (Not B)) (STV 1 0.99))"
+    ],
+    [
+      "B",
+      "(Not B)"
+    ]
+  ],
+  "cycle": [
+    [
+      "(: report (And A B) (STV 0.8 0.9))",
+      "(: r1 (Implication (And A B) C) (STV 1 0.99))",
+      "(: r2 (Implication C (And A B)) (STV 1 0.99))"
+    ],
+    [
+      "(And A B)",
+      "C"
+    ]
+  ],
+  "proj_part": [
+    [
+      "(: report (And A B) (STV 0.8 0.9))",
+      "(: r (Implication (And A B) A) (STV 1 0.99))",
+      "(: b B (STV 1 0.99))"
+    ],
+    [
+      "(And A B)",
+      "A"
+    ]
+  ],
+  "proj_negpart": [
+    [
+      "(: report (Not (And A B)) (STV 1 0.9))",
+      "(: r (Implication (Not (And A B)) (Not A)) (STV 1 0.99))",
+      "(: b B (STV 1 0.99))"
+    ],
+    [
+      "(And A B)",
+      "A"
+    ]
+  ]
+}

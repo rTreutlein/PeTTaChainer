@@ -1,0 +1,8 @@
+2026-11-10 10:30:40,562 [INFO] Loading MeTTa library from /nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer-i183/pettachainer/metta/petta_chainer.metta
+Warning: /nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer-i183/pettachainer/metta/prolog/runtime_helpers.pl:6:
+Warning:    Local definition of user:(/)/3 overrides weak import from yall
+.................
+----------------------------------------------------------------------
+Ran 17 tests in 4.440s
+
+OK
