@@ -123,8 +123,8 @@ graph_input(Type, Scope, Stamp, Input) :-
     ( event_graph_input(H, IS, IK, Cached), IS-IK=Stamp-Key -> Input = Cached
     ; ( source_catalog_template(Type, Scope, Model),
         \+ ( Type = [Head|_], connective_head(Head), Model \== root ),
-        source_catalog_sources(Type, Scope, Facts)
-      -> source_catalog_neighbours(Type, Scope, Neighbours), Cached = input(Model, Facts, Neighbours)
+        source_catalog_sources(Type, Scope, Facts), source_catalog_neighbours(Type, Scope, Neighbours)
+      -> Cached = input(Model, Facts, Neighbours)
       ; Cached = unsupported ),
       assertz(event_graph_input(H, Stamp, Key, Cached)), Input = Cached ).
 

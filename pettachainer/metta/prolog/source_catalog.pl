@@ -100,7 +100,10 @@ source_catalog_neighbours(Type, Scope, Neighbours) :-
     source_catalog_hashes(Type, Scope, Hashes),
     findall(Child, (member(H,Hashes), source_catalog_child(H,Id,Index,[Type,Scope]),
                     source_catalog_application(Id,_,_,[Child,Scope],_,Inputs,_), nth0(Index,Inputs,[Type,Scope]),
-                    'rule-live?'(Id,true), 'context-rule-visible?'(Id,true), ground(Child)), Children),
+                    'rule-live?'(Id,true), 'context-rule-visible?'(Id,true)), Children),
+    % An open child can carry evidence through a join. Dropping it would
+    % mistake an incomplete component for an independent root (#172).
+    ground(Children),
     append(Parents,Children,Neighbours).
 
 source_catalog_template(Type, Scope, Model) :-

@@ -6,6 +6,15 @@ from pettachainer import PeTTaChainer
 
 
 class SourceCatalogTests(unittest.TestCase):
+    def test_open_child_rejects_an_incomplete_graph(self):
+        h = PeTTaChainer()
+        h.add_atom('(: prior (P a) (STV 0.3 0.9))')
+        self.assertTrue(janus.query_once(
+            "graph_plan(['sk-key',['P',a],[Kb,'MAIN','Nil']],graph(_,[],_))", {'Kb': h.kb})['truth'])
+        h.add_atom('(: joined (Implication (And (P $x) (Edge $x $y)) (C $y)) (STV 1 1))')
+        self.assertTrue(janus.query_once(
+            "graph_plan(['sk-key',['P',a],[Kb,'MAIN','Nil']],none)", {'Kb': h.kb})['truth'])
+
     def test_model_and_cohorts_survive_missing_rows_and_reordered_instructions(self):
         h = PeTTaChainer()
         h.add_atoms_no_check([

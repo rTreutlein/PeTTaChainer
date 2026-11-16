@@ -170,15 +170,17 @@ class QueryStatusTests(unittest.TestCase):
     def test_unpaid_rows_and_conditions_ran_out_on_every_call(self):
         self.assertEqual(last_json(PLANT, 400, 400, 400), [RAN_OUT] * 3 + [DID_NOT])
 
-    def test_did_not_run_out_is_not_correct(self):
-        # #172: the exact value of (P a) is 0; nothing here ran out, and the
-        # status must not be read as vouching for 0.3.
+    def test_issue172_join_evidence_reaches_antecedent(self):
+        # Edge(a,b) and the certain rule make P(a) imply the false C(b).
+        # Rejecting the incomplete graph restores exact zero, formerly 0.3.
         h = self.handler(["(: prior (P a) (STV 0.3 0.9))", "(: link (Edge a b) (STV 1 1))",
                           "(: observed (C b) (STV 0 1))",
                           "(: joined (Implication (And (P $x) (Edge $x $y)) (C $y)) (STV 1 1))"])
+        h.set_bayes_prior_count(0)
         result = h.query_many_with_status(["(: $p (P a) $tv)"], 3000, timeout_sec=0)
         self.assertEqual(result["status"], DID_NOT)
-        self.assertEqual(result["answers"], [["(: prior (P a) (STV 0.3 0.9))"]])
+        (answer,), = result["answers"]
+        self.assertTrue(answer.endswith("(P a) (STV 0.0 0.9999994709737554))"), answer)
 
     def test_a_status_is_of_its_own_call(self):
         statuses = last_json(PLANT, 400, 20000, 20000)

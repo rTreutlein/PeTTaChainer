@@ -72,6 +72,10 @@ polynomial variance bound for queries about other keys.
 The ordinary joint-row identity below does not itself prevent a graph for
 such a different key. Boolean key normalization is outside this change.
 
+An indexed child still open after matching its premise rejects graph discovery
+(#172). The ordinary evaluator owns its joins; omitting that connection cannot
+establish independence, even when the queried root has its own stored count.
+
 The graph reader discovers atomic and compound observations through live
 conclusion and premise indexes, starting with the goal and its formula atoms.
 An unobserved nested goal compound cannot hide its atoms' observations.
